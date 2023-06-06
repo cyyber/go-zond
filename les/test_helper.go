@@ -234,7 +234,7 @@ func newTestServerHandler(blocks int, indexers []*core.ChainIndexer, db zonddb.D
 
 	txpoolConfig := txpool.DefaultConfig
 	txpoolConfig.Journal = ""
-	txpool := txpool.NewTxPool(txpoolConfig, gspec.Config, simulation.Blockchain())
+	txpool := txpool.New(txpoolConfig, gspec.Config, simulation.Blockchain())
 
 	server := &LesServer{
 		lesCommons: lesCommons{
