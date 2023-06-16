@@ -29,10 +29,12 @@ import (
 	"github.com/theQRL/go-zond/core/rawdb"
 	"github.com/theQRL/go-zond/core/state"
 	"github.com/theQRL/go-zond/core/txpool"
+	"github.com/theQRL/go-zond/core/txpool/legacypool"
 	"github.com/theQRL/go-zond/core/types"
 	"github.com/theQRL/go-zond/core/vm"
 	"github.com/theQRL/go-zond/zond/downloader"
 	"github.com/theQRL/go-zond/event"
+	"github.com/theQRL/go-zond/params"
 	"github.com/theQRL/go-zond/trie"
 )
 
@@ -61,9 +63,14 @@ func (m *mockBackend) StateAtBlock(block *types.Block, reexec uint64, base *stat
 }
 
 type testBlockChain struct {
+	config        *params.ChainConfig
 	statedb       *state.StateDB
 	gasLimit      uint64
 	chainHeadFeed *event.Feed
+}
+
+func (bc *testBlockChain) Config() *params.ChainConfig {
+	return bc.config
 }
 
 func (bc *testBlockChain) CurrentBlock() *types.Header {
@@ -265,10 +272,12 @@ func createMiner(t *testing.T) (*Miner, *event.TypeMux, func(skipMiner bool)) {
 		t.Fatalf("can't create new chain %v", err)
 	}
 	statedb, _ := state.New(types.EmptyRootHash, state.NewDatabase(chainDB), nil)
-	blockchain := &testBlockChain{statedb, 10000000, new(event.Feed)}
+	blockchain := &testBlockChain{chainConfig, statedb, 10000000, new(event.Feed)}
 
-	pool := txpool.New(testTxPoolConfig, chainConfig, blockchain)
-	backend := NewMockBackend(bc, pool)
+	pool := legacypool.New(testTxPoolConfig, blockchain)
+	txpool, _ := txpool.New(new(big.Int).SetUint64(testTxPoolConfig.PriceLimit), blockchain, []txpool.SubPool{pool})
+
+	backend := NewMockBackend(bc, txpool)
 	// Create event Mux
 	mux := new(event.TypeMux)
 	// Create Miner
@@ -276,7 +285,7 @@ func createMiner(t *testing.T) (*Miner, *event.TypeMux, func(skipMiner bool)) {
 	cleanup := func(skipMiner bool) {
 		bc.Stop()
 		engine.Close()
-		pool.Stop()
+		txpool.Close()
 		if !skipMiner {
 			miner.Close()
 		}

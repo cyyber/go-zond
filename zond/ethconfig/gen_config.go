@@ -7,7 +7,7 @@ import (
 
 	"github.com/theQRL/go-zond/common"
 	"github.com/theQRL/go-zond/core"
-	"github.com/theQRL/go-zond/core/txpool"
+	"github.com/theQRL/go-zond/core/txpool/legacypool"
 	"github.com/theQRL/go-zond/zond/downloader"
 	"github.com/theQRL/go-zond/zond/gasprice"
 	"github.com/theQRL/go-zond/miner"
@@ -47,7 +47,7 @@ func (c Config) MarshalTOML() (interface{}, error) {
 		Preimages               bool
 		FilterLogCacheSize      int
 		Miner                   miner.Config
-		TxPool                  txpool.Config
+		TxPool                  legacypool.Config
 		GPO                     gasprice.Config
 		EnablePreimageRecording bool
 		DocRoot                 string `toml:"-"`
@@ -133,7 +133,7 @@ func (c *Config) UnmarshalTOML(unmarshal func(interface{}) error) error {
 		Preimages               *bool
 		FilterLogCacheSize      *int
 		Miner                   *miner.Config
-		TxPool                  *txpool.Config
+		TxPool                  *legacypool.Config
 		GPO                     *gasprice.Config
 		EnablePreimageRecording *bool
 		DocRoot                 *string `toml:"-"`

@@ -37,6 +37,7 @@ import (
 	"github.com/theQRL/go-zond/core/forkid"
 	"github.com/theQRL/go-zond/core/rawdb"
 	"github.com/theQRL/go-zond/core/txpool"
+	"github.com/theQRL/go-zond/core/txpool/legacypool"
 	"github.com/theQRL/go-zond/core/types"
 	"github.com/theQRL/go-zond/crypto"
 	"github.com/theQRL/go-zond/zond/ethconfig"
@@ -232,9 +233,11 @@ func newTestServerHandler(blocks int, indexers []*core.ChainIndexer, db zonddb.D
 	simulation := backends.NewSimulatedBackendWithDatabase(db, gspec.Alloc, 100000000)
 	prepare(blocks, simulation)
 
-	txpoolConfig := txpool.DefaultConfig
+	txpoolConfig := legacypool.DefaultConfig
 	txpoolConfig.Journal = ""
-	txpool := txpool.New(txpoolConfig, gspec.Config, simulation.Blockchain())
+
+	pool := legacypool.New(txpoolConfig, simulation.Blockchain())
+	txpool, _ := txpool.New(new(big.Int).SetUint64(txpoolConfig.PriceLimit), simulation.Blockchain(), []txpool.SubPool{pool})
 
 	server := &LesServer{
 		lesCommons: lesCommons{
