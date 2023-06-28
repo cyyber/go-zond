@@ -23,6 +23,7 @@ import (
 
 	"github.com/theQRL/go-zond/common"
 	"github.com/theQRL/go-zond/core/rawdb"
+	"github.com/theQRL/go-zond/core/types"
 	"github.com/theQRL/go-zond/crypto"
 	"github.com/theQRL/go-zond/zonddb"
 	"github.com/theQRL/go-zond/light"
@@ -77,7 +78,7 @@ func tfCodeAccess(db zonddb.Database, bhash common.Hash, num uint64) light.OdrRe
 		return nil
 	}
 	sti := light.StateTrieID(header)
-	ci := light.StorageTrieID(sti, crypto.Keccak256Hash(testContractAddr[:]), common.Hash{})
+	ci := light.StorageTrieID(sti, testContractAddr, types.EmptyRootHash)
 	return &light.CodeRequest{Id: ci, Hash: crypto.Keccak256Hash(testContractCodeDeployed)}
 }
 
