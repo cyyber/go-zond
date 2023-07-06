@@ -32,6 +32,8 @@ import (
 	"github.com/theQRL/go-zond/accounts/scwallet"
 	"github.com/theQRL/go-zond/accounts/usbwallet"
 	"github.com/theQRL/go-zond/cmd/utils"
+	"github.com/theQRL/go-zond/zond/catalyst"
+	ethcatalyst "github.com/theQRL/go-zond/zond/catalyst"
 	"github.com/theQRL/go-zond/zond/downloader"
 	"github.com/theQRL/go-zond/zond/ethconfig"
 	"github.com/theQRL/go-zond/internal/ethapi"
@@ -192,6 +194,22 @@ func makeFullNode(ctx *cli.Context) (*node.Node, ethapi.Backend) {
 	// Configure full-sync tester service if requested
 	if ctx.IsSet(utils.SyncTargetFlag.Name) && cfg.Eth.SyncMode == downloader.FullSync {
 		utils.RegisterFullSyncTester(stack, eth, ctx.Path(utils.SyncTargetFlag.Name))
+	}
+
+	// Start the dev mode if requested, or launch the engine API for
+	// interacting with external consensus client.
+	if ctx.IsSet(utils.DeveloperFlag.Name) {
+		simBeacon, err := catalyst.NewSimulatedBeacon(ctx.Uint64(utils.DeveloperPeriodFlag.Name), eth)
+		if err != nil {
+			utils.Fatalf("failed to register dev mode catalyst service: %v", err)
+		}
+		catalyst.RegisterSimulatedBeaconAPIs(stack, simBeacon)
+		stack.RegisterLifecycle(simBeacon)
+	} else if cfg.Eth.SyncMode != downloader.LightSync {
+		err := ethcatalyst.Register(stack, eth)
+		if err != nil {
+			utils.Fatalf("failed to register catalyst service: %v", err)
+		}
 	}
 	return stack, backend
 }
