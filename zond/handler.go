@@ -38,6 +38,7 @@ import (
 	"github.com/theQRL/go-zond/zonddb"
 	"github.com/theQRL/go-zond/event"
 	"github.com/theQRL/go-zond/log"
+	"github.com/theQRL/go-zond/metrics"
 	"github.com/theQRL/go-zond/p2p"
 )
 
@@ -424,6 +425,13 @@ func (h *handler) runSnapExtension(peer *snap.Peer, handler snap.Handler) error 
 	defer h.peerWG.Done()
 
 	if err := h.peers.registerSnapExtension(peer); err != nil {
+		if metrics.Enabled {
+			if peer.Inbound() {
+				snap.IngressRegistrationErrorMeter.Mark(1)
+			} else {
+				snap.EgressRegistrationErrorMeter.Mark(1)
+			}
+		}
 		peer.Log().Warn("Snapshot extension registration failed", "err", err)
 		return err
 	}
