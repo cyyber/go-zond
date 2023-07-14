@@ -44,6 +44,9 @@ import (
 	_ "github.com/theQRL/go-zond/zond/tracers/js"
 	_ "github.com/theQRL/go-zond/zond/tracers/native"
 
+	// Automatically set GOMAXPROCS to match Linux container CPU quota.
+	_ "go.uber.org/automaxprocs"
+
 	"github.com/urfave/cli/v2"
 )
 
