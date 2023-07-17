@@ -31,9 +31,8 @@ import (
 	"github.com/theQRL/go-zond/common"
 	"github.com/theQRL/go-zond/common/hexutil"
 	"github.com/theQRL/go-zond/zond"
-	ethdownloader "github.com/theQRL/go-zond/zond/downloader"
+	"github.com/theQRL/go-zond/zond/downloader"
 	"github.com/theQRL/go-zond/zond/ethconfig"
-	"github.com/theQRL/go-zond/les/downloader"
 	"github.com/theQRL/go-zond/les/flowcontrol"
 	"github.com/theQRL/go-zond/log"
 	"github.com/theQRL/go-zond/node"
@@ -493,13 +492,13 @@ func testSim(t *testing.T, serverCount, clientCount int, serverDir, clientDir []
 
 func newLesClientService(ctx *adapters.ServiceContext, stack *node.Node) (node.Lifecycle, error) {
 	config := ethconfig.Defaults
-	config.SyncMode = (ethdownloader.SyncMode)(downloader.LightSync)
+	config.SyncMode = downloader.LightSync
 	return New(stack, &config)
 }
 
 func newLesServerService(ctx *adapters.ServiceContext, stack *node.Node) (node.Lifecycle, error) {
 	config := ethconfig.Defaults
-	config.SyncMode = (ethdownloader.SyncMode)(downloader.FullSync)
+	config.SyncMode = downloader.FullSync
 	config.LightServ = testServerCapacity
 	config.LightPeers = testMaxClients
 	ethereum, err := eth.New(stack, &config)
