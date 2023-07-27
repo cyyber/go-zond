@@ -27,6 +27,7 @@ import (
 	"github.com/theQRL/go-zond/consensus/beacon"
 	"github.com/theQRL/go-zond/consensus/ethash"
 	"github.com/theQRL/go-zond/consensus/misc"
+	"github.com/theQRL/go-zond/consensus/misc/eip4844"
 	"github.com/theQRL/go-zond/core/rawdb"
 	"github.com/theQRL/go-zond/core/types"
 	"github.com/theQRL/go-zond/core/vm"
@@ -405,7 +406,7 @@ func GenerateBadBlock(parent *types.Block, engine consensus.Engine, txs types.Tr
 			pExcess = *parent.ExcessDataGas()
 			pUsed = *parent.DataGasUsed()
 		}
-		excess := misc.CalcExcessDataGas(pExcess, pUsed)
+		excess := eip4844.CalcExcessDataGas(pExcess, pUsed)
 		used := uint64(nBlobs * params.BlobTxDataGasPerBlob)
 		header.ExcessDataGas = &excess
 		header.DataGasUsed = &used
