@@ -31,6 +31,7 @@ import (
 
 	"github.com/theQRL/go-zond/common"
 	"github.com/theQRL/go-zond/consensus/misc"
+	"github.com/theQRL/go-zond/consensus/misc/eip4844"
 	"github.com/theQRL/go-zond/core"
 	"github.com/theQRL/go-zond/core/rawdb"
 	"github.com/theQRL/go-zond/core/state"
@@ -130,7 +131,7 @@ func (bc *testBlockChain) CurrentBlock() *types.Header {
 		mid := new(big.Int).Add(lo, hi)
 		mid.Div(mid, big.NewInt(2))
 
-		if misc.CalcBlobFee(mid.Uint64()).Cmp(bc.blobfee.ToBig()) > 0 {
+		if eip4844.CalcBlobFee(mid.Uint64()).Cmp(bc.blobfee.ToBig()) > 0 {
 			hi = mid
 		} else {
 			lo = mid

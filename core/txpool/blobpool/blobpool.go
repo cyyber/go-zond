@@ -30,6 +30,7 @@ import (
 
 	"github.com/theQRL/go-zond/common"
 	"github.com/theQRL/go-zond/consensus/misc"
+	"github.com/theQRL/go-zond/consensus/misc/eip4844"
 	"github.com/theQRL/go-zond/core"
 	"github.com/theQRL/go-zond/core/state"
 	"github.com/theQRL/go-zond/core/txpool"
@@ -402,7 +403,7 @@ func (p *BlobPool) Init(gasTip *big.Int, head *types.Header, reserve txpool.Addr
 		blobfee = uint256.MustFromBig(big.NewInt(params.BlobTxMinDataGasprice))
 	)
 	if p.head.ExcessDataGas != nil {
-		blobfee = uint256.MustFromBig(misc.CalcBlobFee(*p.head.ExcessDataGas))
+		blobfee = uint256.MustFromBig(eip4844.CalcBlobFee(*p.head.ExcessDataGas))
 	}
 	p.evict = newPriceHeap(basefee, blobfee, &p.index)
 
@@ -775,7 +776,7 @@ func (p *BlobPool) Reset(oldHead, newHead *types.Header) {
 		blobfee = uint256.MustFromBig(big.NewInt(params.BlobTxMinDataGasprice))
 	)
 	if newHead.ExcessDataGas != nil {
-		blobfee = uint256.MustFromBig(misc.CalcBlobFee(*newHead.ExcessDataGas))
+		blobfee = uint256.MustFromBig(eip4844.CalcBlobFee(*newHead.ExcessDataGas))
 	}
 	p.evict.reinit(basefee, blobfee, false)
 
