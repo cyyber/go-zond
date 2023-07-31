@@ -33,7 +33,6 @@ import (
 	"github.com/theQRL/go-zond/accounts/usbwallet"
 	"github.com/theQRL/go-zond/cmd/utils"
 	"github.com/theQRL/go-zond/zond/catalyst"
-	ethcatalyst "github.com/theQRL/go-zond/zond/catalyst"
 	"github.com/theQRL/go-zond/zond/downloader"
 	"github.com/theQRL/go-zond/zond/ethconfig"
 	"github.com/theQRL/go-zond/internal/ethapi"
@@ -206,7 +205,7 @@ func makeFullNode(ctx *cli.Context) (*node.Node, ethapi.Backend) {
 		catalyst.RegisterSimulatedBeaconAPIs(stack, simBeacon)
 		stack.RegisterLifecycle(simBeacon)
 	} else if cfg.Eth.SyncMode != downloader.LightSync {
-		err := ethcatalyst.Register(stack, eth)
+		err := catalyst.Register(stack, eth)
 		if err != nil {
 			utils.Fatalf("failed to register catalyst service: %v", err)
 		}
