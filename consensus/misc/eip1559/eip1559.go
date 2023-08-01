@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-package misc
+package eip1559
 
 import (
 	"errors"
@@ -23,6 +23,7 @@ import (
 
 	"github.com/theQRL/go-zond/common"
 	"github.com/theQRL/go-zond/common/math"
+	"github.com/theQRL/go-zond/consensus/misc"
 	"github.com/theQRL/go-zond/core/types"
 	"github.com/theQRL/go-zond/params"
 )
@@ -36,7 +37,7 @@ func VerifyEIP1559Header(config *params.ChainConfig, parent, header *types.Heade
 	if !config.IsLondon(parent.Number) {
 		parentGasLimit = parent.GasLimit * config.ElasticityMultiplier()
 	}
-	if err := VerifyGaslimit(parentGasLimit, header.GasLimit); err != nil {
+	if err := misc.VerifyGaslimit(parentGasLimit, header.GasLimit); err != nil {
 		return err
 	}
 	// Verify the header is not malformed

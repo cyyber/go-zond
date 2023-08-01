@@ -26,7 +26,7 @@ import (
 	"github.com/theQRL/go-zond/consensus"
 	"github.com/theQRL/go-zond/consensus/beacon"
 	"github.com/theQRL/go-zond/consensus/ethash"
-	"github.com/theQRL/go-zond/consensus/misc"
+	"github.com/theQRL/go-zond/consensus/misc/eip1559"
 	"github.com/theQRL/go-zond/consensus/misc/eip4844"
 	"github.com/theQRL/go-zond/core/rawdb"
 	"github.com/theQRL/go-zond/core/types"
@@ -377,7 +377,7 @@ func GenerateBadBlock(parent *types.Block, engine consensus.Engine, txs types.Tr
 		UncleHash:  types.EmptyUncleHash,
 	}
 	if config.IsLondon(header.Number) {
-		header.BaseFee = misc.CalcBaseFee(config, parent.Header())
+		header.BaseFee = eip1559.CalcBaseFee(config, parent.Header())
 	}
 	if config.IsShanghai(header.Number, header.Time) {
 		header.WithdrawalsHash = &types.EmptyWithdrawalsHash

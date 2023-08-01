@@ -28,7 +28,7 @@ import (
 
 	"github.com/theQRL/go-zond/common"
 	"github.com/theQRL/go-zond/common/prque"
-	"github.com/theQRL/go-zond/consensus/misc"
+	"github.com/theQRL/go-zond/consensus/misc/eip1559"
 	"github.com/theQRL/go-zond/core"
 	"github.com/theQRL/go-zond/core/state"
 	"github.com/theQRL/go-zond/core/txpool"
@@ -1277,7 +1277,7 @@ func (pool *LegacyPool) runReorg(done chan struct{}, reset *txpoolResetRequest, 
 		pool.demoteUnexecutables()
 		if reset.newHead != nil {
 			if pool.chainconfig.IsLondon(new(big.Int).Add(reset.newHead.Number, big.NewInt(1))) {
-				pendingBaseFee := misc.CalcBaseFee(pool.chainconfig, reset.newHead)
+				pendingBaseFee := eip1559.CalcBaseFee(pool.chainconfig, reset.newHead)
 				pool.priced.SetBaseFee(pendingBaseFee)
 			} else {
 				pool.priced.Reheap()

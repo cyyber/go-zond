@@ -34,7 +34,7 @@ import (
 	"github.com/theQRL/go-zond/common/hexutil"
 	"github.com/theQRL/go-zond/common/math"
 	"github.com/theQRL/go-zond/consensus"
-	"github.com/theQRL/go-zond/consensus/misc"
+	"github.com/theQRL/go-zond/consensus/misc/eip1559"
 	"github.com/theQRL/go-zond/core"
 	"github.com/theQRL/go-zond/core/state"
 	"github.com/theQRL/go-zond/core/types"
@@ -1438,7 +1438,7 @@ func NewRPCPendingTransaction(tx *types.Transaction, current *types.Header, conf
 		blockTime   = uint64(0)
 	)
 	if current != nil {
-		baseFee = misc.CalcBaseFee(config, current)
+		baseFee = eip1559.CalcBaseFee(config, current)
 		blockNumber = current.Number.Uint64()
 		blockTime = current.Time
 	}

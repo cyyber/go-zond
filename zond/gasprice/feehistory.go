@@ -26,7 +26,7 @@ import (
 	"sync/atomic"
 
 	"github.com/theQRL/go-zond/common"
-	"github.com/theQRL/go-zond/consensus/misc"
+	"github.com/theQRL/go-zond/consensus/misc/eip1559"
 	"github.com/theQRL/go-zond/core/types"
 	"github.com/theQRL/go-zond/log"
 	"github.com/theQRL/go-zond/rpc"
@@ -83,7 +83,7 @@ func (oracle *Oracle) processBlock(bf *blockFees, percentiles []float64) {
 		bf.results.baseFee = new(big.Int)
 	}
 	if chainconfig.IsLondon(big.NewInt(int64(bf.blockNumber + 1))) {
-		bf.results.nextBaseFee = misc.CalcBaseFee(chainconfig, bf.header)
+		bf.results.nextBaseFee = eip1559.CalcBaseFee(chainconfig, bf.header)
 	} else {
 		bf.results.nextBaseFee = new(big.Int)
 	}

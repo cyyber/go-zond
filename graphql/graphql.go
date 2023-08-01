@@ -31,7 +31,7 @@ import (
 	"github.com/theQRL/go-zond/common"
 	"github.com/theQRL/go-zond/common/hexutil"
 	"github.com/theQRL/go-zond/common/math"
-	"github.com/theQRL/go-zond/consensus/misc"
+	"github.com/theQRL/go-zond/consensus/misc/eip1559"
 	"github.com/theQRL/go-zond/core/state"
 	"github.com/theQRL/go-zond/core/types"
 	"github.com/theQRL/go-zond/zond/filters"
@@ -714,7 +714,7 @@ func (b *Block) NextBaseFeePerGas(ctx context.Context) (*hexutil.Big, error) {
 			return nil, nil
 		}
 	}
-	nextBaseFee := misc.CalcBaseFee(chaincfg, header)
+	nextBaseFee := eip1559.CalcBaseFee(chaincfg, header)
 	return (*hexutil.Big)(nextBaseFee), nil
 }
 

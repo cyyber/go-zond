@@ -26,7 +26,7 @@ import (
 
 	"github.com/theQRL/go-zond/common"
 	"github.com/theQRL/go-zond/consensus"
-	"github.com/theQRL/go-zond/consensus/misc"
+	"github.com/theQRL/go-zond/consensus/misc/eip1559"
 	"github.com/theQRL/go-zond/core"
 	"github.com/theQRL/go-zond/core/state"
 	"github.com/theQRL/go-zond/core/txpool"
@@ -889,7 +889,7 @@ func (w *worker) prepareWork(genParams *generateParams) (*environment, error) {
 	}
 	// Set baseFee and GasLimit if we are on an EIP-1559 chain
 	if w.chainConfig.IsLondon(header.Number) {
-		header.BaseFee = misc.CalcBaseFee(w.chainConfig, parent)
+		header.BaseFee = eip1559.CalcBaseFee(w.chainConfig, parent)
 		if !w.chainConfig.IsLondon(parent.Number) {
 			parentGasLimit := parent.GasLimit * w.chainConfig.ElasticityMultiplier()
 			header.GasLimit = core.CalcGasLimit(parentGasLimit, w.config.GasCeil)

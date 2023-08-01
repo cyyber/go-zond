@@ -29,7 +29,7 @@ import (
 	"time"
 
 	"github.com/theQRL/go-zond/common"
-	"github.com/theQRL/go-zond/consensus/misc"
+	"github.com/theQRL/go-zond/consensus/misc/eip1559"
 	"github.com/theQRL/go-zond/consensus/misc/eip4844"
 	"github.com/theQRL/go-zond/core"
 	"github.com/theQRL/go-zond/core/state"
@@ -399,7 +399,7 @@ func (p *BlobPool) Init(gasTip *big.Int, head *types.Header, reserve txpool.Addr
 		p.recheck(addr, nil)
 	}
 	var (
-		basefee = uint256.MustFromBig(misc.CalcBaseFee(p.chain.Config(), p.head))
+		basefee = uint256.MustFromBig(eip1559.CalcBaseFee(p.chain.Config(), p.head))
 		blobfee = uint256.MustFromBig(big.NewInt(params.BlobTxMinBlobGasprice))
 	)
 	if p.head.ExcessBlobGas != nil {
@@ -773,7 +773,7 @@ func (p *BlobPool) Reset(oldHead, newHead *types.Header) {
 	}
 	// Reset the price heap for the new set of basefee/blobfee pairs
 	var (
-		basefee = uint256.MustFromBig(misc.CalcBaseFee(p.chain.Config(), newHead))
+		basefee = uint256.MustFromBig(eip1559.CalcBaseFee(p.chain.Config(), newHead))
 		blobfee = uint256.MustFromBig(big.NewInt(params.BlobTxMinBlobGasprice))
 	)
 	if newHead.ExcessBlobGas != nil {

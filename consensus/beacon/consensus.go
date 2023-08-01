@@ -23,7 +23,7 @@ import (
 
 	"github.com/theQRL/go-zond/common"
 	"github.com/theQRL/go-zond/consensus"
-	"github.com/theQRL/go-zond/consensus/misc"
+	"github.com/theQRL/go-zond/consensus/misc/eip1559"
 	"github.com/theQRL/go-zond/consensus/misc/eip4844"
 	"github.com/theQRL/go-zond/core/state"
 	"github.com/theQRL/go-zond/core/types"
@@ -258,7 +258,7 @@ func (beacon *Beacon) verifyHeader(chain consensus.ChainHeaderReader, header, pa
 		return consensus.ErrInvalidNumber
 	}
 	// Verify the header's EIP-1559 attributes.
-	if err := misc.VerifyEIP1559Header(chain.Config(), parent, header); err != nil {
+	if err := eip1559.VerifyEIP1559Header(chain.Config(), parent, header); err != nil {
 		return err
 	}
 	// Verify existence / non-existence of withdrawalsHash.
