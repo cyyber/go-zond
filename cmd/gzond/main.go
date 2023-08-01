@@ -39,13 +39,11 @@ import (
 	"github.com/theQRL/go-zond/log"
 	"github.com/theQRL/go-zond/metrics"
 	"github.com/theQRL/go-zond/node"
+	"go.uber.org/automaxprocs/maxprocs"
 
 	// Force-load the tracer engines to trigger registration
 	_ "github.com/theQRL/go-zond/zond/tracers/js"
 	_ "github.com/theQRL/go-zond/zond/tracers/native"
-
-	// Automatically set GOMAXPROCS to match Linux container CPU quota.
-	_ "go.uber.org/automaxprocs"
 
 	"github.com/urfave/cli/v2"
 )
@@ -245,6 +243,7 @@ func init() {
 	)
 
 	app.Before = func(ctx *cli.Context) error {
+		maxprocs.Set() // Automatically set GOMAXPROCS to match Linux container CPU quota.
 		flags.MigrateGlobalFlags(ctx)
 		return debug.Setup(ctx)
 	}
