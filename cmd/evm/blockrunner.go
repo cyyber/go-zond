@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/theQRL/go-zond/core/rawdb"
 	"github.com/theQRL/go-zond/core/vm"
 	"github.com/theQRL/go-zond/zond/tracers/logger"
 	"github.com/theQRL/go-zond/log"
@@ -64,7 +65,7 @@ func blockTestCmd(ctx *cli.Context) error {
 		return err
 	}
 	for i, test := range tests {
-		if err := test.Run(false, tracer); err != nil {
+		if err := test.Run(false, rawdb.HashScheme, tracer); err != nil {
 			return fmt.Errorf("test %v: %w", i, err)
 		}
 	}

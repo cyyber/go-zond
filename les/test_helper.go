@@ -49,6 +49,7 @@ import (
 	"github.com/theQRL/go-zond/p2p"
 	"github.com/theQRL/go-zond/p2p/enode"
 	"github.com/theQRL/go-zond/params"
+	"github.com/theQRL/go-zond/trie"
 )
 
 var (
@@ -188,7 +189,7 @@ func newTestClientHandler(backend *backends.SimulatedBackend, odr *LesOdr, index
 			BaseFee:  big.NewInt(params.InitialBaseFee),
 		}
 	)
-	genesis := gspec.MustCommit(db)
+	genesis := gspec.MustCommit(db, trie.NewDatabase(db, trie.HashDefaults))
 	chain, _ := light.NewLightChain(odr, gspec.Config, engine)
 
 	client := &LightEthereum{
@@ -226,7 +227,7 @@ func newTestServerHandler(blocks int, indexers []*core.ChainIndexer, db zonddb.D
 			BaseFee:  big.NewInt(params.InitialBaseFee),
 		}
 	)
-	genesis := gspec.MustCommit(db)
+	genesis := gspec.MustCommit(db, trie.NewDatabase(db, trie.HashDefaults))
 
 	// create a simulation backend and pre-commit several customized block to the database.
 	simulation := backends.NewSimulatedBackendWithDatabase(db, gspec.Alloc, 100000000)

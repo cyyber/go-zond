@@ -23,7 +23,9 @@ import (
 	"os"
 
 	"github.com/theQRL/go-zond/common"
+	"github.com/theQRL/go-zond/core/rawdb"
 	"github.com/theQRL/go-zond/core/state"
+	"github.com/theQRL/go-zond/core/state/snapshot"
 	"github.com/theQRL/go-zond/core/vm"
 	"github.com/theQRL/go-zond/zond/tracers/logger"
 	"github.com/theQRL/go-zond/log"
@@ -104,25 +106,22 @@ func runStateTest(fname string, cfg vm.Config, jsonOut, dump bool) error {
 		for _, st := range test.Subtests() {
 			// Run the test and aggregate the result
 			result := &StatetestResult{Name: key, Fork: st.Fork, Pass: true}
-			_, s, err := test.Run(st, cfg, false)
-			// print state root for evmlab tracing
-			if s != nil {
-				root := s.IntermediateRoot(false)
-				result.Root = &root
-				if jsonOut {
-					fmt.Fprintf(os.Stderr, "{\"stateRoot\": \"%#x\"}\n", root)
+			test.Run(st, cfg, false, rawdb.HashScheme, func(err error, snaps *snapshot.Tree, state *state.StateDB) {
+				if err != nil {
+					// Test failed, mark as so and dump any state to aid debugging
+					result.Pass, result.Error = false, err.Error()
+					if dump {
+						dump := state.RawDump(nil)
+						result.State = &dump
+					}
+				} else {
+					root := state.IntermediateRoot(false)
+					result.Root = &root
+					if jsonOut {
+						fmt.Fprintf(os.Stderr, "{\"stateRoot\": \"%#x\"}\n", root)
+					}
 				}
-			}
-			if err != nil {
-				// Test failed, mark as so and dump any state to aid debugging
-				result.Pass, result.Error = false, err.Error()
-				if dump && s != nil {
-					s, _ = state.New(*result.Root, s.Database(), nil)
-					dump := s.RawDump(nil)
-					result.State = &dump
-				}
-			}
-
+			})
 			results = append(results, *result)
 		}
 	}

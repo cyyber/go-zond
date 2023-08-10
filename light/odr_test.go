@@ -36,6 +36,7 @@ import (
 	"github.com/theQRL/go-zond/zonddb"
 	"github.com/theQRL/go-zond/params"
 	"github.com/theQRL/go-zond/rlp"
+	"github.com/theQRL/go-zond/trie"
 )
 
 var (
@@ -282,7 +283,7 @@ func testChainOdr(t *testing.T, protocol int, fn odrTestFn) {
 		t.Fatal(err)
 	}
 
-	gspec.MustCommit(ldb)
+	gspec.MustCommit(ldb, trie.NewDatabase(ldb, trie.HashDefaults))
 	odr := &testOdr{sdb: sdb, ldb: ldb, serverState: blockchain.StateCache(), indexerConfig: TestClientIndexerConfig}
 	lightchain, err := NewLightChain(odr, gspec.Config, ethash.NewFullFaker())
 	if err != nil {
