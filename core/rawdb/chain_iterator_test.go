@@ -19,12 +19,12 @@ package rawdb
 import (
 	"math/big"
 	"reflect"
+	"sort"
 	"sync"
 	"testing"
 
 	"github.com/theQRL/go-zond/common"
 	"github.com/theQRL/go-zond/core/types"
-	"golang.org/x/exp/slices"
 )
 
 func TestChainIterator(t *testing.T) {
@@ -92,11 +92,9 @@ func TestChainIterator(t *testing.T) {
 			}
 		}
 		if !c.reverse {
-			slices.Sort(numbers)
+			sort.Ints(numbers)
 		} else {
-			slices.SortFunc(numbers, func(a, b int) bool {
-				return a > b // Sort descending
-			})
+			sort.Sort(sort.Reverse(sort.IntSlice(numbers)))
 		}
 		if !reflect.DeepEqual(numbers, c.expect) {
 			t.Fatalf("Case %d failed, visit element mismatch, want %v, got %v", i, c.expect, numbers)
