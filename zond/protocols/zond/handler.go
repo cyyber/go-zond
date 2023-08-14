@@ -23,7 +23,7 @@ import (
 
 	"github.com/theQRL/go-zond/common"
 	"github.com/theQRL/go-zond/core"
-	"github.com/theQRL/go-zond/core/txpool"
+	"github.com/theQRL/go-zond/core/types"
 	"github.com/theQRL/go-zond/metrics"
 	"github.com/theQRL/go-zond/p2p"
 	"github.com/theQRL/go-zond/p2p/enode"
@@ -90,7 +90,7 @@ type Backend interface {
 // TxPool defines the methods needed by the protocol handler to serve transactions.
 type TxPool interface {
 	// Get retrieves the transaction from the local txpool with the given hash.
-	Get(hash common.Hash) *txpool.Transaction
+	Get(hash common.Hash) *types.Transaction
 }
 
 // MakeProtocols constructs the P2P protocol definitions for `eth`.

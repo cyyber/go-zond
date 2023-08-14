@@ -30,7 +30,6 @@ import (
 	"github.com/theQRL/go-zond/common"
 	"github.com/theQRL/go-zond/common/fdlimit"
 	"github.com/theQRL/go-zond/core"
-	"github.com/theQRL/go-zond/core/txpool"
 	"github.com/theQRL/go-zond/core/txpool/legacypool"
 	"github.com/theQRL/go-zond/core/types"
 	"github.com/theQRL/go-zond/crypto"
@@ -133,7 +132,7 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-		if err := backend.TxPool().Add([]*txpool.Transaction{{Tx: tx}}, true, false); err != nil {
+		if err := backend.TxPool().Add([]*types.Transaction{tx}, true, false); err != nil {
 			panic(err)
 		}
 		nonces[index]++
