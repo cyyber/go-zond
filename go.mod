@@ -1,6 +1,6 @@
 module github.com/theQRL/go-zond
 
-go 1.19
+go 1.20
 
 require (
 	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v0.3.0
