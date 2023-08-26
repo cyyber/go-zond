@@ -32,6 +32,7 @@ import (
 	"github.com/theQRL/go-zond/log"
 	"github.com/theQRL/go-zond/metrics"
 	"github.com/theQRL/go-zond/params"
+	"github.com/theQRL/go-zond/trie"
 	"github.com/theQRL/go-zond/trie/trienode"
 	"github.com/theQRL/go-zond/trie/triestate"
 )
