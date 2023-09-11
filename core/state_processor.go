@@ -24,6 +24,7 @@ import (
 	"github.com/theQRL/go-zond/common"
 	"github.com/theQRL/go-zond/consensus"
 	"github.com/theQRL/go-zond/consensus/misc"
+	"github.com/theQRL/go-zond/consensus/misc/eip4844"
 	"github.com/theQRL/go-zond/core/state"
 	"github.com/theQRL/go-zond/core/types"
 	"github.com/theQRL/go-zond/core/vm"
@@ -135,8 +136,10 @@ func applyTransaction(msg *Message, config *params.ChainConfig, gp *GasPool, sta
 	receipt.TxHash = tx.Hash()
 	receipt.GasUsed = result.UsedGas
 
-	receipt.BlobGasUsed = uint64(len(tx.BlobHashes()) * params.BlobTxBlobGasPerBlob)
-	receipt.BlobGasPrice = tx.BlobGasFeeCap()
+	if tx.Type() == types.BlobTxType {
+		receipt.BlobGasUsed = uint64(len(tx.BlobHashes()) * params.BlobTxBlobGasPerBlob)
+		receipt.BlobGasPrice = eip4844.CalcBlobFee(*evm.Context.ExcessBlobGas)
+	}
 
 	// If the transaction created a contract, store the creation address in the receipt.
 	if msg.To == nil {
