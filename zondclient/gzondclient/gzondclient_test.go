@@ -29,12 +29,12 @@ import (
 	"github.com/theQRL/go-zond/core"
 	"github.com/theQRL/go-zond/core/types"
 	"github.com/theQRL/go-zond/crypto"
-	"github.com/theQRL/go-zond/zond"
-	"github.com/theQRL/go-zond/zond/ethconfig"
-	"github.com/theQRL/go-zond/zond/filters"
 	"github.com/theQRL/go-zond/node"
 	"github.com/theQRL/go-zond/params"
 	"github.com/theQRL/go-zond/rpc"
+	"github.com/theQRL/go-zond/zond"
+	"github.com/theQRL/go-zond/zond/ethconfig"
+	"github.com/theQRL/go-zond/zond/filters"
 	"github.com/theQRL/go-zond/zondclient"
 )
 
@@ -94,10 +94,7 @@ func generateTestChain() (*core.Genesis, []*types.Block) {
 
 func TestGethClient(t *testing.T) {
 	backend, _ := newTestBackend(t)
-	client, err := backend.Attach()
-	if err != nil {
-		t.Fatal(err)
-	}
+	client := backend.Attach()
 	defer backend.Close()
 	defer client.Close()
 
@@ -108,6 +105,9 @@ func TestGethClient(t *testing.T) {
 		{
 			"TestGetProof",
 			func(t *testing.T) { testGetProof(t, client) },
+		}, {
+			"TestGetProofCanonicalizeKeys",
+			func(t *testing.T) { testGetProofCanonicalizeKeys(t, client) },
 		}, {
 			"TestGCStats",
 			func(t *testing.T) { testGCStats(t, client) },
@@ -150,7 +150,7 @@ func TestGethClient(t *testing.T) {
 func testAccessList(t *testing.T, client *rpc.Client) {
 	ec := New(client)
 	// Test transfer
-	msg := ethereum.CallMsg{
+	msg := zond.CallMsg{
 		From:     testAddr,
 		To:       &common.Address{},
 		Gas:      21000,
@@ -171,7 +171,7 @@ func testAccessList(t *testing.T, client *rpc.Client) {
 		t.Fatalf("unexpected length of accesslist: %v", len(*al))
 	}
 	// Test reverting transaction
-	msg = ethereum.CallMsg{
+	msg = zond.CallMsg{
 		From:     testAddr,
 		To:       nil,
 		Gas:      100000,
@@ -221,6 +221,7 @@ func testGetProof(t *testing.T, client *rpc.Client) {
 	if result.Balance.Cmp(balance) != 0 {
 		t.Fatalf("invalid balance, want: %v got: %v", balance, result.Balance)
 	}
+
 	// test storage
 	if len(result.StorageProof) != 1 {
 		t.Fatalf("invalid storage proof, want 1 proof, got %v proof(s)", len(result.StorageProof))
@@ -231,7 +232,37 @@ func testGetProof(t *testing.T, client *rpc.Client) {
 		t.Fatalf("invalid storage proof value, want: %v, got: %v", slotValue, proof.Value.Bytes())
 	}
 	if proof.Key != testSlot.String() {
-		t.Fatalf("invalid storage proof key, want: %v, got: %v", testSlot.String(), proof.Key)
+		t.Fatalf("invalid storage proof key, want: %q, got: %q", testSlot.String(), proof.Key)
+	}
+}
+
+func testGetProofCanonicalizeKeys(t *testing.T, client *rpc.Client) {
+	ec := New(client)
+
+	// Tests with non-canon input for storage keys.
+	// Here we check that the storage key is canonicalized.
+	result, err := ec.GetProof(context.Background(), testAddr, []string{"0x0dEadbeef"}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.StorageProof[0].Key != "0xdeadbeef" {
+		t.Fatalf("wrong storage key encoding in proof: %q", result.StorageProof[0].Key)
+	}
+	if result, err = ec.GetProof(context.Background(), testAddr, []string{"0x000deadbeef"}, nil); err != nil {
+		t.Fatal(err)
+	}
+	if result.StorageProof[0].Key != "0xdeadbeef" {
+		t.Fatalf("wrong storage key encoding in proof: %q", result.StorageProof[0].Key)
+	}
+
+	// If the requested storage key is 32 bytes long, it will be returned as is.
+	hashSizedKey := "0x00000000000000000000000000000000000000000000000000000000deadbeef"
+	result, err = ec.GetProof(context.Background(), testAddr, []string{hashSizedKey}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.StorageProof[0].Key != hashSizedKey {
+		t.Fatalf("wrong storage key encoding in proof: %q", result.StorageProof[0].Key)
 	}
 }
 
@@ -344,7 +375,7 @@ func testSubscribeFullPendingTransactions(t *testing.T, client *rpc.Client) {
 
 func testCallContract(t *testing.T, client *rpc.Client) {
 	ec := New(client)
-	msg := ethereum.CallMsg{
+	msg := zond.CallMsg{
 		From:     testAddr,
 		To:       &common.Address{},
 		Gas:      21000,
@@ -368,17 +399,17 @@ func testCallContract(t *testing.T, client *rpc.Client) {
 
 func TestOverrideAccountMarshal(t *testing.T) {
 	om := map[common.Address]OverrideAccount{
-		common.Address{0x11}: OverrideAccount{
+		{0x11}: {
 			// Zero-valued nonce is not overriddden, but simply dropped by the encoder.
 			Nonce: 0,
 		},
-		common.Address{0xaa}: OverrideAccount{
+		{0xaa}: {
 			Nonce: 5,
 		},
-		common.Address{0xbb}: OverrideAccount{
+		{0xbb}: {
 			Code: []byte{1},
 		},
-		common.Address{0xcc}: OverrideAccount{
+		{0xcc}: {
 			// 'code', 'balance', 'state' should be set when input is
 			// a non-nil but empty value.
 			Code:    []byte{},
@@ -454,7 +485,7 @@ func TestBlockOverridesMarshal(t *testing.T) {
 
 func testCallContractWithBlockOverrides(t *testing.T, client *rpc.Client) {
 	ec := New(client)
-	msg := ethereum.CallMsg{
+	msg := zond.CallMsg{
 		From:     testAddr,
 		To:       &common.Address{},
 		Gas:      50000,
