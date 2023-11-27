@@ -75,22 +75,12 @@ func (p *testTxPool) Has(hash common.Hash) bool {
 func (p *testTxPool) Get(hash common.Hash) *types.Transaction {
 	p.lock.Lock()
 	defer p.lock.Unlock()
-<<<<<<< HEAD
-
-	return p.pool[hash]
-}
-
-// AddRemotes appends a batch of transactions to the pool, and notifies any
-// listeners if the addition channel is non nil
-func (p *testTxPool) AddRemotes(txs []*types.Transaction) []error {
-=======
 	return p.pool[hash]
 }
 
 // Add appends a batch of transactions to the pool, and notifies any
 // listeners if the addition channel is non nil
 func (p *testTxPool) Add(txs []*types.Transaction, local bool, sync bool) []error {
->>>>>>> v1.13.1
 	p.lock.Lock()
 	defer p.lock.Unlock()
 
@@ -102,19 +92,11 @@ func (p *testTxPool) Add(txs []*types.Transaction, local bool, sync bool) []erro
 }
 
 // Pending returns all the transactions known to the pool
-<<<<<<< HEAD
-func (p *testTxPool) Pending(enforceTips bool) map[common.Address]types.Transactions {
-	p.lock.RLock()
-	defer p.lock.RUnlock()
-
-	batches := make(map[common.Address]types.Transactions)
-=======
 func (p *testTxPool) Pending(enforceTips bool) map[common.Address][]*txpool.LazyTransaction {
 	p.lock.RLock()
 	defer p.lock.RUnlock()
 
 	batches := make(map[common.Address][]*types.Transaction)
->>>>>>> v1.13.1
 	for _, tx := range p.pool {
 		from, _ := types.Sender(types.HomesteadSigner{}, tx)
 		batches[from] = append(batches[from], tx)
@@ -122,9 +104,6 @@ func (p *testTxPool) Pending(enforceTips bool) map[common.Address][]*txpool.Lazy
 	for _, batch := range batches {
 		sort.Sort(types.TxByNonce(batch))
 	}
-<<<<<<< HEAD
-	return batches
-=======
 	pending := make(map[common.Address][]*txpool.LazyTransaction)
 	for addr, batch := range batches {
 		for _, tx := range batch {
@@ -138,7 +117,6 @@ func (p *testTxPool) Pending(enforceTips bool) map[common.Address][]*txpool.Lazy
 		}
 	}
 	return pending
->>>>>>> v1.13.1
 }
 
 // SubscribeNewTxsEvent should return an event subscription of NewTxsEvent and
@@ -151,13 +129,8 @@ func (p *testTxPool) SubscribeNewTxsEvent(ch chan<- core.NewTxsEvent) event.Subs
 // preinitialized with some sane testing defaults and the transaction pool mocked
 // out.
 type testHandler struct {
-<<<<<<< HEAD
-	db    zonddb.Database
-	chain *core.BlockChain
-=======
 	db      zonddb.Database
 	chain   *core.BlockChain
->>>>>>> v1.13.1
 	txpool  *testTxPool
 	handler *handler
 }

@@ -42,10 +42,7 @@ type upnp struct {
 	client      upnpClient
 	mu          sync.Mutex
 	lastReqTime time.Time
-<<<<<<< HEAD
-=======
 	rand        *rand.Rand
->>>>>>> v1.13.1
 }
 
 type upnpClient interface {

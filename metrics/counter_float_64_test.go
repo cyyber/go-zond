@@ -68,11 +68,7 @@ func TestCounterFloat64Inc1(t *testing.T) {
 func TestCounterFloat64Inc2(t *testing.T) {
 	c := NewCounterFloat64()
 	c.Inc(2.0)
-<<<<<<< HEAD
-	if count := c.Count(); count != 2.0 {
-=======
 	if count := c.Snapshot().Count(); count != 2.0 {
->>>>>>> v1.13.1
 		t.Errorf("c.Count(): 2.0 != %v\n", count)
 	}
 }
