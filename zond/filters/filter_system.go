@@ -62,7 +62,6 @@ type Backend interface {
 	GetBody(ctx context.Context, hash common.Hash, number rpc.BlockNumber) (*types.Body, error)
 	GetReceipts(ctx context.Context, blockHash common.Hash) (types.Receipts, error)
 	GetLogs(ctx context.Context, blockHash common.Hash, number uint64) ([][]*types.Log, error)
-	PendingBlockAndReceipts() (*types.Block, types.Receipts)
 
 	CurrentHeader() *types.Header
 	ChainConfig() *params.ChainConfig
@@ -70,7 +69,6 @@ type Backend interface {
 	SubscribeChainEvent(ch chan<- core.ChainEvent) event.Subscription
 	SubscribeRemovedLogsEvent(ch chan<- core.RemovedLogsEvent) event.Subscription
 	SubscribeLogsEvent(ch chan<- []*types.Log) event.Subscription
-	SubscribePendingLogsEvent(ch chan<- []*types.Log) event.Subscription
 
 	BloomStatus() (uint64, uint64)
 	ServiceFilter(ctx context.Context, session *bloombits.MatcherSession)
@@ -196,20 +194,18 @@ type EventSystem struct {
 	sys     *FilterSystem
 
 	// Subscriptions
-	txsSub         event.Subscription // Subscription for new transaction event
-	logsSub        event.Subscription // Subscription for new log event
-	rmLogsSub      event.Subscription // Subscription for removed log event
-	pendingLogsSub event.Subscription // Subscription for pending log event
-	chainSub       event.Subscription // Subscription for new chain event
+	txsSub    event.Subscription // Subscription for new transaction event
+	logsSub   event.Subscription // Subscription for new log event
+	rmLogsSub event.Subscription // Subscription for removed log event
+	chainSub  event.Subscription // Subscription for new chain event
 
 	// Channels
-	install       chan *subscription         // install filter for event notification
-	uninstall     chan *subscription         // remove filter for event notification
-	txsCh         chan core.NewTxsEvent      // Channel to receive new transactions event
-	logsCh        chan []*types.Log          // Channel to receive new log event
-	pendingLogsCh chan []*types.Log          // Channel to receive new log event
-	rmLogsCh      chan core.RemovedLogsEvent // Channel to receive removed log event
-	chainCh       chan core.ChainEvent       // Channel to receive new chain event
+	install   chan *subscription         // install filter for event notification
+	uninstall chan *subscription         // remove filter for event notification
+	txsCh     chan core.NewTxsEvent      // Channel to receive new transactions event
+	logsCh    chan []*types.Log          // Channel to receive new log event
+	rmLogsCh  chan core.RemovedLogsEvent // Channel to receive removed log event
+	chainCh   chan core.ChainEvent       // Channel to receive new chain event
 }
 
 // NewEventSystem creates a new manager that listens for event on the given mux,
@@ -220,15 +216,14 @@ type EventSystem struct {
 // or by stopping the given mux.
 func NewEventSystem(sys *FilterSystem) *EventSystem {
 	m := &EventSystem{
-		sys:           sys,
-		backend:       sys.backend,
-		install:       make(chan *subscription),
-		uninstall:     make(chan *subscription),
-		txsCh:         make(chan core.NewTxsEvent, txChanSize),
-		logsCh:        make(chan []*types.Log, logsChanSize),
-		rmLogsCh:      make(chan core.RemovedLogsEvent, rmLogsChanSize),
-		pendingLogsCh: make(chan []*types.Log, logsChanSize),
-		chainCh:       make(chan core.ChainEvent, chainEvChanSize),
+		sys:       sys,
+		backend:   sys.backend,
+		install:   make(chan *subscription),
+		uninstall: make(chan *subscription),
+		txsCh:     make(chan core.NewTxsEvent, txChanSize),
+		logsCh:    make(chan []*types.Log, logsChanSize),
+		rmLogsCh:  make(chan core.RemovedLogsEvent, rmLogsChanSize),
+		chainCh:   make(chan core.ChainEvent, chainEvChanSize),
 	}
 
 	// Subscribe events
@@ -236,10 +231,9 @@ func NewEventSystem(sys *FilterSystem) *EventSystem {
 	m.logsSub = m.backend.SubscribeLogsEvent(m.logsCh)
 	m.rmLogsSub = m.backend.SubscribeRemovedLogsEvent(m.rmLogsCh)
 	m.chainSub = m.backend.SubscribeChainEvent(m.chainCh)
-	m.pendingLogsSub = m.backend.SubscribePendingLogsEvent(m.pendingLogsCh)
 
 	// Make sure none of the subscriptions are empty
-	if m.txsSub == nil || m.logsSub == nil || m.rmLogsSub == nil || m.chainSub == nil || m.pendingLogsSub == nil {
+	if m.txsSub == nil || m.logsSub == nil || m.rmLogsSub == nil || m.chainSub == nil {
 		log.Crit("Subscribe for event system failed")
 	}
 
@@ -428,18 +422,6 @@ func (es *EventSystem) handleLogs(filters filterIndex, ev []*types.Log) {
 	}
 }
 
-func (es *EventSystem) handlePendingLogs(filters filterIndex, ev []*types.Log) {
-	if len(ev) == 0 {
-		return
-	}
-	for _, f := range filters[PendingLogsSubscription] {
-		matchedLogs := filterLogs(ev, nil, f.logsCrit.ToBlock, f.logsCrit.Addresses, f.logsCrit.Topics)
-		if len(matchedLogs) > 0 {
-			f.logs <- matchedLogs
-		}
-	}
-}
-
 func (es *EventSystem) handleTxsEvent(filters filterIndex, ev core.NewTxsEvent) {
 	for _, f := range filters[PendingTransactionsSubscription] {
 		f.txs <- ev.Txs
@@ -459,7 +441,6 @@ func (es *EventSystem) eventLoop() {
 		es.txsSub.Unsubscribe()
 		es.logsSub.Unsubscribe()
 		es.rmLogsSub.Unsubscribe()
-		es.pendingLogsSub.Unsubscribe()
 		es.chainSub.Unsubscribe()
 	}()
 
@@ -476,8 +457,6 @@ func (es *EventSystem) eventLoop() {
 			es.handleLogs(index, ev)
 		case ev := <-es.rmLogsCh:
 			es.handleLogs(index, ev.Logs)
-		case ev := <-es.pendingLogsCh:
-			es.handlePendingLogs(index, ev)
 		case ev := <-es.chainCh:
 			es.handleChainEvent(index, ev)
 

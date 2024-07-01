@@ -26,6 +26,7 @@ import (
 	"github.com/theQRL/go-zond/consensus/beacon"
 	"github.com/theQRL/go-zond/core"
 	"github.com/theQRL/go-zond/core/rawdb"
+	"github.com/theQRL/go-zond/core/state"
 	"github.com/theQRL/go-zond/core/types"
 	"github.com/theQRL/go-zond/core/vm"
 	"github.com/theQRL/go-zond/crypto/pqcrypto"
@@ -97,12 +98,13 @@ func (b *testBackend) GetReceipts(ctx context.Context, hash common.Hash) (types.
 	return b.chain.GetReceiptsByHash(hash), nil
 }
 
-func (b *testBackend) PendingBlockAndReceipts() (*types.Block, types.Receipts) {
+func (b *testBackend) Pending() (*types.Block, types.Receipts, *state.StateDB) {
 	if b.pending {
 		block := b.chain.GetBlockByNumber(testHead + 1)
-		return block, b.chain.GetReceiptsByHash(block.Hash())
+		state, _ := b.chain.StateAt(block.Root())
+		return block, b.chain.GetReceiptsByHash(block.Hash()), state
 	}
-	return nil, nil
+	return nil, nil, nil
 }
 
 func (b *testBackend) ChainConfig() *params.ChainConfig {

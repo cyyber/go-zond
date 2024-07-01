@@ -396,11 +396,6 @@ var (
 		Value:    zondconfig.Defaults.Miner.GasPrice,
 		Category: flags.MinerCategory,
 	}
-	MinerEtherbaseFlag = &cli.StringFlag{
-		Name:     "miner.etherbase",
-		Usage:    "0x prefixed public address for block mining rewards",
-		Category: flags.MinerCategory,
-	}
 	MinerExtraDataFlag = &cli.StringFlag{
 		Name:     "miner.extradata",
 		Usage:    "Block extra data set by the miner (default = client version)",
@@ -410,6 +405,11 @@ var (
 		Name:     "miner.recommit",
 		Usage:    "Time interval to recreate the block being mined",
 		Value:    zondconfig.Defaults.Miner.Recommit,
+		Category: flags.MinerCategory,
+	}
+	MinerPendingFeeRecipientFlag = &cli.StringFlag{
+		Name:     "miner.pending.feeRecipient",
+		Usage:    "0x prefixed public address for the pending block producer (not used for actual block production)",
 		Category: flags.MinerCategory,
 	}
 
@@ -1159,19 +1159,19 @@ func MakeAddress(ks *keystore.KeyStore, account string) (accounts.Account, error
 
 // setEtherbase retrieves the etherbase from the directly specified command line flags.
 func setEtherbase(ctx *cli.Context, cfg *zondconfig.Config) {
-	if !ctx.IsSet(MinerEtherbaseFlag.Name) {
+	if !ctx.IsSet(MinerPendingFeeRecipientFlag.Name) {
 		return
 	}
-	addr := ctx.String(MinerEtherbaseFlag.Name)
+	addr := ctx.String(MinerPendingFeeRecipientFlag.Name)
 	if strings.HasPrefix(addr, "0x") || strings.HasPrefix(addr, "0X") {
 		addr = addr[2:]
 	}
 	b, err := hex.DecodeString(addr)
 	if err != nil || len(b) != common.AddressLength {
-		Fatalf("-%s: invalid etherbase address %q", MinerEtherbaseFlag.Name, addr)
+		Fatalf("-%s: invalid pending block producer address %q", MinerPendingFeeRecipientFlag.Name, addr)
 		return
 	}
-	cfg.Miner.Etherbase = common.BytesToAddress(b)
+	cfg.Miner.PendingFeeRecipient = common.BytesToAddress(b)
 }
 
 // MakePasswordList reads password lines from the file specified by the global --password flag.
@@ -1624,8 +1624,8 @@ func SetZondConfig(ctx *cli.Context, stack *node.Node, cfg *zondconfig.Config) {
 
 		// Figure out the dev account address.
 		// setEtherbase has been called above, configuring the miner address from command line flags.
-		if cfg.Miner.Etherbase != (common.Address{}) {
-			developer = accounts.Account{Address: cfg.Miner.Etherbase}
+		if cfg.Miner.PendingFeeRecipient != (common.Address{}) {
+			developer = accounts.Account{Address: cfg.Miner.PendingFeeRecipient}
 		} else if accs := ks.Accounts(); len(accs) > 0 {
 			developer = ks.Accounts()[0]
 		} else {
@@ -1636,7 +1636,7 @@ func SetZondConfig(ctx *cli.Context, stack *node.Node, cfg *zondconfig.Config) {
 		}
 		// Make sure the address is configured as fee recipient, otherwise
 		// the miner will fail to start.
-		cfg.Miner.Etherbase = developer.Address
+		cfg.Miner.PendingFeeRecipient = developer.Address
 
 		if err := ks.Unlock(developer, passphrase); err != nil {
 			Fatalf("Failed to unlock developer account: %v", err)

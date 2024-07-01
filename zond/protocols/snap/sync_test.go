@@ -22,6 +22,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math/big"
+	"slices"
 	"sync"
 	"testing"
 	"time"
@@ -37,7 +38,6 @@ import (
 	"github.com/theQRL/go-zond/trie/trienode"
 	"github.com/theQRL/go-zond/zonddb"
 	"golang.org/x/crypto/sha3"
-	"golang.org/x/exp/slices"
 )
 
 func TestHashing(t *testing.T) {

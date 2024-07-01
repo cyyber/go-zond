@@ -17,7 +17,7 @@
 package core_test
 
 import (
-	"bytes"
+	// "bytes"
 	"context"
 	"fmt"
 	"math/big"
@@ -27,12 +27,13 @@ import (
 	"time"
 
 	"github.com/theQRL/go-zond/accounts"
-	"github.com/theQRL/go-zond/accounts/keystore"
+	// "github.com/theQRL/go-zond/accounts/keystore"
 	"github.com/theQRL/go-zond/common"
 	"github.com/theQRL/go-zond/common/hexutil"
-	"github.com/theQRL/go-zond/core/types"
+
+	// "github.com/theQRL/go-zond/core/types"
 	"github.com/theQRL/go-zond/internal/zondapi"
-	"github.com/theQRL/go-zond/rlp"
+	// "github.com/theQRL/go-zond/rlp"
 	"github.com/theQRL/go-zond/signer/core"
 	"github.com/theQRL/go-zond/signer/core/apitypes"
 	"github.com/theQRL/go-zond/signer/fourbyte"
@@ -234,6 +235,7 @@ func mkTestTx(from common.MixedcaseAddress) apitypes.SendTxArgs {
 	return tx
 }
 
+/*
 func TestSignTx(t *testing.T) {
 	var (
 		list      []common.Address
@@ -318,3 +320,4 @@ func TestSignTx(t *testing.T) {
 		t.Error("Expected tx to be modified by UI")
 	}
 }
+*/

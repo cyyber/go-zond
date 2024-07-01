@@ -29,8 +29,15 @@ import (
 )
 
 func pricedValuedTransaction(nonce uint64, value int64, gaslimit uint64, gasprice *big.Int, key *dilithium.Dilithium) *types.Transaction {
-	tx, _ := types.SignTx(types.NewTransaction(nonce, common.Address{}, big.NewInt(value), gaslimit, gasprice, nil), types.ShanghaiSigner{ChainId: big.NewInt(0)}, key)
-	return tx
+	tx := types.NewTx(&types.DynamicFeeTx{
+		Nonce: nonce,
+		To:    &common.Address{},
+		Value: big.NewInt(value),
+		Gas:   gaslimit,
+		Data:  nil,
+	})
+	signedTx, _ := types.SignTx(tx, types.ShanghaiSigner{ChainId: big.NewInt(0)}, key)
+	return signedTx
 }
 
 func count(t *testing.T, pool *LegacyPool) (pending int, queued int) {

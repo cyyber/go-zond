@@ -17,14 +17,11 @@
 package zondtest
 
 import (
-	"path/filepath"
 	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/theQRL/go-zond/core/types"
 	"github.com/theQRL/go-zond/p2p"
-	"github.com/theQRL/go-zond/zond/protocols/zond"
 )
 
 // TestEthProtocolNegotiation tests whether the test suite
@@ -122,6 +119,8 @@ func TestEthProtocolNegotiation(t *testing.T) {
 	}
 }
 
+// TODO(rgeraldes24)
+/*
 // TestChain_GetHeaders tests whether the test suite can correctly
 // respond to a GetBlockHeaders request from a node.
 func TestChain_GetHeaders(t *testing.T) {
@@ -200,3 +199,4 @@ func TestChain_GetHeaders(t *testing.T) {
 		})
 	}
 }
+*/

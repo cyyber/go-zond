@@ -93,16 +93,16 @@ func newTester(t *testing.T, confOverride func(*zondconfig.Config)) *tester {
 	if err != nil {
 		t.Fatalf("failed to create node: %v", err)
 	}
-	ethConf := &zondconfig.Config{
+	zondConf := &zondconfig.Config{
 		Genesis: core.DeveloperGenesisBlock(11_500_000, common.Address{}),
 		Miner: miner.Config{
-			Etherbase: common.HexToAddress(testAddress),
+			PendingFeeRecipient: common.HexToAddress(testAddress),
 		},
 	}
 	if confOverride != nil {
-		confOverride(ethConf)
+		confOverride(zondConf)
 	}
-	zondBackend, err := zond.New(stack, ethConf)
+	zondBackend, err := zond.New(stack, zondConf)
 	if err != nil {
 		t.Fatalf("failed to register Ethereum protocol: %v", err)
 	}

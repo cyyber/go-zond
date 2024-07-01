@@ -24,12 +24,12 @@ import (
 	"math"
 	"math/big"
 	"reflect"
+	"slices"
 	"strings"
 
 	"github.com/theQRL/go-zond/core/types"
 	"github.com/theQRL/go-zond/log"
 	"github.com/theQRL/go-zond/params"
-	"golang.org/x/exp/slices"
 )
 
 var (

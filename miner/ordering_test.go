@@ -30,10 +30,12 @@ import (
 )
 
 func TestTransactionPriceNonceSortLegacy(t *testing.T) {
+	t.Parallel()
 	testTransactionPriceNonceSort(t, nil)
 }
 
 func TestTransactionPriceNonceSort1559(t *testing.T) {
+	t.Parallel()
 	testTransactionPriceNonceSort(t, big.NewInt(0))
 	testTransactionPriceNonceSort(t, big.NewInt(5))
 	testTransactionPriceNonceSort(t, big.NewInt(50))
@@ -100,7 +102,7 @@ func testTransactionPriceNonceSort(t *testing.T, baseFee *big.Int) {
 	txset := newTransactionsByPriceAndNonce(signer, groups, baseFee)
 
 	txs := types.Transactions{}
-	for tx := txset.Peek(); tx != nil; tx = txset.Peek() {
+	for tx, _ := txset.Peek(); tx != nil; tx, _ = txset.Peek() {
 		txs = append(txs, tx.Tx)
 		txset.Shift()
 	}
@@ -136,6 +138,7 @@ func testTransactionPriceNonceSort(t *testing.T, baseFee *big.Int) {
 // Tests that if multiple transactions have the same price, the ones seen earlier
 // are prioritized to avoid network spam attacks aiming for a specific ordering.
 func TestTransactionTimeSort(t *testing.T) {
+	t.Parallel()
 	// Generate a batch of accounts to start with
 	keys := make([]*dilithium.Dilithium, 5)
 	for i := 0; i < len(keys); i++ {
@@ -148,7 +151,7 @@ func TestTransactionTimeSort(t *testing.T) {
 	for start, key := range keys {
 		addr := key.GetAddress()
 
-		tx, _ := types.SignTx(types.NewTransaction(0, common.Address{}, big.NewInt(100), 100, big.NewInt(1), nil), signer, key)
+		tx, _ := types.SignTx(types.NewTx(&types.DynamicFeeTx{Nonce: 0, To: &common.Address{}, Value: big.NewInt(100), Gas: 100, Data: nil}), signer, key)
 		tx.SetTime(time.Unix(0, int64(len(keys)-start)))
 
 		groups[addr] = append(groups[addr], &txpool.LazyTransaction{
@@ -163,7 +166,7 @@ func TestTransactionTimeSort(t *testing.T) {
 	txset := newTransactionsByPriceAndNonce(signer, groups, nil)
 
 	txs := types.Transactions{}
-	for tx := txset.Peek(); tx != nil; tx = txset.Peek() {
+	for tx, _ := txset.Peek(); tx != nil; tx, _ = txset.Peek() {
 		txs = append(txs, tx.Tx)
 		txset.Shift()
 	}

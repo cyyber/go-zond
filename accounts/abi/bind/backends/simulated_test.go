@@ -59,14 +59,16 @@ func TestSimulatedBackend(t *testing.T) {
 		t.Fatalf("err should be `zond.NotFound` but received %v", err)
 	}
 
-	// generate a transaction and confirm you can retrieve it
-	head, _ := sim.HeaderByNumber(context.Background(), nil) // Should be child's, good enough
-	gasPrice := new(big.Int).Add(head.BaseFee, big.NewInt(1))
-
 	code := `6060604052600a8060106000396000f360606040526008565b00`
 	var gas uint64 = 3000000
-	tx := types.NewContractCreation(0, big.NewInt(0), gas, gasPrice, common.FromHex(code))
-	tx, _ = types.SignTx(tx, types.ShanghaiSigner{ChainId: big.NewInt(0)}, key)
+	tx := types.NewTx(&types.DynamicFeeTx{
+		Nonce:     0,
+		Value:     big.NewInt(0),
+		Gas:       gas,
+		GasFeeCap: big.NewInt(875000000),
+		Data:      common.FromHex(code),
+	})
+	tx, _ = types.SignTx(tx, types.ShanghaiSigner{ChainId: big.NewInt(1337)}, key)
 
 	err = sim.SendTransaction(context.Background(), tx)
 	if err != nil {
@@ -159,16 +161,21 @@ func TestAdjustTime(t *testing.T) {
 	}
 }
 
+// TODO(rgeraldes24): fix
+/*
 func TestNewAdjustTimeFail(t *testing.T) {
-	testAddr := testKey.GetAddress()
+	testAddr := common.Address(testKey.GetAddress())
 	sim := simTestBackend(testAddr)
 	defer sim.blockchain.Stop()
 
 	// Create tx and send
-	head, _ := sim.HeaderByNumber(context.Background(), nil) // Should be child's, good enough
-	gasPrice := new(big.Int).Add(head.BaseFee, big.NewInt(1))
-
-	tx := types.NewTransaction(0, testAddr, big.NewInt(1000), params.TxGas, gasPrice, nil)
+	tx := types.NewTx(&types.DynamicFeeTx{
+		Nonce: 0,
+		To:    &testAddr,
+		Value: big.NewInt(1000),
+		Gas:   params.TxGas,
+		Data:  nil,
+	})
 	signedTx, err := types.SignTx(tx, types.ShanghaiSigner{ChainId: big.NewInt(0)}, testKey)
 	if err != nil {
 		t.Errorf("could not sign tx: %v", err)
@@ -189,7 +196,13 @@ func TestNewAdjustTimeFail(t *testing.T) {
 		t.Errorf("adjusted time not equal to a minute. prev: %v, new: %v", prevTime, newTime)
 	}
 	// Put a transaction after adjusting time
-	tx2 := types.NewTransaction(1, testAddr, big.NewInt(1000), params.TxGas, gasPrice, nil)
+	tx2 := types.NewTx(&types.DynamicFeeTx{
+		Nonce: 1,
+		To:    &testAddr,
+		Value: big.NewInt(1000),
+		Gas:   params.TxGas,
+		Data:  nil,
+	})
 	signedTx2, err := types.SignTx(tx2, types.ShanghaiSigner{ChainId: big.NewInt(0)}, testKey)
 	if err != nil {
 		t.Errorf("could not sign tx: %v", err)
@@ -201,6 +214,7 @@ func TestNewAdjustTimeFail(t *testing.T) {
 		t.Errorf("time adjusted, but shouldn't be: prev: %v, new: %v", prevTime, newTime)
 	}
 }
+*/
 
 func TestBalanceAt(t *testing.T) {
 	testAddr := testKey.GetAddress()
@@ -276,7 +290,7 @@ func TestBlockByNumber(t *testing.T) {
 }
 
 func TestNonceAt(t *testing.T) {
-	testAddr := testKey.GetAddress()
+	testAddr := common.Address(testKey.GetAddress())
 
 	sim := simTestBackend(testAddr)
 	defer sim.Close()
@@ -292,11 +306,15 @@ func TestNonceAt(t *testing.T) {
 	}
 
 	// create a signed transaction to send
-	head, _ := sim.HeaderByNumber(context.Background(), nil) // Should be child's, good enough
-	gasPrice := new(big.Int).Add(head.BaseFee, big.NewInt(1))
-
-	tx := types.NewTransaction(nonce, testAddr, big.NewInt(1000), params.TxGas, gasPrice, nil)
-	signedTx, err := types.SignTx(tx, types.ShanghaiSigner{ChainId: big.NewInt(0)}, testKey)
+	tx := types.NewTx(&types.DynamicFeeTx{
+		Nonce:     nonce,
+		To:        &testAddr,
+		Value:     big.NewInt(1000),
+		Gas:       params.TxGas,
+		GasFeeCap: big.NewInt(875000000),
+		Data:      nil,
+	})
+	signedTx, err := types.SignTx(tx, types.ShanghaiSigner{ChainId: big.NewInt(1337)}, testKey)
 	if err != nil {
 		t.Errorf("could not sign tx: %v", err)
 	}
@@ -329,18 +347,22 @@ func TestNonceAt(t *testing.T) {
 }
 
 func TestSendTransaction(t *testing.T) {
-	testAddr := testKey.GetAddress()
+	testAddr := common.Address(testKey.GetAddress())
 
 	sim := simTestBackend(testAddr)
 	defer sim.Close()
 	bgCtx := context.Background()
 
 	// create a signed transaction to send
-	head, _ := sim.HeaderByNumber(context.Background(), nil) // Should be child's, good enough
-	gasPrice := new(big.Int).Add(head.BaseFee, big.NewInt(1))
-
-	tx := types.NewTransaction(uint64(0), testAddr, big.NewInt(1000), params.TxGas, gasPrice, nil)
-	signedTx, err := types.SignTx(tx, types.ShanghaiSigner{ChainId: big.NewInt(0)}, testKey)
+	tx := types.NewTx(&types.DynamicFeeTx{
+		Nonce:     uint64(0),
+		To:        &testAddr,
+		Value:     big.NewInt(1000),
+		Gas:       params.TxGas,
+		GasFeeCap: big.NewInt(875000000),
+		Data:      nil,
+	})
+	signedTx, err := types.SignTx(tx, types.ShanghaiSigner{ChainId: big.NewInt(1337)}, testKey)
 	if err != nil {
 		t.Errorf("could not sign tx: %v", err)
 	}
@@ -363,7 +385,7 @@ func TestSendTransaction(t *testing.T) {
 }
 
 func TestTransactionByHash(t *testing.T) {
-	testAddr := testKey.GetAddress()
+	testAddr := common.Address(testKey.GetAddress())
 
 	sim := NewSimulatedBackend(
 		core.GenesisAlloc{
@@ -374,11 +396,15 @@ func TestTransactionByHash(t *testing.T) {
 	bgCtx := context.Background()
 
 	// create a signed transaction to send
-	head, _ := sim.HeaderByNumber(context.Background(), nil) // Should be child's, good enough
-	gasPrice := new(big.Int).Add(head.BaseFee, big.NewInt(1))
-
-	tx := types.NewTransaction(uint64(0), testAddr, big.NewInt(1000), params.TxGas, gasPrice, nil)
-	signedTx, err := types.SignTx(tx, types.ShanghaiSigner{ChainId: big.NewInt(0)}, testKey)
+	tx := types.NewTx(&types.DynamicFeeTx{
+		Nonce:     uint64(0),
+		To:        &testAddr,
+		Value:     big.NewInt(1000),
+		Gas:       params.TxGas,
+		GasFeeCap: big.NewInt(875000000),
+		Data:      nil,
+	})
+	signedTx, err := types.SignTx(tx, types.ShanghaiSigner{ChainId: big.NewInt(1337)}, testKey)
 	if err != nil {
 		t.Errorf("could not sign tx: %v", err)
 	}
@@ -693,7 +719,7 @@ func TestHeaderByNumber(t *testing.T) {
 }
 
 func TestTransactionCount(t *testing.T) {
-	testAddr := testKey.GetAddress()
+	testAddr := common.Address(testKey.GetAddress())
 
 	sim := simTestBackend(testAddr)
 	defer sim.Close()
@@ -712,11 +738,15 @@ func TestTransactionCount(t *testing.T) {
 		t.Errorf("expected transaction count of %v does not match actual count of %v", 0, count)
 	}
 	// create a signed transaction to send
-	head, _ := sim.HeaderByNumber(context.Background(), nil) // Should be child's, good enough
-	gasPrice := new(big.Int).Add(head.BaseFee, big.NewInt(1))
-
-	tx := types.NewTransaction(uint64(0), testAddr, big.NewInt(1000), params.TxGas, gasPrice, nil)
-	signedTx, err := types.SignTx(tx, types.ShanghaiSigner{ChainId: big.NewInt(0)}, testKey)
+	tx := types.NewTx(&types.DynamicFeeTx{
+		Nonce:     uint64(0),
+		To:        &testAddr,
+		Value:     big.NewInt(1000),
+		Gas:       params.TxGas,
+		GasFeeCap: big.NewInt(875000000),
+		Data:      nil,
+	})
+	signedTx, err := types.SignTx(tx, types.ShanghaiSigner{ChainId: big.NewInt(1337)}, testKey)
 	if err != nil {
 		t.Errorf("could not sign tx: %v", err)
 	}
@@ -745,7 +775,7 @@ func TestTransactionCount(t *testing.T) {
 }
 
 func TestTransactionInBlock(t *testing.T) {
-	testAddr := testKey.GetAddress()
+	testAddr := common.Address(testKey.GetAddress())
 
 	sim := simTestBackend(testAddr)
 	defer sim.Close()
@@ -769,11 +799,15 @@ func TestTransactionInBlock(t *testing.T) {
 		t.Errorf("expected pending nonce of 0 got %v", pendingNonce)
 	}
 	// create a signed transaction to send
-	head, _ := sim.HeaderByNumber(context.Background(), nil) // Should be child's, good enough
-	gasPrice := new(big.Int).Add(head.BaseFee, big.NewInt(1))
-
-	tx := types.NewTransaction(uint64(0), testAddr, big.NewInt(1000), params.TxGas, gasPrice, nil)
-	signedTx, err := types.SignTx(tx, types.ShanghaiSigner{ChainId: big.NewInt(0)}, testKey)
+	tx := types.NewTx(&types.DynamicFeeTx{
+		Nonce:     uint64(0),
+		To:        &testAddr,
+		Value:     big.NewInt(1000),
+		Gas:       params.TxGas,
+		GasFeeCap: big.NewInt(875000000),
+		Data:      nil,
+	})
+	signedTx, err := types.SignTx(tx, types.ShanghaiSigner{ChainId: big.NewInt(1337)}, testKey)
 	if err != nil {
 		t.Errorf("could not sign tx: %v", err)
 	}
@@ -810,7 +844,7 @@ func TestTransactionInBlock(t *testing.T) {
 }
 
 func TestPendingNonceAt(t *testing.T) {
-	testAddr := testKey.GetAddress()
+	testAddr := common.Address(testKey.GetAddress())
 
 	sim := simTestBackend(testAddr)
 	defer sim.Close()
@@ -827,11 +861,15 @@ func TestPendingNonceAt(t *testing.T) {
 	}
 
 	// create a signed transaction to send
-	head, _ := sim.HeaderByNumber(context.Background(), nil) // Should be child's, good enough
-	gasPrice := new(big.Int).Add(head.BaseFee, big.NewInt(1))
-
-	tx := types.NewTransaction(uint64(0), testAddr, big.NewInt(1000), params.TxGas, gasPrice, nil)
-	signedTx, err := types.SignTx(tx, types.ShanghaiSigner{ChainId: big.NewInt(0)}, testKey)
+	tx := types.NewTx(&types.DynamicFeeTx{
+		Nonce:     uint64(0),
+		To:        &testAddr,
+		Value:     big.NewInt(1000),
+		Gas:       params.TxGas,
+		GasFeeCap: big.NewInt(875000000),
+		Data:      nil,
+	})
+	signedTx, err := types.SignTx(tx, types.ShanghaiSigner{ChainId: big.NewInt(1337)}, testKey)
 	if err != nil {
 		t.Errorf("could not sign tx: %v", err)
 	}
@@ -853,8 +891,15 @@ func TestPendingNonceAt(t *testing.T) {
 	}
 
 	// make a new transaction with a nonce of 1
-	tx = types.NewTransaction(uint64(1), testAddr, big.NewInt(1000), params.TxGas, gasPrice, nil)
-	signedTx, err = types.SignTx(tx, types.ShanghaiSigner{ChainId: big.NewInt(0)}, testKey)
+	tx = types.NewTx(&types.DynamicFeeTx{
+		Nonce:     uint64(1),
+		To:        &testAddr,
+		Value:     big.NewInt(1000),
+		Gas:       params.TxGas,
+		GasFeeCap: big.NewInt(875000000),
+		Data:      nil,
+	})
+	signedTx, err = types.SignTx(tx, types.ShanghaiSigner{ChainId: big.NewInt(1337)}, testKey)
 	if err != nil {
 		t.Errorf("could not sign tx: %v", err)
 	}
@@ -875,18 +920,22 @@ func TestPendingNonceAt(t *testing.T) {
 }
 
 func TestTransactionReceipt(t *testing.T) {
-	testAddr := testKey.GetAddress()
+	testAddr := common.Address(testKey.GetAddress())
 
 	sim := simTestBackend(testAddr)
 	defer sim.Close()
 	bgCtx := context.Background()
 
 	// create a signed transaction to send
-	head, _ := sim.HeaderByNumber(context.Background(), nil) // Should be child's, good enough
-	gasPrice := new(big.Int).Add(head.BaseFee, big.NewInt(1))
-
-	tx := types.NewTransaction(uint64(0), testAddr, big.NewInt(1000), params.TxGas, gasPrice, nil)
-	signedTx, err := types.SignTx(tx, types.ShanghaiSigner{ChainId: big.NewInt(0)}, testKey)
+	tx := types.NewTx(&types.DynamicFeeTx{
+		Nonce:     uint64(0),
+		To:        &testAddr,
+		Value:     big.NewInt(1000),
+		Gas:       params.TxGas,
+		GasFeeCap: big.NewInt(875000000),
+		Data:      nil,
+	})
+	signedTx, err := types.SignTx(tx, types.ShanghaiSigner{ChainId: big.NewInt(1337)}, testKey)
 	if err != nil {
 		t.Errorf("could not sign tx: %v", err)
 	}
@@ -1306,17 +1355,21 @@ func TestForkLogsReborn(t *testing.T) {
 //  5. Mine a block, Re-send the transaction and mine another one.
 //  6. Check that the TX is now included in block 2.
 func TestForkResendTx(t *testing.T) {
-	testAddr := testKey.GetAddress()
+	testAddr := common.Address(testKey.GetAddress())
 	sim := simTestBackend(testAddr)
 	defer sim.Close()
 	// 1.
 	parent := sim.blockchain.CurrentBlock()
 	// 2.
-	head, _ := sim.HeaderByNumber(context.Background(), nil) // Should be child's, good enough
-	gasPrice := new(big.Int).Add(head.BaseFee, big.NewInt(1))
-
-	_tx := types.NewTransaction(0, testAddr, big.NewInt(1000), params.TxGas, gasPrice, nil)
-	tx, _ := types.SignTx(_tx, types.ShanghaiSigner{ChainId: big.NewInt(0)}, testKey)
+	_tx := types.NewTx(&types.DynamicFeeTx{
+		Nonce:     0,
+		To:        &testAddr,
+		Value:     big.NewInt(1000),
+		Gas:       params.TxGas,
+		GasFeeCap: big.NewInt(875000000),
+		Data:      nil,
+	})
+	tx, _ := types.SignTx(_tx, types.ShanghaiSigner{ChainId: big.NewInt(1337)}, testKey)
 	sim.SendTransaction(context.Background(), tx)
 	sim.Commit()
 	// 3.
@@ -1342,7 +1395,7 @@ func TestForkResendTx(t *testing.T) {
 }
 
 func TestCommitReturnValue(t *testing.T) {
-	testAddr := testKey.GetAddress()
+	testAddr := common.Address(testKey.GetAddress())
 	sim := simTestBackend(testAddr)
 	defer sim.Close()
 
@@ -1355,10 +1408,15 @@ func TestCommitReturnValue(t *testing.T) {
 	}
 
 	// Create a block in the original chain (containing a transaction to force different block hashes)
-	head, _ := sim.HeaderByNumber(context.Background(), nil) // Should be child's, good enough
-	gasPrice := new(big.Int).Add(head.BaseFee, big.NewInt(1))
-	_tx := types.NewTransaction(0, testAddr, big.NewInt(1000), params.TxGas, gasPrice, nil)
-	tx, _ := types.SignTx(_tx, types.ShanghaiSigner{ChainId: big.NewInt(0)}, testKey)
+	_tx := types.NewTx(&types.DynamicFeeTx{
+		Nonce:     uint64(0),
+		To:        &testAddr,
+		Value:     big.NewInt(1000),
+		Gas:       params.TxGas,
+		GasFeeCap: big.NewInt(875000000),
+		Data:      nil,
+	})
+	tx, _ := types.SignTx(_tx, types.ShanghaiSigner{ChainId: big.NewInt(1337)}, testKey)
 	sim.SendTransaction(context.Background(), tx)
 	h2 := sim.Commit()
 

@@ -103,6 +103,7 @@ var (
 		utils.MinerGasPriceFlag,
 		utils.MinerExtraDataFlag,
 		utils.MinerRecommitIntervalFlag,
+		utils.MinerPendingFeeRecipientFlag,
 		utils.NATFlag,
 		utils.NoDiscoverFlag,
 		utils.DiscoveryV4Flag,

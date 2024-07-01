@@ -40,11 +40,13 @@ import (
 )
 
 var (
-	testKey, _  = pqcrypto.HexToDilithium("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-	testAddr    = testKey.GetAddress()
-	testSlot    = common.HexToHash("0xdeadbeef")
-	testValue   = crypto.Keccak256Hash(testSlot[:])
-	testBalance = big.NewInt(2e15)
+	testKey, _   = pqcrypto.HexToDilithium("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
+	testAddr     = testKey.GetAddress()
+	testContract = common.HexToAddress("0xbeef")
+	testEmpty    = common.HexToAddress("0xeeee")
+	testSlot     = common.HexToHash("0xdeadbeef")
+	testValue    = crypto.Keccak256Hash(testSlot[:])
+	testBalance  = big.NewInt(2e15)
 )
 
 func newTestBackend(t *testing.T) (*node.Node, []*types.Block) {
@@ -79,8 +81,12 @@ func newTestBackend(t *testing.T) (*node.Node, []*types.Block) {
 
 func generateTestChain() (*core.Genesis, []*types.Block) {
 	genesis := &core.Genesis{
-		Config:    params.AllBeaconProtocolChanges,
-		Alloc:     core.GenesisAlloc{testAddr: {Balance: testBalance, Storage: map[common.Hash]common.Hash{testSlot: testValue}}},
+		Config: params.AllBeaconProtocolChanges,
+		Alloc: core.GenesisAlloc{
+			testAddr:     {Balance: testBalance, Storage: map[common.Hash]common.Hash{testSlot: testValue}},
+			testContract: {Nonce: 1, Code: []byte{0x13, 0x37}},
+			testEmpty:    {Balance: big.NewInt(1)},
+		},
 		ExtraData: []byte("test genesis"),
 		Timestamp: 9000,
 	}
@@ -106,36 +112,41 @@ func TestGzondClient(t *testing.T) {
 		{
 			"TestGetProof",
 			func(t *testing.T) { testGetProof(t, client) },
-		}, {
+		},
+		{
 			"TestGetProofCanonicalizeKeys",
 			func(t *testing.T) { testGetProofCanonicalizeKeys(t, client) },
-		}, {
+		},
+		{
 			"TestGCStats",
 			func(t *testing.T) { testGCStats(t, client) },
-		}, {
+		},
+		{
 			"TestMemStats",
 			func(t *testing.T) { testMemStats(t, client) },
-		}, {
+		},
+		{
 			"TestGetNodeInfo",
 			func(t *testing.T) { testGetNodeInfo(t, client) },
 		},
-		// TODO(rgeraldes24): review
-		// {
-		// 	"TestSubscribePendingTxHashes",
-		// 	func(t *testing.T) { testSubscribePendingTransactions(t, client) },
-		// }, {
-		// 	"TestSubscribePendingTxs",
-		// 	func(t *testing.T) { testSubscribeFullPendingTransactions(t, client) },
-		// },
+		{
+			"TestSubscribePendingTxHashes",
+			func(t *testing.T) { testSubscribePendingTransactions(t, client) },
+		},
+		{
+			"TestSubscribePendingTxs",
+			func(t *testing.T) { testSubscribeFullPendingTransactions(t, client) },
+		},
 		{
 			"TestCallContract",
 			func(t *testing.T) { testCallContract(t, client) },
-		}, {
+		},
+		{
 			"TestCallContractWithBlockOverrides",
 			func(t *testing.T) { testCallContractWithBlockOverrides(t, client) },
 		},
 		// The testaccesslist is a bit time-sensitive: the newTestBackend imports
-		// one block. The `testAcessList` fails if the miner has not yet created a
+		// one block. The `testAccessList` fails if the miner has not yet created a
 		// new pending-block after the import event.
 		// Hence: this test should be last, execute the tests serially.
 		{
@@ -206,9 +217,9 @@ func testAccessList(t *testing.T, client *rpc.Client) {
 }
 
 func testGetProof(t *testing.T, client *rpc.Client) {
-	ec := New(client)
+	zc := New(client)
 	zondcl := zondclient.NewClient(client)
-	result, err := ec.GetProof(context.Background(), testAddr, []string{testSlot.String()}, nil)
+	result, err := zc.GetProof(context.Background(), testAddr, []string{testSlot.String()}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -241,18 +252,18 @@ func testGetProof(t *testing.T, client *rpc.Client) {
 }
 
 func testGetProofCanonicalizeKeys(t *testing.T, client *rpc.Client) {
-	ec := New(client)
+	zc := New(client)
 
 	// Tests with non-canon input for storage keys.
 	// Here we check that the storage key is canonicalized.
-	result, err := ec.GetProof(context.Background(), testAddr, []string{"0x0dEadbeef"}, nil)
+	result, err := zc.GetProof(context.Background(), testAddr, []string{"0x0dEadbeef"}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if result.StorageProof[0].Key != "0xdeadbeef" {
 		t.Fatalf("wrong storage key encoding in proof: %q", result.StorageProof[0].Key)
 	}
-	if result, err = ec.GetProof(context.Background(), testAddr, []string{"0x000deadbeef"}, nil); err != nil {
+	if result, err = zc.GetProof(context.Background(), testAddr, []string{"0x000deadbeef"}, nil); err != nil {
 		t.Fatal(err)
 	}
 	if result.StorageProof[0].Key != "0xdeadbeef" {
@@ -261,12 +272,44 @@ func testGetProofCanonicalizeKeys(t *testing.T, client *rpc.Client) {
 
 	// If the requested storage key is 32 bytes long, it will be returned as is.
 	hashSizedKey := "0x00000000000000000000000000000000000000000000000000000000deadbeef"
-	result, err = ec.GetProof(context.Background(), testAddr, []string{hashSizedKey}, nil)
+	result, err = zc.GetProof(context.Background(), testAddr, []string{hashSizedKey}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if result.StorageProof[0].Key != hashSizedKey {
 		t.Fatalf("wrong storage key encoding in proof: %q", result.StorageProof[0].Key)
+	}
+}
+
+func testGetProofNonExistent(t *testing.T, client *rpc.Client) {
+	addr := common.HexToAddress("0x0001")
+	ec := New(client)
+	result, err := ec.GetProof(context.Background(), addr, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Address != addr {
+		t.Fatalf("unexpected address, have: %v want: %v", result.Address, addr)
+	}
+	// test nonce
+	if result.Nonce != 0 {
+		t.Fatalf("invalid nonce, want: %v got: %v", 0, result.Nonce)
+	}
+	// test balance
+	if result.Balance.Sign() != 0 {
+		t.Fatalf("invalid balance, want: %v got: %v", 0, result.Balance)
+	}
+	// test storage
+	if have := len(result.StorageProof); have != 0 {
+		t.Fatalf("invalid storage proof, want 0 proof, got %v proof(s)", have)
+	}
+	// test codeHash
+	if have, want := result.CodeHash, (common.Hash{}); have != want {
+		t.Fatalf("codehash wrong, have %v want %v ", have, want)
+	}
+	// test codeHash
+	if have, want := result.StorageHash, (common.Hash{}); have != want {
+		t.Fatalf("storagehash wrong, have %v want %v ", have, want)
 	}
 }
 
@@ -309,8 +352,6 @@ func testSetHead(t *testing.T, client *rpc.Client) {
 	}
 }
 
-// TODO(rgeraldes): WithSignature
-/*
 func testSubscribePendingTransactions(t *testing.T, client *rpc.Client) {
 	ec := New(client)
 	zondcl := zondclient.NewClient(client)
@@ -323,13 +364,16 @@ func testSubscribePendingTransactions(t *testing.T, client *rpc.Client) {
 		t.Fatal(err)
 	}
 	// Create transaction
-	tx := types.NewTransaction(0, common.Address{1}, big.NewInt(1), 22000, big.NewInt(1), nil)
+	tx := types.NewTx(&types.DynamicFeeTx{
+		Nonce:     0,
+		To:        &common.Address{1},
+		Value:     big.NewInt(1),
+		Gas:       22000,
+		GasFeeCap: big.NewInt(1),
+		Data:      nil,
+	})
 	signer := types.LatestSignerForChainID(chainID)
-	signature, err := crypto.Sign(signer.Hash(tx).Bytes(), testKey)
-	if err != nil {
-		t.Fatal(err)
-	}
-	signedTx, err := tx.WithSignature(signer, signature)
+	signedTx, err := types.SignTx(tx, signer, testKey)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -357,13 +401,16 @@ func testSubscribeFullPendingTransactions(t *testing.T, client *rpc.Client) {
 		t.Fatal(err)
 	}
 	// Create transaction
-	tx := types.NewTransaction(1, common.Address{1}, big.NewInt(1), 22000, big.NewInt(1), nil)
+	tx := types.NewTx(&types.DynamicFeeTx{
+		Nonce:     1,
+		To:        &common.Address{1},
+		Value:     big.NewInt(1),
+		Gas:       22000,
+		GasFeeCap: big.NewInt(1),
+		Data:      nil,
+	})
 	signer := types.LatestSignerForChainID(chainID)
-	signature, err := crypto.Sign(signer.Hash(tx).Bytes(), testKey)
-	if err != nil {
-		t.Fatal(err)
-	}
-	signedTx, err := tx.WithSignature(signer, signature)
+	signedTx, err := types.SignTx(tx, signer, testKey)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -378,7 +425,6 @@ func testSubscribeFullPendingTransactions(t *testing.T, client *rpc.Client) {
 		t.Fatalf("Invalid tx hash received, got %v, want %v", tx.Hash(), signedTx.Hash())
 	}
 }
-*/
 
 func testCallContract(t *testing.T, client *rpc.Client) {
 	ec := New(client)
@@ -407,7 +453,7 @@ func testCallContract(t *testing.T, client *rpc.Client) {
 func TestOverrideAccountMarshal(t *testing.T) {
 	om := map[common.Address]OverrideAccount{
 		{0x11}: {
-			// Zero-valued nonce is not overriddden, but simply dropped by the encoder.
+			// Zero-valued nonce is not overridden, but simply dropped by the encoder.
 			Nonce: 0,
 		},
 		{0xaa}: {

@@ -120,7 +120,7 @@ func defaultNodeConfig() node.Config {
 	return cfg
 }
 
-// loadBaseConfig loads the gethConfig based on the given command line
+// loadBaseConfig loads the gzondConfig based on the given command line
 // parameters and config file.
 func loadBaseConfig(ctx *cli.Context) gzondConfig {
 	// Load defaults.
@@ -293,7 +293,10 @@ func applyMetricConfig(ctx *cli.Context, cfg *gzondConfig) {
 }
 
 func deprecated(field string) bool {
-	return false
+	switch field {
+	default:
+		return false
+	}
 }
 
 func setAccountManagerBackends(conf *node.Config, am *accounts.Manager, keydir string) error {

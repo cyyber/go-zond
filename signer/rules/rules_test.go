@@ -449,9 +449,14 @@ func dummyTxWithV(value uint64) *core.SignTxRequest {
 func dummySigned(value *big.Int) *types.Transaction {
 	to := common.HexToAddress("000000000000000000000000000000000000dead")
 	gas := uint64(21000)
-	gasPrice := big.NewInt(2000000)
 	data := make([]byte, 0)
-	return types.NewTransaction(3, to, value, gas, gasPrice, data)
+	return types.NewTx(&types.DynamicFeeTx{
+		Nonce: 3,
+		To:    &to,
+		Value: value,
+		Gas:   gas,
+		Data:  data,
+	})
 }
 
 func TestLimitWindow(t *testing.T) {

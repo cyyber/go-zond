@@ -18,7 +18,6 @@
 package zond
 
 import (
-	"errors"
 	"fmt"
 	"math/big"
 	"runtime"
@@ -81,9 +80,8 @@ type Zond struct {
 
 	APIBackend *ZondAPIBackend
 
-	miner     *miner.Miner
-	gasPrice  *big.Int
-	etherbase common.Address
+	miner    *miner.Miner
+	gasPrice *big.Int
 
 	networkID     uint64
 	netRPCService *zondapi.NetAPI
@@ -146,7 +144,6 @@ func New(stack *node.Node, config *zondconfig.Config) (*Zond, error) {
 		closeBloomHandler: make(chan struct{}),
 		networkID:         config.NetworkId,
 		gasPrice:          config.Miner.GasPrice,
-		etherbase:         config.Miner.Etherbase,
 		bloomRequests:     make(chan chan *bloombits.Retrieval),
 		bloomIndexer:      core.NewBloomIndexer(chainDb, params.BloomBitsBlocks, params.BloomConfirms),
 		p2pServer:         stack.Server(),
@@ -186,7 +183,11 @@ func New(stack *node.Node, config *zondconfig.Config) (*Zond, error) {
 		}
 	)
 	// Override the chain config with provided settings.
-	zond.blockchain, err = core.NewBlockChain(chainDb, cacheConfig, config.Genesis, zond.engine, vmConfig, zond.shouldPreserve, &config.TransactionHistory)
+	// TODO (MariusVanDerWijden) get rid of shouldPreserve in a follow-up PR
+	shouldPreserve := func(header *types.Header) bool {
+		return false
+	}
+	zond.blockchain, err = core.NewBlockChain(chainDb, cacheConfig, config.Genesis, zond.engine, vmConfig, shouldPreserve, &config.TransactionHistory)
 	if err != nil {
 		return nil, err
 	}
@@ -215,7 +216,7 @@ func New(stack *node.Node, config *zondconfig.Config) (*Zond, error) {
 		return nil, err
 	}
 
-	zond.miner = miner.New(zond, &config.Miner, zond.blockchain.Config(), zond.EventMux(), zond.engine, zond.isLocalBlock)
+	zond.miner = miner.New(zond, config.Miner, zond.engine)
 	zond.miner.SetExtra(makeExtraData(config.Miner.ExtraData))
 
 	zond.APIBackend = &ZondAPIBackend{stack.Config().ExtRPCEnabled(), zond, nil}
@@ -279,9 +280,6 @@ func (s *Zond) APIs() []rpc.API {
 	// Append all the local APIs and return
 	return append(apis, []rpc.API{
 		{
-			Namespace: "zond",
-			Service:   NewZondAPI(s),
-		}, {
 			Namespace: "miner",
 			Service:   NewMinerAPI(s),
 		}, {
@@ -304,62 +302,6 @@ func (s *Zond) ResetWithGenesisBlock(gb *types.Block) {
 	s.blockchain.ResetWithGenesisBlock(gb)
 }
 
-func (s *Zond) Etherbase() (eb common.Address, err error) {
-	s.lock.RLock()
-	etherbase := s.etherbase
-	s.lock.RUnlock()
-
-	if etherbase != (common.Address{}) {
-		return etherbase, nil
-	}
-	return common.Address{}, errors.New("etherbase must be explicitly specified")
-}
-
-// isLocalBlock checks whether the specified block is mined
-// by local miner accounts.
-//
-// We regard two types of accounts as local miner account: etherbase
-// and accounts specified via `txpool.locals` flag.
-func (s *Zond) isLocalBlock(header *types.Header) bool {
-	author, err := s.engine.Author(header)
-	if err != nil {
-		log.Warn("Failed to retrieve block author", "number", header.Number.Uint64(), "hash", header.Hash(), "err", err)
-		return false
-	}
-	// Check whether the given address is etherbase.
-	s.lock.RLock()
-	etherbase := s.etherbase
-	s.lock.RUnlock()
-	if author == etherbase {
-		return true
-	}
-	// Check whether the given address is specified by `txpool.local`
-	// CLI flag.
-	for _, account := range s.config.TxPool.Locals {
-		if account == author {
-			return true
-		}
-	}
-	return false
-}
-
-// shouldPreserve checks whether we should preserve the given block
-// during the chain reorg depending on whether the author of block
-// is a local account.
-func (zond *Zond) shouldPreserve(header *types.Header) bool {
-	return zond.isLocalBlock(header)
-}
-
-// SetEtherbase sets the mining reward address.
-func (zond *Zond) SetEtherbase(etherbase common.Address) {
-	zond.lock.Lock()
-	zond.etherbase = etherbase
-	zond.lock.Unlock()
-
-	zond.miner.SetEtherbase(etherbase)
-}
-
-func (s *Zond) IsMining() bool      { return s.miner.Mining() }
 func (s *Zond) Miner() *miner.Miner { return s.miner }
 
 func (s *Zond) AccountManager() *accounts.Manager  { return s.accountManager }
@@ -416,7 +358,6 @@ func (s *Zond) Stop() error {
 	s.bloomIndexer.Close()
 	close(s.closeBloomHandler)
 	s.txPool.Close()
-	s.miner.Close()
 	s.blockchain.Stop()
 	s.engine.Close()
 

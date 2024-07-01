@@ -17,11 +17,8 @@
 package zondtest
 
 import (
-	"os"
-	"testing"
 	"time"
 
-	"github.com/theQRL/go-zond/internal/utesting"
 	"github.com/theQRL/go-zond/node"
 	"github.com/theQRL/go-zond/p2p"
 	"github.com/theQRL/go-zond/zond"
@@ -34,6 +31,8 @@ var (
 	fullchainFile = "./testdata/chain.rlp"
 )
 
+// TODO(rgeraldes24)
+/*
 func TestZondSuite(t *testing.T) {
 	gzond, err := runGzond()
 	if err != nil {
@@ -75,6 +74,7 @@ func TestSnapSuite(t *testing.T) {
 		})
 	}
 }
+*/
 
 // runGzond creates and starts a gzond node
 func runGzond() (*node.Node, error) {

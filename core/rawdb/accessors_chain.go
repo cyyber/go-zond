@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"slices"
 
 	"github.com/theQRL/go-zond/common"
 	"github.com/theQRL/go-zond/core/types"
@@ -30,7 +31,6 @@ import (
 	"github.com/theQRL/go-zond/params"
 	"github.com/theQRL/go-zond/rlp"
 	"github.com/theQRL/go-zond/zonddb"
-	"golang.org/x/exp/slices"
 )
 
 // ReadCanonicalHash retrieves the hash assigned to a canonical block number.

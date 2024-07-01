@@ -97,22 +97,6 @@ type storedReceiptRLP struct {
 	Logs              []*Log
 }
 
-// NewReceipt creates a barebone transaction receipt, copying the init fields.
-// Deprecated: create receipts using a struct literal instead.
-func NewReceipt(root []byte, failed bool, cumulativeGasUsed uint64) *Receipt {
-	r := &Receipt{
-		Type:              LegacyTxType,
-		PostState:         common.CopyBytes(root),
-		CumulativeGasUsed: cumulativeGasUsed,
-	}
-	if failed {
-		r.Status = ReceiptStatusFailed
-	} else {
-		r.Status = ReceiptStatusSuccessful
-	}
-	return r
-}
-
 // EncodeRLP implements rlp.Encoder, and flattens the consensus fields of a receipt
 // into an RLP stream. If no post state is present, byzantium fork is assumed.
 func (r *Receipt) EncodeRLP(w io.Writer) error {

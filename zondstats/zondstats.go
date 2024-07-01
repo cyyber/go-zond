@@ -39,7 +39,6 @@ import (
 	"github.com/theQRL/go-zond/core/types"
 	"github.com/theQRL/go-zond/event"
 	"github.com/theQRL/go-zond/log"
-	"github.com/theQRL/go-zond/miner"
 	"github.com/theQRL/go-zond/node"
 	"github.com/theQRL/go-zond/p2p"
 	"github.com/theQRL/go-zond/rpc"
@@ -74,9 +73,8 @@ type backend interface {
 // reporting to zondstats
 type fullNodeBackend interface {
 	backend
-	Miner() *miner.Miner
 	BlockByNumber(ctx context.Context, number rpc.BlockNumber) (*types.Block, error)
-	CurrentBlock() *types.Block
+	CurrentBlock() *types.Header
 	SuggestGasTipCap(ctx context.Context) (*big.Int, error)
 }
 
@@ -545,10 +543,12 @@ func (s *Service) reportLatency(conn *connWrapper) error {
 		return err
 	}
 	// Wait for the pong request to arrive back
+	timer := time.NewTimer(5 * time.Second)
+	defer timer.Stop()
 	select {
 	case <-s.pongCh:
 		// Pong delivered, report the latency
-	case <-time.After(5 * time.Second):
+	case <-timer.C:
 		// Ping timeout, abort
 		return errors.New("ping timed out")
 	}
@@ -590,6 +590,10 @@ func (s *Service) reportBlock(conn *connWrapper, block *types.Block) error {
 	// Gather the block details from the header or block chain
 	details := s.assembleBlockStats(block)
 
+	// Short circuit if the block detail is not available.
+	if details == nil {
+		return nil
+	}
 	// Assemble the block report and send it to the server
 	log.Trace("Sending new block to zondstats", "number", details.Number, "hash", details.Hash)
 
@@ -616,7 +620,13 @@ func (s *Service) assembleBlockStats(block *types.Block) *blockStats {
 	fullBackend, ok := s.backend.(fullNodeBackend)
 	if ok {
 		if block == nil {
-			block = fullBackend.CurrentBlock()
+			head := fullBackend.CurrentBlock()
+			block, _ = fullBackend.BlockByNumber(context.Background(), rpc.BlockNumber(head.Number.Uint64()))
+		}
+		// Short circuit if no block is available. It might happen when
+		// the blockchain is reorging.
+		if block == nil {
+			return nil
 		}
 		header = block.Header()
 
@@ -742,17 +752,16 @@ type nodeStats struct {
 	Uptime   int  `json:"uptime"`
 }
 
-// reportStats retrieves various stats about the node at the networking and
-// mining layer and reports it to the stats server.
+// reportStats retrieves various stats about the node at the networking layer
+// and reports it to the stats server.
 func (s *Service) reportStats(conn *connWrapper) error {
-	// Gather the syncing and mining infos from the local miner instance
+	// Gather the syncing infos from the local miner instance
 	var (
 		syncing  bool
 		gasprice int
 	)
 	// check if backend is a full node
-	fullBackend, ok := s.backend.(fullNodeBackend)
-	if ok {
+	if fullBackend, ok := s.backend.(fullNodeBackend); ok {
 		sync := fullBackend.SyncProgress()
 		syncing = fullBackend.CurrentHeader().Number.Uint64() >= sync.HighestBlock
 

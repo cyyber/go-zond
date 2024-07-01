@@ -76,10 +76,10 @@ make sure to use this feature with great caution!`,
 			// PublicKey: hex.EncodeToString(
 			// 	crypto.FromECDSAPub(&key.PrivateKey.PublicKey)),
 		}
-		if showPrivate {
-			// TODO(rgeraldes24)
-			// out.PrivateKey = hex.EncodeToString(crypto.FromECDSA(key.PrivateKey))
-		}
+		// TODO(rgeraldes24)
+		// if showPrivate {
+		// 	out.PrivateKey = hex.EncodeToString(crypto.FromECDSA(key.PrivateKey))
+		// }
 
 		if ctx.Bool(jsonFlag.Name) {
 			mustPrintJSON(out)

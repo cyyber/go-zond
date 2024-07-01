@@ -22,13 +22,13 @@ import (
 	"encoding/binary"
 	"fmt"
 	mrand "math/rand"
+	"slices"
 	"testing"
 
 	"github.com/theQRL/go-zond/common"
 	"github.com/theQRL/go-zond/core/rawdb"
 	"github.com/theQRL/go-zond/crypto"
 	"github.com/theQRL/go-zond/zonddb/memorydb"
-	"golang.org/x/exp/slices"
 )
 
 // Prng is a pseudo random number generator seeded by strong randomness.

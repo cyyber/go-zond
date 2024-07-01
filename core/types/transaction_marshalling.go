@@ -41,7 +41,6 @@ type txJSON struct {
 	AccessList           *AccessList     `json:"accessList,omitempty"`
 	PublicKey            *hexutil.Bytes  `json:"publicKey"`
 	Signature            *hexutil.Bytes  `json:"signature"`
-	YParity              *hexutil.Uint64 `json:"yParity,omitempty"`
 
 	// Only used for encoding:
 	Hash common.Hash `json:"hash"`

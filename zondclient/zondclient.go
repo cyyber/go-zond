@@ -108,7 +108,7 @@ func (ec *Client) PeerCount(ctx context.Context) (uint64, error) {
 	return uint64(result), err
 }
 
-// BlockReceipts returns the receipts of a given block number or hash
+// BlockReceipts returns the receipts of a given block number or hash.
 func (ec *Client) BlockReceipts(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) ([]*types.Receipt, error) {
 	var r []*types.Receipt
 	err := ec.c.CallContext(ctx, &r, "zond_getBlockReceipts", blockNrOrHash)
@@ -210,7 +210,7 @@ func (ec *Client) TransactionByHash(ctx context.Context, hash common.Hash) (tx *
 		return nil, false, err
 	} else if json == nil {
 		return nil, false, zond.NotFound
-	} else if r := json.tx.RawSignatureValue(); r == nil {
+	} else if sig := json.tx.RawSignatureValue(); sig == nil {
 		return nil, false, errors.New("server returned transaction without signature")
 	}
 	if json.From != nil && json.BlockHash != nil {
@@ -262,7 +262,7 @@ func (ec *Client) TransactionInBlock(ctx context.Context, blockHash common.Hash,
 	}
 	if json == nil {
 		return nil, zond.NotFound
-	} else if r := json.tx.RawSignatureValue(); r == nil {
+	} else if sig := json.tx.RawSignatureValue(); sig == nil {
 		return nil, errors.New("server returned transaction without signature")
 	}
 	if json.From != nil && json.BlockHash != nil {
@@ -276,10 +276,8 @@ func (ec *Client) TransactionInBlock(ctx context.Context, blockHash common.Hash,
 func (ec *Client) TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error) {
 	var r *types.Receipt
 	err := ec.c.CallContext(ctx, &r, "zond_getTransactionReceipt", txHash)
-	if err == nil {
-		if r == nil {
-			return nil, zond.NotFound
-		}
+	if err == nil && r == nil {
+		return nil, zond.NotFound
 	}
 	return r, err
 }
@@ -598,6 +596,15 @@ func toCallArg(msg zond.CallMsg) interface{} {
 	}
 	if msg.GasPrice != nil {
 		arg["gasPrice"] = (*hexutil.Big)(msg.GasPrice)
+	}
+	if msg.GasFeeCap != nil {
+		arg["maxFeePerGas"] = (*hexutil.Big)(msg.GasFeeCap)
+	}
+	if msg.GasTipCap != nil {
+		arg["maxPriorityFeePerGas"] = (*hexutil.Big)(msg.GasTipCap)
+	}
+	if msg.AccessList != nil {
+		arg["accessList"] = msg.AccessList
 	}
 	return arg
 }

@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"math/big"
 	"sync"
-	"time"
 
 	"github.com/theQRL/go-zond/common"
 	"github.com/theQRL/go-zond/consensus/beacon"
@@ -55,6 +54,8 @@ var testChainForkLightA, testChainForkLightB, testChainForkHeavy *testChain
 
 var pregenerated bool
 
+// TODO(rgeraldes24): fix
+/*
 func init() {
 	// Reduce some of the parameters to make the tester faster
 	fullMaxForkAncestry = 10000
@@ -115,6 +116,7 @@ func init() {
 	// Mark the chains pregenerated. Generating a new one will lead to a panic.
 	pregenerated = true
 }
+*/
 
 type testChain struct {
 	blocks []*types.Block
@@ -169,7 +171,8 @@ func (tc *testChain) generate(n int, seed byte, parent *types.Block, heavy bool)
 		// Include transactions to the miner to make blocks more interesting.
 		if parent == tc.blocks[0] && i%22 == 0 {
 			signer := types.MakeSigner(params.TestChainConfig)
-			tx, err := types.SignTx(types.NewTransaction(block.TxNonce(testAddress), common.Address{seed}, big.NewInt(1000), params.TxGas, block.BaseFee(), nil), signer, testKey)
+
+			tx, err := types.SignTx(types.NewTx(&types.DynamicFeeTx{Nonce: block.TxNonce(testAddress), To: &common.Address{seed}, Value: big.NewInt(1000), Gas: params.TxGas, Data: nil}), signer, testKey)
 			if err != nil {
 				panic(err)
 			}

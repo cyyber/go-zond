@@ -148,10 +148,8 @@ const schema string = `
         # Logs is a list of log entries emitted by this transaction. If the
         # transaction has not yet been mined, this field will be null.
         logs: [Log!]
-        r: BigInt!
-        s: BigInt!
-        v: BigInt!
-        yParity: Long
+        publicKey: Bytes!
+        signature: Bytes!
         # Envelope transaction support
         type: Long
         accessList: [AccessTuple!]
@@ -184,7 +182,7 @@ const schema string = `
         topics: [[Bytes32!]!]
     }
 
-    # Block is an Ethereum block.
+    # Block is a Zond block.
     type Block {
         # Number is the number of this block, starting at 0 for the genesis block.
         number: Long!
@@ -218,8 +216,8 @@ const schema string = `
         # LogsBloom is a bloom filter that can be used to check if a block may
         # contain log entries matching a filter.
         logsBloom: Bytes!
-        # MixHash is the hash that was used as an input to the PoW process.
-        mixHash: Bytes32!
+        # Random is the hash that was used as an input to the PoW process.
+        random: Bytes32!
         # Transactions is a list of transactions associated with this block. If
         # transactions are unavailable for this block, this field will be null.
         transactions: [Transaction!]
@@ -229,7 +227,7 @@ const schema string = `
         transactionAt(index: Long!): Transaction
         # Logs returns a filtered set of logs from this block.
         logs(filter: BlockFilterCriteria!): [Log!]!
-        # Account fetches an Ethereum account at the current block's state.
+        # Account fetches a Zond account at the current block's state.
         account(address: Address!): Account!
         # Call executes a local call operation at the current block's state.
         call(data: CallData!): CallResult
@@ -320,7 +318,7 @@ const schema string = `
         transactionCount: Long!
         # Transactions is a list of transactions in the current pending state.
         transactions: [Transaction!]
-        # Account fetches an Ethereum account for the pending state.
+        # Account fetches a Zond account for the pending state.
         account(address: Address!): Account!
         # Call executes a local call operation for the pending state.
         call(data: CallData!): CallResult
@@ -330,7 +328,7 @@ const schema string = `
     }
 
     type Query {
-        # Block fetches an Ethereum block by number or by hash. If neither is
+        # Block fetches a Zond block by number or by hash. If neither is
         # supplied, the most recent known block is returned.
         block(number: Long, hash: Bytes32): Block
         # Blocks returns all the blocks between two numbers, inclusive. If
