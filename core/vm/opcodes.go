@@ -212,10 +212,9 @@ const (
 	DELEGATECALL OpCode = 0xf4
 	CREATE2      OpCode = 0xf5
 
-	STATICCALL   OpCode = 0xfa
-	REVERT       OpCode = 0xfd
-	INVALID      OpCode = 0xfe
-	SELFDESTRUCT OpCode = 0xff
+	STATICCALL OpCode = 0xfa
+	REVERT     OpCode = 0xfd
+	INVALID    OpCode = 0xfe
 )
 
 // Since the opcodes aren't all in order we can't use a regular slice.
@@ -384,7 +383,6 @@ var opCodeToString = map[OpCode]string{
 	STATICCALL:   "STATICCALL",
 	REVERT:       "REVERT",
 	INVALID:      "INVALID",
-	SELFDESTRUCT: "SELFDESTRUCT",
 }
 
 func (op OpCode) String() string {
@@ -540,7 +538,6 @@ var stringToOp = map[string]OpCode{
 	"RETURN":         RETURN,
 	"REVERT":         REVERT,
 	"INVALID":        INVALID,
-	"SELFDESTRUCT":   SELFDESTRUCT,
 }
 
 // StringToOp finds the opcode whose name is stored in `str`.
