@@ -32,7 +32,7 @@ function ApproveTx(req) {
 	var limit = big.Newint("0xb1a2bc2ec50000")
 	var value = asBig(req.transaction.value);
 
-	if (req.transaction.to.toLowerCase() == "0xae967917c465db8578ca9024c205720b1a3651a9") && value.lt(limit)) {
+	if (req.transaction.to.toLowerCase() == "qae967917c465db8578ca9024c205720b1a3651a9") && value.lt(limit)) {
 		return "Approve"
 	}
 	// If we return "Reject", it will be rejected.
@@ -215,10 +215,10 @@ function OnApprovedTx(resp) {
 
 ```js
 function ApproveTx(r) {
-	if (r.transaction.from.toLowerCase() == "0x0000000000000000000000000000000000001337") {
+	if (r.transaction.from.toLowerCase() == "q0000000000000000000000000000000000001337") {
 		return "Approve"
 	}
-	if (r.transaction.from.toLowerCase() == "0x000000000000000000000000000000000000dead") {
+	if (r.transaction.from.toLowerCase() == "q000000000000000000000000000000000000dead") {
 		return "Reject"
 	}
 	// Otherwise goes to manual processing

@@ -134,7 +134,7 @@ func (*stateTest) Generate(r *rand.Rand, size int) reflect.Value {
 			if j == 0 {
 				// Always include a set balance action to make sure
 				// the state changes are not empty.
-				actions[i][j] = newStateTestAction(common.HexToAddress("0xdeadbeef"), r, 0)
+				actions[i][j] = newStateTestAction(common.HexToAddress("Qdeadbeef"), r, 0)
 				continue
 			}
 			actions[i][j] = newStateTestAction(addrs[r.Intn(len(addrs))], r, -1)

@@ -134,7 +134,7 @@ func newTestWorker(t *testing.T, chainConfig *params.ChainConfig, engine consens
 func TestBuildPayload(t *testing.T) {
 	var (
 		db        = rawdb.NewMemoryDatabase()
-		recipient = common.HexToAddress("0xdeadbeef")
+		recipient = common.HexToAddress("Qdeadbeef")
 	)
 	w, b := newTestWorker(t, params.TestChainConfig, beacon.NewFaker(), db, 0)
 

@@ -169,7 +169,7 @@ func (s *UIServerAPI) SetChainId(id math.HexOrDecimal64) math.HexOrDecimal64 {
 
 // Export returns encrypted private key associated with the given address in web3 keystore format.
 // Example
-// {"jsonrpc":"2.0","method":"clef_export","params":["0x19e7e376e7c213b7e7e7e46cc70a5dd086daff2a"], "id":4}
+// {"jsonrpc":"2.0","method":"clef_export","params":["Q19e7e376e7c213b7e7e7e46cc70a5dd086daff2a"], "id":4}
 func (s *UIServerAPI) Export(ctx context.Context, addr common.Address) (json.RawMessage, error) {
 	// Look up the wallet containing the requested signer
 	wallet, err := s.am.Find(accounts.Account{Address: addr})

@@ -85,7 +85,7 @@ Repeat password: {{.InputLine "foobar"}}
 Your new key was generated
 `)
 	gzond.ExpectRegexp(`
-Public address of the key:   0x[0-9a-fA-F]{40}
+Public address of the key:   Q[0-9a-fA-F]{40}
 Path of the secret key file: .*UTC--.+--[0-9a-f]{40}
 
 - You can share your public address with anyone. Others need it to interact with you.
@@ -187,7 +187,7 @@ undefined
 
 	wantMessages := []string{
 		"Unlocked account",
-		"=0x206f5f53D348954856a6D2cDe75Ad6381945fB46",
+		"=Q206f5f53D348954856a6D2cDe75Ad6381945fB46",
 	}
 	for _, m := range wantMessages {
 		if !strings.Contains(gzond.StderrText(), m) {
@@ -229,8 +229,8 @@ undefined
 
 	wantMessages := []string{
 		"Unlocked account",
-		"=0x2099d76D9a34cDd2694c4DC703930A6fBbc1d402",
-		"=0x206f5f53D348954856a6D2cDe75Ad6381945fB46",
+		"=Q2099d76D9a34cDd2694c4DC703930A6fBbc1d402",
+		"=Q206f5f53D348954856a6D2cDe75Ad6381945fB46",
 	}
 	for _, m := range wantMessages {
 		if !strings.Contains(gzond.StderrText(), m) {
@@ -250,8 +250,8 @@ undefined
 
 	wantMessages := []string{
 		"Unlocked account",
-		"=0x2099d76D9a34cDd2694c4DC703930A6fBbc1d402",
-		"=0x206f5f53D348954856a6D2cDe75Ad6381945fB46",
+		"=Q2099d76D9a34cDd2694c4DC703930A6fBbc1d402",
+		"=Q206f5f53D348954856a6D2cDe75Ad6381945fB46",
 	}
 	for _, m := range wantMessages {
 		if !strings.Contains(gzond.StderrText(), m) {
@@ -300,7 +300,7 @@ undefined
 
 	wantMessages := []string{
 		"Unlocked account",
-		"=0x205547bA6232eEc096770f7161d57dEA54FD13D0",
+		"=Q205547bA6232eEc096770f7161d57dEA54FD13D0",
 	}
 	for _, m := range wantMessages {
 		if !strings.Contains(gzond.StderrText(), m) {

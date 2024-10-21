@@ -32,6 +32,65 @@ var (
 	uint64T = reflect.TypeOf(Uint64(0))
 )
 
+// Bytes marshals/unmarshals as a JSON string with Q prefix.
+// The empty slice marshals as "Q".
+type AddressBytes []byte
+
+// MarshalText implements encoding.TextMarshaler
+func (b AddressBytes) MarshalText() ([]byte, error) {
+	result := make([]byte, len(b)*2+1)
+	copy(result, `Q`)
+	hex.Encode(result[1:], b)
+	return result, nil
+}
+
+// UnmarshalJSON implements json.Unmarshaler.
+func (b *AddressBytes) UnmarshalJSON(input []byte) error {
+	if !isString(input) {
+		return errNonString(bytesT)
+	}
+	return wrapTypeError(b.UnmarshalText(input[1:len(input)-1]), bytesT)
+}
+
+// UnmarshalText implements encoding.TextUnmarshaler.
+func (b *AddressBytes) UnmarshalText(input []byte) error {
+	raw, err := checkText(input, true)
+	if err != nil {
+		return err
+	}
+	dec := make([]byte, len(raw)/2)
+	if _, err = hex.Decode(dec, raw); err != nil {
+		err = mapError(err)
+	} else {
+		*b = dec
+	}
+	return err
+}
+
+// String returns the hex encoding of b.
+func (b AddressBytes) String() string {
+	return Encode(b)
+}
+
+// ImplementsGraphQLType returns true if Bytes implements the specified GraphQL type.
+func (b AddressBytes) ImplementsGraphQLType(name string) bool { return name == "Bytes" }
+
+// UnmarshalGraphQL unmarshals the provided GraphQL query data.
+func (b *AddressBytes) UnmarshalGraphQL(input interface{}) error {
+	var err error
+	switch input := input.(type) {
+	case string:
+		data, err := Decode(input)
+		if err != nil {
+			return err
+		}
+		*b = data
+	default:
+		err = fmt.Errorf("unexpected type %T for Bytes", input)
+	}
+	return err
+}
+
 // Bytes marshals/unmarshals as a JSON string with 0x prefix.
 // The empty slice marshals as "0x".
 type Bytes []byte
@@ -91,6 +150,7 @@ func (b *Bytes) UnmarshalGraphQL(input interface{}) error {
 	return err
 }
 
+// TODO(rgeraldes24): desc
 // UnmarshalFixedJSON decodes the input as a string with 0x prefix. The length of out
 // determines the required input length. This function is commonly used to implement the
 // UnmarshalJSON method for fixed-size types.
@@ -101,6 +161,15 @@ func UnmarshalFixedJSON(typ reflect.Type, input, out []byte) error {
 	return wrapTypeError(UnmarshalFixedText(typ.String(), input[1:len(input)-1], out), typ)
 }
 
+// TODO(rgeraldes24)
+func UnmarshalFixedJSONAddress(typ reflect.Type, input, out []byte) error {
+	if !isString(input) {
+		return errNonString(typ)
+	}
+	return wrapTypeError(UnmarshalFixedTextAddress(typ.String(), input[1:len(input)-1], out), typ)
+}
+
+// TODO(rgeraldes24): desc
 // UnmarshalFixedText decodes the input as a string with 0x prefix. The length of out
 // determines the required input length. This function is commonly used to implement the
 // UnmarshalText method for fixed-size types.
@@ -122,11 +191,50 @@ func UnmarshalFixedText(typname string, input, out []byte) error {
 	return nil
 }
 
+func UnmarshalFixedTextAddress(typname string, input, out []byte) error {
+	raw, err := checkTextAddress(input, true)
+	if err != nil {
+		return err
+	}
+	if len(raw)/2 != len(out) {
+		return fmt.Errorf("hex string has length %d, want %d for %s", len(raw), len(out)*2, typname)
+	}
+	// Pre-verify syntax before modifying out.
+	for _, b := range raw {
+		if decodeNibble(b) == badNibble {
+			return ErrSyntax
+		}
+	}
+	hex.Decode(out, raw)
+	return nil
+}
+
 // UnmarshalFixedUnprefixedText decodes the input as a string with optional 0x prefix. The
 // length of out determines the required input length. This function is commonly used to
 // implement the UnmarshalText method for fixed-size types.
 func UnmarshalFixedUnprefixedText(typname string, input, out []byte) error {
 	raw, err := checkText(input, false)
+	if err != nil {
+		return err
+	}
+	if len(raw)/2 != len(out) {
+		return fmt.Errorf("hex string has length %d, want %d for %s", len(raw), len(out)*2, typname)
+	}
+	// Pre-verify syntax before modifying out.
+	for _, b := range raw {
+		if decodeNibble(b) == badNibble {
+			return ErrSyntax
+		}
+	}
+	hex.Decode(out, raw)
+	return nil
+}
+
+// UnmarshalFixedUnprefixedTextAddress decodes the input as a string with optional 0x prefix. The
+// length of out determines the required input length. This function is commonly used to
+// implement the UnmarshalText method for fixed-size types.
+func UnmarshalFixedUnprefixedTextAddress(typname string, input, out []byte) error {
+	raw, err := checkTextAddress(input, false)
 	if err != nil {
 		return err
 	}
@@ -332,6 +440,10 @@ func bytesHave0xPrefix(input []byte) bool {
 	return len(input) >= 2 && input[0] == '0' && (input[1] == 'x' || input[1] == 'X')
 }
 
+func bytesHaveQPrefix(input []byte) bool {
+	return len(input) >= 1 && input[0] == 'Q'
+}
+
 func checkText(input []byte, wantPrefix bool) ([]byte, error) {
 	if len(input) == 0 {
 		return nil, nil // empty strings are allowed
@@ -340,6 +452,21 @@ func checkText(input []byte, wantPrefix bool) ([]byte, error) {
 		input = input[2:]
 	} else if wantPrefix {
 		return nil, ErrMissingPrefix
+	}
+	if len(input)%2 != 0 {
+		return nil, ErrOddLength
+	}
+	return input, nil
+}
+
+func checkTextAddress(input []byte, wantPrefix bool) ([]byte, error) {
+	if len(input) == 0 {
+		return nil, nil // empty strings are allowed
+	}
+	if bytesHaveQPrefix(input) {
+		input = input[1:]
+	} else if wantPrefix {
+		return nil, ErrMissingQPrefix
 	}
 	if len(input)%2 != 0 {
 		return nil, ErrOddLength

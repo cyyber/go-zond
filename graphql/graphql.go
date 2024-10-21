@@ -54,6 +54,7 @@ func (b *Long) UnmarshalGraphQL(input interface{}) error {
 	var err error
 	switch input := input.(type) {
 	case string:
+		// TODO(rgeraldes24): address?
 		// uncomment to support hex values
 		if strings.HasPrefix(input, "0x") {
 			// apply leniency and support hex representations of longs.

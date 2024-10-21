@@ -93,7 +93,7 @@ Approve? [y/N]:
 Depending on whether we approve or deny the request, the original NetCat process will get:
 
 ```text
-{"jsonrpc":"2.0","id":1,"result":["0xd9c9cd5f6779558b6e0ed4e6acf6b1947e7fa1f3","0x086278a6c067775f71d6b2bb1856db6e28c30418"]}
+{"jsonrpc":"2.0","id":1,"result":["d9c9cd5f6779558b6e0ed4e6acf6b1947e7fa1f3","086278a6c067775f71d6b2bb1856db6e28c30418"]}
 
 or
 
@@ -153,7 +153,7 @@ Any account listing *request* will now be auto-approved by the rule file:
 
 ```text
 $ echo '{"id": 1, "jsonrpc": "2.0", "method": "account_list"}' | nc -U ~/.clef/clef.ipc
-{"jsonrpc":"2.0","id":1,"result":["0xd9c9cd5f6779558b6e0ed4e6acf6b1947e7fa1f3","0x086278a6c067775f71d6b2bb1856db6e28c30418"]}
+{"jsonrpc":"2.0","id":1,"result":["d9c9cd5f6779558b6e0ed4e6acf6b1947e7fa1f3","086278a6c067775f71d6b2bb1856db6e28c30418"]}
 ```
 
 ## Under the hood
@@ -199,7 +199,7 @@ Repeat password:
 
 Decrypt master seed of clef
 Password:
-INFO [07-01|14:05:56.031] Credential store updated                 key=0xd9c9cd5f6779558b6e0ed4e6acf6b1947e7fa1f3
+INFO [07-01|14:05:56.031] Credential store updated                 key=Qd9c9cd5f6779558b6e0ed4e6acf6b1947e7fa1f3
 ```
 
 Now let's update the rules to make use of the new credentials:
@@ -210,7 +210,7 @@ function ApproveListing() {
 }
 
 function ApproveSignData(req) {
-    if (req.address.toLowerCase() == "0xd9c9cd5f6779558b6e0ed4e6acf6b1947e7fa1f3") {
+    if (req.address.toLowerCase() == "qd9c9cd5f6779558b6e0ed4e6acf6b1947e7fa1f3") {
         if (req.messages[0].value.indexOf("bazonk") >= 0) {
             return "Approve"
         }
@@ -265,10 +265,10 @@ INFO [07-01|14:12:41.638] IPC endpoint opened                      url=$HOME/.cl
 Then test signing, once with `bazonk` and once without:
 
 ```
-$ echo '{"id": 1, "jsonrpc":"2.0", "method":"account_signData", "params":["data/plain", "0xd9c9cd5f6779558b6e0ed4e6acf6b1947e7fa1f3", "0x202062617a6f6e6b2062617a2067617a0a"]}' | nc -U ~/.clef/clef.ipc
+$ echo '{"id": 1, "jsonrpc":"2.0", "method":"account_signData", "params":["data/plain", "Qd9c9cd5f6779558b6e0ed4e6acf6b1947e7fa1f3", "0x202062617a6f6e6b2062617a2067617a0a"]}' | nc -U ~/.clef/clef.ipc
 {"jsonrpc":"2.0","id":1,"result":"0x4f93e3457027f6be99b06b3392d0ebc60615ba448bb7544687ef1248dea4f5317f789002df783979c417d969836b6fda3710f5bffb296b4d51c8aaae6e2ac4831c"}
 
-$ echo '{"id": 1, "jsonrpc":"2.0", "method":"account_signData", "params":["data/plain", "0xd9c9cd5f6779558b6e0ed4e6acf6b1947e7fa1f3", "0x2020626f6e6b2062617a2067617a0a"]}' | nc -U ~/.clef/clef.ipc
+$ echo '{"id": 1, "jsonrpc":"2.0", "method":"account_signData", "params":["data/plain", "Qd9c9cd5f6779558b6e0ed4e6acf6b1947e7fa1f3", "0x2020626f6e6b2062617a2067617a0a"]}' | nc -U ~/.clef/clef.ipc
 {"jsonrpc":"2.0","id":1,"error":{"code":-32000,"message":"Request denied"}}
 ```
 
@@ -282,9 +282,9 @@ The signer also stores all traffic over the external API in a log file. The last
 
 ```text
 $ tail -n 4 audit.log
-t=2019-07-01T15:52:14+0300 lvl=info msg=SignData   api=signer type=request  metadata="{\"remote\":\"NA\",\"local\":\"NA\",\"scheme\":\"NA\",\"User-Agent\":\"\",\"Origin\":\"\"}" addr="0xd9c9cd5f6779558b6e0ed4e6acf6b1947e7fa1f3 [chksum INVALID]" data=0x202062617a6f6e6b2062617a2067617a0a content-type=data/plain
+t=2019-07-01T15:52:14+0300 lvl=info msg=SignData   api=signer type=request  metadata="{\"remote\":\"NA\",\"local\":\"NA\",\"scheme\":\"NA\",\"User-Agent\":\"\",\"Origin\":\"\"}" addr="Qd9c9cd5f6779558b6e0ed4e6acf6b1947e7fa1f3 [chksum INVALID]" data=0x202062617a6f6e6b2062617a2067617a0a content-type=data/plain
 t=2019-07-01T15:52:14+0300 lvl=info msg=SignData   api=signer type=response data=4f93e3457027f6be99b06b3392d0ebc60615ba448bb7544687ef1248dea4f5317f789002df783979c417d969836b6fda3710f5bffb296b4d51c8aaae6e2ac4831c error=nil
-t=2019-07-01T15:52:23+0300 lvl=info msg=SignData   api=signer type=request  metadata="{\"remote\":\"NA\",\"local\":\"NA\",\"scheme\":\"NA\",\"User-Agent\":\"\",\"Origin\":\"\"}" addr="0xd9c9cd5f6779558b6e0ed4e6acf6b1947e7fa1f3 [chksum INVALID]" data=0x2020626f6e6b2062617a2067617a0a     content-type=data/plain
+t=2019-07-01T15:52:23+0300 lvl=info msg=SignData   api=signer type=request  metadata="{\"remote\":\"NA\",\"local\":\"NA\",\"scheme\":\"NA\",\"User-Agent\":\"\",\"Origin\":\"\"}" addr="Qd9c9cd5f6779558b6e0ed4e6acf6b1947e7fa1f3 [chksum INVALID]" data=0x2020626f6e6b2062617a2067617a0a     content-type=data/plain
 t=2019-07-01T15:52:23+0300 lvl=info msg=SignData   api=signer type=response data=                                     error="Request denied"
 ```
 
@@ -308,15 +308,15 @@ In a different window we can start Gzond, list our accounts, even list our walle
 $ gzond --rinkeby --signer=~/.clef/clef.ipc console
 
 > zond.accounts
-["0xd9c9cd5f6779558b6e0ed4e6acf6b1947e7fa1f3", "0x086278a6c067775f71d6b2bb1856db6e28c30418"]
+["Qd9c9cd5f6779558b6e0ed4e6acf6b1947e7fa1f3", "Q086278a6c067775f71d6b2bb1856db6e28c30418"]
 
 > personal.listWallets
 [{
     accounts: [{
-        address: "0xd9c9cd5f6779558b6e0ed4e6acf6b1947e7fa1f3",
+        address: "Qd9c9cd5f6779558b6e0ed4e6acf6b1947e7fa1f3",
         url: "extapi://$HOME/.clef/clef.ipc"
     }, {
-        address: "0x086278a6c067775f71d6b2bb1856db6e28c30418",
+        address: "Q086278a6c067775f71d6b2bb1856db6e28c30418",
         url: "extapi://$HOME/.clef/clef.ipc"
     }],
     status: "ok [version=6.0.0]",
@@ -330,8 +330,8 @@ Lastly, when we requested a transaction to be sent, Clef prompted us in the orig
 
 ```text
 --------- Transaction request-------------
-to:           0xD9C9Cd5f6779558b6e0eD4e6Acf6b1947E7fA1F3
-from:         0xD9C9Cd5f6779558b6e0eD4e6Acf6b1947E7fA1F3 [chksum ok]
+to:           QD9C9Cd5f6779558b6e0eD4e6Acf6b1947E7fA1F3
+from:         QD9C9Cd5f6779558b6e0eD4e6Acf6b1947E7fA1F3 [chksum ok]
 value:        0 wei
 gas:          0x5208 (21000)
 maxFeePerGas: 1000000000 wei

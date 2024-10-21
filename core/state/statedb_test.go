@@ -556,7 +556,7 @@ func TestCopyCommitCopy(t *testing.T) {
 	state, _ := New(types.EmptyRootHash, tdb, nil)
 
 	// Create an account and check if the retrieved balance is correct
-	addr := common.HexToAddress("0xaffeaffeaffeaffeaffeaffeaffeaffeaffeaffe")
+	addr := common.HexToAddress("Qaffeaffeaffeaffeaffeaffeaffeaffeaffeaffe")
 	skey := common.HexToHash("aaa")
 	sval := common.HexToHash("bbb")
 
@@ -629,7 +629,7 @@ func TestCopyCopyCommitCopy(t *testing.T) {
 	state, _ := New(types.EmptyRootHash, NewDatabase(rawdb.NewMemoryDatabase()), nil)
 
 	// Create an account and check if the retrieved balance is correct
-	addr := common.HexToAddress("0xaffeaffeaffeaffeaffeaffeaffeaffeaffeaffe")
+	addr := common.HexToAddress("Qaffeaffeaffeaffeaffeaffeaffeaffeaffeaffe")
 	skey := common.HexToHash("aaa")
 	sval := common.HexToHash("bbb")
 
@@ -698,7 +698,7 @@ func TestCommitCopy(t *testing.T) {
 	state, _ := New(types.EmptyRootHash, NewDatabase(rawdb.NewMemoryDatabase()), nil)
 
 	// Create an account and check if the retrieved balance is correct
-	addr := common.HexToAddress("0xaffeaffeaffeaffeaffeaffeaffeaffeaffeaffe")
+	addr := common.HexToAddress("Qaffeaffeaffeaffeaffeaffeaffeaffeaffeaffe")
 	skey := common.HexToHash("aaa")
 	sval := common.HexToHash("bbb")
 
@@ -1025,7 +1025,7 @@ func TestResetObject(t *testing.T) {
 		db       = NewDatabaseWithNodeDB(disk, tdb)
 		snaps, _ = snapshot.New(snapshot.Config{CacheSize: 10}, disk, tdb, types.EmptyRootHash)
 		state, _ = New(types.EmptyRootHash, db, snaps)
-		addr     = common.HexToAddress("0x1")
+		addr     = common.HexToAddress("Q1")
 		slotA    = common.HexToHash("0x1")
 		slotB    = common.HexToHash("0x2")
 	)
@@ -1059,7 +1059,7 @@ func TestDeleteStorage(t *testing.T) {
 		db       = NewDatabaseWithNodeDB(disk, tdb)
 		snaps, _ = snapshot.New(snapshot.Config{CacheSize: 10}, disk, tdb, types.EmptyRootHash)
 		state, _ = New(types.EmptyRootHash, db, snaps)
-		addr     = common.HexToAddress("0x1")
+		addr     = common.HexToAddress("Q1")
 	)
 	// Initialize account and populate storage
 	state.SetBalance(addr, big.NewInt(1))

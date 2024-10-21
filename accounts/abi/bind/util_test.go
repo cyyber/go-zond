@@ -42,13 +42,13 @@ var waitDeployedTests = map[string]struct {
 	"successful deploy": {
 		code:        `6060604052600a8060106000396000f360606040526008565b00`,
 		gas:         3000000,
-		wantAddress: common.HexToAddress("0xfe66B8AED6e4fb3e12d0B65f61ef246c4d0CfFFA"),
+		wantAddress: common.HexToAddress("Qfe66B8AED6e4fb3e12d0B65f61ef246c4d0CfFFA"),
 	},
 	"empty code": {
 		code:        ``,
 		gas:         300000,
 		wantErr:     bind.ErrNoCodeAfterDeploy,
-		wantAddress: common.HexToAddress("0xfe66B8AED6e4fb3e12d0B65f61ef246c4d0CfFFA"),
+		wantAddress: common.HexToAddress("Qfe66B8AED6e4fb3e12d0B65f61ef246c4d0CfFFA"),
 	},
 }
 
@@ -119,7 +119,7 @@ func TestWaitDeployedCornerCases(t *testing.T) {
 
 	// Create a transaction to an account.
 	code := "6060604052600a8060106000396000f360606040526008565b00"
-	to := common.HexToAddress("0x01")
+	to := common.HexToAddress("Q01")
 	tx := types.NewTx(&types.DynamicFeeTx{
 		Nonce:     0,
 		To:        &to,

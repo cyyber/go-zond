@@ -295,7 +295,7 @@ func TestTransactionCoding(t *testing.T) {
 	}
 	var (
 		signer    = NewShanghaiSigner(common.Big1)
-		addr      = common.HexToAddress("0x0000000000000000000000000000000000000001")
+		addr      = common.HexToAddress("Q0000000000000000000000000000000000000001")
 		recipient = common.HexToAddress("095e7baea6a6c7c4c2dfeb977efac326af552d87")
 		accesses  = AccessList{{Address: addr, StorageKeys: []common.Hash{{0}}}}
 	)
@@ -421,7 +421,7 @@ func assertEqual(orig *Transaction, cpy *Transaction) error {
 func TestTransactionSizes(t *testing.T) {
 	signer := NewShanghaiSigner(big.NewInt(123))
 	key, _ := pqcrypto.HexToDilithium("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-	to := common.HexToAddress("0x01")
+	to := common.HexToAddress("Q01")
 	for i, txdata := range []TxData{
 		&DynamicFeeTx{
 			ChainID:   big.NewInt(123),
@@ -432,7 +432,7 @@ func TestTransactionSizes(t *testing.T) {
 			Value:     big.NewInt(1),
 			AccessList: AccessList{
 				AccessTuple{
-					Address:     common.HexToAddress("0x01"),
+					Address:     common.HexToAddress("Q01"),
 					StorageKeys: []common.Hash{common.HexToHash("0x01")},
 				}},
 		},

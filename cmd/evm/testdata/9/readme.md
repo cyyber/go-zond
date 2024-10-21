@@ -31,16 +31,16 @@ We can also get the post-alloc:
 $ go run . t8n --state.fork=Shanghai --input.alloc=testdata/9/alloc.json --input.txs=testdata/9/txs.json --input.env=testdata/9/env.json --output.alloc=stdout 2>/dev/null
 {
   "alloc": {
-    "0x000000000000000000000000000000000000aaaa": {
+    "Q000000000000000000000000000000000000aaaa": {
       "code": "0x58585454",
       "balance": "0x3",
       "nonce": "0x1"
     },
-    "0x204cc644e26bdf879db422658edee62e302c3da8": {
+    "Q204cc644e26bdf879db422658edee62e302c3da8": {
       "balance": "0xffe6fc39d8c920",
       "nonce": "0x1"
     },
-    "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba": {
+    "Q2adc25665018aa1fe0e6bc666dac8fc2697ff9ba": {
       "balance": "0xd6e0"
     }
   }

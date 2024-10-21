@@ -42,8 +42,8 @@ import (
 var (
 	testKey, _   = pqcrypto.HexToDilithium("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
 	testAddr     = testKey.GetAddress()
-	testContract = common.HexToAddress("0xbeef")
-	testEmpty    = common.HexToAddress("0xeeee")
+	testContract = common.HexToAddress("Qbeef")
+	testEmpty    = common.HexToAddress("Qeeee")
 	testSlot     = common.HexToHash("0xdeadbeef")
 	testValue    = crypto.Keccak256Hash(testSlot[:])
 	testBalance  = big.NewInt(2e15)
@@ -221,7 +221,7 @@ func testAccessList(t *testing.T, client *rpc.Client) {
 		t.Fatalf("unexpected length of accesslist: %v", len(*al))
 	}
 	// address changes between calls, so we can't test for it.
-	if (*al)[0].Address == common.HexToAddress("0x0") {
+	if (*al)[0].Address == common.HexToAddress("Q0") {
 		t.Fatalf("unexpected address: %v", (*al)[0].Address)
 	}
 	if (*al)[0].StorageKeys[0] != common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000081") {
@@ -299,7 +299,7 @@ func testGetProofCanonicalizeKeys(t *testing.T, client *rpc.Client) {
 }
 
 func testGetProofNonExistent(t *testing.T, client *rpc.Client) {
-	addr := common.HexToAddress("0x0001")
+	addr := common.HexToAddress("Q0001")
 	ec := New(client)
 	result, err := ec.GetProof(context.Background(), addr, nil, nil)
 	if err != nil {
@@ -497,14 +497,14 @@ func TestOverrideAccountMarshal(t *testing.T) {
 	}
 
 	expected := `{
-  "0x1100000000000000000000000000000000000000": {},
-  "0xaa00000000000000000000000000000000000000": {
+  "Q1100000000000000000000000000000000000000": {},
+  "Qaa00000000000000000000000000000000000000": {
     "nonce": "0x5"
   },
-  "0xbb00000000000000000000000000000000000000": {
+  "Qbb00000000000000000000000000000000000000": {
     "code": "0x01"
   },
-  "0xcc00000000000000000000000000000000000000": {
+  "Qcc00000000000000000000000000000000000000": {
     "code": "0x",
     "balance": "0x0",
     "state": {}
@@ -528,9 +528,9 @@ func TestBlockOverridesMarshal(t *testing.T) {
 		},
 		{
 			bo: BlockOverrides{
-				Coinbase: common.HexToAddress("0x1111111111111111111111111111111111111111"),
+				Coinbase: common.HexToAddress("Q1111111111111111111111111111111111111111"),
 			},
-			want: `{"coinbase":"0x1111111111111111111111111111111111111111"}`,
+			want: `{"coinbase":"Q1111111111111111111111111111111111111111"}`,
 		},
 		{
 			bo: BlockOverrides{
@@ -571,19 +571,19 @@ func testCallContractWithBlockOverrides(t *testing.T, client *rpc.Client) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if !bytes.Equal(res, common.FromHex("0x0000000000000000000000000000000000000000")) {
+	if !bytes.Equal(res, common.FromHexAddress("Q0000000000000000000000000000000000000000")) {
 		t.Fatalf("unexpected result: %x", res)
 	}
 
 	// Now test with block overrides
 	bo := BlockOverrides{
-		Coinbase: common.HexToAddress("0x1111111111111111111111111111111111111111"),
+		Coinbase: common.HexToAddress("Q1111111111111111111111111111111111111111"),
 	}
 	res, err = zc.CallContractWithBlockOverrides(context.Background(), msg, big.NewInt(0), &mapAcc, bo)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if !bytes.Equal(res, common.FromHex("0x1111111111111111111111111111111111111111")) {
+	if !bytes.Equal(res, common.FromHexAddress("Q1111111111111111111111111111111111111111")) {
 		t.Fatalf("unexpected result: %x", res)
 	}
 }

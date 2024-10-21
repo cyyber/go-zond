@@ -900,7 +900,7 @@ func testExternalUI(api *core.SignerAPI) {
 	ctx = context.WithValue(ctx, "local", "main")
 	errs := make([]string, 0)
 
-	a := common.HexToAddress("0xdeadbeef000000000000000000000000deadbeef")
+	a := common.HexToAddress("Qdeadbeef000000000000000000000000deadbeef")
 	addErr := func(errStr string) {
 		log.Info("Test error", "err", errStr)
 		errs = append(errs, errStr)
@@ -945,8 +945,8 @@ func testExternalUI(api *core.SignerAPI) {
 	{ // Sign data test - typed data
 		api.UI.ShowInfo("Please approve the next request for signing EIP-712 typed data")
 		time.Sleep(delay)
-		addr, _ := common.NewMixedcaseAddressFromString("0x0011223344556677889900112233445566778899")
-		data := `{"types":{"EIP712Domain":[{"name":"name","type":"string"},{"name":"version","type":"string"},{"name":"chainId","type":"uint256"},{"name":"verifyingContract","type":"address"}],"Person":[{"name":"name","type":"string"},{"name":"test","type":"uint8"},{"name":"wallet","type":"address"}],"Mail":[{"name":"from","type":"Person"},{"name":"to","type":"Person"},{"name":"contents","type":"string"}]},"primaryType":"Mail","domain":{"name":"Ether Mail","version":"1","chainId":"1","verifyingContract":"0xCCCcccccCCCCcCCCCCCcCcCccCcCCCcCcccccccC"},"message":{"from":{"name":"Cow","test":"3","wallet":"0xcD2a3d9F938E13CD947Ec05AbC7FE734Df8DD826"},"to":{"name":"Bob","wallet":"0xbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB","test":"2"},"contents":"Hello, Bob!"}}`
+		addr, _ := common.NewMixedcaseAddressFromString("Q0011223344556677889900112233445566778899")
+		data := `{"types":{"EIP712Domain":[{"name":"name","type":"string"},{"name":"version","type":"string"},{"name":"chainId","type":"uint256"},{"name":"verifyingContract","type":"address"}],"Person":[{"name":"name","type":"string"},{"name":"test","type":"uint8"},{"name":"wallet","type":"address"}],"Mail":[{"name":"from","type":"Person"},{"name":"to","type":"Person"},{"name":"contents","type":"string"}]},"primaryType":"Mail","domain":{"name":"Ether Mail","version":"1","chainId":"1","verifyingContract":"QCCCcccccCCCCcCCCCCCcCcCccCcCCCcCcccccccC"},"message":{"from":{"name":"Cow","test":"3","wallet":"QcD2a3d9F938E13CD947Ec05AbC7FE734Df8DD826"},"to":{"name":"Bob","wallet":"QbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB","test":"2"},"contents":"Hello, Bob!"}}`
 		// _, err := api.SignData(ctx, accounts.MimetypeTypedData, *addr, hexutil.Encode([]byte(data)))
 		var typedData apitypes.TypedData
 		json.Unmarshal([]byte(data), &typedData)
@@ -956,14 +956,14 @@ func testExternalUI(api *core.SignerAPI) {
 	{ // Sign data test - plain text
 		api.UI.ShowInfo("Please approve the next request for signing text")
 		time.Sleep(delay)
-		addr, _ := common.NewMixedcaseAddressFromString("0x0011223344556677889900112233445566778899")
+		addr, _ := common.NewMixedcaseAddressFromString("Q0011223344556677889900112233445566778899")
 		_, err := api.SignData(ctx, accounts.MimetypeTextPlain, *addr, hexutil.Encode([]byte("hello world")))
 		expectApprove("signdata - text", err)
 	}
 	{ // Sign data test - plain text reject
 		api.UI.ShowInfo("Please deny the next request for signing text")
 		time.Sleep(delay)
-		addr, _ := common.NewMixedcaseAddressFromString("0x0011223344556677889900112233445566778899")
+		addr, _ := common.NewMixedcaseAddressFromString("Q0011223344556677889900112233445566778899")
 		_, err := api.SignData(ctx, accounts.MimetypeTextPlain, *addr, hexutil.Encode([]byte("hello world")))
 		expectDeny("signdata - text", err)
 	}
@@ -1048,8 +1048,8 @@ func decryptSeed(keyjson []byte, auth string) ([]byte, error) {
 // GenDoc outputs examples of all structures used in json-rpc communication
 func GenDoc(ctx *cli.Context) error {
 	var (
-		a    = common.HexToAddress("0xdeadbeef000000000000000000000000deadbeef")
-		b    = common.HexToAddress("0x1111111122222222222233333333334444444444")
+		a    = common.HexToAddress("Qdeadbeef000000000000000000000000deadbeef")
+		b    = common.HexToAddress("Q1111111122222222222233333333334444444444")
 		meta = core.Metadata{
 			Scheme:    "http",
 			Local:     "localhost:8545",
@@ -1154,7 +1154,7 @@ func GenDoc(ctx *cli.Context) error {
 			"\n\n" +
 			"The `OnApproved` method cannot be responded to, it's purely informative"
 
-		rlpdata := common.FromHex("0xf85d640101948a8eafb1cf62bfbeb1741769dae1a9dd47996192018026a0716bd90515acb1e68e5ac5867aa11a1e65399c3349d479f5fb698554ebc6f293a04e8a4ebfff434e971e0ef12c5bf3a881b06fd04fc3f8b8a7291fb67a26a1d4ed")
+		rlpdata := common.FromHex("Qf85d640101948a8eafb1cf62bfbeb1741769dae1a9dd47996192018026a0716bd90515acb1e68e5ac5867aa11a1e65399c3349d479f5fb698554ebc6f293a04e8a4ebfff434e971e0ef12c5bf3a881b06fd04fc3f8b8a7291fb67a26a1d4ed")
 		var tx types.Transaction
 		tx.UnmarshalBinary(rlpdata)
 		add("OnApproved - SignTransactionResult", desc, &zondapi.SignTransactionResult{Raw: rlpdata, Tx: &tx})
@@ -1181,7 +1181,7 @@ func GenDoc(ctx *cli.Context) error {
 			&core.ListResponse{
 				Accounts: []accounts.Account{
 					{
-						Address: common.HexToAddress("0xcowbeef000000cowbeef00000000000000000c0w"),
+						Address: common.HexToAddress("Qcowbeef000000cowbeef00000000000000000c0w"),
 						URL:     accounts.URL{Path: ".. ignored .."},
 					},
 					{

@@ -2228,7 +2228,7 @@ func benchmarkLargeNumberOfValueToNonexisting(b *testing.B, numTxs, numBlocks in
 			Config: params.TestChainConfig,
 			Alloc: GenesisAlloc{
 				testBankAddress: {Balance: bankFunds},
-				common.HexToAddress("0xc0de"): {
+				common.HexToAddress("Qc0de"): {
 					Code:    []byte{0x60, 0x01, 0x50},
 					Balance: big.NewInt(0),
 				}, // push 1, pop
@@ -2349,7 +2349,7 @@ func testInitThenFailCreateContract(t *testing.T, scheme string) {
 		key, _  = pqcrypto.HexToDilithium("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
 		address = key.GetAddress()
 		funds   = big.NewInt(1000000000000000)
-		bb      = common.HexToAddress("0x000000000000000000000000000000000000bbbb")
+		bb      = common.HexToAddress("Q000000000000000000000000000000000000bbbb")
 	)
 
 	// The bb-code needs to CREATE2 the aa contract. It consists of
@@ -2464,7 +2464,7 @@ func TestEIP2718Transition(t *testing.T) {
 
 func testEIP2718Transition(t *testing.T, scheme string) {
 	var (
-		aa     = common.HexToAddress("0x000000000000000000000000000000000000aaaa")
+		aa     = common.HexToAddress("Q000000000000000000000000000000000000aaaa")
 		engine = beacon.NewFaker()
 
 		// A sender who makes transactions, has some funds
@@ -2546,7 +2546,7 @@ func TestEIP1559Transition(t *testing.T) {
 
 func testEIP1559Transition(t *testing.T, scheme string) {
 	var (
-		aa     = common.HexToAddress("0x000000000000000000000000000000000000aaaa")
+		aa     = common.HexToAddress("Q000000000000000000000000000000000000aaaa")
 		engine = beacon.NewFaker()
 
 		// A sender who makes transactions, has some funds
@@ -2906,7 +2906,7 @@ func TestTxIndexer(t *testing.T) {
 		nonce  = uint64(0)
 	)
 	_, blocks, receipts := GenerateChainWithGenesis(gspec, engine, 128, func(i int, gen *BlockGen) {
-		to := common.HexToAddress("0xdeadbeef")
+		to := common.HexToAddress("Qdeadbeef")
 		tx := types.NewTx(&types.DynamicFeeTx{
 			Nonce:     nonce,
 			To:        &to,
@@ -3107,8 +3107,8 @@ func TestTxIndexer(t *testing.T) {
 
 func TestEIP3651(t *testing.T) {
 	var (
-		aa     = common.HexToAddress("0x000000000000000000000000000000000000aaaa")
-		bb     = common.HexToAddress("0x000000000000000000000000000000000000bbbb")
+		aa     = common.HexToAddress("Q000000000000000000000000000000000000aaaa")
+		bb     = common.HexToAddress("Q000000000000000000000000000000000000bbbb")
 		engine = beacon.NewFaker()
 
 		// A sender who makes transactions, has some funds

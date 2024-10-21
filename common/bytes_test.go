@@ -67,6 +67,15 @@ func TestFromHex(t *testing.T) {
 	}
 }
 
+func TestFromHexAddress(t *testing.T) {
+	input := "Q01"
+	expected := []byte{1}
+	result := FromHexAddress(input)
+	if !bytes.Equal(expected, result) {
+		t.Errorf("Expected %x got %x", expected, result)
+	}
+}
+
 func TestIsHex(t *testing.T) {
 	tests := []struct {
 		input string

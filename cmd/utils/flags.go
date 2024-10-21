@@ -197,6 +197,7 @@ var (
 		Name:  "nocode",
 		Usage: "Exclude contract code (save db lookups)",
 	}
+	// TODO(rgeraldes24): hash or address
 	StartKeyFlag = &cli.StringFlag{
 		Name:  "start",
 		Usage: "Start position. Either a hash or address",
@@ -404,7 +405,7 @@ var (
 	}
 	MinerPendingFeeRecipientFlag = &cli.StringFlag{
 		Name:     "miner.pending.feeRecipient",
-		Usage:    "0x prefixed public address for the pending block producer (not used for actual block production)",
+		Usage:    "Q prefixed public address for the pending block producer (not used for actual block production)",
 		Category: flags.MinerCategory,
 	}
 
@@ -1157,10 +1158,7 @@ func setEtherbase(ctx *cli.Context, cfg *zondconfig.Config) {
 	if !ctx.IsSet(MinerPendingFeeRecipientFlag.Name) {
 		return
 	}
-	addr := ctx.String(MinerPendingFeeRecipientFlag.Name)
-	if strings.HasPrefix(addr, "0x") || strings.HasPrefix(addr, "0X") {
-		addr = addr[2:]
-	}
+	addr := strings.TrimPrefix(ctx.String(MinerPendingFeeRecipientFlag.Name), "Q")
 	b, err := hex.DecodeString(addr)
 	if err != nil || len(b) != common.AddressLength {
 		Fatalf("-%s: invalid pending block producer address %q", MinerPendingFeeRecipientFlag.Name, addr)

@@ -101,7 +101,7 @@ func TestExecute(t *testing.T) {
 
 func TestCall(t *testing.T) {
 	state, _ := state.New(types.EmptyRootHash, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
-	address := common.HexToAddress("0x0a")
+	address := common.HexToAddress("Q0a")
 	state.SetCode(address, []byte{
 		byte(vm.PUSH1), 10,
 		byte(vm.PUSH1), 0,
@@ -202,7 +202,7 @@ func BenchmarkEVM_CREATE2_1200(bench *testing.B) {
 
 func fakeHeader(n uint64, parentHash common.Hash) *types.Header {
 	header := types.Header{
-		Coinbase:   common.HexToAddress("0x00000000000000000000000000000000deadbeef"),
+		Coinbase:   common.HexToAddress("Q00000000000000000000000000000000deadbeef"),
 		Number:     big.NewInt(int64(n)),
 		ParentHash: parentHash,
 		Time:       1000,
@@ -755,15 +755,15 @@ func TestRuntimeJSTracer(t *testing.T) {
 		byte(vm.PUSH1), 0,
 		byte(vm.RETURN),
 	}
-	main := common.HexToAddress("0xaa")
+	main := common.HexToAddress("Qaa")
 	for i, jsTracer := range jsTracers {
 		for j, tc := range tests {
 			statedb, _ := state.New(types.EmptyRootHash, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
 			statedb.SetCode(main, tc.code)
-			statedb.SetCode(common.HexToAddress("0xbb"), calleeCode)
-			statedb.SetCode(common.HexToAddress("0xcc"), calleeCode)
-			statedb.SetCode(common.HexToAddress("0xdd"), calleeCode)
-			statedb.SetCode(common.HexToAddress("0xee"), calleeCode)
+			statedb.SetCode(common.HexToAddress("Qbb"), calleeCode)
+			statedb.SetCode(common.HexToAddress("Qcc"), calleeCode)
+			statedb.SetCode(common.HexToAddress("Qdd"), calleeCode)
+			statedb.SetCode(common.HexToAddress("Qee"), calleeCode)
 
 			tracer, err := tracers.DefaultDirectory.New(jsTracer, new(tracers.Context), nil)
 			if err != nil {
