@@ -45,7 +45,7 @@ Command line params that need to be supported are
     --output.result value          (default: "result.json")
     --state.chainid value          (default: 1)
     --state.reward value           (default: 0)
-    --state.fork value             (default: "Shanghai")
+    --state.fork value             (default: "Shanghai") // TODO(now.youtrack.cloud/issue/TGZ-32)
     --trace.memory                 (default: false)
     --trace.nomemory               (default: true)
     --trace.noreturndata           (default: true)

@@ -36,5 +36,3 @@ build/_vendor/pkg
 
 **/yarn-error.log
 logs/
-
-tests/spec-tests/

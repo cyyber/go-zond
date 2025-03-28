@@ -578,8 +578,7 @@ func TestCall(t *testing.T) {
 		// Successful simple contract call
 		//
 		// // SPDX-License-Identifier: GPL-3.0
-		// // TODO(now.youtrack.cloud/issue/TGZ-30)
-		//  pragma hyperion >=0.7.0 <0.8.0;
+		//  pragma hyperion >=0.1.0;
 		//
 		//  /**
 		//   * @title Storage
@@ -1141,8 +1140,7 @@ func setupReceiptBackend(t *testing.T, genBlocks int) (*testBackend, []common.Ha
 				acc1Addr: {Balance: big.NewInt(params.Ether)},
 				acc2Addr: {Balance: big.NewInt(params.Ether)},
 				// // SPDX-License-Identifier: GPL-3.0
-				// // TODO(now.youtrack.cloud/issue/TGZ-30)
-				// pragma hyperion >=0.7.0 <0.9.0;
+				// pragma hyperion >=0.1.0;
 				//
 				// contract Token {
 				//     event Transfer(address indexed from, address indexed to, uint256 value);

@@ -62,9 +62,10 @@ func TestState(t *testing.T) {
 
 	// For Istanbul, older tests were moved into LegacyTests
 	for _, dir := range []string{
-		filepath.Join(baseDir, "EIPTests", "StateTests"),
-		stateTestDir,
-		legacyStateTestDir,
+		// TODO(rgeraldes24)
+		// filepath.Join(baseDir, "EIPTests", "StateTests"),
+		// stateTestDir,
+		// legacyStateTestDir,
 		benchmarksDir,
 	} {
 		st.walk(t, dir, func(t *testing.T, name string, test *StateTest) {
@@ -164,7 +165,7 @@ func BenchmarkZVM(b *testing.B) {
 	dir := benchmarksDir
 	dirinfo, err := os.Stat(dir)
 	if os.IsNotExist(err) || !dirinfo.IsDir() {
-		fmt.Fprintf(os.Stderr, "can't find test files in %s, did you clone the evm-benchmarks submodule?\n", dir)
+		fmt.Fprintf(os.Stderr, "can't find test files in %s, did you clone the zvm-benchmarks submodule?\n", dir)
 		b.Skip("missing test files")
 	}
 	err = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {

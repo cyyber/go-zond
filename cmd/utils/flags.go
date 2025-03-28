@@ -740,7 +740,7 @@ var (
 	}
 	GpoMaxGasPriceFlag = &cli.Int64Flag{
 		Name:     "gpo.maxprice",
-		Usage:    "Maximum transaction priority fee (or gasprice before London fork) to be recommended by gpo",
+		Usage:    "Maximum transaction priority fee to be recommended by gpo",
 		Value:    zondconfig.Defaults.GPO.MaxPrice.Int64(),
 		Category: flags.GasPriceCategory,
 	}

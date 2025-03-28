@@ -117,6 +117,7 @@ var (
 		Usage: "ChainID to use",
 		Value: 1,
 	}
+	// TODO(now.youtrack.cloud/issue/TGZ-32)
 	ForknameFlag = &cli.StringFlag{
 		Name: "state.fork",
 		Usage: fmt.Sprintf("Name of ruleset to use."+

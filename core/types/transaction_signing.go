@@ -152,6 +152,7 @@ type Signer interface {
 	Equal(Signer) bool
 }
 
+// TODO(now.youtrack.cloud/issue/TGZ-32)
 type ShanghaiSigner struct {
 	ChainId *big.Int
 }

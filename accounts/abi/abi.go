@@ -146,10 +146,6 @@ func (abi *ABI) UnmarshalJSON(data []byte) error {
 		// "nonpayable" or "payable".
 		StateMutability string
 
-		// Deprecated Status indicators, but removed in v0.6.0.
-		Constant bool // True if function is either pure or view
-		Payable  bool // True if function is payable
-
 		// Event relevant indicator represents the event is
 		// declared as anonymous.
 		Anonymous bool
@@ -163,17 +159,17 @@ func (abi *ABI) UnmarshalJSON(data []byte) error {
 	for _, field := range fields {
 		switch field.Type {
 		case "constructor":
-			abi.Constructor = NewMethod("", "", Constructor, field.StateMutability, field.Constant, field.Payable, field.Inputs, nil)
+			abi.Constructor = NewMethod("", "", Constructor, field.StateMutability, field.Inputs, nil)
 		case "function":
 			name := ResolveNameConflict(field.Name, func(s string) bool { _, ok := abi.Methods[s]; return ok })
-			abi.Methods[name] = NewMethod(name, field.Name, Function, field.StateMutability, field.Constant, field.Payable, field.Inputs, field.Outputs)
+			abi.Methods[name] = NewMethod(name, field.Name, Function, field.StateMutability, field.Inputs, field.Outputs)
 		case "fallback":
 			// New introduced function type in v0.6.0, check more detail
 			// here https://solidity.readthedocs.io/en/v0.6.0/contracts.html#fallback-function
 			if abi.HasFallback() {
 				return errors.New("only single fallback is allowed")
 			}
-			abi.Fallback = NewMethod("", "", Fallback, field.StateMutability, field.Constant, field.Payable, nil, nil)
+			abi.Fallback = NewMethod("", "", Fallback, field.StateMutability, nil, nil)
 		case "receive":
 			// New introduced function type in v0.6.0, check more detail
 			// here https://solidity.readthedocs.io/en/v0.6.0/contracts.html#fallback-function
@@ -183,7 +179,7 @@ func (abi *ABI) UnmarshalJSON(data []byte) error {
 			if field.StateMutability != "payable" {
 				return errors.New("the statemutability of receive can only be payable")
 			}
-			abi.Receive = NewMethod("", "", Receive, field.StateMutability, field.Constant, field.Payable, nil, nil)
+			abi.Receive = NewMethod("", "", Receive, field.StateMutability, nil, nil)
 		case "event":
 			name := ResolveNameConflict(field.Name, func(s string) bool { _, ok := abi.Events[s]; return ok })
 			abi.Events[name] = NewEvent(name, field.Name, field.Anonymous, field.Inputs)

@@ -1,0 +1,43 @@
+{
+    "no_terminating_instruction" : {
+        "_info" : {
+            "comment" : "",
+            "filling-rpc-server" : "evmone-t8n 0.13.0-23+commit.71e2311c",
+            "filling-tool-version" : "retesteth-0.3.2-legacy+commit.c1fb07e8.Linux.g++",
+            "generatedTestHash" : "46be7ffe0a7ece3673de5dc480f01541fda208079e5fb10d23f69f72d1ac8c3c",
+            "lllcversion" : "Error getting LLLC Version",
+            "solidity" : "Error getting solc Version",
+            "source" : "src/EOFTestsFiller/efStack/no_terminating_instruction_Copier.json",
+            "sourceHash" : "06e2114276a59718f85c4e963e7c144a8fc9a2cb8463b8e4b08029927ab7b5f3"
+        },
+        "vectors" : {
+            "no_terminating_instruction_0" : {
+                "code" : "0xef0001010004020001000104000000008000005f",
+                "results" : {
+                    "Osaka" : {
+                        "exception" : "EOF_InvalidCodeTermination",
+                        "result" : false
+                    }
+                }
+            },
+            "no_terminating_instruction_1" : {
+                "code" : "0xef0001010004020001000504000000008000006002600101",
+                "results" : {
+                    "Osaka" : {
+                        "exception" : "EOF_InvalidCodeTermination",
+                        "result" : false
+                    }
+                }
+            },
+            "no_terminating_instruction_2" : {
+                "code" : "0xef0001010004020001000504000000008000006001e1fffb",
+                "results" : {
+                    "Osaka" : {
+                        "exception" : "EOF_InvalidCodeTermination",
+                        "result" : false
+                    }
+                }
+            }
+        }
+    }
+}

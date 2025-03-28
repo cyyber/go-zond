@@ -24,6 +24,7 @@ import (
 	"github.com/theQRL/go-zond/params"
 )
 
+// TODO(now.youtrack.cloud/issue/TGZ-32)
 // Forks table defines supported forks and their chain config.
 var Forks = map[string]*params.ChainConfig{
 	"Shanghai": {

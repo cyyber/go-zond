@@ -463,8 +463,7 @@ func TestTransactionByHash(t *testing.T) {
 
 func TestEstimateGas(t *testing.T) {
 	/*
-		// TODO(now.youtrack.cloud/issue/TGZ-30)
-		pragma hyperion ^0.6.4;
+		pragma hyperion >=0.1.0;
 		contract GasEstimation {
 			function PureRevert() public { revert(); }
 			function Revert() public { revert("revert reason");}
@@ -1290,8 +1289,7 @@ func TestFork(t *testing.T) {
 /*
 Example contract to test event emission:
 
-	// TODO(now.youtrack.cloud/issue/TGZ-30)
-	pragma hyperion >=0.7.0 <0.9.0;
+	pragma hyperion >=0.1.0;
 	contract Callable {
 		event Called();
 		function Call() public { emit Called(); }

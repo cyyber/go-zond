@@ -147,13 +147,6 @@ var (
 	// we need to switch over to a recursive builder to jumpt across supported
 	// versions.
 	gobootVersion = "1.19.6"
-
-	// This is the version of execution-spec-tests that we are using.
-	// When updating, you must also update build/checksums.txt.
-	executionSpecTestsVersion = "1.0.2"
-
-	// This is where the tests should be unpacked.
-	executionSpecTestsDir = "tests/spec-tests"
 )
 
 var GOBIN, _ = filepath.Abs(filepath.Join("build", "bin"))
@@ -302,8 +295,6 @@ func doTest(cmdline []string) {
 
 	// Get test fixtures.
 	csdb := build.MustLoadChecksums("build/checksums.txt")
-	// TODO(now.youtrack.cloud/issue/TGZ-23)
-	// downloadSpecTestFixtures(csdb, *cachedir)
 
 	// Configure the toolchain.
 	tc := build.GoToolchain{GOARCH: *arch, CC: *cc}
@@ -334,21 +325,6 @@ func doTest(cmdline []string) {
 	}
 	gotest.Args = append(gotest.Args, packages...)
 	build.MustRun(gotest)
-}
-
-// downloadSpecTestFixtures downloads and extracts the execution-spec-tests fixtures.
-func downloadSpecTestFixtures(csdb *build.ChecksumDB, cachedir string) string {
-	ext := ".tar.gz"
-	base := "fixtures" // TODO(MariusVanDerWijden) rename once the version becomes part of the filename
-	url := fmt.Sprintf("https://github.com/theQRL/execution-spec-tests/releases/download/v%s/%s%s", executionSpecTestsVersion, base, ext)
-	archivePath := filepath.Join(cachedir, base+ext)
-	if err := csdb.DownloadFile(url, archivePath); err != nil {
-		log.Fatal(err)
-	}
-	if err := build.ExtractArchive(archivePath, executionSpecTestsDir); err != nil {
-		log.Fatal(err)
-	}
-	return filepath.Join(cachedir, base)
 }
 
 // doLint runs golangci-lint on requested packages.
