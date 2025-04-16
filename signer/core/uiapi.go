@@ -118,7 +118,7 @@ func fetchKeystore(am *accounts.Manager) *keystore.KeyStore {
 	return ks[0].(*keystore.KeyStore)
 }
 
-// ImportRawKey stores the given hex encoded ECDSA key into the key directory,
+// ImportRawKey stores the given hex encoded Dilithium key into the key directory,
 // encrypting it with the passphrase.
 // Example call (should fail on password too short)
 // {"jsonrpc":"2.0","method":"clef_importRawKey","params":["1111111111111111111111111111111111111111111111111111111111111111","test"], "id":6}

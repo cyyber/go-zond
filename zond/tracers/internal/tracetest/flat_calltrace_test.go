@@ -149,7 +149,6 @@ func flatCallTracerTestRunner(tracerName string, filename string, dirPath string
 	return nil
 }
 
-// TODO(now.youtrack.cloud/issue/TGZ-13)
 // Iterates over all the input-output datasets in the tracer parity test harness and
 // runs the Native tracer against them.
 func TestFlatCallTracerNative(t *testing.T) {

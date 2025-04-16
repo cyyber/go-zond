@@ -126,7 +126,6 @@ type ConsensusAPI struct {
 }
 
 // NewConsensusAPI creates a new consensus api for the given backend.
-// The underlying blockchain needs to have a valid terminal total difficulty set.
 func NewConsensusAPI(zond *zond.Zond) *ConsensusAPI {
 	api := newConsensusAPIWithoutHeartbeat(zond)
 	go api.heartbeat()

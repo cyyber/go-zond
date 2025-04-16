@@ -27,17 +27,3 @@ func TestReplicate(t *testing.T) {
 	data := []byte(testString)
 	runFuzzer(data)
 }
-
-// TestGenerateCorpus can be used to add corpus for the fuzzer.
-// Just replace corpusHex with the hexEncoded output you want to add to the fuzzer.
-func TestGenerateCorpus(t *testing.T) {
-	/*
-		corpusHex := "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
-		data := common.FromHex(corpusHex)
-		checksum := sha1.Sum(data)
-		outf := fmt.Sprintf("corpus/%x", checksum)
-		if err := os.WriteFile(outf, data, 0777); err != nil {
-			panic(err)
-		}
-	*/
-}

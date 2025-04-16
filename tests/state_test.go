@@ -28,6 +28,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/theQRL/go-zond/common"
 	"github.com/theQRL/go-zond/core"
 	"github.com/theQRL/go-zond/core/rawdb"
 	"github.com/theQRL/go-zond/core/state"
@@ -37,10 +38,7 @@ import (
 	"github.com/theQRL/go-zond/zond/tracers/logger"
 )
 
-func TestState(t *testing.T) {
-	t.Parallel()
-
-	st := new(testMatcher)
+func initMatcher(st *testMatcher) {
 	// Long tests:
 	st.slow(`^stAttackTest/ContractCreationSpam`)
 	st.slow(`^stBadOpcode/badOpcodes`)
@@ -50,77 +48,86 @@ func TestState(t *testing.T) {
 	st.slow(`^stStaticCall/static_Return50000`)
 	st.slow(`^stSystemOperationsTest/CallRecursiveBomb`)
 	st.slow(`^stTransactionTest/Opcodes_TransactionInit`)
-	// Very time consuming
-	st.skipLoad(`^stTimeConsuming/`)
-	st.skipLoad(`.*vmPerformance/loop.*`)
-	// Uses 1GB RAM per tested fork
-	st.skipLoad(`^stStaticCall/static_Call1MB`)
+}
 
-	// Broken tests:
-	// EOF is not part of cancun
-	st.skipLoad(`^stEOF/`)
+func TestState(t *testing.T) {
+	t.Parallel()
 
-	// For Istanbul, older tests were moved into LegacyTests
+	st := new(testMatcher)
+	initMatcher(st)
 	for _, dir := range []string{
-		filepath.Join(baseDir, "EIPTests", "StateTests"),
 		stateTestDir,
-		legacyStateTestDir,
 		benchmarksDir,
 	} {
 		st.walk(t, dir, func(t *testing.T, name string, test *StateTest) {
-			for _, subtest := range test.Subtests() {
-				subtest := subtest
-				key := fmt.Sprintf("%s/%d", subtest.Fork, subtest.Index)
+			execStateTest(t, st, test)
+		})
+	}
+}
 
-				t.Run(key+"/hash/trie", func(t *testing.T) {
-					withTrace(t, test.gasLimit(subtest), func(vmconfig vm.Config) error {
-						var result error
-						test.Run(subtest, vmconfig, false, rawdb.HashScheme, func(err error, snaps *snapshot.Tree, state *state.StateDB) {
-							result = st.checkFailure(t, err)
-						})
-						return result
-					})
+// TestExecutionSpecState runs the test fixtures from execution-spec-tests.
+func TestExecutionSpecState(t *testing.T) {
+	if !common.FileExist(executionSpecStateTestDir) {
+		t.Skipf("directory %s does not exist", executionSpecStateTestDir)
+	}
+	st := new(testMatcher)
+
+	st.walk(t, executionSpecStateTestDir, func(t *testing.T, name string, test *StateTest) {
+		execStateTest(t, st, test)
+	})
+}
+
+func execStateTest(t *testing.T, st *testMatcher, test *StateTest) {
+	for _, subtest := range test.Subtests() {
+		key := fmt.Sprintf("%s/%d", subtest.Fork, subtest.Index)
+
+		t.Run(key+"/hash/trie", func(t *testing.T) {
+			withTrace(t, test.gasLimit(subtest), func(vmconfig vm.Config) error {
+				var result error
+				test.Run(subtest, vmconfig, false, rawdb.HashScheme, func(err error, snaps *snapshot.Tree, state *state.StateDB) {
+					result = st.checkFailure(t, err)
 				})
-				t.Run(key+"/hash/snap", func(t *testing.T) {
-					withTrace(t, test.gasLimit(subtest), func(vmconfig vm.Config) error {
-						var result error
-						test.Run(subtest, vmconfig, true, rawdb.HashScheme, func(err error, snaps *snapshot.Tree, state *state.StateDB) {
-							if snaps != nil && state != nil {
-								if _, err := snaps.Journal(state.IntermediateRoot(false)); err != nil {
-									result = err
-									return
-								}
-							}
-							result = st.checkFailure(t, err)
-						})
-						return result
-					})
+				return result
+			})
+		})
+		t.Run(key+"/hash/snap", func(t *testing.T) {
+			withTrace(t, test.gasLimit(subtest), func(vmconfig vm.Config) error {
+				var result error
+				test.Run(subtest, vmconfig, true, rawdb.HashScheme, func(err error, snaps *snapshot.Tree, state *state.StateDB) {
+					if snaps != nil && state != nil {
+						if _, err := snaps.Journal(state.IntermediateRoot(false)); err != nil {
+							result = err
+							return
+						}
+					}
+					result = st.checkFailure(t, err)
 				})
-				t.Run(key+"/path/trie", func(t *testing.T) {
-					withTrace(t, test.gasLimit(subtest), func(vmconfig vm.Config) error {
-						var result error
-						test.Run(subtest, vmconfig, false, rawdb.PathScheme, func(err error, snaps *snapshot.Tree, state *state.StateDB) {
-							result = st.checkFailure(t, err)
-						})
-						return result
-					})
+				return result
+			})
+		})
+		t.Run(key+"/path/trie", func(t *testing.T) {
+			withTrace(t, test.gasLimit(subtest), func(vmconfig vm.Config) error {
+				var result error
+				test.Run(subtest, vmconfig, false, rawdb.PathScheme, func(err error, snaps *snapshot.Tree, state *state.StateDB) {
+					result = st.checkFailure(t, err)
 				})
-				t.Run(key+"/path/snap", func(t *testing.T) {
-					withTrace(t, test.gasLimit(subtest), func(vmconfig vm.Config) error {
-						var result error
-						test.Run(subtest, vmconfig, true, rawdb.PathScheme, func(err error, snaps *snapshot.Tree, state *state.StateDB) {
-							if snaps != nil && state != nil {
-								if _, err := snaps.Journal(state.IntermediateRoot(false)); err != nil {
-									result = err
-									return
-								}
-							}
-							result = st.checkFailure(t, err)
-						})
-						return result
-					})
+				return result
+			})
+		})
+		t.Run(key+"/path/snap", func(t *testing.T) {
+			withTrace(t, test.gasLimit(subtest), func(vmconfig vm.Config) error {
+				var result error
+				test.Run(subtest, vmconfig, true, rawdb.PathScheme, func(err error, snaps *snapshot.Tree, state *state.StateDB) {
+					if snaps != nil && state != nil {
+						if _, err := snaps.Journal(state.IntermediateRoot(false)); err != nil {
+							result = err
+							return
+						}
+					}
+					result = st.checkFailure(t, err)
 				})
-			}
+				return result
+			})
 		})
 	}
 }
@@ -164,7 +171,7 @@ func BenchmarkZVM(b *testing.B) {
 	dir := benchmarksDir
 	dirinfo, err := os.Stat(dir)
 	if os.IsNotExist(err) || !dirinfo.IsDir() {
-		fmt.Fprintf(os.Stderr, "can't find test files in %s, did you clone the evm-benchmarks submodule?\n", dir)
+		fmt.Fprintf(os.Stderr, "can't find test files in %s, did you clone the zvm-benchmarks submodule?\n", dir)
 		b.Skip("missing test files")
 	}
 	err = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {

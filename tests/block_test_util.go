@@ -35,6 +35,7 @@ import (
 	"github.com/theQRL/go-zond/core/state"
 	"github.com/theQRL/go-zond/core/types"
 	"github.com/theQRL/go-zond/core/vm"
+	"github.com/theQRL/go-zond/log"
 	"github.com/theQRL/go-zond/params"
 	"github.com/theQRL/go-zond/rlp"
 	"github.com/theQRL/go-zond/trie"
@@ -186,7 +187,7 @@ func (t *BlockTest) genesis(config *params.ChainConfig) *core.Genesis {
 See https://github.com/ethereum/tests/wiki/Blockchain-Tests-II
 
 	Whether a block is valid or not is a bit subtle, it's defined by presence of
-	blockHeader, transactions and uncleHeaders fields. If they are missing, the block is
+	blockHeader and transactions fields. If they are missing, the block is
 	invalid and we must verify that we do not accept it.
 
 	Since some tests mix valid and invalid blocks we need to check this for every block.
@@ -202,6 +203,7 @@ func (t *BlockTest) insertBlocks(blockchain *core.BlockChain) ([]btBlock, error)
 		cb, err := b.decode()
 		if err != nil {
 			if b.BlockHeader == nil {
+				log.Info("Block decoding failed", "index", bi, "err", err)
 				continue // OK - block is supposed to be invalid, continue with next block
 			} else {
 				return nil, fmt.Errorf("block RLP decoding failed when expected to succeed: %v", err)
@@ -296,6 +298,12 @@ func (t *BlockTest) validatePostState(statedb *state.StateDB) error {
 		}
 		if nonce2 != acct.Nonce {
 			return fmt.Errorf("account nonce mismatch for addr: %s want: %d have: %d", addr, acct.Nonce, nonce2)
+		}
+		for k, v := range acct.Storage {
+			v2 := statedb.GetState(addr, k)
+			if v2 != v {
+				return fmt.Errorf("account storage mismatch for addr: %s, slot: %x, want: %x, have: %x", addr, k, v, v2)
+			}
 		}
 	}
 	return nil

@@ -254,8 +254,7 @@ func TestBlockhash(t *testing.T) {
 	// verify that it obtained the right hashes where it should
 
 	/*
-		// TODO(now.youtrack.cloud/issue/TGZ-30)
-		pragma hyperion ^0.5.3;
+		pragma hyperion >=0.1.0;
 		contract Hasher{
 
 			function test() public view returns (bytes32, bytes32, bytes32){

@@ -339,8 +339,8 @@ func TestWalletNotifications(t *testing.T) {
 	checkEvents(t, wantEvents, events)
 }
 
-// TestImportExport tests the import functionality of a keystore.
-func TestImportECDSA(t *testing.T) {
+// TestImportDilithium tests the import functionality of a keystore.
+func TestImportDilithium(t *testing.T) {
 	_, ks := tmpKeyStore(t)
 	key, err := pqcrypto.GenerateDilithiumKey()
 	if err != nil {
@@ -357,7 +357,7 @@ func TestImportECDSA(t *testing.T) {
 	}
 }
 
-// TestImportECDSA tests the import and export functionality of a keystore.
+// TestImportExport tests the import and export functionality of a keystore.
 func TestImportExport(t *testing.T) {
 	_, ks := tmpKeyStore(t)
 	acc, err := ks.NewAccount("old")

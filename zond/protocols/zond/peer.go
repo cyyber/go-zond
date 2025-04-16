@@ -115,7 +115,7 @@ func (p *Peer) Head() (hash common.Hash) {
 	return hash
 }
 
-// SetHead updates the head hash and total difficulty of the peer.
+// SetHead updates the head hash of the peer.
 func (p *Peer) SetHead(hash common.Hash) {
 	p.lock.Lock()
 	defer p.lock.Unlock()

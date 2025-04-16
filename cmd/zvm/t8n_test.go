@@ -105,6 +105,7 @@ func (args *t8nOutput) get() (out []string) {
 	return out
 }
 
+// TODO(now.youtrack.cloud/issue/TGZ-32)
 func TestT8n(t *testing.T) {
 	tt := new(testT8n)
 	tt.TestCmd = cmdtest.NewTestCmd(t, tt)
