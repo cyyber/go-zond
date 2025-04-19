@@ -608,7 +608,7 @@ The key is now encrypted; losing the password will result in permanently losing
 access to the key and all associated funds!
 
 Make sure to backup keystore and passwords in a safe location.`,
-		acc.Address, acc.URL.Path))
+		acc.Address.String(), acc.URL.Path))
 	return nil
 }
 
