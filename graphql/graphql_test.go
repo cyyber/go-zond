@@ -37,9 +37,9 @@ import (
 	"github.com/theQRL/go-zond/crypto/pqcrypto"
 	"github.com/theQRL/go-zond/node"
 	"github.com/theQRL/go-zond/params"
-	"github.com/theQRL/go-zond/zond"
-	"github.com/theQRL/go-zond/zond/filters"
-	"github.com/theQRL/go-zond/zond/zondconfig"
+	"github.com/theQRL/go-zond/qrl"
+	"github.com/theQRL/go-zond/qrl/filters"
+	"github.com/theQRL/go-zond/qrl/qrlconfig"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -276,7 +276,7 @@ func TestGraphQLConcurrentResolvers(t *testing.T) {
 			Config:   params.AllBeaconProtocolChanges,
 			GasLimit: 11500000,
 			Alloc: core.GenesisAlloc{
-				addr: {Balance: big.NewInt(params.Zond)},
+				addr: {Balance: big.NewInt(params.Quanta)},
 				dad: {
 					// LOG0(0, 0), LOG0(0, 0), RETURN(0, 0)
 					Code:    common.Hex2Bytes("60006000a060006000a060006000f3"),
@@ -368,7 +368,7 @@ func TestWithdrawals(t *testing.T) {
 			Config:   params.AllBeaconProtocolChanges,
 			GasLimit: 11500000,
 			Alloc: core.GenesisAlloc{
-				addr: {Balance: big.NewInt(params.Zond)},
+				addr: {Balance: big.NewInt(params.Quanta)},
 			},
 		}
 		signer = types.LatestSigner(genesis.Config)
@@ -432,7 +432,7 @@ func createNode(t *testing.T) *node.Node {
 }
 
 func newGQLService(t *testing.T, stack *node.Node, gspec *core.Genesis, genBlocks int, genfunc func(i int, gen *core.BlockGen)) (*handler, []*types.Block) {
-	zondConf := &zondconfig.Config{
+	qrlConf := &qrlconfig.Config{
 		Genesis:        gspec,
 		NetworkId:      1337,
 		TrieCleanCache: 5,
@@ -441,20 +441,20 @@ func newGQLService(t *testing.T, stack *node.Node, gspec *core.Genesis, genBlock
 		SnapshotCache:  5,
 	}
 	var engine consensus.Engine = beacon.NewFaker()
-	zondBackend, err := zond.New(stack, zondConf)
+	qrlBackend, err := qrl.New(stack, qrlConf)
 	if err != nil {
 		t.Fatalf("could not create eth backend: %v", err)
 	}
 	// Create some blocks and import them
-	chain, _ := core.GenerateChain(params.AllBeaconProtocolChanges, zondBackend.BlockChain().Genesis(),
-		engine, zondBackend.ChainDb(), genBlocks, genfunc)
-	_, err = zondBackend.BlockChain().InsertChain(chain)
+	chain, _ := core.GenerateChain(params.AllBeaconProtocolChanges, qrlBackend.BlockChain().Genesis(),
+		engine, qrlBackend.ChainDb(), genBlocks, genfunc)
+	_, err = qrlBackend.BlockChain().InsertChain(chain)
 	if err != nil {
 		t.Fatalf("could not create import blocks: %v", err)
 	}
 	// Set up handler
-	filterSystem := filters.NewFilterSystem(zondBackend.APIBackend, filters.Config{})
-	handler, err := newHandler(stack, zondBackend.APIBackend, filterSystem, []string{}, []string{})
+	filterSystem := filters.NewFilterSystem(qrlBackend.APIBackend, filters.Config{})
+	handler, err := newHandler(stack, qrlBackend.APIBackend, filterSystem, []string{}, []string{})
 	if err != nil {
 		t.Fatalf("could not create graphql service: %v", err)
 	}

@@ -70,7 +70,7 @@ var (
 		"COPYING",
 		executablePath("abigen"),
 		executablePath("bootnode"),
-		executablePath("zvm"),
+		executablePath("qrvm"),
 		executablePath("gzond"),
 		executablePath("rlpdump"),
 		executablePath("clef"),
@@ -80,19 +80,19 @@ var (
 	debExecutables = []debExecutable{
 		{
 			BinaryName:  "abigen",
-			Description: "Source code generator to convert Zond contract definitions into easy to use, compile-time type-safe Go packages.",
+			Description: "Source code generator to convert QRL contract definitions into easy to use, compile-time type-safe Go packages.",
 		},
 		{
 			BinaryName:  "bootnode",
 			Description: "Zond bootnode.",
 		},
 		{
-			BinaryName:  "zvm",
-			Description: "Developer utility version of the ZVM (Zond Virtual Machine) that is capable of running bytecode snippets within a configurable environment and execution mode.",
+			BinaryName:  "qrvm",
+			Description: "Developer utility version of the QRVM (Quantum Resistant Virtual Machine) that is capable of running bytecode snippets within a configurable environment and execution mode.",
 		},
 		{
 			BinaryName:  "gzond",
-			Description: "Zond CLI client.",
+			Description: "QRL CLI client.",
 		},
 		{
 			BinaryName:  "rlpdump",
@@ -100,7 +100,7 @@ var (
 		},
 		{
 			BinaryName:  "clef",
-			Description: "Zond account management tool.",
+			Description: "QRL account management tool.",
 		},
 	}
 

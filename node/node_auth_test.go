@@ -76,7 +76,7 @@ func (at *authTest) Run(t *testing.T) {
 		t.Fatalf("method was silent but did not return expected value: %q", x)
 	}
 
-	err = cl.CallContext(ctx, &x, "zond_helloWorld")
+	err = cl.CallContext(ctx, &x, "qrl_helloWorld")
 	if at.expectCall2Fail {
 		if err == nil {
 			t.Fatal("expected call 2 to fail")
@@ -87,7 +87,7 @@ func (at *authTest) Run(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to call rpc endpoint: %v", err)
 	}
-	if x != "hello zond" {
+	if x != "hello qrl" {
 		t.Fatalf("method was silent but did not return expected value: %q", x)
 	}
 }
@@ -127,8 +127,8 @@ func TestAuthEndpoints(t *testing.T) {
 			Authenticated: true,
 		},
 		{
-			Namespace:     "zond",
-			Service:       helloRPC("hello zond"),
+			Namespace:     "qrl",
+			Service:       helloRPC("hello qrl"),
 			Authenticated: true,
 		},
 	})

@@ -23,5 +23,5 @@ package params
 const (
 	Planck  = 1
 	GPlanck = 1e9
-	Zond    = 1e18
+	Quanta  = 1e18
 )

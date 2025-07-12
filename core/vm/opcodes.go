@@ -20,7 +20,7 @@ import (
 	"fmt"
 )
 
-// OpCode is an ZVM opcode
+// OpCode is an QRVM opcode
 type OpCode byte
 
 // IsPush specifies if an opcode is a PUSH opcode.

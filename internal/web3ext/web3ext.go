@@ -20,7 +20,7 @@ package web3ext
 var Modules = map[string]string{
 	"admin":  AdminJs,
 	"debug":  DebugJs,
-	"zond":   ZondJs,
+	"qrl":    QRLJs,
 	"miner":  MinerJs,
 	"net":    NetJs,
 	"rpc":    RpcJs,
@@ -404,127 +404,127 @@ web3._extend({
 });
 `
 
-const ZondJs = `
+const QRLJs = `
 web3._extend({
-	property: 'zond',
+	property: 'qrl',
 	methods: [
 		new web3._extend.Method({
 			name: 'chainId',
-			call: 'zond_chainId',
+			call: 'qrl_chainId',
 			params: 0
 		}),
 		new web3._extend.Method({
 			name: 'sign',
-			call: 'zond_sign',
+			call: 'qrl_sign',
 			params: 2,
 			inputFormatter: [web3._extend.formatters.inputAddressFormatter, null]
 		}),
 		new web3._extend.Method({
 			name: 'resend',
-			call: 'zond_resend',
+			call: 'qrl_resend',
 			params: 3,
 			inputFormatter: [web3._extend.formatters.inputTransactionFormatter, web3._extend.utils.fromDecimal, web3._extend.utils.fromDecimal]
 		}),
 		new web3._extend.Method({
 			name: 'signTransaction',
-			call: 'zond_signTransaction',
+			call: 'qrl_signTransaction',
 			params: 1,
 			inputFormatter: [web3._extend.formatters.inputTransactionFormatter]
 		}),
 		new web3._extend.Method({
 			name: 'estimateGas',
-			call: 'zond_estimateGas',
+			call: 'qrl_estimateGas',
 			params: 2,
 			inputFormatter: [web3._extend.formatters.inputCallFormatter, web3._extend.formatters.inputBlockNumberFormatter],
 			outputFormatter: web3._extend.utils.toDecimal
 		}),
 		new web3._extend.Method({
 			name: 'submitTransaction',
-			call: 'zond_submitTransaction',
+			call: 'qrl_submitTransaction',
 			params: 1,
 			inputFormatter: [web3._extend.formatters.inputTransactionFormatter]
 		}),
 		new web3._extend.Method({
 			name: 'fillTransaction',
-			call: 'zond_fillTransaction',
+			call: 'qrl_fillTransaction',
 			params: 1,
 			inputFormatter: [web3._extend.formatters.inputTransactionFormatter]
 		}),
 		new web3._extend.Method({
 			name: 'getHeaderByNumber',
-			call: 'zond_getHeaderByNumber',
+			call: 'qrl_getHeaderByNumber',
 			params: 1,
 			inputFormatter: [web3._extend.formatters.inputBlockNumberFormatter]
 		}),
 		new web3._extend.Method({
 			name: 'getHeaderByHash',
-			call: 'zond_getHeaderByHash',
+			call: 'qrl_getHeaderByHash',
 			params: 1
 		}),
 		new web3._extend.Method({
 			name: 'getBlockByNumber',
-			call: 'zond_getBlockByNumber',
+			call: 'qrl_getBlockByNumber',
 			params: 2,
 			inputFormatter: [web3._extend.formatters.inputBlockNumberFormatter, function (val) { return !!val; }]
 		}),
 		new web3._extend.Method({
 			name: 'getBlockByHash',
-			call: 'zond_getBlockByHash',
+			call: 'qrl_getBlockByHash',
 			params: 2,
 			inputFormatter: [null, function (val) { return !!val; }]
 		}),
 		new web3._extend.Method({
 			name: 'getRawTransaction',
-			call: 'zond_getRawTransactionByHash',
+			call: 'qrl_getRawTransactionByHash',
 			params: 1
 		}),
 		new web3._extend.Method({
 			name: 'getRawTransactionFromBlock',
 			call: function(args) {
-				return (web3._extend.utils.isString(args[0]) && args[0].indexOf('0x') === 0) ? 'zond_getRawTransactionByBlockHashAndIndex' : 'zond_getRawTransactionByBlockNumberAndIndex';
+				return (web3._extend.utils.isString(args[0]) && args[0].indexOf('0x') === 0) ? 'qrl_getRawTransactionByBlockHashAndIndex' : 'qrl_getRawTransactionByBlockNumberAndIndex';
 			},
 			params: 2,
 			inputFormatter: [web3._extend.formatters.inputBlockNumberFormatter, web3._extend.utils.toHex]
 		}),
 		new web3._extend.Method({
 			name: 'getProof',
-			call: 'zond_getProof',
+			call: 'qrl_getProof',
 			params: 3,
 			inputFormatter: [web3._extend.formatters.inputAddressFormatter, null, web3._extend.formatters.inputBlockNumberFormatter]
 		}),
 		new web3._extend.Method({
 			name: 'createAccessList',
-			call: 'zond_createAccessList',
+			call: 'qrl_createAccessList',
 			params: 2,
 			inputFormatter: [null, web3._extend.formatters.inputBlockNumberFormatter],
 		}),
 		new web3._extend.Method({
 			name: 'feeHistory',
-			call: 'zond_feeHistory',
+			call: 'qrl_feeHistory',
 			params: 3,
 			inputFormatter: [null, web3._extend.formatters.inputBlockNumberFormatter, null]
 		}),
 		new web3._extend.Method({
 			name: 'getLogs',
-			call: 'zond_getLogs',
+			call: 'qrl_getLogs',
 			params: 1,
 		}),
 		new web3._extend.Method({
 			name: 'call',
-			call: 'zond_call',
+			call: 'qrl_call',
 			params: 4,
 			inputFormatter: [web3._extend.formatters.inputCallFormatter, web3._extend.formatters.inputDefaultBlockNumberFormatter, null, null],
 		}),
 		new web3._extend.Method({
 			name: 'getBlockReceipts',
-			call: 'zond_getBlockReceipts',
+			call: 'qrl_getBlockReceipts',
 			params: 1,
 		}),
 	],
 	properties: [
 		new web3._extend.Property({
 			name: 'pendingTransactions',
-			getter: 'zond_pendingTransactions',
+			getter: 'qrl_pendingTransactions',
 			outputFormatter: function(txs) {
 				var formatted = [];
 				for (var i = 0; i < txs.length; i++) {
@@ -536,7 +536,7 @@ web3._extend({
 		}),
 		new web3._extend.Property({
 			name: 'maxPriorityFeePerGas',
-			getter: 'zond_maxPriorityFeePerGas',
+			getter: 'qrl_maxPriorityFeePerGas',
 			outputFormatter: web3._extend.utils.toBigNumber
 		}),
 	]

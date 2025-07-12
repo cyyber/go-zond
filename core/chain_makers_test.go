@@ -38,7 +38,7 @@ func TestGenerateWithdrawalChain(t *testing.T) {
 		address = key.GetAddress()
 		aa      = common.Address{0xaa}
 		bb      = common.Address{0xbb}
-		funds   = big.NewInt(0).Mul(big.NewInt(1337), big.NewInt(params.Zond))
+		funds   = big.NewInt(0).Mul(big.NewInt(1337), big.NewInt(params.Quanta))
 		config  = *params.AllBeaconProtocolChanges
 		gspec   = &Genesis{
 			Config:   &config,

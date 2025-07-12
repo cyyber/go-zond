@@ -25,8 +25,8 @@ import (
 
 	"github.com/theQRL/go-zond/common"
 	"github.com/theQRL/go-zond/core/rawdb"
+	"github.com/theQRL/go-zond/qrldb/memorydb"
 	"github.com/theQRL/go-zond/trie"
-	"github.com/theQRL/go-zond/zonddb/memorydb"
 )
 
 type kv struct {

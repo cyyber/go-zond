@@ -25,10 +25,10 @@ import (
 	"github.com/theQRL/go-zond/common"
 	"github.com/theQRL/go-zond/core/rawdb"
 	"github.com/theQRL/go-zond/core/types"
+	"github.com/theQRL/go-zond/qrldb"
 	"github.com/theQRL/go-zond/rlp"
 	"github.com/theQRL/go-zond/trie/testutil"
 	"github.com/theQRL/go-zond/trie/triestate"
-	"github.com/theQRL/go-zond/zonddb"
 )
 
 // randomStateSet generates a random state change set.
@@ -102,7 +102,7 @@ func TestEncodeDecodeHistory(t *testing.T) {
 	}
 }
 
-func checkHistory(t *testing.T, db zonddb.KeyValueReader, freezer *rawdb.ResettableFreezer, id uint64, root common.Hash, exist bool) {
+func checkHistory(t *testing.T, db qrldb.KeyValueReader, freezer *rawdb.ResettableFreezer, id uint64, root common.Hash, exist bool) {
 	blob := rawdb.ReadStateHistoryMeta(freezer, id)
 	if exist && len(blob) == 0 {
 		t.Fatalf("Failed to load trie history, %d", id)
@@ -118,7 +118,7 @@ func checkHistory(t *testing.T, db zonddb.KeyValueReader, freezer *rawdb.Resetta
 	}
 }
 
-func checkHistoriesInRange(t *testing.T, db zonddb.KeyValueReader, freezer *rawdb.ResettableFreezer, from, to uint64, roots []common.Hash, exist bool) {
+func checkHistoriesInRange(t *testing.T, db qrldb.KeyValueReader, freezer *rawdb.ResettableFreezer, from, to uint64, roots []common.Hash, exist bool) {
 	for i, j := from, 0; i <= to; i, j = i+1, j+1 {
 		checkHistory(t, db, freezer, i, roots[j], exist)
 	}

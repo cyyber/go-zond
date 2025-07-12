@@ -25,11 +25,11 @@ import (
 	"github.com/theQRL/go-zond/core/rawdb"
 	"github.com/theQRL/go-zond/core/types"
 	"github.com/theQRL/go-zond/crypto"
+	"github.com/theQRL/go-zond/qrldb"
 	"github.com/theQRL/go-zond/rlp"
 	"github.com/theQRL/go-zond/trie"
 	"github.com/theQRL/go-zond/trie/triedb/hashdb"
 	"github.com/theQRL/go-zond/trie/triedb/pathdb"
-	"github.com/theQRL/go-zond/zonddb"
 )
 
 // testAccount is the data associated with an account used by the state tests.
@@ -41,7 +41,7 @@ type testAccount struct {
 }
 
 // makeTestState create a sample test state to test node-wise reconstruction.
-func makeTestState(scheme string) (zonddb.Database, Database, *trie.Database, common.Hash, []*testAccount) {
+func makeTestState(scheme string) (qrldb.Database, Database, *trie.Database, common.Hash, []*testAccount) {
 	// Create an empty state
 	config := &trie.Config{Preimages: true}
 	if scheme == rawdb.PathScheme {
@@ -86,7 +86,7 @@ func makeTestState(scheme string) (zonddb.Database, Database, *trie.Database, co
 
 // checkStateAccounts cross references a reconstructed state with an expected
 // account array.
-func checkStateAccounts(t *testing.T, db zonddb.Database, scheme string, root common.Hash, accounts []*testAccount) {
+func checkStateAccounts(t *testing.T, db qrldb.Database, scheme string, root common.Hash, accounts []*testAccount) {
 	var config trie.Config
 	if scheme == rawdb.PathScheme {
 		config.PathDB = pathdb.Defaults
@@ -113,7 +113,7 @@ func checkStateAccounts(t *testing.T, db zonddb.Database, scheme string, root co
 }
 
 // checkStateConsistency checks that all data of a state root is present.
-func checkStateConsistency(db zonddb.Database, scheme string, root common.Hash) error {
+func checkStateConsistency(db qrldb.Database, scheme string, root common.Hash) error {
 	config := &trie.Config{Preimages: true}
 	if scheme == rawdb.PathScheme {
 		config.PathDB = pathdb.Defaults
@@ -733,7 +733,7 @@ func testIncompleteStateSync(t *testing.T, scheme string) {
 	}
 }
 
-func copyPreimages(srcDb, dstDb zonddb.Database) {
+func copyPreimages(srcDb, dstDb qrldb.Database) {
 	it := srcDb.NewIterator(rawdb.PreimagePrefix, nil)
 	defer it.Release()
 

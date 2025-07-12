@@ -59,7 +59,7 @@ func TestUnpack(t *testing.T) {
 
 type unpackTest struct {
 	def  string      // ABI definition JSON
-	enc  string      // zvm return data
+	enc  string      // qrvm return data
 	want interface{} // the expected output
 	err  string      // empty or error if expected
 }

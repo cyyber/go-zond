@@ -20,7 +20,7 @@ import (
 	"fmt"
 
 	"github.com/theQRL/go-zond/common"
-	"github.com/theQRL/go-zond/zonddb"
+	"github.com/theQRL/go-zond/qrldb"
 )
 
 type tableSize struct {
@@ -50,7 +50,7 @@ func (info *freezerInfo) size() common.StorageSize {
 	return total
 }
 
-func inspect(name string, order map[string]bool, reader zonddb.AncientReader) (freezerInfo, error) {
+func inspect(name string, order map[string]bool, reader qrldb.AncientReader) (freezerInfo, error) {
 	info := freezerInfo{name: name}
 	for t := range order {
 		size, err := reader.AncientSize(t)
@@ -76,7 +76,7 @@ func inspect(name string, order map[string]bool, reader zonddb.AncientReader) (f
 }
 
 // inspectFreezers inspects all freezers registered in the system.
-func inspectFreezers(db zonddb.Database) ([]freezerInfo, error) {
+func inspectFreezers(db qrldb.Database) ([]freezerInfo, error) {
 	var infos []freezerInfo
 	for _, freezer := range freezers {
 		switch freezer {

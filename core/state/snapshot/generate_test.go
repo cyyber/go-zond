@@ -27,12 +27,12 @@ import (
 	"github.com/theQRL/go-zond/core/rawdb"
 	"github.com/theQRL/go-zond/core/types"
 	"github.com/theQRL/go-zond/log"
+	"github.com/theQRL/go-zond/qrldb"
 	"github.com/theQRL/go-zond/rlp"
 	"github.com/theQRL/go-zond/trie"
 	"github.com/theQRL/go-zond/trie/triedb/hashdb"
 	"github.com/theQRL/go-zond/trie/triedb/pathdb"
 	"github.com/theQRL/go-zond/trie/trienode"
-	"github.com/theQRL/go-zond/zonddb"
 	"golang.org/x/crypto/sha3"
 )
 
@@ -132,7 +132,7 @@ func checkSnapRoot(t *testing.T, snap *diskLayer, trieRoot common.Hash) {
 	defer accIt.Release()
 
 	snapRoot, err := generateTrieRoot(nil, "", accIt, common.Hash{}, stackTrieGenerate,
-		func(db zonddb.KeyValueWriter, accountHash, codeHash common.Hash, stat *generateStats) (common.Hash, error) {
+		func(db qrldb.KeyValueWriter, accountHash, codeHash common.Hash, stat *generateStats) (common.Hash, error) {
 			storageIt, _ := snap.StorageIterator(accountHash, common.Hash{})
 			defer storageIt.Release()
 
@@ -154,7 +154,7 @@ func checkSnapRoot(t *testing.T, snap *diskLayer, trieRoot common.Hash) {
 }
 
 type testHelper struct {
-	diskdb  zonddb.Database
+	diskdb  qrldb.Database
 	triedb  *trie.Database
 	accTrie *trie.StateTrie
 	nodes   *trienode.MergedNodeSet
@@ -854,7 +854,7 @@ func decKey(key []byte) []byte {
 	return key
 }
 
-func populateDangling(disk zonddb.KeyValueStore) {
+func populateDangling(disk qrldb.KeyValueStore) {
 	populate := func(accountHash common.Hash, keys []string, vals []string) {
 		for i, key := range keys {
 			rawdb.WriteStorageSnapshot(disk, accountHash, hashData([]byte(key)), []byte(vals[i]))

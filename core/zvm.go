@@ -35,8 +35,8 @@ type ChainContext interface {
 	GetHeader(common.Hash, uint64) *types.Header
 }
 
-// NewZVMBlockContext creates a new context for use in the ZVM.
-func NewZVMBlockContext(header *types.Header, chain ChainContext, author *common.Address) vm.BlockContext {
+// NewQRVMBlockContext creates a new context for use in the QRVM.
+func NewQRVMBlockContext(header *types.Header, chain ChainContext, author *common.Address) vm.BlockContext {
 	var (
 		beneficiary common.Address
 		baseFee     *big.Int
@@ -65,8 +65,8 @@ func NewZVMBlockContext(header *types.Header, chain ChainContext, author *common
 	}
 }
 
-// NewZVMTxContext creates a new transaction context for a single transaction.
-func NewZVMTxContext(msg *Message) vm.TxContext {
+// NewQRVMTxContext creates a new transaction context for a single transaction.
+func NewQRVMTxContext(msg *Message) vm.TxContext {
 	return vm.TxContext{
 		Origin:   msg.From,
 		GasPrice: new(big.Int).Set(msg.GasPrice),

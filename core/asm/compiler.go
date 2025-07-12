@@ -89,11 +89,11 @@ func (c *Compiler) Feed(ch <-chan token) {
 }
 
 // Compile compiles the current tokens and returns a
-// binary string that can be interpreted by the ZVM
+// binary string that can be interpreted by the QRVM
 // and an error if it failed.
 //
 // compile is the second stage in the compile phase
-// which compiles the tokens to ZVM instructions.
+// which compiles the tokens to QRVM instructions.
 func (c *Compiler) Compile() (string, []error) {
 	var errors []error
 	// continue looping over the tokens until

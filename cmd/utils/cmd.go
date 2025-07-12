@@ -38,9 +38,9 @@ import (
 	"github.com/theQRL/go-zond/internal/debug"
 	"github.com/theQRL/go-zond/log"
 	"github.com/theQRL/go-zond/node"
+	"github.com/theQRL/go-zond/qrl/qrlconfig"
+	"github.com/theQRL/go-zond/qrldb"
 	"github.com/theQRL/go-zond/rlp"
-	"github.com/theQRL/go-zond/zond/zondconfig"
-	"github.com/theQRL/go-zond/zonddb"
 	"github.com/urfave/cli/v2"
 )
 
@@ -77,7 +77,7 @@ func StartNode(ctx *cli.Context, stack *node.Node, isConsole bool) {
 		signal.Notify(sigc, syscall.SIGINT, syscall.SIGTERM)
 		defer signal.Stop(sigc)
 
-		minFreeDiskSpace := 2 * zondconfig.Defaults.TrieDirtyCache // Default 2 * 256Mb
+		minFreeDiskSpace := 2 * qrlconfig.Defaults.TrieDirtyCache // Default 2 * 256Mb
 		if ctx.IsSet(MinFreeDiskSpaceFlag.Name) {
 			minFreeDiskSpace = ctx.Int(MinFreeDiskSpaceFlag.Name)
 		} else if ctx.IsSet(CacheFlag.Name) || ctx.IsSet(CacheGCFlag.Name) {
@@ -298,7 +298,7 @@ func ExportAppendChain(blockchain *core.BlockChain, fn string, first uint64, las
 
 // ImportPreimages imports a batch of exported hash preimages into the database.
 // It's a part of the deprecated functionality, should be removed in the future.
-func ImportPreimages(db zonddb.Database, fn string) error {
+func ImportPreimages(db qrldb.Database, fn string) error {
 	log.Info("Importing preimages", "file", fn)
 
 	// Open the file handle and potentially unwrap the gzip stream
@@ -346,7 +346,7 @@ func ImportPreimages(db zonddb.Database, fn string) error {
 // ExportPreimages exports all known hash preimages into the specified file,
 // truncating any data already present in the file.
 // It's a part of the deprecated functionality, should be removed in the future.
-func ExportPreimages(db zonddb.Database, fn string) error {
+func ExportPreimages(db qrldb.Database, fn string) error {
 	log.Info("Exporting preimages", "file", fn)
 
 	// Open the file handle and potentially wrap with a gzip stream
@@ -393,7 +393,7 @@ const (
 )
 
 // ImportLDBData imports a batch of snapshot data into the database
-func ImportLDBData(db zonddb.Database, f string, startIndex int64, interrupt chan struct{}) error {
+func ImportLDBData(db qrldb.Database, f string, startIndex int64, interrupt chan struct{}) error {
 	log.Info("Importing leveldb data", "file", f)
 
 	// Open the file handle and potentially unwrap the gzip stream
@@ -462,7 +462,7 @@ func ImportLDBData(db zonddb.Database, f string, startIndex int64, interrupt cha
 		default:
 			return fmt.Errorf("unknown op %d\n", op)
 		}
-		if batch.ValueSize() > zonddb.IdealBatchSize {
+		if batch.ValueSize() > qrldb.IdealBatchSize {
 			if err := batch.Write(); err != nil {
 				return err
 			}

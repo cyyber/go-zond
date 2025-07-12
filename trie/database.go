@@ -21,11 +21,11 @@ import (
 
 	"github.com/theQRL/go-zond/common"
 	"github.com/theQRL/go-zond/log"
+	"github.com/theQRL/go-zond/qrldb"
 	"github.com/theQRL/go-zond/trie/triedb/hashdb"
 	"github.com/theQRL/go-zond/trie/triedb/pathdb"
 	"github.com/theQRL/go-zond/trie/trienode"
 	"github.com/theQRL/go-zond/trie/triestate"
-	"github.com/theQRL/go-zond/zonddb"
 )
 
 // Config defines all necessary options for database.
@@ -79,15 +79,15 @@ type backend interface {
 // types of node backend as an entrypoint. It's responsible for all interactions
 // relevant with trie nodes and node preimages.
 type Database struct {
-	config    *Config         // Configuration for trie database
-	diskdb    zonddb.Database // Persistent database to store the snapshot
-	preimages *preimageStore  // The store for caching preimages
-	backend   backend         // The backend for managing trie nodes
+	config    *Config        // Configuration for trie database
+	diskdb    qrldb.Database // Persistent database to store the snapshot
+	preimages *preimageStore // The store for caching preimages
+	backend   backend        // The backend for managing trie nodes
 }
 
 // NewDatabase initializes the trie database with default settings, note
 // the legacy hash-based scheme is used by default.
-func NewDatabase(diskdb zonddb.Database, config *Config) *Database {
+func NewDatabase(diskdb qrldb.Database, config *Config) *Database {
 	// Sanitize the config and use the default one if it's not specified.
 	if config == nil {
 		config = HashDefaults

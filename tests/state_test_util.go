@@ -37,11 +37,11 @@ import (
 	"github.com/theQRL/go-zond/core/vm"
 	"github.com/theQRL/go-zond/crypto"
 	"github.com/theQRL/go-zond/params"
+	"github.com/theQRL/go-zond/qrldb"
 	"github.com/theQRL/go-zond/rlp"
 	"github.com/theQRL/go-zond/trie"
 	"github.com/theQRL/go-zond/trie/triedb/hashdb"
 	"github.com/theQRL/go-zond/trie/triedb/pathdb"
-	"github.com/theQRL/go-zond/zonddb"
 	"golang.org/x/crypto/sha3"
 )
 
@@ -261,9 +261,9 @@ func (t *StateTest) RunNoVerify(subtest StateSubtest, vmconfig vm.Config, snapsh
 		}
 	}
 
-	// Prepare the ZVM.
-	txContext := core.NewZVMTxContext(msg)
-	context := core.NewZVMBlockContext(block.Header(), nil, &t.json.Env.Coinbase)
+	// Prepare the QRVM.
+	txContext := core.NewQRVMTxContext(msg)
+	context := core.NewQRVMBlockContext(block.Header(), nil, &t.json.Env.Coinbase)
 	context.GetHash = vmTestBlockHash
 	context.BaseFee = baseFee
 	context.Random = nil
@@ -271,13 +271,13 @@ func (t *StateTest) RunNoVerify(subtest StateSubtest, vmconfig vm.Config, snapsh
 		rnd := common.BigToHash(t.json.Env.Random)
 		context.Random = &rnd
 	}
-	zvm := vm.NewZVM(context, txContext, statedb, config, vmconfig)
+	qrvm := vm.NewQRVM(context, txContext, statedb, config, vmconfig)
 
 	// Execute the message.
 	snapshot := statedb.Snapshot()
 	gaspool := new(core.GasPool)
 	gaspool.AddGas(block.GasLimit())
-	_, err = core.ApplyMessage(zvm, msg, gaspool)
+	_, err = core.ApplyMessage(qrvm, msg, gaspool)
 	if err != nil {
 		statedb.RevertToSnapshot(snapshot)
 	}
@@ -297,7 +297,7 @@ func (t *StateTest) gasLimit(subtest StateSubtest) uint64 {
 	return t.json.Tx.GasLimit[t.json.Post[subtest.Fork][subtest.Index].Indexes.Gas]
 }
 
-func MakePreState(db zonddb.Database, accounts core.GenesisAlloc, snapshotter bool, scheme string) (*trie.Database, *snapshot.Tree, *state.StateDB) {
+func MakePreState(db qrldb.Database, accounts core.GenesisAlloc, snapshotter bool, scheme string) (*trie.Database, *snapshot.Tree, *state.StateDB) {
 	tconf := &trie.Config{Preimages: true}
 	if scheme == rawdb.HashScheme {
 		tconf.HashDB = hashdb.Defaults

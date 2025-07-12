@@ -155,7 +155,7 @@ func (method Method) IsConstant() bool {
 }
 
 // IsPayable returns the indicator whether the method can process
-// plain zond transfers.
+// plain qrl transfers.
 func (method Method) IsPayable() bool {
 	return method.StateMutability == "payable"
 }

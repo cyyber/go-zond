@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with go-ethereum. If not, see <http://www.gnu.org/licenses/>.
 
-// gzond is the official command-line client for Zond.
+// gzond is the official command-line client for QRL.
 package main
 
 import (
@@ -35,12 +35,12 @@ import (
 	"github.com/theQRL/go-zond/log"
 	"github.com/theQRL/go-zond/metrics"
 	"github.com/theQRL/go-zond/node"
-	"github.com/theQRL/go-zond/zond/downloader"
-	"github.com/theQRL/go-zond/zondclient"
+	"github.com/theQRL/go-zond/qrl/downloader"
+	"github.com/theQRL/go-zond/qrlclient"
 
 	// Force-load the tracer engines to trigger registration
-	_ "github.com/theQRL/go-zond/zond/tracers/js"
-	_ "github.com/theQRL/go-zond/zond/tracers/native"
+	_ "github.com/theQRL/go-zond/qrl/tracers/js"
+	_ "github.com/theQRL/go-zond/qrl/tracers/native"
 	"go.uber.org/automaxprocs/maxprocs"
 
 	"github.com/urfave/cli/v2"
@@ -84,7 +84,7 @@ var (
 		utils.StateSchemeFlag,
 		utils.StateHistoryFlag,
 		utils.LightKDFFlag,
-		utils.ZondRequiredBlocksFlag,
+		utils.QRLRequiredBlocksFlag,
 		utils.BloomFilterSizeFlag,
 		utils.CacheFlag,
 		utils.CacheDatabaseFlag,
@@ -117,7 +117,7 @@ var (
 		utils.DeveloperPeriodFlag,
 		utils.VMEnableDebugFlag,
 		utils.NetworkIdFlag,
-		utils.ZondStatsURLFlag,
+		utils.QRLStatsURLFlag,
 		utils.NoCompactionFlag,
 		utils.GpoBlocksFlag,
 		utils.GpoPercentileFlag,
@@ -151,7 +151,7 @@ var (
 		utils.IPCPathFlag,
 		utils.InsecureUnlockAllowedFlag,
 		utils.RPCGlobalGasCapFlag,
-		utils.RPCGlobalZVMTimeoutFlag,
+		utils.RPCGlobalQRVMTimeoutFlag,
 		utils.RPCGlobalTxFeeCapFlag,
 		utils.BatchRequestLimit,
 		utils.BatchResponseMaxSize,
@@ -323,7 +323,7 @@ func startNode(ctx *cli.Context, stack *node.Node, isConsole bool) {
 
 	// Create a client to interact with local gzond node.
 	rpcClient := stack.Attach()
-	zondClient := zondclient.NewClient(rpcClient)
+	qrlClient := qrlclient.NewClient(rpcClient)
 
 	go func() {
 		// Open any wallets already attached
@@ -349,7 +349,7 @@ func startNode(ctx *cli.Context, stack *node.Node, isConsole bool) {
 				}
 				derivationPaths = append(derivationPaths, accounts.DefaultBaseDerivationPath)
 
-				event.Wallet.SelfDerive(derivationPaths, zondClient)
+				event.Wallet.SelfDerive(derivationPaths, qrlClient)
 
 			case accounts.WalletDropped:
 				log.Info("Old wallet dropped", "url", event.Wallet.URL())

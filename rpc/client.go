@@ -481,8 +481,8 @@ func (c *Client) Notify(ctx context.Context, method string, args ...interface{})
 	return c.send(ctx, op, msg)
 }
 
-// ZondSubscribe registers a subscription under the "zond" namespace.
-func (c *Client) ZondSubscribe(ctx context.Context, channel interface{}, args ...interface{}) (*ClientSubscription, error) {
+// QRLSubscribe registers a subscription under the "qrl" namespace.
+func (c *Client) QRLSubscribe(ctx context.Context, channel interface{}, args ...interface{}) (*ClientSubscription, error) {
 	return c.Subscribe(ctx, "zond", channel, args...)
 }
 

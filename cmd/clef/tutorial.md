@@ -307,7 +307,7 @@ In a different window we can start Gzond, list our accounts, even list our walle
 ```text
 $ gzond --rinkeby --signer=~/.clef/clef.ipc console
 
-> zond.accounts
+> qrl.accounts
 ["Zd9c9cd5f6779558b6e0ed4e6acf6b1947e7fa1f3", "Z086278a6c067775f71d6b2bb1856db6e28c30418"]
 
 > personal.listWallets

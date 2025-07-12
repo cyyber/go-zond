@@ -710,7 +710,7 @@ Invoked when a request for account listing has been made.
       "messages": [
         {
           "name": "message",
-          "value": "\u0019Zond Signed Message:\n4\u0001\u0002\u0003\u0004",
+          "value": "\u0019QRL Signed Message:\n4\u0001\u0002\u0003\u0004",
           "type": "text/plain"
         }
       ],

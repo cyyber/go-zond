@@ -48,22 +48,22 @@ func TestLoopInterrupt(t *testing.T) {
 		statedb.SetCode(address, common.Hex2Bytes(tt))
 		statedb.Finalise(true)
 
-		zvm := NewZVM(vmctx, TxContext{}, statedb, params.AllBeaconProtocolChanges, Config{})
+		qrvm := NewQRVM(vmctx, TxContext{}, statedb, params.AllBeaconProtocolChanges, Config{})
 
 		errChannel := make(chan error)
 		timeout := make(chan bool)
 
-		go func(zvm *ZVM) {
-			_, _, err := zvm.Call(AccountRef(common.Address{}), address, nil, math.MaxUint64, new(big.Int))
+		go func(qrvm *QRVM) {
+			_, _, err := qrvm.Call(AccountRef(common.Address{}), address, nil, math.MaxUint64, new(big.Int))
 			errChannel <- err
-		}(zvm)
+		}(qrvm)
 
 		go func() {
 			<-time.After(time.Second)
 			timeout <- true
 		}()
 
-		zvm.Cancel()
+		qrvm.Cancel()
 
 		select {
 		case <-timeout:

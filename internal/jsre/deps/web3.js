@@ -1761,7 +1761,7 @@ if (typeof XMLHttpRequest === 'undefined') {
 /// required to define ZOND_BIGNUMBER_ROUNDING_MODE
 var BigNumber = require('bignumber.js');
 
-var ZOND_UNITS = [
+var QRL_UNITS = [
     'planck',
     'kplanck',
     'Mplanck',
@@ -1771,19 +1771,19 @@ var ZOND_UNITS = [
     'nano',
     'micro',
     'milli',
-    'zond',
+    'quanta',
     'grand',
-    'Mzond',
-    'Gzond',
-    'Tzond',
-    'Pzond',
-    'Ezond',
-    'Zzond',
-    'Yzond',
-    'Nzond',
-    'Dzond',
-    'Vzond',
-    'Uzond'
+    'Mquanta',
+    'Gquanta',
+    'Tquanta',
+    'Pquanta',
+    'Equanta',
+    'Zquanta',
+    'Yquanta',
+    'Nquanta',
+    'Dquanta',
+    'Vquanta',
+    'Uquanta'
 ];
 
 module.exports = {
@@ -2591,7 +2591,7 @@ var properties = function () {
         }),
         new Property({
             name: 'version.zond',
-            getter: 'zond_protocolVersion',
+            getter: 'qrl_protocolVersion',
             inputFormatter: utils.toDecimal
         })
     ];
@@ -4193,7 +4193,7 @@ HyperionFunction.prototype.request = function () {
     var format = this.unpackOutput.bind(this);
 
     return {
-        method: this._constant ? 'zond_call' : 'zond_sendTransaction',
+        method: this._constant ? 'qrl_call' : 'qrl_sendTransaction',
         callback: callback,
         params: [payload],
         format: format
@@ -5196,18 +5196,18 @@ var Iban = require('../iban');
 var transfer = require('../transfer');
 
 var blockCall = function (args) {
-    return (utils.isString(args[0]) && args[0].indexOf('0x') === 0) ? "zond_getBlockByHash" : "zond_getBlockByNumber";
+    return (utils.isString(args[0]) && args[0].indexOf('0x') === 0) ? "qrl_getBlockByHash" : "qrl_getBlockByNumber";
 };
 
 var transactionFromBlockCall = function (args) {
-    return (utils.isString(args[0]) && args[0].indexOf('0x') === 0) ? 'zond_getTransactionByBlockHashAndIndex' : 'zond_getTransactionByBlockNumberAndIndex';
+    return (utils.isString(args[0]) && args[0].indexOf('0x') === 0) ? 'qrl_getTransactionByBlockHashAndIndex' : 'qrl_getTransactionByBlockNumberAndIndex';
 };
 
 var getBlockTransactionCountCall = function (args) {
-    return (utils.isString(args[0]) && args[0].indexOf('0x') === 0) ? 'zond_getBlockTransactionCountByHash' : 'zond_getBlockTransactionCountByNumber';
+    return (utils.isString(args[0]) && args[0].indexOf('0x') === 0) ? 'qrl_getBlockTransactionCountByHash' : 'qrl_getBlockTransactionCountByNumber';
 };
 
-function Zond(web3) {
+function QRL(web3) {
     this._requestManager = web3._requestManager;
 
     var self = this;
@@ -5227,7 +5227,7 @@ function Zond(web3) {
     this.sendIBANTransaction = transfer.bind(null, this);
 }
 
-Object.defineProperty(Zond.prototype, 'defaultBlock', {
+Object.defineProperty(QRL.prototype, 'defaultBlock', {
     get: function () {
         return c.defaultBlock;
     },
@@ -5237,7 +5237,7 @@ Object.defineProperty(Zond.prototype, 'defaultBlock', {
     }
 });
 
-Object.defineProperty(Zond.prototype, 'defaultAccount', {
+Object.defineProperty(QRL.prototype, 'defaultAccount', {
     get: function () {
         return c.defaultAccount;
     },
@@ -5250,7 +5250,7 @@ Object.defineProperty(Zond.prototype, 'defaultAccount', {
 var methods = function () {
     var getBalance = new Method({
         name: 'getBalance',
-        call: 'zond_getBalance',
+        call: 'qrl_getBalance',
         params: 2,
         inputFormatter: [formatters.inputAddressFormatter, formatters.inputDefaultBlockNumberFormatter],
         outputFormatter: formatters.outputBigNumberFormatter
@@ -5258,14 +5258,14 @@ var methods = function () {
 
     var getStorageAt = new Method({
         name: 'getStorageAt',
-        call: 'zond_getStorageAt',
+        call: 'qrl_getStorageAt',
         params: 3,
         inputFormatter: [null, utils.toHex, formatters.inputDefaultBlockNumberFormatter]
     });
 
     var getCode = new Method({
         name: 'getCode',
-        call: 'zond_getCode',
+        call: 'qrl_getCode',
         params: 2,
         inputFormatter: [formatters.inputAddressFormatter, formatters.inputDefaultBlockNumberFormatter]
     });
@@ -5288,7 +5288,7 @@ var methods = function () {
 
     var getTransaction = new Method({
         name: 'getTransaction',
-        call: 'zond_getTransactionByHash',
+        call: 'qrl_getTransactionByHash',
         params: 1,
         outputFormatter: formatters.outputTransactionFormatter
     });
@@ -5303,14 +5303,14 @@ var methods = function () {
 
     var getTransactionReceipt = new Method({
         name: 'getTransactionReceipt',
-        call: 'zond_getTransactionReceipt',
+        call: 'qrl_getTransactionReceipt',
         params: 1,
         outputFormatter: formatters.outputTransactionReceiptFormatter
     });
 
     var getTransactionCount = new Method({
         name: 'getTransactionCount',
-        call: 'zond_getTransactionCount',
+        call: 'qrl_getTransactionCount',
         params: 2,
         inputFormatter: [null, formatters.inputDefaultBlockNumberFormatter],
         outputFormatter: utils.toDecimal
@@ -5318,42 +5318,42 @@ var methods = function () {
 
     var sendRawTransaction = new Method({
         name: 'sendRawTransaction',
-        call: 'zond_sendRawTransaction',
+        call: 'qrl_sendRawTransaction',
         params: 1,
         inputFormatter: [null]
     });
 
     var sendTransaction = new Method({
         name: 'sendTransaction',
-        call: 'zond_sendTransaction',
+        call: 'qrl_sendTransaction',
         params: 1,
         inputFormatter: [formatters.inputTransactionFormatter]
     });
 
     var signTransaction = new Method({
         name: 'signTransaction',
-        call: 'zond_signTransaction',
+        call: 'qrl_signTransaction',
         params: 1,
         inputFormatter: [formatters.inputTransactionFormatter]
     });
 
     var sign = new Method({
         name: 'sign',
-        call: 'zond_sign',
+        call: 'qrl_sign',
         params: 2,
         inputFormatter: [formatters.inputAddressFormatter, null]
     });
 
     var call = new Method({
         name: 'call',
-        call: 'zond_call',
+        call: 'qrl_call',
         params: 2,
         inputFormatter: [formatters.inputCallFormatter, formatters.inputDefaultBlockNumberFormatter]
     });
 
     var estimateGas = new Method({
         name: 'estimateGas',
-        call: 'zond_estimateGas',
+        call: 'qrl_estimateGas',
         params: 1,
         inputFormatter: [formatters.inputCallFormatter],
         outputFormatter: utils.toDecimal
@@ -5361,7 +5361,7 @@ var methods = function () {
 
     var compileHyperion = new Method({
         name: 'compile.hyperion',
-        call: 'zond_compileHyperion',
+        call: 'qrl_compileHyperion',
         params: 1
     });
 
@@ -5390,26 +5390,26 @@ var properties = function () {
     return [
         new Property({
             name: 'syncing',
-            getter: 'zond_syncing',
+            getter: 'qrl_syncing',
             outputFormatter: formatters.outputSyncingFormatter
         }),
         new Property({
             name: 'gasPrice',
-            getter: 'zond_gasPrice',
+            getter: 'qrl_gasPrice',
             outputFormatter: formatters.outputBigNumberFormatter
         }),
         new Property({
             name: 'accounts',
-            getter: 'zond_accounts'
+            getter: 'qrl_accounts'
         }),
         new Property({
             name: 'blockNumber',
-            getter: 'zond_blockNumber',
+            getter: 'qrl_blockNumber',
             outputFormatter: utils.toDecimal
         }),
         new Property({
             name: 'protocolVersion',
-            getter: 'zond_protocolVersion'
+            getter: 'qrl_protocolVersion'
         })
     ];
 };
@@ -5516,8 +5516,8 @@ module.exports = Net;
 
 var Method = require('../method');
 
-/// @returns an array of objects describing web3.zond.filter api methods
-var zond = function () {
+/// @returns an array of objects describing web3.qrl.filter api methods
+var qrl = function () {
     var newFilterCall = function (args) {
         var type = args[0];
 
@@ -5525,13 +5525,13 @@ var zond = function () {
             case 'latest':
                 args.shift();
                 this.params = 0;
-                return 'zond_newBlockFilter';
+                return 'qrl_newBlockFilter';
             case 'pending':
                 args.shift();
                 this.params = 0;
-                return 'zond_newPendingTransactionFilter';
+                return 'qrl_newPendingTransactionFilter';
             default:
-                return 'zond_newFilter';
+                return 'qrl_newFilter';
         }
     };
 
@@ -5543,19 +5543,19 @@ var zond = function () {
 
     var uninstallFilter = new Method({
         name: 'uninstallFilter',
-        call: 'zond_uninstallFilter',
+        call: 'qrl_uninstallFilter',
         params: 1
     });
 
     var getLogs = new Method({
         name: 'getLogs',
-        call: 'zond_getFilterLogs',
+        call: 'qrl_getFilterLogs',
         params: 1
     });
 
     var poll = new Method({
         name: 'poll',
-        call: 'zond_getFilterChanges',
+        call: 'qrl_getFilterChanges',
         params: 1
     });
 
@@ -5595,7 +5595,7 @@ var shh = function () {
 };
 
 module.exports = {
-    zond: zond,
+    qrl: qrl,
     shh: shh
 };
 
@@ -6129,7 +6129,7 @@ var pollSyncing = function(self) {
     };
 
     self.requestManager.startPolling({
-        method: 'zond_syncing',
+        method: 'qrl_syncing',
         params: [],
     }, self.pollId, onMessage, self.stopWatching.bind(self));
 

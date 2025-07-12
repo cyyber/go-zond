@@ -51,8 +51,8 @@ func (p *statePrefetcher) Prefetch(block *types.Block, statedb *state.StateDB, c
 	var (
 		header       = block.Header()
 		gaspool      = new(GasPool).AddGas(block.GasLimit())
-		blockContext = NewZVMBlockContext(header, p.bc, nil)
-		zvm          = vm.NewZVM(blockContext, vm.TxContext{}, statedb, p.config, cfg)
+		blockContext = NewQRVMBlockContext(header, p.bc, nil)
+		qrvm         = vm.NewQRVM(blockContext, vm.TxContext{}, statedb, p.config, cfg)
 		signer       = types.MakeSigner(p.config)
 	)
 	// Iterate over and process the individual transactions
@@ -67,7 +67,7 @@ func (p *statePrefetcher) Prefetch(block *types.Block, statedb *state.StateDB, c
 			return // Also invalid block, bail out
 		}
 		statedb.SetTxContext(tx.Hash(), i)
-		if err := precacheTransaction(msg, gaspool, statedb, zvm); err != nil {
+		if err := precacheTransaction(msg, gaspool, statedb, qrvm); err != nil {
 			return // Ugh, something went horribly wrong, bail out
 		}
 	}
@@ -78,10 +78,10 @@ func (p *statePrefetcher) Prefetch(block *types.Block, statedb *state.StateDB, c
 // precacheTransaction attempts to apply a transaction to the given state database
 // and uses the input parameters for its environment. The goal is not to execute
 // the transaction successfully, rather to warm up touched data slots.
-func precacheTransaction(msg *Message, gaspool *GasPool, statedb *state.StateDB, zvm *vm.ZVM) error {
-	// Update the zvm with the new transaction context.
-	zvm.Reset(NewZVMTxContext(msg), statedb)
+func precacheTransaction(msg *Message, gaspool *GasPool, statedb *state.StateDB, qrvm *vm.QRVM) error {
+	// Update the qrvm with the new transaction context.
+	qrvm.Reset(NewQRVMTxContext(msg), statedb)
 	// Add addresses to access list if applicable
-	_, err := ApplyMessage(zvm, msg, gaspool)
+	_, err := ApplyMessage(qrvm, msg, gaspool)
 	return err
 }

@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-// Package asm provides support for dealing with ZVM assembly instructions (e.g., disassembling them).
+// Package asm provides support for dealing with QRVM assembly instructions (e.g., disassembling them).
 package asm
 
 import (
@@ -24,7 +24,7 @@ import (
 	"github.com/theQRL/go-zond/core/vm"
 )
 
-// Iterator for disassembled ZVM instructions
+// Iterator for disassembled QRVM instructions
 type instructionIterator struct {
 	code    []byte
 	pc      uint64
@@ -99,7 +99,7 @@ func (it *instructionIterator) Arg() []byte {
 	return it.arg
 }
 
-// PrintDisassembled pretty-print all disassembled ZVM instructions to stdout.
+// PrintDisassembled pretty-print all disassembled QRVM instructions to stdout.
 func PrintDisassembled(code string) error {
 	script, err := hex.DecodeString(code)
 	if err != nil {
@@ -117,7 +117,7 @@ func PrintDisassembled(code string) error {
 	return it.Error()
 }
 
-// Disassemble returns all disassembled ZVM instructions in human-readable format.
+// Disassemble returns all disassembled QRVM instructions in human-readable format.
 func Disassemble(script []byte) ([]string, error) {
 	instrs := make([]string, 0)
 

@@ -27,7 +27,7 @@ import (
 
 	"github.com/theQRL/go-zond/common/hexutil"
 	"github.com/theQRL/go-zond/console/prompt"
-	"github.com/theQRL/go-zond/internal/zondapi"
+	"github.com/theQRL/go-zond/internal/qrlapi"
 	"github.com/theQRL/go-zond/log"
 )
 
@@ -232,7 +232,7 @@ func (ui *CommandlineUI) ShowInfo(message string) {
 	fmt.Printf("## Info \n%s\n", message)
 }
 
-func (ui *CommandlineUI) OnApprovedTx(tx zondapi.SignTransactionResult) {
+func (ui *CommandlineUI) OnApprovedTx(tx qrlapi.SignTransactionResult) {
 	fmt.Printf("Transaction signed:\n ")
 	if jsn, err := json.MarshalIndent(tx.Tx, "  ", "  "); err != nil {
 		fmt.Printf("WARN: marshalling error %v\n", err)

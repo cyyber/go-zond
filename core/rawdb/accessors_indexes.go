@@ -24,12 +24,12 @@ import (
 	"github.com/theQRL/go-zond/core/types"
 	"github.com/theQRL/go-zond/log"
 	"github.com/theQRL/go-zond/params"
-	"github.com/theQRL/go-zond/zonddb"
+	"github.com/theQRL/go-zond/qrldb"
 )
 
 // ReadTxLookupEntry retrieves the positional metadata associated with a transaction
 // hash to allow retrieving the transaction or receipt by hash.
-func ReadTxLookupEntry(db zonddb.Reader, hash common.Hash) *uint64 {
+func ReadTxLookupEntry(db qrldb.Reader, hash common.Hash) *uint64 {
 	data, _ := db.Get(txLookupKey(hash))
 	if len(data) == 0 {
 		return nil
@@ -41,7 +41,7 @@ func ReadTxLookupEntry(db zonddb.Reader, hash common.Hash) *uint64 {
 
 // writeTxLookupEntry stores a positional metadata for a transaction,
 // enabling hash based transaction and receipt lookups.
-func writeTxLookupEntry(db zonddb.KeyValueWriter, hash common.Hash, numberBytes []byte) {
+func writeTxLookupEntry(db qrldb.KeyValueWriter, hash common.Hash, numberBytes []byte) {
 	if err := db.Put(txLookupKey(hash), numberBytes); err != nil {
 		log.Crit("Failed to store transaction lookup entry", "err", err)
 	}
@@ -49,7 +49,7 @@ func writeTxLookupEntry(db zonddb.KeyValueWriter, hash common.Hash, numberBytes 
 
 // WriteTxLookupEntries is identical to WriteTxLookupEntry, but it works on
 // a list of hashes
-func WriteTxLookupEntries(db zonddb.KeyValueWriter, number uint64, hashes []common.Hash) {
+func WriteTxLookupEntries(db qrldb.KeyValueWriter, number uint64, hashes []common.Hash) {
 	numberBytes := new(big.Int).SetUint64(number).Bytes()
 	for _, hash := range hashes {
 		writeTxLookupEntry(db, hash, numberBytes)
@@ -58,7 +58,7 @@ func WriteTxLookupEntries(db zonddb.KeyValueWriter, number uint64, hashes []comm
 
 // WriteTxLookupEntriesByBlock stores a positional metadata for every transaction from
 // a block, enabling hash based transaction and receipt lookups.
-func WriteTxLookupEntriesByBlock(db zonddb.KeyValueWriter, block *types.Block) {
+func WriteTxLookupEntriesByBlock(db qrldb.KeyValueWriter, block *types.Block) {
 	numberBytes := block.Number().Bytes()
 	for _, tx := range block.Transactions() {
 		writeTxLookupEntry(db, tx.Hash(), numberBytes)
@@ -66,14 +66,14 @@ func WriteTxLookupEntriesByBlock(db zonddb.KeyValueWriter, block *types.Block) {
 }
 
 // DeleteTxLookupEntry removes all transaction data associated with a hash.
-func DeleteTxLookupEntry(db zonddb.KeyValueWriter, hash common.Hash) {
+func DeleteTxLookupEntry(db qrldb.KeyValueWriter, hash common.Hash) {
 	if err := db.Delete(txLookupKey(hash)); err != nil {
 		log.Crit("Failed to delete transaction lookup entry", "err", err)
 	}
 }
 
 // DeleteTxLookupEntries removes all transaction lookups for a given block.
-func DeleteTxLookupEntries(db zonddb.KeyValueWriter, hashes []common.Hash) {
+func DeleteTxLookupEntries(db qrldb.KeyValueWriter, hashes []common.Hash) {
 	for _, hash := range hashes {
 		DeleteTxLookupEntry(db, hash)
 	}
@@ -81,7 +81,7 @@ func DeleteTxLookupEntries(db zonddb.KeyValueWriter, hashes []common.Hash) {
 
 // ReadTransaction retrieves a specific transaction from the database, along with
 // its added positional metadata.
-func ReadTransaction(db zonddb.Reader, hash common.Hash) (*types.Transaction, common.Hash, uint64, uint64) {
+func ReadTransaction(db qrldb.Reader, hash common.Hash) (*types.Transaction, common.Hash, uint64, uint64) {
 	blockNumber := ReadTxLookupEntry(db, hash)
 	if blockNumber == nil {
 		return nil, common.Hash{}, 0, 0
@@ -106,7 +106,7 @@ func ReadTransaction(db zonddb.Reader, hash common.Hash) (*types.Transaction, co
 
 // ReadReceipt retrieves a specific transaction receipt from the database, along with
 // its added positional metadata.
-func ReadReceipt(db zonddb.Reader, hash common.Hash, config *params.ChainConfig) (*types.Receipt, common.Hash, uint64, uint64) {
+func ReadReceipt(db qrldb.Reader, hash common.Hash, config *params.ChainConfig) (*types.Receipt, common.Hash, uint64, uint64) {
 	// Retrieve the context of the receipt based on the transaction hash
 	blockNumber := ReadTxLookupEntry(db, hash)
 	if blockNumber == nil {
@@ -133,13 +133,13 @@ func ReadReceipt(db zonddb.Reader, hash common.Hash, config *params.ChainConfig)
 
 // ReadBloomBits retrieves the compressed bloom bit vector belonging to the given
 // section and bit index from the.
-func ReadBloomBits(db zonddb.KeyValueReader, bit uint, section uint64, head common.Hash) ([]byte, error) {
+func ReadBloomBits(db qrldb.KeyValueReader, bit uint, section uint64, head common.Hash) ([]byte, error) {
 	return db.Get(bloomBitsKey(bit, section, head))
 }
 
 // WriteBloomBits stores the compressed bloom bits vector belonging to the given
 // section and bit index.
-func WriteBloomBits(db zonddb.KeyValueWriter, bit uint, section uint64, head common.Hash, bits []byte) {
+func WriteBloomBits(db qrldb.KeyValueWriter, bit uint, section uint64, head common.Hash, bits []byte) {
 	if err := db.Put(bloomBitsKey(bit, section, head), bits); err != nil {
 		log.Crit("Failed to store bloom bits", "err", err)
 	}
@@ -147,7 +147,7 @@ func WriteBloomBits(db zonddb.KeyValueWriter, bit uint, section uint64, head com
 
 // DeleteBloombits removes all compressed bloom bits vector belonging to the
 // given section range and bit index.
-func DeleteBloombits(db zonddb.Database, bit uint, from uint64, to uint64) {
+func DeleteBloombits(db qrldb.Database, bit uint, from uint64, to uint64) {
 	start, end := bloomBitsKey(bit, from, common.Hash{}), bloomBitsKey(bit, to, common.Hash{})
 	it := db.NewIterator(nil, start)
 	defer it.Release()
