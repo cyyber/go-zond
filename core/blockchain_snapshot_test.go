@@ -35,7 +35,7 @@ import (
 	"github.com/theQRL/go-zond/core/types"
 	"github.com/theQRL/go-zond/core/vm"
 	"github.com/theQRL/go-zond/params"
-	"github.com/theQRL/go-zond/zonddb"
+	"github.com/theQRL/go-zond/qrldb"
 )
 
 // snapshotTestBasic wraps the common testing fields in the snapshot tests.
@@ -54,8 +54,8 @@ type snapshotTestBasic struct {
 	// share fields, set in runtime
 	datadir string
 	ancient string
-	db      zonddb.Database
-	genDb   zonddb.Database
+	db      qrldb.Database
+	genDb   qrldb.Database
 	engine  consensus.Engine
 	gspec   *Genesis
 }

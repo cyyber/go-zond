@@ -33,7 +33,7 @@ var customGenesisTests = []struct {
 	{
 		genesis: `{
 			"alloc"      : {},
-			"coinbase"   : "Z0000000000000000000000000000000000000000",
+			"coinbase"   : "Q0000000000000000000000000000000000000000",
 			"extraData"  : "0x0000000000001338",
 			"gasLimit"   : "0x2fefd8",
 			"mixhash"    : "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -41,14 +41,14 @@ var customGenesisTests = []struct {
 			"timestamp"  : "0x00",
 			"config"     : {}
 		}`,
-		query:  "zond.getBlock(0).extraData",
+		query:  "qrl.getBlock(0).extraData",
 		result: "0x0000000000001338",
 	},
 	// Genesis file with specific chain configurations
 	{
 		genesis: `{
 			"alloc"      : {},
-			"coinbase"   : "Z0000000000000000000000000000000000000000",
+			"coinbase"   : "Q0000000000000000000000000000000000000000",
 			"extraData"  : "0x0000000000001339",
 			"gasLimit"   : "0x2fefd8",
 			"mixhash"    : "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -56,7 +56,7 @@ var customGenesisTests = []struct {
 			"timestamp"  : "0x00",
 			"config"     : {}
 		}`,
-		query:  "zond.getBlock(0).extraData",
+		query:  "qrl.getBlock(0).extraData",
 		result: "0x0000000000001339",
 	},
 }
@@ -95,7 +95,7 @@ func TestCustomBackend(t *testing.T) {
 	}
 	genesis := `{
 		"alloc"      : {},
-		"coinbase"   : "Z0000000000000000000000000000000000000000",
+		"coinbase"   : "Q0000000000000000000000000000000000000000",
 		"extraData"  : "0x0000000000001338",
 		"gasLimit"   : "0x2fefd8",
 		"mixhash"    : "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -128,7 +128,7 @@ func TestCustomBackend(t *testing.T) {
 			args := append(tt.execArgs, "--networkid", "1337", "--syncmode=full", "--cache", "16",
 				"--datadir", datadir, "--maxpeers", "0", "--port", "0", "--authrpc.port", "0",
 				"--nodiscover", "--nat", "none", "--ipcdisable",
-				"--exec", "zond.getBlock(0).extraData", "console")
+				"--exec", "qrl.getBlock(0).extraData", "console")
 			gzond := runGzond(t, args...)
 			gzond.ExpectRegexp(tt.execExpect)
 			gzond.ExpectExit()

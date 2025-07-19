@@ -27,8 +27,8 @@ import (
 	"github.com/theQRL/go-zond/common"
 	"github.com/theQRL/go-zond/core/rawdb"
 	"github.com/theQRL/go-zond/log"
+	"github.com/theQRL/go-zond/qrldb"
 	"github.com/theQRL/go-zond/trie/triestate"
-	"github.com/theQRL/go-zond/zonddb"
 )
 
 // State history records the state changes involved in executing a block. The
@@ -515,7 +515,7 @@ func readHistory(freezer *rawdb.ResettableFreezer, id uint64) (*history, error) 
 // writeHistory writes the state history with provided state set. After
 // storing the corresponding state history, it will also prune the stale
 // histories from the disk with the given threshold.
-func writeHistory(db zonddb.KeyValueStore, freezer *rawdb.ResettableFreezer, dl *diffLayer, limit uint64) error {
+func writeHistory(db qrldb.KeyValueStore, freezer *rawdb.ResettableFreezer, dl *diffLayer, limit uint64) error {
 	// Short circuit if state set is not available.
 	if dl.states == nil {
 		return errors.New("state change set is not available")
@@ -576,7 +576,7 @@ func checkHistories(freezer *rawdb.ResettableFreezer, start, count uint64, check
 
 // truncateFromHead removes the extra state histories from the head with the given
 // parameters. It returns the number of items removed from the head.
-func truncateFromHead(db zonddb.Batcher, freezer *rawdb.ResettableFreezer, nhead uint64) (int, error) {
+func truncateFromHead(db qrldb.Batcher, freezer *rawdb.ResettableFreezer, nhead uint64) (int, error) {
 	ohead, err := freezer.Ancients()
 	if err != nil {
 		return 0, err
@@ -609,7 +609,7 @@ func truncateFromHead(db zonddb.Batcher, freezer *rawdb.ResettableFreezer, nhead
 
 // truncateFromTail removes the extra state histories from the tail with the given
 // parameters. It returns the number of items removed from the tail.
-func truncateFromTail(db zonddb.Batcher, freezer *rawdb.ResettableFreezer, ntail uint64) (int, error) {
+func truncateFromTail(db qrldb.Batcher, freezer *rawdb.ResettableFreezer, ntail uint64) (int, error) {
 	otail, err := freezer.Tail()
 	if err != nil {
 		return 0, err

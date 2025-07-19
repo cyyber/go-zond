@@ -35,7 +35,7 @@ import (
 
 	pcsc "github.com/gballet/go-libpcsclite"
 	"github.com/status-im/keycard-go/derivationpath"
-	"github.com/theQRL/go-zond"
+	qrl "github.com/theQRL/go-zond"
 	"github.com/theQRL/go-zond/accounts"
 	"github.com/theQRL/go-zond/common"
 	"github.com/theQRL/go-zond/core/types"
@@ -121,7 +121,7 @@ type Wallet struct {
 
 	deriveNextPaths []accounts.DerivationPath // Next derivation paths for account auto-discovery (multiple bases supported)
 	deriveNextAddrs []common.Address          // Next derived account addresses for auto-discovery (multiple bases supported)
-	deriveChain     zond.ChainStateReader     // Blockchain state reader to discover used account with
+	deriveChain     qrl.ChainStateReader      // Blockchain state reader to discover used account with
 	deriveReq       chan chan struct{}        // Channel to request a self-derivation on
 	deriveQuit      chan chan error           // Channel to terminate the self-deriver with
 }
@@ -477,7 +477,7 @@ func (w *Wallet) selfDerive() {
 		)
 		for i := 0; i < len(nextAddrs); i++ {
 			for empty := false; !empty; {
-				// Retrieve the next derived Zond account
+				// Retrieve the next derived QRL account
 				if nextAddrs[i] == (common.Address{}) {
 					if nextAcc, err = w.session.derive(nextPaths[i]); err != nil {
 						w.log.Warn("Smartcard wallet account derivation failed", "err", err)
@@ -647,7 +647,7 @@ func (w *Wallet) Derive(path accounts.DerivationPath, pin bool) (accounts.Accoun
 //
 // You can disable automatic account discovery by calling SelfDerive with a nil
 // chain state reader.
-func (w *Wallet) SelfDerive(bases []accounts.DerivationPath, chain zond.ChainStateReader) {
+func (w *Wallet) SelfDerive(bases []accounts.DerivationPath, chain qrl.ChainStateReader) {
 	w.lock.Lock()
 	defer w.lock.Unlock()
 
@@ -728,7 +728,7 @@ func (w *Wallet) signHashWithPassphrase(account accounts.Account, passphrase str
 }
 
 // SignText requests the wallet to sign the hash of a given piece of data, prefixed
-// by the Zond prefix scheme
+// by the QRL prefix scheme
 // It looks up the account specified either solely via its address contained within,
 // or optionally with the aid of any location metadata from the embedded URL field.
 //

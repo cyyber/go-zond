@@ -26,7 +26,7 @@ import (
 	"github.com/theQRL/go-zond/common/math"
 	"github.com/theQRL/go-zond/crypto"
 	"github.com/theQRL/go-zond/crypto/cipher"
-	"github.com/theQRL/go-zond/p2p/enode"
+	"github.com/theQRL/go-zond/p2p/qnode"
 	"golang.org/x/crypto/hkdf"
 )
 
@@ -62,7 +62,7 @@ func DecodePubkey(curve elliptic.Curve, e []byte) (*ecdsa.PublicKey, error) {
 }
 
 // idNonceHash computes the ID signature hash used in the handshake.
-func idNonceHash(h hash.Hash, challenge, ephkey []byte, destID enode.ID) []byte {
+func idNonceHash(h hash.Hash, challenge, ephkey []byte, destID qnode.ID) []byte {
 	h.Reset()
 	h.Write([]byte("discovery v5 identity proof"))
 	h.Write(challenge)
@@ -72,7 +72,7 @@ func idNonceHash(h hash.Hash, challenge, ephkey []byte, destID enode.ID) []byte 
 }
 
 // makeIDSignature creates the ID nonce signature.
-func makeIDSignature(hash hash.Hash, key *ecdsa.PrivateKey, challenge, ephkey []byte, destID enode.ID) ([]byte, error) {
+func makeIDSignature(hash hash.Hash, key *ecdsa.PrivateKey, challenge, ephkey []byte, destID qnode.ID) ([]byte, error) {
 	input := idNonceHash(hash, challenge, ephkey, destID)
 	switch key.Curve {
 	case crypto.S256():
@@ -86,13 +86,13 @@ func makeIDSignature(hash hash.Hash, key *ecdsa.PrivateKey, challenge, ephkey []
 	}
 }
 
-// s256raw is an unparsed secp256k1 public key ENR entry.
+// s256raw is an unparsed secp256k1 public key QNR entry.
 type s256raw []byte
 
-func (s256raw) ENRKey() string { return "secp256k1" }
+func (s256raw) QNRKey() string { return "secp256k1" }
 
 // verifyIDSignature checks that signature over idnonce was made by the given node.
-func verifyIDSignature(hash hash.Hash, sig []byte, n *enode.Node, challenge, ephkey []byte, destID enode.ID) error {
+func verifyIDSignature(hash hash.Hash, sig []byte, n *qnode.Node, challenge, ephkey []byte, destID qnode.ID) error {
 	switch idscheme := n.Record().IdentityScheme(); idscheme {
 	case "v4":
 		var pubkey s256raw
@@ -112,7 +112,7 @@ func verifyIDSignature(hash hash.Hash, sig []byte, n *enode.Node, challenge, eph
 type hashFn func() hash.Hash
 
 // deriveKeys creates the session keys.
-func deriveKeys(hash hashFn, priv *ecdsa.PrivateKey, pub *ecdsa.PublicKey, n1, n2 enode.ID, challenge []byte) *session {
+func deriveKeys(hash hashFn, priv *ecdsa.PrivateKey, pub *ecdsa.PublicKey, n1, n2 qnode.ID, challenge []byte) *session {
 	const text = "discovery v5 key agreement"
 	var info = make([]byte, 0, len(text)+len(n1)+len(n2))
 	info = append(info, text...)

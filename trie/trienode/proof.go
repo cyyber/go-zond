@@ -22,8 +22,8 @@ import (
 
 	"github.com/theQRL/go-zond/common"
 	"github.com/theQRL/go-zond/crypto"
+	"github.com/theQRL/go-zond/qrldb"
 	"github.com/theQRL/go-zond/rlp"
-	"github.com/theQRL/go-zond/zonddb"
 )
 
 // ProofSet stores a set of trie nodes. It implements trie.Database and can also
@@ -115,7 +115,7 @@ func (db *ProofSet) List() ProofList {
 }
 
 // Store writes the contents of the set to the given database
-func (db *ProofSet) Store(target zonddb.KeyValueWriter) {
+func (db *ProofSet) Store(target qrldb.KeyValueWriter) {
 	db.lock.RLock()
 	defer db.lock.RUnlock()
 
@@ -124,11 +124,11 @@ func (db *ProofSet) Store(target zonddb.KeyValueWriter) {
 	}
 }
 
-// ProofList stores an ordered list of trie nodes. It implements zonddb.KeyValueWriter.
+// ProofList stores an ordered list of trie nodes. It implements qrldb.KeyValueWriter.
 type ProofList []rlp.RawValue
 
 // Store writes the contents of the list to the given database
-func (n ProofList) Store(db zonddb.KeyValueWriter) {
+func (n ProofList) Store(db qrldb.KeyValueWriter) {
 	for _, node := range n {
 		db.Put(crypto.Keccak256(node), node)
 	}

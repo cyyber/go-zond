@@ -42,7 +42,7 @@
 
 // module.exports = {
 //   /**
-//    * Networks define how you connect to your zond client and let you set the
+//    * Networks define how you connect to your qrl client and let you set the
 //    * defaults web3 uses to send transactions. If you don't specify one truffle
 //    * will spin up a development blockchain for you on port 9545 when you
 //    * run `develop` or `test`. You can ask a truffle command to use a specific
@@ -60,7 +60,7 @@
 //     //
 //     // development: {
 //     //  host: "127.0.0.1",     // Localhost (default: none)
-//     //  port: 8545,            // Standard Zond port (default: none)
+//     //  port: 8545,            // Standard QRL port (default: none)
 //     //  network_id: "*",       // Any network (default: none)
 //     // },
 //
@@ -103,12 +103,12 @@
 //     hypc: {
 //       // version: "0.5.1",    // Fetch exact version from hypc-bin (default: truffle's version)
 //       // docker: true,        // Use "0.5.1" you've installed locally with docker (default: false)
-//       // settings: {          // See the hyperion docs for advice about optimization and zvmVersion
+//       // settings: {          // See the hyperion docs for advice about optimization and qrvmVersion
 //       //  optimizer: {
 //       //    enabled: false,
 //       //    runs: 200
 //       //  },
-//       //  zvmVersion: "shanghai"
+//       //  qrvmVersion: "shanghai"
 //       // }
 //     }
 //   }

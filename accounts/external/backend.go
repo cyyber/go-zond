@@ -22,7 +22,7 @@ import (
 	"math/big"
 	"sync"
 
-	"github.com/theQRL/go-zond"
+	qrl "github.com/theQRL/go-zond"
 	"github.com/theQRL/go-zond/accounts"
 	"github.com/theQRL/go-zond/common"
 	"github.com/theQRL/go-zond/common/hexutil"
@@ -149,7 +149,7 @@ func (api *ExternalSigner) Derive(path accounts.DerivationPath, pin bool) (accou
 	return accounts.Account{}, errors.New("operation not supported on external signers")
 }
 
-func (api *ExternalSigner) SelfDerive(bases []accounts.DerivationPath, chain zond.ChainStateReader) {
+func (api *ExternalSigner) SelfDerive(bases []accounts.DerivationPath, chain qrl.ChainStateReader) {
 	log.Error("operation SelfDerive not supported on external signers")
 }
 

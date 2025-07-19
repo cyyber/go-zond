@@ -25,12 +25,12 @@ import (
 	"github.com/theQRL/go-zond/core/rawdb"
 	"github.com/theQRL/go-zond/core/types"
 	"github.com/theQRL/go-zond/log"
-	"github.com/theQRL/go-zond/zonddb"
+	"github.com/theQRL/go-zond/qrldb"
 )
 
 // CheckDanglingStorage iterates the snap storage data, and verifies that all
 // storage also has corresponding account data.
-func CheckDanglingStorage(chaindb zonddb.KeyValueStore) error {
+func CheckDanglingStorage(chaindb qrldb.KeyValueStore) error {
 	if err := checkDanglingDiskStorage(chaindb); err != nil {
 		log.Error("Database check error", "err", err)
 	}
@@ -39,7 +39,7 @@ func CheckDanglingStorage(chaindb zonddb.KeyValueStore) error {
 
 // checkDanglingDiskStorage checks if there is any 'dangling' storage data in the
 // disk-backed snapshot layer.
-func checkDanglingDiskStorage(chaindb zonddb.KeyValueStore) error {
+func checkDanglingDiskStorage(chaindb qrldb.KeyValueStore) error {
 	var (
 		lastReport = time.Now()
 		start      = time.Now()
@@ -72,7 +72,7 @@ func checkDanglingDiskStorage(chaindb zonddb.KeyValueStore) error {
 
 // checkDanglingMemStorage checks if there is any 'dangling' storage in the journalled
 // snapshot difflayers.
-func checkDanglingMemStorage(db zonddb.KeyValueStore) error {
+func checkDanglingMemStorage(db qrldb.KeyValueStore) error {
 	start := time.Now()
 	log.Info("Checking dangling journalled storage")
 	err := iterateJournal(db, func(pRoot, root common.Hash, destructs map[common.Hash]struct{}, accounts map[common.Hash][]byte, storage map[common.Hash]map[common.Hash][]byte) error {
@@ -93,7 +93,7 @@ func checkDanglingMemStorage(db zonddb.KeyValueStore) error {
 
 // CheckJournalAccount shows information about an account, from the disk layer and
 // up through the diff layers.
-func CheckJournalAccount(db zonddb.KeyValueStore, hash common.Hash) error {
+func CheckJournalAccount(db qrldb.KeyValueStore, hash common.Hash) error {
 	// Look up the disk layer first
 	baseRoot := rawdb.ReadSnapshotRoot(db)
 	fmt.Printf("Disklayer: Root: %x\n", baseRoot)

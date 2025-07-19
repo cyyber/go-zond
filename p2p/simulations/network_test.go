@@ -29,7 +29,7 @@ import (
 
 	"github.com/theQRL/go-zond/log"
 	"github.com/theQRL/go-zond/node"
-	"github.com/theQRL/go-zond/p2p/enode"
+	"github.com/theQRL/go-zond/p2p/qnode"
 	"github.com/theQRL/go-zond/p2p/simulations/adapters"
 )
 
@@ -60,7 +60,7 @@ func TestSnapshot(t *testing.T) {
 
 	// create and start nodes
 	nodeCount := 20
-	ids := make([]enode.ID, nodeCount)
+	ids := make([]qnode.ID, nodeCount)
 	for i := 0; i < nodeCount; i++ {
 		conf := adapters.RandomNodeConfig()
 		node, err := network.NewNodeWithConfig(conf)
@@ -94,7 +94,7 @@ func TestSnapshot(t *testing.T) {
 	// collect connection events up to expected number
 	ctx, cancel := context.WithTimeout(context.TODO(), time.Second)
 	defer cancel()
-	checkIds := make(map[enode.ID][]enode.ID)
+	checkIds := make(map[qnode.ID][]qnode.ID)
 	connEventCount := nodeCount
 OUTER:
 	for {
@@ -294,7 +294,7 @@ func TestNetworkSimulation(t *testing.T) {
 	})
 	defer network.Shutdown()
 	nodeCount := 20
-	ids := make([]enode.ID, nodeCount)
+	ids := make([]qnode.ID, nodeCount)
 	for i := 0; i < nodeCount; i++ {
 		conf := adapters.RandomNodeConfig()
 		node, err := network.NewNodeWithConfig(conf)
@@ -319,7 +319,7 @@ func TestNetworkSimulation(t *testing.T) {
 		}
 		return nil
 	}
-	check := func(ctx context.Context, id enode.ID) (bool, error) {
+	check := func(ctx context.Context, id qnode.ID) (bool, error) {
 		// check we haven't run out of time
 		select {
 		case <-ctx.Done():
@@ -357,7 +357,7 @@ func TestNetworkSimulation(t *testing.T) {
 	defer cancel()
 
 	// trigger a check every 100ms
-	trigger := make(chan enode.ID)
+	trigger := make(chan qnode.ID)
 	go triggerChecks(ctx, ids, trigger, 100*time.Millisecond)
 
 	result := NewSimulation(network).Run(ctx, &Step{
@@ -548,7 +548,7 @@ func TestGetNodesByID(t *testing.T) {
 
 	numSubsetNodes := 2
 	subsetNodes := nodes[0:numSubsetNodes]
-	var subsetNodeIDs []enode.ID
+	var subsetNodeIDs []qnode.ID
 	for _, node := range subsetNodes {
 		subsetNodeIDs = append(subsetNodeIDs, node.ID())
 	}
@@ -664,7 +664,7 @@ func TestGetNodeIDsByProperty(t *testing.T) {
 	}
 }
 
-func triggerChecks(ctx context.Context, ids []enode.ID, trigger chan enode.ID, interval time.Duration) {
+func triggerChecks(ctx context.Context, ids []qnode.ID, trigger chan qnode.ID, interval time.Duration) {
 	tick := time.NewTicker(interval)
 	defer tick.Stop()
 	for {
@@ -701,10 +701,10 @@ func benchmarkMinimalServiceTmp(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		// this is a minimal service, whose protocol will close a channel upon run of protocol
 		// making it possible to bench the time it takes for the service to start and protocol actually to be run
-		protoCMap := make(map[enode.ID]map[enode.ID]chan struct{})
+		protoCMap := make(map[qnode.ID]map[qnode.ID]chan struct{})
 		adapter := adapters.NewSimAdapter(adapters.LifecycleConstructors{
 			"noopwoop": func(ctx *adapters.ServiceContext, stack *node.Node) (node.Lifecycle, error) {
-				protoCMap[ctx.Config.ID] = make(map[enode.ID]chan struct{})
+				protoCMap[ctx.Config.ID] = make(map[qnode.ID]chan struct{})
 				svc := NewNoopService(protoCMap[ctx.Config.ID])
 				return svc, nil
 			},
@@ -717,7 +717,7 @@ func benchmarkMinimalServiceTmp(b *testing.B) {
 		defer network.Shutdown()
 
 		// create and start nodes
-		ids := make([]enode.ID, nodeCount)
+		ids := make([]qnode.ID, nodeCount)
 		for i := 0; i < int(nodeCount); i++ {
 			conf := adapters.RandomNodeConfig()
 			node, err := network.NewNodeWithConfig(conf)

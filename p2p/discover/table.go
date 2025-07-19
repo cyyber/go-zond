@@ -35,8 +35,8 @@ import (
 	"github.com/theQRL/go-zond/common"
 	"github.com/theQRL/go-zond/log"
 	"github.com/theQRL/go-zond/metrics"
-	"github.com/theQRL/go-zond/p2p/enode"
 	"github.com/theQRL/go-zond/p2p/netutil"
+	"github.com/theQRL/go-zond/p2p/qnode"
 )
 
 const (
@@ -70,7 +70,7 @@ type Table struct {
 	rand    *mrand.Rand       // source of randomness, periodically reseeded
 	ips     netutil.DistinctNetSet
 
-	db  *enode.DB // database of known nodes
+	db  *qnode.DB // database of known nodes
 	net transport
 	cfg Config
 	log log.Logger
@@ -87,11 +87,11 @@ type Table struct {
 
 // transport is implemented by the UDP transports.
 type transport interface {
-	Self() *enode.Node
-	RequestENR(*enode.Node) (*enode.Node, error)
-	lookupRandom() []*enode.Node
-	lookupSelf() []*enode.Node
-	ping(*enode.Node) (seq uint64, err error)
+	Self() *qnode.Node
+	RequestQNR(*qnode.Node) (*qnode.Node, error)
+	lookupRandom() []*qnode.Node
+	lookupSelf() []*qnode.Node
+	ping(*qnode.Node) (seq uint64, err error)
 }
 
 // bucket contains nodes, ordered by their last activity. the entry
@@ -103,7 +103,7 @@ type bucket struct {
 	index        int
 }
 
-func newTable(t transport, db *enode.DB, cfg Config) (*Table, error) {
+func newTable(t transport, db *qnode.DB, cfg Config) (*Table, error) {
 	cfg = cfg.withDefaults()
 	tab := &Table{
 		net:        t,
@@ -132,7 +132,7 @@ func newTable(t transport, db *enode.DB, cfg Config) (*Table, error) {
 	return tab, nil
 }
 
-func newMeteredTable(t transport, db *enode.DB, cfg Config) (*Table, error) {
+func newMeteredTable(t transport, db *qnode.DB, cfg Config) (*Table, error) {
 	tab, err := newTable(t, db, cfg)
 	if err != nil {
 		return nil, err
@@ -149,7 +149,7 @@ func newMeteredTable(t transport, db *enode.DB, cfg Config) (*Table, error) {
 }
 
 // Nodes returns all nodes contained in the table.
-func (tab *Table) Nodes() []*enode.Node {
+func (tab *Table) Nodes() []*qnode.Node {
 	if !tab.isInitDone() {
 		return nil
 	}
@@ -157,7 +157,7 @@ func (tab *Table) Nodes() []*enode.Node {
 	tab.mutex.Lock()
 	defer tab.mutex.Unlock()
 
-	var nodes []*enode.Node
+	var nodes []*qnode.Node
 	for _, b := range &tab.buckets {
 		for _, n := range b.entries {
 			nodes = append(nodes, unwrapNode(n))
@@ -166,7 +166,7 @@ func (tab *Table) Nodes() []*enode.Node {
 	return nodes
 }
 
-func (tab *Table) self() *enode.Node {
+func (tab *Table) self() *qnode.Node {
 	return tab.net.Self()
 }
 
@@ -180,7 +180,7 @@ func (tab *Table) seedRand() {
 }
 
 // getNode returns the node with the given ID or nil if it isn't in the table.
-func (tab *Table) getNode(id enode.ID) *enode.Node {
+func (tab *Table) getNode(id qnode.ID) *qnode.Node {
 	tab.mutex.Lock()
 	defer tab.mutex.Unlock()
 
@@ -202,7 +202,7 @@ func (tab *Table) close() {
 // setFallbackNodes sets the initial points of contact. These nodes
 // are used to connect to the network if the table is empty and there
 // are no known nodes in the database.
-func (tab *Table) setFallbackNodes(nodes []*enode.Node) error {
+func (tab *Table) setFallbackNodes(nodes []*qnode.Node) error {
 	nursery := make([]*node, 0, len(nodes))
 	for _, n := range nodes {
 		if err := n.ValidateComplete(); err != nil {
@@ -352,9 +352,9 @@ func (tab *Table) doRevalidate(done chan<- struct{}) {
 
 	// Also fetch record if the node replied and returned a higher sequence number.
 	if last.Seq() < remoteSeq {
-		n, err := tab.net.RequestENR(unwrapNode(last))
+		n, err := tab.net.RequestQNR(unwrapNode(last))
 		if err != nil {
-			tab.log.Debug("ENR request failed", "id", last.ID(), "addr", last.addr(), "err", err)
+			tab.log.Debug("QNR request failed", "id", last.ID(), "addr", last.addr(), "err", err)
 		} else {
 			last = &node{Node: *n, addedAt: last.addedAt, livenessChecks: last.livenessChecks}
 		}
@@ -432,7 +432,7 @@ func (tab *Table) copyLiveNodes() {
 // preferLive is true and the table contains any verified nodes, the result will not
 // contain unverified nodes. However, if there are no verified nodes at all, the result
 // will contain unverified nodes.
-func (tab *Table) findnodeByID(target enode.ID, nresults int, preferLive bool) *nodesByDistance {
+func (tab *Table) findnodeByID(target qnode.ID, nresults int, preferLive bool) *nodesByDistance {
 	tab.mutex.Lock()
 	defer tab.mutex.Unlock()
 
@@ -468,7 +468,7 @@ func (tab *Table) len() (n int) {
 }
 
 // bucketLen returns the number of nodes in the bucket for the given ID.
-func (tab *Table) bucketLen(id enode.ID) int {
+func (tab *Table) bucketLen(id qnode.ID) int {
 	tab.mutex.Lock()
 	defer tab.mutex.Unlock()
 
@@ -476,8 +476,8 @@ func (tab *Table) bucketLen(id enode.ID) int {
 }
 
 // bucket returns the bucket for the given node ID hash.
-func (tab *Table) bucket(id enode.ID) *bucket {
-	d := enode.LogDist(tab.self().ID(), id)
+func (tab *Table) bucket(id qnode.ID) *bucket {
+	d := qnode.LogDist(tab.self().ID(), id)
 	return tab.bucketAtDistance(d)
 }
 
@@ -676,7 +676,7 @@ func (tab *Table) deleteInBucket(b *bucket, n *node) {
 	}
 }
 
-func contains(ns []*node, id enode.ID) bool {
+func contains(ns []*node, id qnode.ID) bool {
 	for _, n := range ns {
 		if n.ID() == id {
 			return true
@@ -709,13 +709,13 @@ func deleteNode(list []*node, n *node) []*node {
 // nodesByDistance is a list of nodes, ordered by distance to target.
 type nodesByDistance struct {
 	entries []*node
-	target  enode.ID
+	target  qnode.ID
 }
 
 // push adds the given node to the list, keeping the total size below maxElems.
 func (h *nodesByDistance) push(n *node, maxElems int) {
 	ix := sort.Search(len(h.entries), func(i int) bool {
-		return enode.DistCmp(h.target, h.entries[i].ID(), n.ID()) > 0
+		return qnode.DistCmp(h.target, h.entries[i].ID(), n.ID()) > 0
 	})
 
 	end := len(h.entries)

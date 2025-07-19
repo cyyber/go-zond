@@ -52,9 +52,9 @@ func has0xPrefix(str string) bool {
 	return len(str) >= 2 && str[0] == '0' && (str[1] == 'x' || str[1] == 'X')
 }
 
-// hasZPrefix validates str begins with 'Z'.
-func hasZPrefix(str string) bool {
-	return len(str) >= 1 && str[0] == 'Z'
+// hasQPrefix validates str begins with 'Q'.
+func hasQPrefix(str string) bool {
+	return len(str) >= 1 && str[0] == 'Q'
 }
 
 // isHexCharacter returns bool of c being a valid hexadecimal.

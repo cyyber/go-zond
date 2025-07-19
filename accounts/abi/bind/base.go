@@ -24,7 +24,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/theQRL/go-zond"
+	qrl "github.com/theQRL/go-zond"
 	"github.com/theQRL/go-zond/accounts/abi"
 	"github.com/theQRL/go-zond/common"
 	"github.com/theQRL/go-zond/core/types"
@@ -52,9 +52,9 @@ type CallOpts struct {
 }
 
 // TransactOpts is the collection of authorization data required to create a
-// valid Zond transaction.
+// valid QRL transaction.
 type TransactOpts struct {
-	From   common.Address // Zond account to send the transaction from
+	From   common.Address // QRL account to send the transaction from
 	Nonce  *big.Int       // Nonce to use for the transaction execution (nil = use pending state)
 	Signer SignerFn       // Method to use for signing the transaction (mandatory)
 
@@ -108,11 +108,11 @@ func (m *MetaData) GetAbi() (*abi.ABI, error) {
 }
 
 // BoundContract is the base wrapper object that reflects a contract on the
-// Zond network. It contains a collection of methods that are used by the
+// QRL network. It contains a collection of methods that are used by the
 // higher level contract bindings to operate.
 type BoundContract struct {
-	address    common.Address     // Deployment address of the contract on the Zond blockchain
-	abi        abi.ABI            // Reflect based ABI to access the correct Zond methods
+	address    common.Address     // Deployment address of the contract on the QRL blockchain
+	abi        abi.ABI            // Reflect based ABI to access the correct QRL methods
 	caller     ContractCaller     // Read interface to interact with the blockchain
 	transactor ContractTransactor // Write interface to interact with the blockchain
 	filterer   ContractFilterer   // Event filtering to interact with the blockchain
@@ -130,7 +130,7 @@ func NewBoundContract(address common.Address, abi abi.ABI, caller ContractCaller
 	}
 }
 
-// DeployContract deploys a contract onto the Zond blockchain and binds the
+// DeployContract deploys a contract onto the QRL blockchain and binds the
 // deployment address with a Go wrapper.
 func DeployContract(opts *TransactOpts, abi abi.ABI, bytecode []byte, backend ContractBackend, params ...interface{}) (common.Address, *types.Transaction, *BoundContract, error) {
 	// Otherwise try to deploy the contract
@@ -166,7 +166,7 @@ func (c *BoundContract) Call(opts *CallOpts, results *[]interface{}, method stri
 		return err
 	}
 	var (
-		msg    = zond.CallMsg{From: opts.From, To: &c.address, Data: input}
+		msg    = qrl.CallMsg{From: opts.From, To: &c.address, Data: input}
 		ctx    = ensureContext(opts.Context)
 		code   []byte
 		output []byte
@@ -301,7 +301,7 @@ func (c *BoundContract) estimateGasLimit(opts *TransactOpts, contract *common.Ad
 			return 0, ErrNoCode
 		}
 	}
-	msg := zond.CallMsg{
+	msg := qrl.CallMsg{
 		From:      opts.From,
 		To:        contract,
 		GasTipCap: gasTipCap,
@@ -374,7 +374,7 @@ func (c *BoundContract) FilterLogs(opts *FilterOpts, name string, query ...[]int
 	// Start the background filtering
 	logs := make(chan types.Log, 128)
 
-	config := zond.FilterQuery{
+	config := qrl.FilterQuery{
 		Addresses: []common.Address{c.address},
 		Topics:    topics,
 		FromBlock: new(big.Int).SetUint64(opts.Start),
@@ -423,7 +423,7 @@ func (c *BoundContract) WatchLogs(opts *WatchOpts, name string, query ...[]inter
 	// Start the background filtering
 	logs := make(chan types.Log, 128)
 
-	config := zond.FilterQuery{
+	config := qrl.FilterQuery{
 		Addresses: []common.Address{c.address},
 		Topics:    topics,
 	}

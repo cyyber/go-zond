@@ -24,7 +24,7 @@ import (
 	"github.com/theQRL/go-zond/params"
 )
 
-// StateDB is an ZVM database for full state querying.
+// StateDB is a QRVM database for full state querying.
 type StateDB interface {
 	CreateAccount(common.Address)
 
@@ -72,14 +72,14 @@ type StateDB interface {
 	AddPreimage(common.Hash, []byte)
 }
 
-// CallContext provides a basic interface for the ZVM calling conventions. The ZVM
-// depends on this context being implemented for doing subcalls and initialising new ZVM contracts.
+// CallContext provides a basic interface for the QRVM calling conventions. The QRVM
+// depends on this context being implemented for doing subcalls and initialising new QRVM contracts.
 type CallContext interface {
 	// Call calls another contract.
-	Call(env *ZVM, me ContractRef, addr common.Address, data []byte, gas, value *big.Int) ([]byte, error)
+	Call(env *QRVM, me ContractRef, addr common.Address, data []byte, gas, value *big.Int) ([]byte, error)
 	// DelegateCall takes another contracts code and execute within our own context.
 	// Sender and value are propagated from parent to child scope.
-	DelegateCall(env *ZVM, me ContractRef, addr common.Address, data []byte, gas *big.Int) ([]byte, error)
+	DelegateCall(env *QRVM, me ContractRef, addr common.Address, data []byte, gas *big.Int) ([]byte, error)
 	// Create creates a new contract
-	Create(env *ZVM, me ContractRef, data []byte, gas, value *big.Int) ([]byte, common.Address, error)
+	Create(env *QRVM, me ContractRef, data []byte, gas, value *big.Int) ([]byte, common.Address, error)
 }

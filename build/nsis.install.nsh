@@ -29,13 +29,13 @@ Section "Gzond" GZOND_IDX
   SimpleFC::AdvRemoveRule "Gzond UDP discovery (UDP:30303)"
 
   # Firewall - add rules
-  SimpleFC::AdvAddRule "Gzond incoming peers (TCP:30303)" ""  6 1 1 2147483647 1 "$INSTDIR\gzond.exe" "" "" "Zond" 30303 "" "" ""
-  SimpleFC::AdvAddRule "Gzond outgoing peers (TCP:30303)" ""  6 2 1 2147483647 1 "$INSTDIR\gzond.exe" "" "" "Zond" "" 30303 "" ""
-  SimpleFC::AdvAddRule "Gzond UDP discovery (UDP:30303)" "" 17 2 1 2147483647 1 "$INSTDIR\gzond.exe" "" "" "Zond" "" 30303 "" ""
+  SimpleFC::AdvAddRule "Gzond incoming peers (TCP:30303)" ""  6 1 1 2147483647 1 "$INSTDIR\gzond.exe" "" "" "QRL" 30303 "" "" ""
+  SimpleFC::AdvAddRule "Gzond outgoing peers (TCP:30303)" ""  6 2 1 2147483647 1 "$INSTDIR\gzond.exe" "" "" "QRL" "" 30303 "" ""
+  SimpleFC::AdvAddRule "Gzond UDP discovery (UDP:30303)" "" 17 2 1 2147483647 1 "$INSTDIR\gzond.exe" "" "" "QRL" "" 30303 "" ""
 
   # Set default IPC endpoint (https://github.com/ethereum/EIPs/issues/147)
-  ${EnvVarUpdate} $0 "ZOND_SOCKET" "R" "HKLM" "\\.\pipe\gzond.ipc"
-  ${EnvVarUpdate} $0 "ZOND_SOCKET" "A" "HKLM" "\\.\pipe\gzond.ipc"
+  ${EnvVarUpdate} $0 "QRL_SOCKET" "R" "HKLM" "\\.\pipe\gzond.ipc"
+  ${EnvVarUpdate} $0 "QRL_SOCKET" "A" "HKLM" "\\.\pipe\gzond.ipc"
 
   # Add instdir to PATH
   Push "$INSTDIR"

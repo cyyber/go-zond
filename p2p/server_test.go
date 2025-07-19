@@ -32,8 +32,8 @@ import (
 	"github.com/theQRL/go-zond/crypto"
 	"github.com/theQRL/go-zond/internal/testlog"
 	"github.com/theQRL/go-zond/log"
-	"github.com/theQRL/go-zond/p2p/enode"
-	"github.com/theQRL/go-zond/p2p/enr"
+	"github.com/theQRL/go-zond/p2p/qnode"
+	"github.com/theQRL/go-zond/p2p/qnr"
 	"github.com/theQRL/go-zond/p2p/rlpx"
 )
 
@@ -95,7 +95,7 @@ func TestServerListen(t *testing.T) {
 	connected := make(chan *Peer)
 	remid := &newkey().PublicKey
 	srv := startTestServer(t, remid, func(p *Peer) {
-		if p.ID() != enode.PubkeyToIDV4(remid) {
+		if p.ID() != qnode.PubkeyToIDV4(remid) {
 			t.Error("peer func called with wrong node id")
 		}
 		connected <- p
@@ -150,7 +150,7 @@ func TestServerDial(t *testing.T) {
 
 	// tell the server to connect
 	tcpAddr := listener.Addr().(*net.TCPAddr)
-	node := enode.NewV4(remid, tcpAddr.IP, tcpAddr.Port, 0)
+	node := qnode.NewV4(remid, tcpAddr.IP, tcpAddr.Port, 0)
 	srv.AddPeer(node)
 
 	select {
@@ -159,7 +159,7 @@ func TestServerDial(t *testing.T) {
 
 		select {
 		case peer := <-connected:
-			if peer.ID() != enode.PubkeyToIDV4(remid) {
+			if peer.ID() != qnode.PubkeyToIDV4(remid) {
 				t.Errorf("peer has wrong id")
 			}
 			if peer.Name() != "test" {
@@ -231,7 +231,7 @@ func TestServerRemovePeerDisconnect(t *testing.T) {
 		t.Fatal("invalid ListenAddr")
 	}
 	if port, err := strconv.Atoi(s[1]); err == nil {
-		srv2.localnode.Set(enr.TCP(uint16(port)))
+		srv2.localnode.Set(qnr.TCP(uint16(port)))
 	}
 
 	if !syncAddPeer(srv1, srv2.Self()) {
@@ -247,14 +247,14 @@ func TestServerRemovePeerDisconnect(t *testing.T) {
 // when the server is at capacity. Trusted connections should still be accepted.
 func TestServerAtCap(t *testing.T) {
 	trustedNode := newkey()
-	trustedID := enode.PubkeyToIDV4(&trustedNode.PublicKey)
+	trustedID := qnode.PubkeyToIDV4(&trustedNode.PublicKey)
 	srv := &Server{
 		Config: Config{
 			PrivateKey:   newkey(),
 			MaxPeers:     10,
 			NoDial:       true,
 			NoDiscovery:  true,
-			TrustedNodes: []*enode.Node{newNode(trustedID, "")},
+			TrustedNodes: []*qnode.Node{newNode(trustedID, "")},
 			Logger:       testlog.Logger(t, log.LvlTrace),
 		},
 	}
@@ -263,10 +263,10 @@ func TestServerAtCap(t *testing.T) {
 	}
 	defer srv.Stop()
 
-	newconn := func(id enode.ID) *conn {
+	newconn := func(id qnode.ID) *conn {
 		fd, _ := net.Pipe()
 		tx := newTestTransport(&trustedNode.PublicKey, fd, nil)
-		node := enode.SignNull(new(enr.Record), id)
+		node := qnode.SignNull(new(qnr.Record), id)
 		return &conn{fd: fd, transport: tx, flags: inboundConn, node: node, cont: make(chan error)}
 	}
 
@@ -313,7 +313,7 @@ func TestServerAtCap(t *testing.T) {
 func TestServerPeerLimits(t *testing.T) {
 	srvkey := newkey()
 	clientkey := newkey()
-	clientnode := enode.NewV4(&clientkey.PublicKey, nil, 0, 0)
+	clientnode := qnode.NewV4(&clientkey.PublicKey, nil, 0, 0)
 
 	var tp = &setupTransport{
 		pubkey: &clientkey.PublicKey,
@@ -385,7 +385,7 @@ func TestServerSetupConn(t *testing.T) {
 		dontstart bool
 		tt        *setupTransport
 		flags     connFlag
-		dialDest  *enode.Node
+		dialDest  *qnode.Node
 
 		wantCloseErr error
 		wantCalls    string
@@ -404,14 +404,14 @@ func TestServerSetupConn(t *testing.T) {
 		},
 		{
 			tt:           &setupTransport{pubkey: clientpub, phs: protoHandshake{ID: randomID().Bytes()}},
-			dialDest:     enode.NewV4(clientpub, nil, 0, 0),
+			dialDest:     qnode.NewV4(clientpub, nil, 0, 0),
 			flags:        dynDialedConn,
 			wantCalls:    "doEncHandshake,doProtoHandshake,close,",
 			wantCloseErr: DiscUnexpectedIdentity,
 		},
 		{
 			tt:           &setupTransport{pubkey: clientpub, protoHandshakeErr: errProtoHandshakeError},
-			dialDest:     enode.NewV4(clientpub, nil, 0, 0),
+			dialDest:     qnode.NewV4(clientpub, nil, 0, 0),
 			flags:        dynDialedConn,
 			wantCalls:    "doEncHandshake,doProtoHandshake,close,",
 			wantCloseErr: errProtoHandshakeError,
@@ -506,7 +506,7 @@ func newkey() *ecdsa.PrivateKey {
 	return key
 }
 
-func randomID() (id enode.ID) {
+func randomID() (id qnode.ID) {
 	for i := range id {
 		id[i] = byte(rand.Intn(255))
 	}
@@ -610,7 +610,7 @@ func (c *fakeAddrConn) RemoteAddr() net.Addr {
 	return c.remoteAddr
 }
 
-func syncAddPeer(srv *Server, node *enode.Node) bool {
+func syncAddPeer(srv *Server, node *qnode.Node) bool {
 	var (
 		ch      = make(chan *PeerEvent)
 		sub     = srv.SubscribeEvents(ch)

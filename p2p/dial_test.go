@@ -30,8 +30,8 @@ import (
 	"github.com/theQRL/go-zond/common/mclock"
 	"github.com/theQRL/go-zond/internal/testlog"
 	"github.com/theQRL/go-zond/log"
-	"github.com/theQRL/go-zond/p2p/enode"
 	"github.com/theQRL/go-zond/p2p/netutil"
+	"github.com/theQRL/go-zond/p2p/qnode"
 )
 
 // This test checks that dynamic dials are launched from discovery results.
@@ -51,7 +51,7 @@ func TestDialSchedDynDial(t *testing.T) {
 				{flags: dynDialedConn, node: newNode(uintID(0x01), "")},
 				{flags: dynDialedConn, node: newNode(uintID(0x02), "")},
 			},
-			discovered: []*enode.Node{
+			discovered: []*qnode.Node{
 				newNode(uintID(0x00), "127.0.0.1:30303"), // not dialed because already connected as static peer
 				newNode(uintID(0x02), "127.0.0.1:30303"), // ...
 				newNode(uintID(0x03), "127.0.0.1:30303"),
@@ -61,7 +61,7 @@ func TestDialSchedDynDial(t *testing.T) {
 				newNode(uintID(0x07), "127.0.0.1:30303"), // ...
 				newNode(uintID(0x08), "127.0.0.1:30303"), // ...
 			},
-			wantNewDials: []*enode.Node{
+			wantNewDials: []*qnode.Node{
 				newNode(uintID(0x03), "127.0.0.1:30303"),
 				newNode(uintID(0x04), "127.0.0.1:30303"),
 			},
@@ -69,23 +69,23 @@ func TestDialSchedDynDial(t *testing.T) {
 
 		// One dial completes, freeing one dial slot.
 		{
-			failed: []enode.ID{
+			failed: []qnode.ID{
 				uintID(0x04),
 			},
-			wantNewDials: []*enode.Node{
+			wantNewDials: []*qnode.Node{
 				newNode(uintID(0x05), "127.0.0.1:30303"),
 			},
 		},
 
 		// Dial to 0x03 completes, filling the last remaining peer slot.
 		{
-			succeeded: []enode.ID{
+			succeeded: []qnode.ID{
 				uintID(0x03),
 			},
-			failed: []enode.ID{
+			failed: []qnode.ID{
 				uintID(0x05),
 			},
-			discovered: []*enode.Node{
+			discovered: []*qnode.Node{
 				newNode(uintID(0x09), "127.0.0.1:30303"), // not dialed because there are no free slots
 			},
 		},
@@ -93,19 +93,19 @@ func TestDialSchedDynDial(t *testing.T) {
 		// 3 peers drop off, creating 6 dial slots. Check that 5 of those slots
 		// (i.e. up to maxActiveDialTasks) are used.
 		{
-			peersRemoved: []enode.ID{
+			peersRemoved: []qnode.ID{
 				uintID(0x00),
 				uintID(0x01),
 				uintID(0x02),
 			},
-			discovered: []*enode.Node{
+			discovered: []*qnode.Node{
 				newNode(uintID(0x0a), "127.0.0.1:30303"),
 				newNode(uintID(0x0b), "127.0.0.1:30303"),
 				newNode(uintID(0x0c), "127.0.0.1:30303"),
 				newNode(uintID(0x0d), "127.0.0.1:30303"),
 				newNode(uintID(0x0f), "127.0.0.1:30303"),
 			},
-			wantNewDials: []*enode.Node{
+			wantNewDials: []*qnode.Node{
 				newNode(uintID(0x06), "127.0.0.1:30303"),
 				newNode(uintID(0x07), "127.0.0.1:30303"),
 				newNode(uintID(0x08), "127.0.0.1:30303"),
@@ -120,7 +120,7 @@ func TestDialSchedDynDial(t *testing.T) {
 func TestDialSchedNetRestrict(t *testing.T) {
 	t.Parallel()
 
-	nodes := []*enode.Node{
+	nodes := []*qnode.Node{
 		newNode(uintID(0x01), "127.0.0.1:30303"),
 		newNode(uintID(0x02), "127.0.0.2:30303"),
 		newNode(uintID(0x03), "127.0.0.3:30303"),
@@ -142,7 +142,7 @@ func TestDialSchedNetRestrict(t *testing.T) {
 			wantNewDials: nodes[4:8],
 		},
 		{
-			succeeded: []enode.ID{
+			succeeded: []qnode.ID{
 				nodes[4].ID(),
 				nodes[5].ID(),
 				nodes[6].ID(),
@@ -182,7 +182,7 @@ func TestDialSchedStaticDial(t *testing.T) {
 				d.addStatic(newNode(uintID(0x08), "127.0.0.8:30303"))
 				d.addStatic(newNode(uintID(0x09), "127.0.0.9:30303"))
 			},
-			wantNewDials: []*enode.Node{
+			wantNewDials: []*qnode.Node{
 				newNode(uintID(0x03), "127.0.0.3:30303"),
 				newNode(uintID(0x04), "127.0.0.4:30303"),
 				newNode(uintID(0x05), "127.0.0.5:30303"),
@@ -192,20 +192,20 @@ func TestDialSchedStaticDial(t *testing.T) {
 		// Dial to 0x03 completes, filling a peer slot. One slot remains,
 		// two dials are launched to attempt to fill it.
 		{
-			succeeded: []enode.ID{
+			succeeded: []qnode.ID{
 				uintID(0x03),
 			},
-			failed: []enode.ID{
+			failed: []qnode.ID{
 				uintID(0x04),
 				uintID(0x05),
 				uintID(0x06),
 			},
-			wantResolves: map[enode.ID]*enode.Node{
+			wantResolves: map[qnode.ID]*qnode.Node{
 				uintID(0x04): nil,
 				uintID(0x05): nil,
 				uintID(0x06): nil,
 			},
-			wantNewDials: []*enode.Node{
+			wantNewDials: []*qnode.Node{
 				newNode(uintID(0x08), "127.0.0.8:30303"),
 				newNode(uintID(0x09), "127.0.0.9:30303"),
 			},
@@ -216,10 +216,10 @@ func TestDialSchedStaticDial(t *testing.T) {
 			peersAdded: []*conn{
 				{flags: inboundConn, node: newNode(uintID(0x07), "127.0.0.7:30303")},
 			},
-			peersRemoved: []enode.ID{
+			peersRemoved: []qnode.ID{
 				uintID(0x01),
 			},
-			wantNewDials: []*enode.Node{
+			wantNewDials: []*qnode.Node{
 				newNode(uintID(0x01), "127.0.0.1:30303"),
 			},
 		},
@@ -242,19 +242,19 @@ func TestDialSchedRemoveStatic(t *testing.T) {
 				d.addStatic(newNode(uintID(0x02), "127.0.0.2:30303"))
 				d.addStatic(newNode(uintID(0x03), "127.0.0.3:30303"))
 			},
-			wantNewDials: []*enode.Node{
+			wantNewDials: []*qnode.Node{
 				newNode(uintID(0x01), "127.0.0.1:30303"),
 			},
 		},
 		// Dial to 0x01 fails.
 		{
-			failed: []enode.ID{
+			failed: []qnode.ID{
 				uintID(0x01),
 			},
-			wantResolves: map[enode.ID]*enode.Node{
+			wantResolves: map[qnode.ID]*qnode.Node{
 				uintID(0x01): nil,
 			},
-			wantNewDials: []*enode.Node{
+			wantNewDials: []*qnode.Node{
 				newNode(uintID(0x02), "127.0.0.2:30303"),
 			},
 		},
@@ -266,10 +266,10 @@ func TestDialSchedRemoveStatic(t *testing.T) {
 				d.removeStatic(newNode(uintID(0x02), "127.0.0.2:30303"))
 				d.removeStatic(newNode(uintID(0x03), "127.0.0.3:30303"))
 			},
-			failed: []enode.ID{
+			failed: []qnode.ID{
 				uintID(0x02),
 			},
-			wantResolves: map[enode.ID]*enode.Node{
+			wantResolves: map[qnode.ID]*qnode.Node{
 				uintID(0x02): nil,
 			},
 		},
@@ -297,11 +297,11 @@ func TestDialSchedManyStaticNodes(t *testing.T) {
 			},
 		},
 		{
-			peersRemoved: []enode.ID{
+			peersRemoved: []qnode.ID{
 				uintID(0xFFFE),
 				uintID(0xFFFF),
 			},
-			wantNewDials: []*enode.Node{
+			wantNewDials: []*qnode.Node{
 				newNode(uintID(0x0085), "127.0.0.1:30303"),
 				newNode(uintID(0x02dc), "127.0.0.1:30303"),
 				newNode(uintID(0x0285), "127.0.0.1:30303"),
@@ -326,7 +326,7 @@ func TestDialSchedHistory(t *testing.T) {
 				d.addStatic(newNode(uintID(0x02), "127.0.0.2:30303"))
 				d.addStatic(newNode(uintID(0x03), "127.0.0.3:30303"))
 			},
-			wantNewDials: []*enode.Node{
+			wantNewDials: []*qnode.Node{
 				newNode(uintID(0x01), "127.0.0.1:30303"),
 				newNode(uintID(0x02), "127.0.0.2:30303"),
 				newNode(uintID(0x03), "127.0.0.3:30303"),
@@ -335,14 +335,14 @@ func TestDialSchedHistory(t *testing.T) {
 		// No new tasks are launched in this round because all static
 		// nodes are either connected or still being dialed.
 		{
-			succeeded: []enode.ID{
+			succeeded: []qnode.ID{
 				uintID(0x01),
 				uintID(0x02),
 			},
-			failed: []enode.ID{
+			failed: []qnode.ID{
 				uintID(0x03),
 			},
-			wantResolves: map[enode.ID]*enode.Node{
+			wantResolves: map[qnode.ID]*qnode.Node{
 				uintID(0x03): nil,
 			},
 		},
@@ -351,7 +351,7 @@ func TestDialSchedHistory(t *testing.T) {
 		{},
 		// The cache entry for node 0x03 has expired and is retried.
 		{
-			wantNewDials: []*enode.Node{
+			wantNewDials: []*qnode.Node{
 				newNode(uintID(0x03), "127.0.0.3:30303"),
 			},
 		},
@@ -373,21 +373,21 @@ func TestDialSchedResolve(t *testing.T) {
 			update: func(d *dialScheduler) {
 				d.addStatic(node)
 			},
-			wantResolves: map[enode.ID]*enode.Node{
+			wantResolves: map[qnode.ID]*qnode.Node{
 				uintID(0x01): resolved,
 			},
-			wantNewDials: []*enode.Node{
+			wantNewDials: []*qnode.Node{
 				resolved,
 			},
 		},
 		{
-			failed: []enode.ID{
+			failed: []qnode.ID{
 				uintID(0x01),
 			},
-			wantResolves: map[enode.ID]*enode.Node{
+			wantResolves: map[qnode.ID]*qnode.Node{
 				uintID(0x01): resolved2,
 			},
-			wantNewDials: []*enode.Node{
+			wantNewDials: []*qnode.Node{
 				resolved2,
 			},
 		},
@@ -399,13 +399,13 @@ func TestDialSchedResolve(t *testing.T) {
 
 type dialTestRound struct {
 	peersAdded   []*conn
-	peersRemoved []enode.ID
+	peersRemoved []qnode.ID
 	update       func(*dialScheduler) // called at beginning of round
-	discovered   []*enode.Node        // newly discovered nodes
-	succeeded    []enode.ID           // dials which succeed this round
-	failed       []enode.ID           // dials which fail this round
-	wantResolves map[enode.ID]*enode.Node
-	wantNewDials []*enode.Node // dials that should be launched in this round
+	discovered   []*qnode.Node        // newly discovered nodes
+	succeeded    []qnode.ID           // dials which succeed this round
+	failed       []qnode.ID           // dials which fail this round
+	wantResolves map[qnode.ID]*qnode.Node
+	wantNewDials []*qnode.Node // dials that should be launched in this round
 }
 
 func runDialTest(t *testing.T, config dialConfig, rounds []dialTestRound) {
@@ -414,7 +414,7 @@ func runDialTest(t *testing.T, config dialConfig, rounds []dialTestRound) {
 		iterator = newDialTestIterator()
 		dialer   = newDialTestDialer()
 		resolver = new(dialTestResolver)
-		peers    = make(map[enode.ID]*conn)
+		peers    = make(map[qnode.ID]*conn)
 		setupCh  = make(chan *conn)
 	)
 
@@ -428,7 +428,7 @@ func runDialTest(t *testing.T, config dialConfig, rounds []dialTestRound) {
 	// Set up the dialer. The setup function below runs on the dialTask
 	// goroutine and adds the peer.
 	var dialsched *dialScheduler
-	setup := func(fd net.Conn, f connFlag, node *enode.Node) error {
+	setup := func(fd net.Conn, f connFlag, node *qnode.Node) error {
 		conn := &conn{flags: f, node: node}
 		dialsched.peerAdded(conn)
 		setupCh <- conn
@@ -490,10 +490,10 @@ func runDialTest(t *testing.T, config dialConfig, rounds []dialTestRound) {
 // with infinite buffer: nodes are added to the buffer with addNodes, which unblocks Next
 // and returns them from the iterator.
 type dialTestIterator struct {
-	cur *enode.Node
+	cur *qnode.Node
 
 	mu     sync.Mutex
-	buf    []*enode.Node
+	buf    []*qnode.Node
 	cond   *sync.Cond
 	closed bool
 }
@@ -505,7 +505,7 @@ func newDialTestIterator() *dialTestIterator {
 }
 
 // addNodes adds nodes to the iterator buffer and unblocks Next.
-func (it *dialTestIterator) addNodes(nodes []*enode.Node) {
+func (it *dialTestIterator) addNodes(nodes []*qnode.Node) {
 	it.mu.Lock()
 	defer it.mu.Unlock()
 
@@ -514,7 +514,7 @@ func (it *dialTestIterator) addNodes(nodes []*enode.Node) {
 }
 
 // Node returns the current node.
-func (it *dialTestIterator) Node() *enode.Node {
+func (it *dialTestIterator) Node() *qnode.Node {
 	return it.cur
 }
 
@@ -549,23 +549,23 @@ func (it *dialTestIterator) Close() {
 // dialTestDialer is the NodeDialer used by runDialTest.
 type dialTestDialer struct {
 	init    chan *dialTestReq
-	blocked map[enode.ID]*dialTestReq
+	blocked map[qnode.ID]*dialTestReq
 }
 
 type dialTestReq struct {
-	n       *enode.Node
+	n       *qnode.Node
 	unblock chan error
 }
 
 func newDialTestDialer() *dialTestDialer {
 	return &dialTestDialer{
 		init:    make(chan *dialTestReq),
-		blocked: make(map[enode.ID]*dialTestReq),
+		blocked: make(map[qnode.ID]*dialTestReq),
 	}
 }
 
 // Dial implements NodeDialer.
-func (d *dialTestDialer) Dial(ctx context.Context, n *enode.Node) (net.Conn, error) {
+func (d *dialTestDialer) Dial(ctx context.Context, n *qnode.Node) (net.Conn, error) {
 	req := &dialTestReq{n: n, unblock: make(chan error, 1)}
 	select {
 	case d.init <- req:
@@ -583,8 +583,8 @@ func (d *dialTestDialer) Dial(ctx context.Context, n *enode.Node) (net.Conn, err
 
 // waitForDials waits for calls to Dial with the given nodes as argument.
 // Those calls will be held blocking until completeDials is called with the same nodes.
-func (d *dialTestDialer) waitForDials(nodes []*enode.Node) error {
-	waitset := make(map[enode.ID]*enode.Node, len(nodes))
+func (d *dialTestDialer) waitForDials(nodes []*qnode.Node) error {
+	waitset := make(map[qnode.ID]*qnode.Node, len(nodes))
 	for _, n := range nodes {
 		waitset[n.ID()] = n
 	}
@@ -599,12 +599,12 @@ func (d *dialTestDialer) waitForDials(nodes []*enode.Node) error {
 				return fmt.Errorf("attempt to dial unexpected node %v", req.n.ID())
 			}
 			if !reflect.DeepEqual(req.n, want) {
-				return fmt.Errorf("ENR of dialed node %v does not match test", req.n.ID())
+				return fmt.Errorf("QNR of dialed node %v does not match test", req.n.ID())
 			}
 			delete(waitset, req.n.ID())
 			d.blocked[req.n.ID()] = req
 		case <-timeout.C:
-			var waitlist []enode.ID
+			var waitlist []qnode.ID
 			for id := range waitset {
 				waitlist = append(waitlist, id)
 			}
@@ -625,7 +625,7 @@ func (d *dialTestDialer) checkUnexpectedDial() error {
 }
 
 // completeDials unblocks calls to Dial for the given nodes.
-func (d *dialTestDialer) completeDials(ids []enode.ID, err error) error {
+func (d *dialTestDialer) completeDials(ids []qnode.ID, err error) error {
 	for _, id := range ids {
 		req := d.blocked[id]
 		if req == nil {
@@ -639,11 +639,11 @@ func (d *dialTestDialer) completeDials(ids []enode.ID, err error) error {
 // dialTestResolver tracks calls to resolve.
 type dialTestResolver struct {
 	mu      sync.Mutex
-	calls   []enode.ID
-	answers map[enode.ID]*enode.Node
+	calls   []qnode.ID
+	answers map[qnode.ID]*qnode.Node
 }
 
-func (t *dialTestResolver) setAnswers(m map[enode.ID]*enode.Node) {
+func (t *dialTestResolver) setAnswers(m map[qnode.ID]*qnode.Node) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
@@ -663,7 +663,7 @@ func (t *dialTestResolver) checkCalls() bool {
 	return true
 }
 
-func (t *dialTestResolver) Resolve(n *enode.Node) *enode.Node {
+func (t *dialTestResolver) Resolve(n *qnode.Node) *qnode.Node {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 

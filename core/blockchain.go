@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-// Package core implements the Zond consensus protocol.
+// Package core implements the QRL consensus protocol.
 package core
 
 import (
@@ -43,11 +43,11 @@ import (
 	"github.com/theQRL/go-zond/log"
 	"github.com/theQRL/go-zond/metrics"
 	"github.com/theQRL/go-zond/params"
+	"github.com/theQRL/go-zond/qrldb"
 	"github.com/theQRL/go-zond/rlp"
 	"github.com/theQRL/go-zond/trie"
 	"github.com/theQRL/go-zond/trie/triedb/hashdb"
 	"github.com/theQRL/go-zond/trie/triedb/pathdb"
-	"github.com/theQRL/go-zond/zonddb"
 )
 
 var (
@@ -136,7 +136,7 @@ type CacheConfig struct {
 	SnapshotLimit       int           // Memory allowance (MB) to use for caching snapshot entries in memory
 	Preimages           bool          // Whether to store preimage of trie key to the disk
 	StateHistory        uint64        // Number of blocks from head whose state histories are reserved.
-	StateScheme         string        // Scheme used to store zond states and merkle tree nodes on top
+	StateScheme         string        // Scheme used to store qrl states and merkle tree nodes on top
 
 	SnapshotNoBuild bool // Whether the background generation is allowed
 	SnapshotWait    bool // Wait for snapshot construction on startup. TODO(karalabe): This is a dirty hack for testing, nuke it
@@ -197,7 +197,7 @@ type BlockChain struct {
 	chainConfig *params.ChainConfig // Chain & network configuration
 	cacheConfig *CacheConfig        // Cache configuration for pruning
 
-	db            zonddb.Database                  // Low level persistent database to store final content in
+	db            qrldb.Database                   // Low level persistent database to store final content in
 	snaps         *snapshot.Tree                   // Snapshot tree for fast trie leaf access
 	triegc        *prque.Prque[int64, common.Hash] // Priority queue mapping block numbers to tries to gc
 	gcproc        time.Duration                    // Accumulates canonical block processing for trie dumping
@@ -250,9 +250,9 @@ type BlockChain struct {
 }
 
 // NewBlockChain returns a fully initialised block chain using information
-// available in the database. It initialises the default Zond Validator
+// available in the database. It initialises the default QRL Validator
 // and Processor.
-func NewBlockChain(db zonddb.Database, cacheConfig *CacheConfig, genesis *Genesis, engine consensus.Engine, vmConfig vm.Config, txLookupLimit *uint64) (*BlockChain, error) {
+func NewBlockChain(db qrldb.Database, cacheConfig *CacheConfig, genesis *Genesis, engine consensus.Engine, vmConfig vm.Config, txLookupLimit *uint64) (*BlockChain, error) {
 	if cacheConfig == nil {
 		cacheConfig = defaultCacheConfig
 	}
@@ -639,7 +639,7 @@ func (bc *BlockChain) setHeadBeyondRoot(head uint64, time uint64, root common.Ha
 	pivot := rawdb.ReadLastPivotNumber(bc.db)
 	frozen, _ := bc.db.Ancients()
 
-	updateFn := func(db zonddb.KeyValueWriter, header *types.Header) (*types.Header, bool) {
+	updateFn := func(db qrldb.KeyValueWriter, header *types.Header) (*types.Header, bool) {
 		// Rewind the blockchain, ensuring we don't end up with a stateless head
 		// block. Note, depth equality is permitted to allow using SetHead as a
 		// chain reparation mechanism without deleting any data!
@@ -731,7 +731,7 @@ func (bc *BlockChain) setHeadBeyondRoot(head uint64, time uint64, root common.Ha
 		return headHeader, wipe // Only force wipe if full synced
 	}
 	// Rewind the header chain, deleting all block bodies until then
-	delFn := func(db zonddb.KeyValueWriter, hash common.Hash, num uint64) {
+	delFn := func(db qrldb.KeyValueWriter, hash common.Hash, num uint64) {
 		// Ignore the error here since light client won't hit this path
 		frozen, _ := bc.db.Ancients()
 		if num+1 <= frozen {
@@ -1140,7 +1140,7 @@ func (bc *BlockChain) InsertReceiptChain(blockChain types.Blocks, receiptChain [
 			}
 			stats.processed++
 
-			if batch.ValueSize() > zonddb.IdealBatchSize || i == len(blockChain)-1 {
+			if batch.ValueSize() > qrldb.IdealBatchSize || i == len(blockChain)-1 {
 				size += int64(batch.ValueSize())
 				if err = batch.Write(); err != nil {
 					snapBlock := bc.CurrentSnapBlock().Number.Uint64()
@@ -1224,7 +1224,7 @@ func (bc *BlockChain) InsertReceiptChain(blockChain types.Blocks, receiptChain [
 			// Write everything belongs to the blocks into the database. So that
 			// we can ensure all components of body is completed(body, receipts,
 			// tx indexes)
-			if batch.ValueSize() >= zonddb.IdealBatchSize {
+			if batch.ValueSize() >= qrldb.IdealBatchSize {
 				if err := batch.Write(); err != nil {
 					return 0, err
 				}
@@ -1347,7 +1347,7 @@ func (bc *BlockChain) writeBlockWithState(block *types.Block, receipts []*types.
 		limit          = common.StorageSize(bc.cacheConfig.TrieDirtyLimit) * 1024 * 1024
 	)
 	if nodes > limit || imgs > 4*1024*1024 {
-		bc.triedb.Cap(limit - zonddb.IdealBatchSize)
+		bc.triedb.Cap(limit - qrldb.IdealBatchSize)
 	}
 	// Find the next state trie we need to commit
 	chosen := current - TriesInMemory
@@ -1511,7 +1511,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks, setHead bool) (int, error)
 		// Skip all known blocks that are behind us.
 		var current = bc.CurrentBlock()
 		for block != nil && bc.skipBlock(err, it) {
-			// In eth2 the forker always returns true for reorg decision (blindly trusting
+			// In qrl PoS the forker always returns true for reorg decision (blindly trusting
 			// the external consensus engine), but in order to prevent the unnecessary
 			// reorgs when importing known blocks, the special case is handled here.
 			if block.NumberU64() > current.Number.Uint64() || bc.GetCanonicalHash(block.NumberU64()) != block.Hash() {
@@ -1679,7 +1679,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks, setHead bool) (int, error)
 		trieUpdate := statedb.AccountUpdates + statedb.StorageUpdates   // The time spent on tries update
 		trieRead := statedb.SnapshotAccountReads + statedb.AccountReads // The time spent on account read
 		trieRead += statedb.SnapshotStorageReads + statedb.StorageReads // The time spent on storage read
-		blockExecutionTimer.Update(ptime - trieRead)                    // The time spent on ZVM processing
+		blockExecutionTimer.Update(ptime - trieRead)                    // The time spent on QRVM processing
 		blockValidationTimer.Update(vtime - (triehash + trieUpdate))    // The time spent on block validation
 
 		// Write the block to the chain and get the status.

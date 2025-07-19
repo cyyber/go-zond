@@ -21,7 +21,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/theQRL/go-zond/p2p/enode"
+	"github.com/theQRL/go-zond/p2p/qnode"
 )
 
 // lookup performs a network search for nodes close to the given target. It approaches the
@@ -32,7 +32,7 @@ type lookup struct {
 	queryfunc   func(*node) ([]*node, error)
 	replyCh     chan []*node
 	cancelCh    <-chan struct{}
-	asked, seen map[enode.ID]bool
+	asked, seen map[qnode.ID]bool
 	result      nodesByDistance
 	replyBuffer []*node
 	queries     int
@@ -40,12 +40,12 @@ type lookup struct {
 
 type queryFunc func(*node) ([]*node, error)
 
-func newLookup(ctx context.Context, tab *Table, target enode.ID, q queryFunc) *lookup {
+func newLookup(ctx context.Context, tab *Table, target qnode.ID, q queryFunc) *lookup {
 	it := &lookup{
 		tab:       tab,
 		queryfunc: q,
-		asked:     make(map[enode.ID]bool),
-		seen:      make(map[enode.ID]bool),
+		asked:     make(map[qnode.ID]bool),
+		seen:      make(map[qnode.ID]bool),
 		result:    nodesByDistance{target: target},
 		replyCh:   make(chan []*node, alpha),
 		cancelCh:  ctx.Done(),
@@ -58,7 +58,7 @@ func newLookup(ctx context.Context, tab *Table, target enode.ID, q queryFunc) *l
 }
 
 // run runs the lookup to completion and returns the closest nodes found.
-func (it *lookup) run() []*enode.Node {
+func (it *lookup) run() []*qnode.Node {
 	for it.advance() {
 	}
 	return unwrapNodes(it.result.entries)
@@ -188,7 +188,7 @@ func newLookupIterator(ctx context.Context, next lookupFunc) *lookupIterator {
 }
 
 // Node returns the current node.
-func (it *lookupIterator) Node() *enode.Node {
+func (it *lookupIterator) Node() *qnode.Node {
 	if len(it.buffer) == 0 {
 		return nil
 	}

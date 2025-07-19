@@ -31,13 +31,13 @@ import (
 	"github.com/theQRL/go-zond/internal/jsre"
 	"github.com/theQRL/go-zond/miner"
 	"github.com/theQRL/go-zond/node"
-	"github.com/theQRL/go-zond/zond"
-	"github.com/theQRL/go-zond/zond/zondconfig"
+	"github.com/theQRL/go-zond/qrl"
+	"github.com/theQRL/go-zond/qrl/qrlconfig"
 )
 
 const (
 	testInstance = "console-tester"
-	testAddress  = "Z8605cdbbdb6d264aa742e77020dcbc58fcdce182"
+	testAddress  = "Q8605cdbbdb6d264aa742e77020dcbc58fcdce182"
 )
 
 // hookedPrompter implements UserPrompter to simulate use input via channels.
@@ -76,7 +76,7 @@ func (p *hookedPrompter) SetWordCompleter(completer prompt.WordCompleter) {}
 type tester struct {
 	workspace string
 	stack     *node.Node
-	zond      *zond.Zond
+	qrl       *qrl.QRL
 	console   *Console
 	input     *hookedPrompter
 	output    *bytes.Buffer
@@ -84,28 +84,28 @@ type tester struct {
 
 // newTester creates a test environment based on which the console can operate.
 // Please ensure you call Close() on the returned tester to avoid leaks.
-func newTester(t *testing.T, confOverride func(*zondconfig.Config)) *tester {
+func newTester(t *testing.T, confOverride func(*qrlconfig.Config)) *tester {
 	// Create a temporary storage for the node keys and initialize it
 	workspace := t.TempDir()
 
-	// Create a networkless protocol stack and start a Zond service within
+	// Create a networkless protocol stack and start a QRL service within
 	stack, err := node.New(&node.Config{DataDir: workspace, UseLightweightKDF: true, Name: testInstance})
 	if err != nil {
 		t.Fatalf("failed to create node: %v", err)
 	}
 	feeRecipient, _ := common.NewAddressFromString(testAddress)
-	zondConf := &zondconfig.Config{
+	qrlConf := &qrlconfig.Config{
 		Genesis: core.DeveloperGenesisBlock(11_500_000, common.Address{}),
 		Miner: miner.Config{
 			PendingFeeRecipient: feeRecipient,
 		},
 	}
 	if confOverride != nil {
-		confOverride(zondConf)
+		confOverride(qrlConf)
 	}
-	zondBackend, err := zond.New(stack, zondConf)
+	qrlBackend, err := qrl.New(stack, qrlConf)
 	if err != nil {
-		t.Fatalf("failed to register Zond protocol: %v", err)
+		t.Fatalf("failed to register QRL protocol: %v", err)
 	}
 	// Start the node and assemble the JavaScript console around it
 	if err = stack.Start(); err != nil {
@@ -134,7 +134,7 @@ func newTester(t *testing.T, confOverride func(*zondconfig.Config)) *tester {
 	return &tester{
 		workspace: workspace,
 		stack:     stack,
-		zond:      zondBackend,
+		qrl:       qrlBackend,
 		console:   console,
 		input:     prompter,
 		output:    printer,

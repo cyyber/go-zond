@@ -50,10 +50,10 @@ var (
 	}
 
 	// Create a few transactions to have receipts for
-	to2, _ = common.NewAddressFromString("Z0000000000000000000000000000000000000002")
-	to3, _ = common.NewAddressFromString("Z0000000000000000000000000000000000000003")
-	to4, _ = common.NewAddressFromString("Z0000000000000000000000000000000000000004")
-	to5, _ = common.NewAddressFromString("Z0000000000000000000000000000000000000005")
+	to2, _ = common.NewAddressFromString("Q0000000000000000000000000000000000000002")
+	to3, _ = common.NewAddressFromString("Q0000000000000000000000000000000000000003")
+	to4, _ = common.NewAddressFromString("Q0000000000000000000000000000000000000004")
+	to5, _ = common.NewAddressFromString("Q0000000000000000000000000000000000000005")
 	txs    = Transactions{
 		NewTx(&DynamicFeeTx{
 			Nonce:     1,
@@ -97,7 +97,7 @@ var (
 	blockNumber     = big.NewInt(1)
 	blockTime       = uint64(2)
 	blockHash       = common.BytesToHash([]byte{0x03, 0x14})
-	contractAddr, _ = common.NewAddressFromString("Z5a443704dd4b594b382c22a083e2bd3090a6fef3")
+	contractAddr, _ = common.NewAddressFromString("Q5a443704dd4b594b382c22a083e2bd3090a6fef3")
 
 	// Create the corresponding receipts
 	receipts = Receipts{

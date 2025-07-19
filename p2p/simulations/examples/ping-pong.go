@@ -28,7 +28,7 @@ import (
 	"github.com/theQRL/go-zond/log"
 	"github.com/theQRL/go-zond/node"
 	"github.com/theQRL/go-zond/p2p"
-	"github.com/theQRL/go-zond/p2p/enode"
+	"github.com/theQRL/go-zond/p2p/qnode"
 	"github.com/theQRL/go-zond/p2p/simulations"
 	"github.com/theQRL/go-zond/p2p/simulations/adapters"
 )
@@ -89,12 +89,12 @@ func main() {
 // sends a ping to all its connected peers every 10s and receives a pong in
 // return
 type pingPongService struct {
-	id       enode.ID
+	id       qnode.ID
 	log      log.Logger
 	received atomic.Int64
 }
 
-func newPingPongService(id enode.ID) *pingPongService {
+func newPingPongService(id qnode.ID) *pingPongService {
 	return &pingPongService{
 		id:  id,
 		log: log.New("node.id", id),

@@ -25,7 +25,7 @@ import (
 	"time"
 
 	"github.com/theQRL/go-zond/event"
-	"github.com/theQRL/go-zond/p2p/enode"
+	"github.com/theQRL/go-zond/p2p/qnode"
 	"github.com/theQRL/go-zond/rlp"
 )
 
@@ -258,7 +258,7 @@ type msgEventer struct {
 	MsgReadWriter
 
 	feed          *event.Feed
-	peerID        enode.ID
+	peerID        qnode.ID
 	Protocol      string
 	localAddress  string
 	remoteAddress string
@@ -266,7 +266,7 @@ type msgEventer struct {
 
 // newMsgEventer returns a msgEventer which sends message events to the given
 // feed
-func newMsgEventer(rw MsgReadWriter, feed *event.Feed, peerID enode.ID, proto, remote, local string) *msgEventer {
+func newMsgEventer(rw MsgReadWriter, feed *event.Feed, peerID qnode.ID, proto, remote, local string) *msgEventer {
 	return &msgEventer{
 		MsgReadWriter: rw,
 		feed:          feed,

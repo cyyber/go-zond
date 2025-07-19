@@ -45,13 +45,13 @@ var (
 	}
 	logVmoduleFlag = &cli.StringFlag{
 		Name:     "log.vmodule",
-		Usage:    "Per-module verbosity: comma-separated list of <pattern>=<level> (e.g. zond/*=5,p2p=4)",
+		Usage:    "Per-module verbosity: comma-separated list of <pattern>=<level> (e.g. qrl/*=5,p2p=4)",
 		Value:    "",
 		Category: flags.LoggingCategory,
 	}
 	vmoduleFlag = &cli.StringFlag{
 		Name:     "vmodule",
-		Usage:    "Per-module verbosity: comma-separated list of <pattern>=<level> (e.g. zond/*=5,p2p=4)",
+		Usage:    "Per-module verbosity: comma-separated list of <pattern>=<level> (e.g. qrl/*=5,p2p=4)",
 		Value:    "",
 		Hidden:   true,
 		Category: flags.LoggingCategory,

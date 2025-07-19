@@ -16,18 +16,18 @@
 
 package rawdb
 
-import "github.com/theQRL/go-zond/zonddb"
+import "github.com/theQRL/go-zond/qrldb"
 
 // KeyLengthIterator is a wrapper for a database iterator that ensures only key-value pairs
 // with a specific key length will be returned.
 type KeyLengthIterator struct {
 	requiredKeyLength int
-	zonddb.Iterator
+	qrldb.Iterator
 }
 
 // NewKeyLengthIterator returns a wrapped version of the iterator that will only return key-value
 // pairs where keys with a specific key length will be returned.
-func NewKeyLengthIterator(it zonddb.Iterator, keyLen int) zonddb.Iterator {
+func NewKeyLengthIterator(it qrldb.Iterator, keyLen int) qrldb.Iterator {
 	return &KeyLengthIterator{
 		Iterator:          it,
 		requiredKeyLength: keyLen,

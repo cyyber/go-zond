@@ -45,7 +45,7 @@ var (
 	addressT = reflect.TypeOf(Address{})
 
 	// MaxAddress represents the maximum possible address value.
-	MaxAddress, _ = NewAddressFromString("Zffffffffffffffffffffffffffffffffffffffff")
+	MaxAddress, _ = NewAddressFromString("Qffffffffffffffffffffffffffffffffffffffff")
 
 	// MaxHash represents the maximum possible hash value.
 	MaxHash = HexToHash("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")
@@ -210,7 +210,7 @@ func (h UnprefixedHash) MarshalText() ([]byte, error) {
 
 /////////// Address
 
-// Address represents the 20 byte address of a Zond account.
+// Address represents the 20 byte address of a QRL account.
 type Address [AddressLength]byte
 
 // BytesToAddress returns Address with value b.
@@ -235,9 +235,9 @@ func NewAddressFromString(hexaddr string) (Address, error) {
 }
 
 // IsAddress verifies whether a string can represent a valid hex-encoded
-// Zond address or not.
+// QRL address or not.
 func IsAddress(s string) bool {
-	if !hasZPrefix(s) {
+	if !hasQPrefix(s) {
 		return false
 	}
 	s = s[1:]
@@ -292,7 +292,7 @@ func (a *Address) checksumHex() []byte {
 
 func (a Address) hex() []byte {
 	var buf [len(a)*2 + 1]byte
-	copy(buf[:1], hexutil.PrefixZ)
+	copy(buf[:1], hexutil.PrefixQ)
 	hex.Encode(buf[1:], a[:])
 	return buf[:]
 }
@@ -336,17 +336,17 @@ func (a *Address) SetBytes(b []byte) {
 
 // MarshalText returns the hex representation of a.
 func (a Address) MarshalText() ([]byte, error) {
-	return hexutil.BytesZ(a[:]).MarshalText()
+	return hexutil.BytesQ(a[:]).MarshalText()
 }
 
 // UnmarshalText parses a hash in hex syntax.
 func (a *Address) UnmarshalText(input []byte) error {
-	return hexutil.UnmarshalFixedTextZ("Address", input, a[:])
+	return hexutil.UnmarshalFixedTextQ("Address", input, a[:])
 }
 
 // UnmarshalJSON parses a address in hex syntax.
 func (a *Address) UnmarshalJSON(input []byte) error {
-	return hexutil.UnmarshalFixedJSONZ(addressT, input, a[:])
+	return hexutil.UnmarshalFixedJSONQ(addressT, input, a[:])
 }
 
 // Scan implements Scanner for database/sql.
@@ -405,7 +405,7 @@ func NewMixedcaseAddressFromString(hexaddr string) (*MixedcaseAddress, error) {
 
 // UnmarshalJSON parses MixedcaseAddress
 func (ma *MixedcaseAddress) UnmarshalJSON(input []byte) error {
-	if err := hexutil.UnmarshalFixedJSONZ(addressT, input, ma.addr[:]); err != nil {
+	if err := hexutil.UnmarshalFixedJSONQ(addressT, input, ma.addr[:]); err != nil {
 		return err
 	}
 	return json.Unmarshal(input, &ma.original)

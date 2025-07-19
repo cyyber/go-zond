@@ -29,8 +29,8 @@ import (
 	"time"
 
 	"github.com/theQRL/go-zond/log"
-	"github.com/theQRL/go-zond/p2p/enode"
-	"github.com/theQRL/go-zond/p2p/enr"
+	"github.com/theQRL/go-zond/p2p/qnode"
+	"github.com/theQRL/go-zond/p2p/qnr"
 )
 
 var discard = Protocol{
@@ -51,15 +51,15 @@ var discard = Protocol{
 }
 
 // uintID encodes i into a node ID.
-func uintID(i uint16) enode.ID {
-	var id enode.ID
+func uintID(i uint16) qnode.ID {
+	var id qnode.ID
 	binary.BigEndian.PutUint16(id[:], i)
 	return id
 }
 
 // newNode creates a node record with the given address.
-func newNode(id enode.ID, addr string) *enode.Node {
-	var r enr.Record
+func newNode(id qnode.ID, addr string) *qnode.Node {
+	var r qnr.Record
 	if addr != "" {
 		// Set the port if present.
 		if strings.Contains(addr, ":") {
@@ -71,8 +71,8 @@ func newNode(id enode.ID, addr string) *enode.Node {
 			if err != nil {
 				panic(fmt.Errorf("invalid port in %q", addr))
 			}
-			r.Set(enr.TCP(port))
-			r.Set(enr.UDP(port))
+			r.Set(qnr.TCP(port))
+			r.Set(qnr.UDP(port))
 			addr = hs
 		}
 		// Set the IP.
@@ -80,9 +80,9 @@ func newNode(id enode.ID, addr string) *enode.Node {
 		if ip == nil {
 			panic(fmt.Errorf("invalid IP %q", addr))
 		}
-		r.Set(enr.IP(ip))
+		r.Set(qnr.IP(ip))
 	}
-	return enode.SignNull(&r, id)
+	return qnode.SignNull(&r, id)
 }
 
 func testPeer(protos []Protocol) (func(), *conn, *Peer, <-chan error) {

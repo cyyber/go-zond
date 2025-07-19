@@ -34,7 +34,7 @@ import (
 	"github.com/theQRL/go-zond/core/vm"
 	"github.com/theQRL/go-zond/crypto"
 	"github.com/theQRL/go-zond/params"
-	"github.com/theQRL/go-zond/zonddb"
+	"github.com/theQRL/go-zond/qrldb"
 )
 
 var (
@@ -90,13 +90,13 @@ func init() {
 
 // testWorkerBackend implements worker.Backend interfaces and wraps all information needed during the testing.
 type testWorkerBackend struct {
-	db      zonddb.Database
+	db      qrldb.Database
 	txPool  *txpool.TxPool
 	chain   *core.BlockChain
 	genesis *core.Genesis
 }
 
-func newTestWorkerBackend(t *testing.T, chainConfig *params.ChainConfig, engine consensus.Engine, db zonddb.Database, n int) *testWorkerBackend {
+func newTestWorkerBackend(t *testing.T, chainConfig *params.ChainConfig, engine consensus.Engine, db qrldb.Database, n int) *testWorkerBackend {
 	var gspec = &core.Genesis{
 		Config: chainConfig,
 		Alloc:  core.GenesisAlloc{testBankAddress: {Balance: testBankFunds}},
@@ -124,7 +124,7 @@ func newTestWorkerBackend(t *testing.T, chainConfig *params.ChainConfig, engine 
 func (b *testWorkerBackend) BlockChain() *core.BlockChain { return b.chain }
 func (b *testWorkerBackend) TxPool() *txpool.TxPool       { return b.txPool }
 
-func newTestWorker(t *testing.T, chainConfig *params.ChainConfig, engine consensus.Engine, db zonddb.Database, blocks int) (*Miner, *testWorkerBackend) {
+func newTestWorker(t *testing.T, chainConfig *params.ChainConfig, engine consensus.Engine, db qrldb.Database, blocks int) (*Miner, *testWorkerBackend) {
 	backend := newTestWorkerBackend(t, chainConfig, engine, db, blocks)
 	backend.txPool.Add(pendingTxs, true, true)
 	w := New(backend, testConfig, engine)
@@ -134,7 +134,7 @@ func newTestWorker(t *testing.T, chainConfig *params.ChainConfig, engine consens
 func TestBuildPayload(t *testing.T) {
 	var (
 		db           = rawdb.NewMemoryDatabase()
-		recipient, _ = common.NewAddressFromString("Z00000000000000000000000000000000deadbeef")
+		recipient, _ = common.NewAddressFromString("Q00000000000000000000000000000000deadbeef")
 	)
 	w, b := newTestWorker(t, params.TestChainConfig, beacon.NewFaker(), db, 0)
 

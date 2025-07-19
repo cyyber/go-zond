@@ -39,7 +39,7 @@ import (
 	"github.com/theQRL/go-zond/log"
 	"github.com/theQRL/go-zond/node"
 	"github.com/theQRL/go-zond/p2p"
-	"github.com/theQRL/go-zond/p2p/enode"
+	"github.com/theQRL/go-zond/p2p/qnode"
 	"github.com/theQRL/go-zond/rpc"
 )
 
@@ -56,7 +56,7 @@ type ExecAdapter struct {
 	// simulation node are created.
 	BaseDir string
 
-	nodes map[enode.ID]*ExecNode
+	nodes map[qnode.ID]*ExecNode
 }
 
 // NewExecAdapter returns an ExecAdapter which stores node data in
@@ -64,7 +64,7 @@ type ExecAdapter struct {
 func NewExecAdapter(baseDir string) *ExecAdapter {
 	return &ExecAdapter{
 		BaseDir: baseDir,
-		nodes:   make(map[enode.ID]*ExecNode),
+		nodes:   make(map[qnode.ID]*ExecNode),
 	}
 }
 
@@ -91,7 +91,7 @@ func (e *ExecAdapter) NewNode(config *NodeConfig) (Node, error) {
 		return nil, fmt.Errorf("error creating node directory: %s", err)
 	}
 
-	err := config.initDummyEnode()
+	err := config.initDummyQnode()
 	if err != nil {
 		return nil, err
 	}
@@ -134,7 +134,7 @@ func (e *ExecAdapter) NewNode(config *NodeConfig) (Node, error) {
 // ExecNode starts a simulation node by exec'ing the current binary and
 // running the configured services
 type ExecNode struct {
-	ID     enode.ID
+	ID     qnode.ID
 	Dir    string
 	Config *execNodeConfig
 	Cmd    *exec.Cmd
@@ -146,12 +146,12 @@ type ExecNode struct {
 	newCmd  func() *exec.Cmd
 }
 
-// Addr returns the node's enode URL
+// Addr returns the node's qnode URL
 func (n *ExecNode) Addr() []byte {
 	if n.Info == nil {
 		return nil
 	}
-	return []byte(n.Info.Enode)
+	return []byte(n.Info.Qnode)
 }
 
 // Client returns an rpc.Client which can be used to communicate with the
@@ -463,12 +463,12 @@ func startExecNodeStack() (*node.Node, error) {
 		return nil, fmt.Errorf("error decoding %s: %v", envNodeConfig, err)
 	}
 
-	// create enode record
+	// create qnode record
 	nodeTcpConn, _ := net.ResolveTCPAddr("tcp", conf.Stack.P2P.ListenAddr)
 	if nodeTcpConn.IP == nil {
 		nodeTcpConn.IP = net.IPv4(127, 0, 0, 1)
 	}
-	conf.Node.initEnode(nodeTcpConn.IP, nodeTcpConn.Port, nodeTcpConn.Port)
+	conf.Node.initQnode(nodeTcpConn.IP, nodeTcpConn.Port, nodeTcpConn.Port)
 	conf.Stack.P2P.PrivateKey = conf.Node.PrivateKey
 	conf.Stack.Logger = log.New("node.id", conf.Node.ID.String())
 
@@ -551,7 +551,7 @@ type wsRPCDialer struct {
 
 // DialRPC implements the RPCDialer interface by creating a WebSocket RPC
 // client of the given node
-func (w *wsRPCDialer) DialRPC(id enode.ID) (*rpc.Client, error) {
+func (w *wsRPCDialer) DialRPC(id qnode.ID) (*rpc.Client, error) {
 	addr, ok := w.addrs[id.String()]
 	if !ok {
 		return nil, fmt.Errorf("unknown node: %s", id)

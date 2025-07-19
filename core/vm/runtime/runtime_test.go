@@ -33,11 +33,11 @@ import (
 	"github.com/theQRL/go-zond/core/types"
 	"github.com/theQRL/go-zond/core/vm"
 	"github.com/theQRL/go-zond/params"
-	"github.com/theQRL/go-zond/zond/tracers"
-	"github.com/theQRL/go-zond/zond/tracers/logger"
+	"github.com/theQRL/go-zond/qrl/tracers"
+	"github.com/theQRL/go-zond/qrl/tracers/logger"
 
 	// force-load js tracers to trigger registration
-	_ "github.com/theQRL/go-zond/zond/tracers/js"
+	_ "github.com/theQRL/go-zond/qrl/tracers/js"
 )
 
 func TestDefaults(t *testing.T) {
@@ -61,7 +61,7 @@ func TestDefaults(t *testing.T) {
 	}
 }
 
-func TestZVM(t *testing.T) {
+func TestQRVM(t *testing.T) {
 	defer func() {
 		if r := recover(); r != nil {
 			t.Fatalf("crashed with: %v", r)
@@ -101,7 +101,7 @@ func TestExecute(t *testing.T) {
 
 func TestCall(t *testing.T) {
 	state, _ := state.New(types.EmptyRootHash, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
-	address, _ := common.NewAddressFromString("Z000000000000000000000000000000000000000a")
+	address, _ := common.NewAddressFromString("Q000000000000000000000000000000000000000a")
 	state.SetCode(address, []byte{
 		byte(vm.PUSH1), 10,
 		byte(vm.PUSH1), 0,
@@ -154,7 +154,7 @@ func BenchmarkCall(b *testing.B) {
 		}
 	}
 }
-func benchmarkZVM_Create(bench *testing.B, code string) {
+func benchmarkQRVM_Create(bench *testing.B, code string) {
 	var (
 		statedb, _ = state.New(types.EmptyRootHash, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
 		sender     = common.BytesToAddress([]byte("sender"))
@@ -173,7 +173,7 @@ func benchmarkZVM_Create(bench *testing.B, code string) {
 		ChainConfig: &params.ChainConfig{
 			ChainID: big.NewInt(1),
 		},
-		ZVMConfig: vm.Config{},
+		QRVMConfig: vm.Config{},
 	}
 	// Warm up the intpools and stuff
 	bench.ResetTimer()
@@ -183,25 +183,25 @@ func benchmarkZVM_Create(bench *testing.B, code string) {
 	bench.StopTimer()
 }
 
-func BenchmarkZVM_CREATE_500(bench *testing.B) {
+func BenchmarkQRVM_CREATE_500(bench *testing.B) {
 	// initcode size 500K, repeatedly calls CREATE and then modifies the mem contents
-	benchmarkZVM_Create(bench, "5b6207a120600080f0600152600056")
+	benchmarkQRVM_Create(bench, "5b6207a120600080f0600152600056")
 }
-func BenchmarkZVM_CREATE2_500(bench *testing.B) {
+func BenchmarkQRVM_CREATE2_500(bench *testing.B) {
 	// initcode size 500K, repeatedly calls CREATE2 and then modifies the mem contents
-	benchmarkZVM_Create(bench, "5b586207a120600080f5600152600056")
+	benchmarkQRVM_Create(bench, "5b586207a120600080f5600152600056")
 }
-func BenchmarkZVM_CREATE_1200(bench *testing.B) {
+func BenchmarkQRVM_CREATE_1200(bench *testing.B) {
 	// initcode size 1200K, repeatedly calls CREATE and then modifies the mem contents
-	benchmarkZVM_Create(bench, "5b62124f80600080f0600152600056")
+	benchmarkQRVM_Create(bench, "5b62124f80600080f0600152600056")
 }
-func BenchmarkZVM_CREATE2_1200(bench *testing.B) {
+func BenchmarkQRVM_CREATE2_1200(bench *testing.B) {
 	// initcode size 1200K, repeatedly calls CREATE2 and then modifies the mem contents
-	benchmarkZVM_Create(bench, "5b5862124f80600080f5600152600056")
+	benchmarkQRVM_Create(bench, "5b5862124f80600080f5600152600056")
 }
 
 func fakeHeader(n uint64, parentHash common.Hash) *types.Header {
-	coinbase, _ := common.NewAddressFromString("Z00000000000000000000000000000000deadbeef")
+	coinbase, _ := common.NewAddressFromString("Q00000000000000000000000000000000deadbeef")
 	header := types.Header{
 		Coinbase:   coinbase,
 		Number:     big.NewInt(int64(n)),
@@ -321,7 +321,7 @@ func benchmarkNonModifyingCode(gas uint64, code []byte, name string, tracerCode 
 		if err != nil {
 			b.Fatal(err)
 		}
-		cfg.ZVMConfig = vm.Config{
+		cfg.QRVMConfig = vm.Config{
 			Tracer: tracer,
 		}
 	}
@@ -331,12 +331,12 @@ func benchmarkNonModifyingCode(gas uint64, code []byte, name string, tracerCode 
 		sender      = vm.AccountRef(cfg.Origin)
 	)
 	cfg.State.CreateAccount(destination)
-	eoa, _ := common.NewAddressFromString("Z00000000000000000000000000000000000000E0")
+	eoa, _ := common.NewAddressFromString("Q00000000000000000000000000000000000000E0")
 	{
 		cfg.State.CreateAccount(eoa)
 		cfg.State.SetNonce(eoa, 100)
 	}
-	reverting, _ := common.NewAddressFromString("Z00000000000000000000000000000000000000EE")
+	reverting, _ := common.NewAddressFromString("Q00000000000000000000000000000000000000EE")
 	{
 		cfg.State.CreateAccount(reverting)
 		cfg.State.SetCode(reverting, []byte{
@@ -458,7 +458,7 @@ func BenchmarkSimpleLoop(b *testing.B) {
 
 	//tracer := logger.NewJSONLogger(nil, os.Stdout)
 	//Execute(loopingCode, nil, &Config{
-	//	ZVMConfig: vm.Config{
+	//	QRVMConfig: vm.Config{
 	//		Debug:  true,
 	//		Tracer: tracer,
 	//	}})
@@ -496,9 +496,9 @@ func TestEip2929Cases(t *testing.T) {
 			comment,
 			code, ops)
 		Execute(code, nil, &Config{
-			ZVMConfig: vm.Config{
+			QRVMConfig: vm.Config{
 				Tracer:    logger.NewMarkdownLogger(nil, os.Stdout),
-				ExtraEips: []int{2929},
+				ExtraQips: []int{2929},
 			},
 		})
 	}
@@ -633,7 +633,7 @@ func TestColdAccountAccessCost(t *testing.T) {
 	} {
 		tracer := logger.NewStructLogger(nil)
 		Execute(tc.code, nil, &Config{
-			ZVMConfig: vm.Config{
+			QRVMConfig: vm.Config{
 				Tracer: tracer,
 			},
 		})
@@ -756,11 +756,11 @@ func TestRuntimeJSTracer(t *testing.T) {
 		byte(vm.PUSH1), 0,
 		byte(vm.RETURN),
 	}
-	main, _ := common.NewAddressFromString("Z00000000000000000000000000000000000000aa")
-	address0, _ := common.NewAddressFromString("Z00000000000000000000000000000000000000bb")
-	address1, _ := common.NewAddressFromString("Z00000000000000000000000000000000000000cc")
-	address2, _ := common.NewAddressFromString("Z00000000000000000000000000000000000000dd")
-	address3, _ := common.NewAddressFromString("Z00000000000000000000000000000000000000ee")
+	main, _ := common.NewAddressFromString("Q00000000000000000000000000000000000000aa")
+	address0, _ := common.NewAddressFromString("Q00000000000000000000000000000000000000bb")
+	address1, _ := common.NewAddressFromString("Q00000000000000000000000000000000000000cc")
+	address2, _ := common.NewAddressFromString("Q00000000000000000000000000000000000000dd")
+	address3, _ := common.NewAddressFromString("Q00000000000000000000000000000000000000ee")
 	for i, jsTracer := range jsTracers {
 		for j, tc := range tests {
 			statedb, _ := state.New(types.EmptyRootHash, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
@@ -777,7 +777,7 @@ func TestRuntimeJSTracer(t *testing.T) {
 			_, _, err = Call(main, nil, &Config{
 				GasLimit: 1000000,
 				State:    statedb,
-				ZVMConfig: vm.Config{
+				QRVMConfig: vm.Config{
 					Tracer: tracer,
 				}})
 			if err != nil {
@@ -811,7 +811,7 @@ func TestJSTracerCreateTx(t *testing.T) {
 	}
 	_, _, _, err = Create(code, &Config{
 		State: statedb,
-		ZVMConfig: vm.Config{
+		QRVMConfig: vm.Config{
 			Tracer: tracer,
 		}})
 	if err != nil {

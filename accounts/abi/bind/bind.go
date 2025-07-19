@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-// Package bind generates Zond contract Go bindings.
+// Package bind generates QRL contract Go bindings.
 //
 // Detailed usage document and tutorial available on the go-ethereum Wiki page:
 // https://github.com/ethereum/go-ethereum/wiki/Native-DApps:-Go-bindings-to-Ethereum-contracts
@@ -94,7 +94,7 @@ func Bind(types []string, abis []string, bytecodes []string, fsigs []map[string]
 	)
 	for i := 0; i < len(types); i++ {
 		// Parse the actual ABI to generate the binding for
-		zvmABI, err := abi.JSON(strings.NewReader(abis[i]))
+		qrvmABI, err := abi.JSON(strings.NewReader(abis[i]))
 		if err != nil {
 			return "", err
 		}
@@ -123,13 +123,13 @@ func Bind(types []string, abis []string, bytecodes []string, fsigs []map[string]
 			eventIdentifiers    = make(map[string]bool)
 		)
 
-		for _, input := range zvmABI.Constructor.Inputs {
+		for _, input := range qrvmABI.Constructor.Inputs {
 			if hasStruct(input.Type) {
 				bindStructType[lang](input.Type, structs)
 			}
 		}
 
-		for _, original := range zvmABI.Methods {
+		for _, original := range qrvmABI.Methods {
 			// Normalize the method for capital cases and non-anonymous inputs/outputs
 			normalized := original
 			normalizedName := methodNormalizer[lang](alias(aliases, original.Name))
@@ -179,7 +179,7 @@ func Bind(types []string, abis []string, bytecodes []string, fsigs []map[string]
 				transacts[original.Name] = &tmplMethod{Original: original, Normalized: normalized, Structured: structured(original.Outputs)}
 			}
 		}
-		for _, original := range zvmABI.Events {
+		for _, original := range qrvmABI.Events {
 			// Skip anonymous events as they don't support explicit filtering
 			if original.Anonymous {
 				continue
@@ -227,17 +227,17 @@ func Bind(types []string, abis []string, bytecodes []string, fsigs []map[string]
 			events[original.Name] = &tmplEvent{Original: original, Normalized: normalized}
 		}
 		// Add two special fallback functions if they exist
-		if zvmABI.HasFallback() {
-			fallback = &tmplMethod{Original: zvmABI.Fallback}
+		if qrvmABI.HasFallback() {
+			fallback = &tmplMethod{Original: qrvmABI.Fallback}
 		}
-		if zvmABI.HasReceive() {
-			receive = &tmplMethod{Original: zvmABI.Receive}
+		if qrvmABI.HasReceive() {
+			receive = &tmplMethod{Original: qrvmABI.Receive}
 		}
 		contracts[types[i]] = &tmplContract{
 			Type:        capitalise(types[i]),
 			InputABI:    strings.ReplaceAll(strippedABI, "\"", "\\\""),
 			InputBin:    strings.TrimPrefix(strings.TrimSpace(bytecodes[i]), "0x"),
-			Constructor: zvmABI.Constructor,
+			Constructor: qrvmABI.Constructor,
 			Calls:       calls,
 			Transacts:   transacts,
 			Fallback:    fallback,

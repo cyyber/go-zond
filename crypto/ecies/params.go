@@ -43,11 +43,11 @@ import (
 	"fmt"
 	"hash"
 
-	zondcrypto "github.com/theQRL/go-zond/crypto"
+	qrlcrypto "github.com/theQRL/go-zond/crypto"
 )
 
 var (
-	DefaultCurve                  = zondcrypto.S256()
+	DefaultCurve                  = qrlcrypto.S256()
 	ErrUnsupportedECDHAlgorithm   = errors.New("ecies: unsupported ECDH algorithm")
 	ErrUnsupportedECIESParameters = errors.New("ecies: unsupported ECIES parameters")
 	ErrInvalidKeyLen              = fmt.Errorf("ecies: invalid key size (> %d) in ECIESParams", maxKeyLen)
@@ -115,10 +115,10 @@ var (
 )
 
 var paramsFromCurve = map[elliptic.Curve]*ECIESParams{
-	zondcrypto.S256(): ECIES_AES128_SHA256,
-	elliptic.P256():   ECIES_AES128_SHA256,
-	elliptic.P384():   ECIES_AES192_SHA384,
-	elliptic.P521():   ECIES_AES256_SHA512,
+	qrlcrypto.S256(): ECIES_AES128_SHA256,
+	elliptic.P256():  ECIES_AES128_SHA256,
+	elliptic.P384():  ECIES_AES192_SHA384,
+	elliptic.P521():  ECIES_AES256_SHA512,
 }
 
 func AddParamsForCurve(curve elliptic.Curve, params *ECIESParams) {

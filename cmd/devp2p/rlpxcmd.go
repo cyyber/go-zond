@@ -34,7 +34,7 @@ var (
 		Usage: "RLPx Commands",
 		Subcommands: []*cli.Command{
 			rlpxPingCommand,
-			rlpxZondTestCommand,
+			rlpxQRLTestCommand,
 			rlpxSnapTestCommand,
 		},
 	}
@@ -43,11 +43,11 @@ var (
 		Usage:  "ping <node>",
 		Action: rlpxPing,
 	}
-	rlpxZondTestCommand = &cli.Command{
-		Name:      "zond-test",
+	rlpxQRLTestCommand = &cli.Command{
+		Name:      "qrl-test",
 		Usage:     "Runs tests against a node",
 		ArgsUsage: "<node> <chain.rlp> <genesis.json>",
-		Action:    rlpxZondTest,
+		Action:    rlpxQRLTest,
 		Flags: []cli.Flag{
 			testPatternFlag,
 			testTAPFlag,
@@ -84,7 +84,7 @@ func rlpxPing(ctx *cli.Context) error {
 	switch code {
 	case 0:
 		// TODO(now.youtrack.cloud/issue/TGZ-6)
-		// var h zondtest.Hello
+		// var h qrltest.Hello
 		// if err := rlp.DecodeBytes(data, &h); err != nil {
 		// 	return fmt.Errorf("invalid handshake: %v", err)
 		// }
@@ -101,17 +101,17 @@ func rlpxPing(ctx *cli.Context) error {
 	return nil
 }
 
-// rlpxZondTest runs the zond protocol test suite.
-func rlpxZondTest(ctx *cli.Context) error {
+// rlpxQRLTest runs the qrl protocol test suite.
+func rlpxQRLTest(ctx *cli.Context) error {
 	if ctx.NArg() < 3 {
 		exit("missing path to chain.rlp as command-line argument")
 	}
 	// TODO(now.youtrack.cloud/issue/TGZ-6)
-	// suite, err := zondtest.NewSuite(getNodeArg(ctx), ctx.Args().Get(1), ctx.Args().Get(2))
+	// suite, err := qrltest.NewSuite(getNodeArg(ctx), ctx.Args().Get(1), ctx.Args().Get(2))
 	// if err != nil {
 	// 	exit(err)
 	// }
-	// return runTests(ctx, suite.ZondTests())
+	// return runTests(ctx, suite.QRLTests())
 	return nil
 }
 
@@ -121,7 +121,7 @@ func rlpxSnapTest(ctx *cli.Context) error {
 		exit("missing path to chain.rlp as command-line argument")
 	}
 	// TODO(now.youtrack.cloud/issue/TGZ-6)
-	// suite, err := zondtest.NewSuite(getNodeArg(ctx), ctx.Args().Get(1), ctx.Args().Get(2))
+	// suite, err := qrltest.NewSuite(getNodeArg(ctx), ctx.Args().Get(1), ctx.Args().Get(2))
 	// if err != nil {
 	// 	exit(err)
 	// }

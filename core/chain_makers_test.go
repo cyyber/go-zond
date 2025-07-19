@@ -38,7 +38,7 @@ func TestGenerateWithdrawalChain(t *testing.T) {
 		address = key.GetAddress()
 		aa      = common.Address{0xaa}
 		bb      = common.Address{0xbb}
-		funds   = big.NewInt(0).Mul(big.NewInt(1337), big.NewInt(params.Zond))
+		funds   = big.NewInt(0).Mul(big.NewInt(1337), big.NewInt(params.Quanta))
 		config  = *params.AllBeaconProtocolChanges
 		gspec   = &Genesis{
 			Config:   &config,
@@ -168,7 +168,7 @@ func ExampleGenerateChain() {
 	chain, _ := GenerateChain(gspec.Config, genesis, beacon.NewFaker(), genDb, 5, func(i int, gen *BlockGen) {
 		switch i {
 		case 0:
-			// In block 1, addr1 sends addr2 some zond.
+			// In block 1, addr1 sends addr2 some quanta.
 			to := common.Address(addr2)
 			tx := types.NewTx(&types.DynamicFeeTx{
 				Nonce:     gen.TxNonce(addr1),
@@ -182,7 +182,7 @@ func ExampleGenerateChain() {
 			gen.AddTx(signedTx)
 
 		case 1:
-			// In block 2, addr1 sends some more zond to addr2.
+			// In block 2, addr1 sends some more quanta to addr2.
 			// addr2 passes it on to addr3.
 			to2 := common.Address(addr2)
 			to3 := common.Address(addr3)

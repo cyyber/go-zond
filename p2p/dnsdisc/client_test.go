@@ -30,35 +30,35 @@ import (
 	"github.com/theQRL/go-zond/crypto"
 	"github.com/theQRL/go-zond/internal/testlog"
 	"github.com/theQRL/go-zond/log"
-	"github.com/theQRL/go-zond/p2p/enode"
-	"github.com/theQRL/go-zond/p2p/enr"
+	"github.com/theQRL/go-zond/p2p/qnode"
+	"github.com/theQRL/go-zond/p2p/qnr"
 )
 
 var signingKeyForTesting, _ = crypto.ToECDSA(hexutil.MustDecode("0xdc599867fc513f8f5e2c2c9c489cde5e71362d1d9ec6e693e0de063236ed1240"))
 
 func TestClientSyncTree(t *testing.T) {
 	nodes := []string{
-		"enr:-HW4QOFzoVLaFJnNhbgMoDXPnOvcdVuj7pDpqRvh6BRDO68aVi5ZcjB3vzQRZH2IcLBGHzo8uUN3snqmgTiE56CH3AMBgmlkgnY0iXNlY3AyNTZrMaECC2_24YYkYHEgdzxlSNKQEnHhuNAbNlMlWJxrJxbAFvA",
-		"enr:-HW4QAggRauloj2SDLtIHN1XBkvhFZ1vtf1raYQp9TBW2RD5EEawDzbtSmlXUfnaHcvwOizhVYLtr7e6vw7NAf6mTuoCgmlkgnY0iXNlY3AyNTZrMaECjrXI8TLNXU0f8cthpAMxEshUyQlK-AM0PW2wfrnacNI",
-		"enr:-HW4QLAYqmrwllBEnzWWs7I5Ev2IAs7x_dZlbYdRdMUx5EyKHDXp7AV5CkuPGUPdvbv1_Ms1CPfhcGCvSElSosZmyoqAgmlkgnY0iXNlY3AyNTZrMaECriawHKWdDRk2xeZkrOXBQ0dfMFLHY4eENZwdufn1S1o",
+		"qnr:-HW4QOFzoVLaFJnNhbgMoDXPnOvcdVuj7pDpqRvh6BRDO68aVi5ZcjB3vzQRZH2IcLBGHzo8uUN3snqmgTiE56CH3AMBgmlkgnY0iXNlY3AyNTZrMaECC2_24YYkYHEgdzxlSNKQEnHhuNAbNlMlWJxrJxbAFvA",
+		"qnr:-HW4QAggRauloj2SDLtIHN1XBkvhFZ1vtf1raYQp9TBW2RD5EEawDzbtSmlXUfnaHcvwOizhVYLtr7e6vw7NAf6mTuoCgmlkgnY0iXNlY3AyNTZrMaECjrXI8TLNXU0f8cthpAMxEshUyQlK-AM0PW2wfrnacNI",
+		"qnr:-HW4QLAYqmrwllBEnzWWs7I5Ev2IAs7x_dZlbYdRdMUx5EyKHDXp7AV5CkuPGUPdvbv1_Ms1CPfhcGCvSElSosZmyoqAgmlkgnY0iXNlY3AyNTZrMaECriawHKWdDRk2xeZkrOXBQ0dfMFLHY4eENZwdufn1S1o",
 	}
 
 	r := mapResolver{
-		"n":                            "enrtree-root:v1 e=JWXYDBPXYWG6FX3GMDIBFA6CJ4 l=C7HRFPF3BLGF3YR4DY5KX3SMBE seq=1 sig=o908WmNp7LibOfPsr4btQwatZJ5URBr2ZAuxvK4UWHlsB9sUOTJQaGAlLPVAhM__XJesCHxLISo94z5Z2a463gA",
-		"C7HRFPF3BLGF3YR4DY5KX3SMBE.n": "enrtree://AM5FCQLWIZX2QFPNJAP7VUERCCRNGRHWZG3YYHIUV7BVDQ5FDPRT2@morenodes.example.org",
-		"JWXYDBPXYWG6FX3GMDIBFA6CJ4.n": "enrtree-branch:2XS2367YHAXJFGLZHVAWLQD4ZY,H4FHT4B454P6UXFD7JCYQ5PWDY,MHTDO6TMUBRIA2XWG5LUDACK24",
-		"2XS2367YHAXJFGLZHVAWLQD4ZY.n": nodes[0],
-		"H4FHT4B454P6UXFD7JCYQ5PWDY.n": nodes[1],
-		"MHTDO6TMUBRIA2XWG5LUDACK24.n": nodes[2],
+		"n":                            "qnrtree-root:v1 e=XJQBKU4LLJBNWT7BOGCZGSODG4 l=I4EQVGEUFFSFYVEIZTXGWFRKWA seq=1 sig=2eC2RXndIOgMSZSHkUpeJhTkRRcQIiOi271kXaa5KfZ2P4ijpP9GEnxx9QekBzq1db1lGjaf5k26F7wt4VldkAA",
+		"I4EQVGEUFFSFYVEIZTXGWFRKWA.n": "qnrtree://AM5FCQLWIZX2QFPNJAP7VUERCCRNGRHWZG3YYHIUV7BVDQ5FDPRT2@morenodes.example.org",
+		"XJQBKU4LLJBNWT7BOGCZGSODG4.n": "qnrtree-branch:VN37HFRVMVYCNLEOCKSNASP6GI,TBNBZMPRFCSNXN7M4CDQ4GYVXE,5UOZBDYWZMT44OHU5BOSAJLL7I",
+		"VN37HFRVMVYCNLEOCKSNASP6GI.n": nodes[0],
+		"TBNBZMPRFCSNXN7M4CDQ4GYVXE.n": nodes[1],
+		"5UOZBDYWZMT44OHU5BOSAJLL7I.n": nodes[2],
 	}
 	var (
 		wantNodes = sortByID(parseNodes(nodes))
-		wantLinks = []string{"enrtree://AM5FCQLWIZX2QFPNJAP7VUERCCRNGRHWZG3YYHIUV7BVDQ5FDPRT2@morenodes.example.org"}
+		wantLinks = []string{"qnrtree://AM5FCQLWIZX2QFPNJAP7VUERCCRNGRHWZG3YYHIUV7BVDQ5FDPRT2@morenodes.example.org"}
 		wantSeq   = uint(1)
 	)
 
 	c := NewClient(Config{Resolver: r, Logger: testlog.Logger(t, log.LvlTrace)})
-	stree, err := c.SyncTree("enrtree://AKPYQIUQIL7PSIACI32J7FGZW56E5FKHEFCCOFHILBIMW3M6LWXS2@n")
+	stree, err := c.SyncTree("qnrtree://AKPYQIUQIL7PSIACI32J7FGZW56E5FKHEFCCOFHILBIMW3M6LWXS2@n")
 	if err != nil {
 		t.Fatal("sync error:", err)
 	}
@@ -73,13 +73,13 @@ func TestClientSyncTree(t *testing.T) {
 	}
 }
 
-// In this test, syncing the tree fails because it contains an invalid ENR entry.
+// In this test, syncing the tree fails because it contains an invalid QNR entry.
 func TestClientSyncTreeBadNode(t *testing.T) {
 	// var b strings.Builder
-	// b.WriteString(enrPrefix)
+	// b.WriteString(qnrPrefix)
 	// b.WriteString("-----")
 	// badHash := subdomain(&b)
-	// tree, _ := MakeTree(3, nil, []string{"enrtree://AM5FCQLWIZX2QFPNJAP7VUERCCRNGRHWZG3YYHIUV7BVDQ5FDPRT2@morenodes.example.org"})
+	// tree, _ := MakeTree(3, nil, []string{"qnrtree://AM5FCQLWIZX2QFPNJAP7VUERCCRNGRHWZG3YYHIUV7BVDQ5FDPRT2@morenodes.example.org"})
 	// tree.entries[badHash] = &b
 	// tree.root.eroot = badHash
 	// url, _ := tree.Sign(signingKeyForTesting, "n")
@@ -87,13 +87,13 @@ func TestClientSyncTreeBadNode(t *testing.T) {
 	// fmt.Printf("%#v\n", tree.ToTXT("n"))
 
 	r := mapResolver{
-		"n":                            "enrtree-root:v1 e=INDMVBZEEQ4ESVYAKGIYU74EAA l=C7HRFPF3BLGF3YR4DY5KX3SMBE seq=3 sig=Vl3AmunLur0JZ3sIyJPSH6A3Vvdp4F40jWQeCmkIhmcgwE4VC5U9wpK8C_uL_CMY29fd6FAhspRvq2z_VysTLAA",
-		"C7HRFPF3BLGF3YR4DY5KX3SMBE.n": "enrtree://AM5FCQLWIZX2QFPNJAP7VUERCCRNGRHWZG3YYHIUV7BVDQ5FDPRT2@morenodes.example.org",
-		"INDMVBZEEQ4ESVYAKGIYU74EAA.n": "enr:-----",
+		"n":                            "qnrtree-root:v1 e=USMXFT4JNYMLNTSJBJEEBUSTRQ l=I4EQVGEUFFSFYVEIZTXGWFRKWA seq=3 sig=i9dkL1DjNPk_mLZXaTvsAZmcSvdHSggrkwRM4bTvzGdBHN9BOST7PapHQG8djtX18hhtikK2jcXHsfFCeuAwcgE",
+		"I4EQVGEUFFSFYVEIZTXGWFRKWA.n": "qnrtree://AM5FCQLWIZX2QFPNJAP7VUERCCRNGRHWZG3YYHIUV7BVDQ5FDPRT2@morenodes.example.org",
+		"USMXFT4JNYMLNTSJBJEEBUSTRQ.n": "qnr:-----",
 	}
 	c := NewClient(Config{Resolver: r, Logger: testlog.Logger(t, log.LvlTrace)})
-	_, err := c.SyncTree("enrtree://AKPYQIUQIL7PSIACI32J7FGZW56E5FKHEFCCOFHILBIMW3M6LWXS2@n")
-	wantErr := nameError{name: "INDMVBZEEQ4ESVYAKGIYU74EAA.n", err: entryError{typ: "enr", err: errInvalidENR}}
+	_, err := c.SyncTree("qnrtree://AKPYQIUQIL7PSIACI32J7FGZW56E5FKHEFCCOFHILBIMW3M6LWXS2@n")
+	wantErr := nameError{name: "USMXFT4JNYMLNTSJBJEEBUSTRQ.n", err: entryError{typ: "qnr", err: errInvalidQNR}}
 	if err != wantErr {
 		t.Fatalf("expected sync error %q, got %q", wantErr, err)
 	}
@@ -282,7 +282,7 @@ func TestIteratorEmptyTree(t *testing.T) {
 	resolver.add(tree1.ToTXT("n"))
 
 	// Start the iterator.
-	node := make(chan *enode.Node, 1)
+	node := make(chan *qnode.Node, 1)
 	it, err := c.NewIterator(url)
 	if err != nil {
 		t.Fatal(err)
@@ -310,14 +310,14 @@ func TestIteratorEmptyTree(t *testing.T) {
 	}
 }
 
-// updateSomeNodes applies ENR updates to some of the given nodes.
-func updateSomeNodes(keys []*ecdsa.PrivateKey, nodes []*enode.Node) {
+// updateSomeNodes applies QNR updates to some of the given nodes.
+func updateSomeNodes(keys []*ecdsa.PrivateKey, nodes []*qnode.Node) {
 	for i, n := range nodes[:len(nodes)/2] {
 		r := n.Record()
-		r.Set(enr.IP{127, 0, 0, 1})
+		r.Set(qnr.IP{127, 0, 0, 1})
 		r.SetSeq(55)
-		enode.SignV4(r, keys[i])
-		n2, _ := enode.New(enode.ValidSchemes, r)
+		qnode.SignV4(r, keys[i])
+		n2, _ := qnode.New(qnode.ValidSchemes, r)
 		nodes[i] = n2
 	}
 }
@@ -360,7 +360,7 @@ func TestIteratorLinkUpdates(t *testing.T) {
 
 	clock.Run(c.cfg.RecheckInterval + 1*time.Second)
 
-	var wantNodes []*enode.Node
+	var wantNodes []*qnode.Node
 	wantNodes = append(wantNodes, tree1.Nodes()...)
 	wantNodes = append(wantNodes, tree3.Nodes()...)
 	checkIterator(t, it, wantNodes)
@@ -372,11 +372,11 @@ func TestIteratorLinkUpdates(t *testing.T) {
 	}
 }
 
-func checkIterator(t *testing.T, it enode.Iterator, wantNodes []*enode.Node) {
+func checkIterator(t *testing.T, it qnode.Iterator, wantNodes []*qnode.Node) {
 	t.Helper()
 
 	var (
-		want     = make(map[enode.ID]*enode.Node)
+		want     = make(map[qnode.ID]*qnode.Node)
 		maxCalls = len(wantNodes) * 3
 		calls    = 0
 	)
@@ -396,7 +396,7 @@ func checkIterator(t *testing.T, it enode.Iterator, wantNodes []*enode.Node) {
 	}
 }
 
-func makeTestTree(domain string, nodes []*enode.Node, links []string) (*Tree, string) {
+func makeTestTree(domain string, nodes []*qnode.Node, links []string) (*Tree, string) {
 	tree, err := MakeTree(1, nodes, links)
 	if err != nil {
 		panic(err)
@@ -421,13 +421,13 @@ func testKeys(n int) []*ecdsa.PrivateKey {
 	return keys
 }
 
-func testNodes(keys []*ecdsa.PrivateKey) []*enode.Node {
-	nodes := make([]*enode.Node, len(keys))
+func testNodes(keys []*ecdsa.PrivateKey) []*qnode.Node {
+	nodes := make([]*qnode.Node, len(keys))
 	for i, key := range keys {
-		record := new(enr.Record)
+		record := new(qnr.Record)
 		record.SetSeq(uint64(i))
-		enode.SignV4(record, key)
-		n, err := enode.New(enode.ValidSchemes, record)
+		qnode.SignV4(record, key)
+		n, err := qnode.New(qnode.ValidSchemes, record)
 		if err != nil {
 			panic(err)
 		}
@@ -465,10 +465,10 @@ func (mr mapResolver) LookupTXT(ctx context.Context, name string) ([]string, err
 	return nil, errors.New("not found")
 }
 
-func parseNodes(rec []string) []*enode.Node {
-	var ns []*enode.Node
+func parseNodes(rec []string) []*qnode.Node {
+	var ns []*qnode.Node
 	for _, r := range rec {
-		var n enode.Node
+		var n qnode.Node
 		if err := n.UnmarshalText([]byte(r)); err != nil {
 			panic(err)
 		}

@@ -32,9 +32,9 @@ import (
 	"github.com/theQRL/go-zond/core/state/snapshot"
 	"github.com/theQRL/go-zond/core/types"
 	"github.com/theQRL/go-zond/log"
+	"github.com/theQRL/go-zond/qrldb"
 	"github.com/theQRL/go-zond/rlp"
 	"github.com/theQRL/go-zond/trie"
-	"github.com/theQRL/go-zond/zonddb"
 )
 
 const (
@@ -74,13 +74,13 @@ type Config struct {
 type Pruner struct {
 	config      Config
 	chainHeader *types.Header
-	db          zonddb.Database
+	db          qrldb.Database
 	stateBloom  *stateBloom
 	snaptree    *snapshot.Tree
 }
 
 // NewPruner creates the pruner instance.
-func NewPruner(db zonddb.Database, config Config) (*Pruner, error) {
+func NewPruner(db qrldb.Database, config Config) (*Pruner, error) {
 	headBlock := rawdb.ReadHeadBlock(db)
 	if headBlock == nil {
 		return nil, errors.New("failed to load head block")
@@ -116,7 +116,7 @@ func NewPruner(db zonddb.Database, config Config) (*Pruner, error) {
 	}, nil
 }
 
-func prune(snaptree *snapshot.Tree, root common.Hash, maindb zonddb.Database, stateBloom *stateBloom, bloomPath string, middleStateRoots map[common.Hash]struct{}, start time.Time) error {
+func prune(snaptree *snapshot.Tree, root common.Hash, maindb qrldb.Database, stateBloom *stateBloom, bloomPath string, middleStateRoots map[common.Hash]struct{}, start time.Time) error {
 	// Delete all stale trie nodes in the disk. With the help of state bloom
 	// the trie nodes(and codes) belong to the active state will be filtered
 	// out. A very small part of stale tries will also be filtered because of
@@ -171,7 +171,7 @@ func prune(snaptree *snapshot.Tree, root common.Hash, maindb zonddb.Database, st
 			}
 			// Recreate the iterator after every batch commit in order
 			// to allow the underlying compactor to delete the entries.
-			if batch.ValueSize() >= zonddb.IdealBatchSize {
+			if batch.ValueSize() >= qrldb.IdealBatchSize {
 				batch.Write()
 				batch.Reset()
 
@@ -338,7 +338,7 @@ func (p *Pruner) Prune(root common.Hash) error {
 // pruning can be resumed. What's more if the bloom filter is constructed, the
 // pruning **has to be resumed**. Otherwise a lot of dangling nodes may be left
 // in the disk.
-func RecoverPruning(datadir string, db zonddb.Database) error {
+func RecoverPruning(datadir string, db qrldb.Database) error {
 	stateBloomPath, stateBloomRoot, err := findBloomFilter(datadir)
 	if err != nil {
 		return err
@@ -399,7 +399,7 @@ func RecoverPruning(datadir string, db zonddb.Database) error {
 
 // extractGenesis loads the genesis state and commits all the state entries
 // into the given bloomfilter.
-func extractGenesis(db zonddb.Database, stateBloom *stateBloom) error {
+func extractGenesis(db qrldb.Database, stateBloom *stateBloom) error {
 	genesisHash := rawdb.ReadCanonicalHash(db, 0)
 	if genesisHash == (common.Hash{}) {
 		return errors.New("missing genesis hash")

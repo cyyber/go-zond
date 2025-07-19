@@ -48,7 +48,7 @@ var testPackets = []struct {
 			From:       Endpoint{net.ParseIP("127.0.0.1").To4(), 3322, 5544},
 			To:         Endpoint{net.ParseIP("::1"), 2222, 3333},
 			Expiration: 1136239445,
-			ENRSeq:     1,
+			QNRSeq:     1,
 			Rest:       []rlp.RawValue{{0x02}},
 		},
 	},

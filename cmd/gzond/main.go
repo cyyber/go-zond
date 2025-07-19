@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with go-ethereum. If not, see <http://www.gnu.org/licenses/>.
 
-// gzond is the official command-line client for Zond.
+// gzond is the official command-line client for QRL.
 package main
 
 import (
@@ -35,12 +35,12 @@ import (
 	"github.com/theQRL/go-zond/log"
 	"github.com/theQRL/go-zond/metrics"
 	"github.com/theQRL/go-zond/node"
-	"github.com/theQRL/go-zond/zond/downloader"
-	"github.com/theQRL/go-zond/zondclient"
+	"github.com/theQRL/go-zond/qrl/downloader"
+	"github.com/theQRL/go-zond/qrlclient"
 
 	// Force-load the tracer engines to trigger registration
-	_ "github.com/theQRL/go-zond/zond/tracers/js"
-	_ "github.com/theQRL/go-zond/zond/tracers/native"
+	_ "github.com/theQRL/go-zond/qrl/tracers/js"
+	_ "github.com/theQRL/go-zond/qrl/tracers/native"
 	"go.uber.org/automaxprocs/maxprocs"
 
 	"github.com/urfave/cli/v2"
@@ -84,7 +84,7 @@ var (
 		utils.StateSchemeFlag,
 		utils.StateHistoryFlag,
 		utils.LightKDFFlag,
-		utils.ZondRequiredBlocksFlag,
+		utils.QRLRequiredBlocksFlag,
 		utils.BloomFilterSizeFlag,
 		utils.CacheFlag,
 		utils.CacheDatabaseFlag,
@@ -117,7 +117,7 @@ var (
 		utils.DeveloperPeriodFlag,
 		utils.VMEnableDebugFlag,
 		utils.NetworkIdFlag,
-		utils.ZondStatsURLFlag,
+		utils.QRLStatsURLFlag,
 		utils.NoCompactionFlag,
 		utils.GpoBlocksFlag,
 		utils.GpoPercentileFlag,
@@ -151,7 +151,7 @@ var (
 		utils.IPCPathFlag,
 		utils.InsecureUnlockAllowedFlag,
 		utils.RPCGlobalGasCapFlag,
-		utils.RPCGlobalZVMTimeoutFlag,
+		utils.RPCGlobalQRVMTimeoutFlag,
 		utils.RPCGlobalTxFeeCapFlag,
 		utils.BatchRequestLimit,
 		utils.BatchResponseMaxSize,
@@ -262,7 +262,7 @@ func prepare(ctx *cli.Context) {
      your computer or losing power will wipe your entire block data and chain state for
      your dev environment.
   3. A random, pre-allocated developer account will be available and unlocked as
-     zond.coinbase, which can be used for testing. The random dev account is temporary,
+     qrl.coinbase, which can be used for testing. The random dev account is temporary,
      stored on a ramdisk, and will be lost if your machine is restarted.
   4. Mining is enabled by default. However, the client will only seal blocks if transactions
      are pending in the mempool. The miner's minimum accepted gas price is 1.
@@ -271,7 +271,7 @@ func prepare(ctx *cli.Context) {
 `)
 
 	case !ctx.IsSet(utils.NetworkIdFlag.Name):
-		log.Info("Starting Gzond on Zond mainnet...")
+		log.Info("Starting Gzond on QRL mainnet...")
 	}
 	// If we're a full node on mainnet without --cache specified, bump default cache allowance
 	if !ctx.IsSet(utils.CacheFlag.Name) && !ctx.IsSet(utils.NetworkIdFlag.Name) {
@@ -323,7 +323,7 @@ func startNode(ctx *cli.Context, stack *node.Node, isConsole bool) {
 
 	// Create a client to interact with local gzond node.
 	rpcClient := stack.Attach()
-	zondClient := zondclient.NewClient(rpcClient)
+	qrlClient := qrlclient.NewClient(rpcClient)
 
 	go func() {
 		// Open any wallets already attached
@@ -349,7 +349,7 @@ func startNode(ctx *cli.Context, stack *node.Node, isConsole bool) {
 				}
 				derivationPaths = append(derivationPaths, accounts.DefaultBaseDerivationPath)
 
-				event.Wallet.SelfDerive(derivationPaths, zondClient)
+				event.Wallet.SelfDerive(derivationPaths, qrlClient)
 
 			case accounts.WalletDropped:
 				log.Info("Old wallet dropped", "url", event.Wallet.URL())

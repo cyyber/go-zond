@@ -31,9 +31,9 @@ import (
 	"github.com/theQRL/go-zond/common/mclock"
 	"github.com/theQRL/go-zond/log"
 	"github.com/theQRL/go-zond/p2p/discover/v5wire"
-	"github.com/theQRL/go-zond/p2p/enode"
-	"github.com/theQRL/go-zond/p2p/enr"
 	"github.com/theQRL/go-zond/p2p/netutil"
+	"github.com/theQRL/go-zond/p2p/qnode"
+	"github.com/theQRL/go-zond/p2p/qnr"
 )
 
 const (
@@ -50,11 +50,11 @@ const (
 // encoding/decoding and with the handshake; the UDPv5 object handles higher-level concerns.
 type codecV5 interface {
 	// Encode encodes a packet.
-	Encode(enode.ID, string, v5wire.Packet, *v5wire.Whoareyou) ([]byte, v5wire.Nonce, error)
+	Encode(qnode.ID, string, v5wire.Packet, *v5wire.Whoareyou) ([]byte, v5wire.Nonce, error)
 
 	// Decode decodes a packet. It returns a *v5wire.Unknown packet if decryption fails.
-	// The *enode.Node return value is non-nil when the input contains a handshake response.
-	Decode([]byte, string) (enode.ID, *enode.Node, v5wire.Packet, error)
+	// The *qnode.Node return value is non-nil when the input contains a handshake response.
+	Decode([]byte, string) (qnode.ID, *qnode.Node, v5wire.Packet, error)
 }
 
 // UDPv5 is the implementation of protocol version 5.
@@ -64,11 +64,11 @@ type UDPv5 struct {
 	tab          *Table
 	netrestrict  *netutil.Netlist
 	priv         *ecdsa.PrivateKey
-	localNode    *enode.LocalNode
-	db           *enode.DB
+	localNode    *qnode.LocalNode
+	db           *qnode.DB
 	log          log.Logger
 	clock        mclock.Clock
-	validSchemes enr.IdentityScheme
+	validSchemes qnr.IdentityScheme
 
 	// misc buffers used during message handling
 	logcontext []interface{}
@@ -87,9 +87,9 @@ type UDPv5 struct {
 
 	// state of dispatch
 	codec            codecV5
-	activeCallByNode map[enode.ID]*callV5
+	activeCallByNode map[qnode.ID]*callV5
 	activeCallByAuth map[v5wire.Nonce]*callV5
-	callQueue        map[enode.ID][]*callV5
+	callQueue        map[qnode.ID][]*callV5
 
 	// shutdown stuff
 	closeOnce      sync.Once
@@ -99,16 +99,16 @@ type UDPv5 struct {
 }
 
 type sendRequest struct {
-	destID   enode.ID
+	destID   qnode.ID
 	destAddr *net.UDPAddr
 	msg      v5wire.Packet
 }
 
 // callV5 represents a remote procedure call against another node.
 type callV5 struct {
-	id   enode.ID
+	id   qnode.ID
 	addr *net.UDPAddr
-	node *enode.Node // This is required to perform handshakes.
+	node *qnode.Node // This is required to perform handshakes.
 
 	packet       v5wire.Packet
 	responseType byte // expected packet type of response
@@ -130,7 +130,7 @@ type callTimeout struct {
 }
 
 // ListenV5 listens on the given connection.
-func ListenV5(conn UDPConn, ln *enode.LocalNode, cfg Config) (*UDPv5, error) {
+func ListenV5(conn UDPConn, ln *qnode.LocalNode, cfg Config) (*UDPv5, error) {
 	t, err := newUDPv5(conn, ln, cfg)
 	if err != nil {
 		return nil, err
@@ -143,7 +143,7 @@ func ListenV5(conn UDPConn, ln *enode.LocalNode, cfg Config) (*UDPv5, error) {
 }
 
 // newUDPv5 creates a UDPv5 transport, but doesn't start any goroutines.
-func newUDPv5(conn UDPConn, ln *enode.LocalNode, cfg Config) (*UDPv5, error) {
+func newUDPv5(conn UDPConn, ln *qnode.LocalNode, cfg Config) (*UDPv5, error) {
 	closeCtx, cancelCloseCtx := context.WithCancel(context.Background())
 	cfg = cfg.withDefaults()
 	t := &UDPv5{
@@ -166,9 +166,9 @@ func newUDPv5(conn UDPConn, ln *enode.LocalNode, cfg Config) (*UDPv5, error) {
 		unhandled:     cfg.Unhandled,
 		// state of dispatch
 		codec:            v5wire.NewCodec(ln, cfg.PrivateKey, cfg.Clock, cfg.V5ProtocolID),
-		activeCallByNode: make(map[enode.ID]*callV5),
+		activeCallByNode: make(map[qnode.ID]*callV5),
 		activeCallByAuth: make(map[v5wire.Nonce]*callV5),
-		callQueue:        make(map[enode.ID][]*callV5),
+		callQueue:        make(map[qnode.ID][]*callV5),
 		// shutdown
 		closeCtx:       closeCtx,
 		cancelCloseCtx: cancelCloseCtx,
@@ -183,7 +183,7 @@ func newUDPv5(conn UDPConn, ln *enode.LocalNode, cfg Config) (*UDPv5, error) {
 }
 
 // Self returns the local node record.
-func (t *UDPv5) Self() *enode.Node {
+func (t *UDPv5) Self() *qnode.Node {
 	return t.localNode.Node()
 }
 
@@ -199,19 +199,19 @@ func (t *UDPv5) Close() {
 }
 
 // Ping sends a ping message to the given node.
-func (t *UDPv5) Ping(n *enode.Node) error {
+func (t *UDPv5) Ping(n *qnode.Node) error {
 	_, err := t.ping(n)
 	return err
 }
 
 // Resolve searches for a specific node with the given ID and tries to get the most recent
 // version of the node record for it. It returns n if the node could not be resolved.
-func (t *UDPv5) Resolve(n *enode.Node) *enode.Node {
+func (t *UDPv5) Resolve(n *qnode.Node) *qnode.Node {
 	if intable := t.tab.getNode(n.ID()); intable != nil && intable.Seq() > n.Seq() {
 		n = intable
 	}
 	// Try asking directly. This works if the node is still responding on the endpoint we have.
-	if resp, err := t.RequestENR(n); err == nil {
+	if resp, err := t.RequestQNR(n); err == nil {
 		return resp
 	}
 	// Otherwise do a network lookup.
@@ -225,10 +225,10 @@ func (t *UDPv5) Resolve(n *enode.Node) *enode.Node {
 }
 
 // AllNodes returns all the nodes stored in the local table.
-func (t *UDPv5) AllNodes() []*enode.Node {
+func (t *UDPv5) AllNodes() []*qnode.Node {
 	t.tab.mutex.Lock()
 	defer t.tab.mutex.Unlock()
-	nodes := make([]*enode.Node, 0)
+	nodes := make([]*qnode.Node, 0)
 
 	for _, b := range &t.tab.buckets {
 		for _, n := range b.entries {
@@ -240,7 +240,7 @@ func (t *UDPv5) AllNodes() []*enode.Node {
 
 // LocalNode returns the current local node running the
 // protocol.
-func (t *UDPv5) LocalNode() *enode.LocalNode {
+func (t *UDPv5) LocalNode() *qnode.LocalNode {
 	return t.localNode
 }
 
@@ -252,7 +252,7 @@ func (t *UDPv5) RegisterTalkHandler(protocol string, handler TalkRequestHandler)
 }
 
 // TalkRequest sends a talk request to a node and waits for a response.
-func (t *UDPv5) TalkRequest(n *enode.Node, protocol string, request []byte) ([]byte, error) {
+func (t *UDPv5) TalkRequest(n *qnode.Node, protocol string, request []byte) ([]byte, error) {
 	req := &v5wire.TalkRequest{Protocol: protocol, Message: request}
 	resp := t.callToNode(n, v5wire.TalkResponseMsg, req)
 	defer t.callDone(resp)
@@ -265,7 +265,7 @@ func (t *UDPv5) TalkRequest(n *enode.Node, protocol string, request []byte) ([]b
 }
 
 // TalkRequestToID sends a talk request to a node and waits for a response.
-func (t *UDPv5) TalkRequestToID(id enode.ID, addr *net.UDPAddr, protocol string, request []byte) ([]byte, error) {
+func (t *UDPv5) TalkRequestToID(id qnode.ID, addr *net.UDPAddr, protocol string, request []byte) ([]byte, error) {
 	req := &v5wire.TalkRequest{Protocol: protocol, Message: request}
 	resp := t.callToID(id, addr, v5wire.TalkResponseMsg, req)
 	defer t.callDone(resp)
@@ -278,7 +278,7 @@ func (t *UDPv5) TalkRequestToID(id enode.ID, addr *net.UDPAddr, protocol string,
 }
 
 // RandomNodes returns an iterator that finds random nodes in the DHT.
-func (t *UDPv5) RandomNodes() enode.Iterator {
+func (t *UDPv5) RandomNodes() qnode.Iterator {
 	if t.tab.len() == 0 {
 		// All nodes were dropped, refresh. The very first query will hit this
 		// case and run the bootstrapping logic.
@@ -290,42 +290,42 @@ func (t *UDPv5) RandomNodes() enode.Iterator {
 
 // Lookup performs a recursive lookup for the given target.
 // It returns the closest nodes to target.
-func (t *UDPv5) Lookup(target enode.ID) []*enode.Node {
+func (t *UDPv5) Lookup(target qnode.ID) []*qnode.Node {
 	return t.newLookup(t.closeCtx, target).run()
 }
 
 // lookupRandom looks up a random target.
 // This is needed to satisfy the transport interface.
-func (t *UDPv5) lookupRandom() []*enode.Node {
+func (t *UDPv5) lookupRandom() []*qnode.Node {
 	return t.newRandomLookup(t.closeCtx).run()
 }
 
 // lookupSelf looks up our own node ID.
 // This is needed to satisfy the transport interface.
-func (t *UDPv5) lookupSelf() []*enode.Node {
+func (t *UDPv5) lookupSelf() []*qnode.Node {
 	return t.newLookup(t.closeCtx, t.Self().ID()).run()
 }
 
 func (t *UDPv5) newRandomLookup(ctx context.Context) *lookup {
-	var target enode.ID
+	var target qnode.ID
 	crand.Read(target[:])
 	return t.newLookup(ctx, target)
 }
 
-func (t *UDPv5) newLookup(ctx context.Context, target enode.ID) *lookup {
+func (t *UDPv5) newLookup(ctx context.Context, target qnode.ID) *lookup {
 	return newLookup(ctx, t.tab, target, func(n *node) ([]*node, error) {
 		return t.lookupWorker(n, target)
 	})
 }
 
 // lookupWorker performs FINDNODE calls against a single node during lookup.
-func (t *UDPv5) lookupWorker(destNode *node, target enode.ID) ([]*node, error) {
+func (t *UDPv5) lookupWorker(destNode *node, target qnode.ID) ([]*node, error) {
 	var (
 		dists = lookupDistances(target, destNode.ID())
 		nodes = nodesByDistance{target: target}
 		err   error
 	)
-	var r []*enode.Node
+	var r []*qnode.Node
 	r, err = t.findnode(unwrapNode(destNode), dists)
 	if errors.Is(err, errClosed) {
 		return nil, err
@@ -341,8 +341,8 @@ func (t *UDPv5) lookupWorker(destNode *node, target enode.ID) ([]*node, error) {
 // lookupDistances computes the distance parameter for FINDNODE calls to dest.
 // It chooses distances adjacent to logdist(target, dest), e.g. for a target
 // with logdist(target, dest) = 255 the result is [255, 256, 254].
-func lookupDistances(target, dest enode.ID) (dists []uint) {
-	td := enode.LogDist(target, dest)
+func lookupDistances(target, dest qnode.ID) (dists []uint) {
+	td := qnode.LogDist(target, dest)
 	dists = append(dists, uint(td))
 	for i := 1; len(dists) < lookupRequestLimit; i++ {
 		if td+i <= 256 {
@@ -356,21 +356,21 @@ func lookupDistances(target, dest enode.ID) (dists []uint) {
 }
 
 // ping calls PING on a node and waits for a PONG response.
-func (t *UDPv5) ping(n *enode.Node) (uint64, error) {
-	req := &v5wire.Ping{ENRSeq: t.localNode.Node().Seq()}
+func (t *UDPv5) ping(n *qnode.Node) (uint64, error) {
+	req := &v5wire.Ping{QNRSeq: t.localNode.Node().Seq()}
 	resp := t.callToNode(n, v5wire.PongMsg, req)
 	defer t.callDone(resp)
 
 	select {
 	case pong := <-resp.ch:
-		return pong.(*v5wire.Pong).ENRSeq, nil
+		return pong.(*v5wire.Pong).QNRSeq, nil
 	case err := <-resp.err:
 		return 0, err
 	}
 }
 
-// RequestENR requests n's record.
-func (t *UDPv5) RequestENR(n *enode.Node) (*enode.Node, error) {
+// RequestQNR requests n's record.
+func (t *UDPv5) RequestQNR(n *qnode.Node) (*qnode.Node, error) {
 	nodes, err := t.findnode(n, []uint{0})
 	if err != nil {
 		return nil, err
@@ -382,18 +382,18 @@ func (t *UDPv5) RequestENR(n *enode.Node) (*enode.Node, error) {
 }
 
 // findnode calls FINDNODE on a node and waits for responses.
-func (t *UDPv5) findnode(n *enode.Node, distances []uint) ([]*enode.Node, error) {
+func (t *UDPv5) findnode(n *qnode.Node, distances []uint) ([]*qnode.Node, error) {
 	resp := t.callToNode(n, v5wire.NodesMsg, &v5wire.Findnode{Distances: distances})
 	return t.waitForNodes(resp, distances)
 }
 
 // waitForNodes waits for NODES responses to the given call.
-func (t *UDPv5) waitForNodes(c *callV5, distances []uint) ([]*enode.Node, error) {
+func (t *UDPv5) waitForNodes(c *callV5, distances []uint) ([]*qnode.Node, error) {
 	defer t.callDone(c)
 
 	var (
-		nodes           []*enode.Node
-		seen            = make(map[enode.ID]struct{})
+		nodes           []*qnode.Node
+		seen            = make(map[qnode.ID]struct{})
 		received, total = 0, -1
 	)
 	for {
@@ -421,8 +421,8 @@ func (t *UDPv5) waitForNodes(c *callV5, distances []uint) ([]*enode.Node, error)
 }
 
 // verifyResponseNode checks validity of a record in a NODES response.
-func (t *UDPv5) verifyResponseNode(c *callV5, r *enr.Record, distances []uint, seen map[enode.ID]struct{}) (*enode.Node, error) {
-	node, err := enode.New(t.validSchemes, r)
+func (t *UDPv5) verifyResponseNode(c *callV5, r *qnr.Record, distances []uint, seen map[qnode.ID]struct{}) (*qnode.Node, error) {
+	node, err := qnode.New(t.validSchemes, r)
 	if err != nil {
 		return nil, err
 	}
@@ -436,7 +436,7 @@ func (t *UDPv5) verifyResponseNode(c *callV5, r *enr.Record, distances []uint, s
 		return nil, errLowPort
 	}
 	if distances != nil {
-		nd := enode.LogDist(c.id, node.ID())
+		nd := qnode.LogDist(c.id, node.ID())
 		if !containsUint(uint(nd), distances) {
 			return nil, errors.New("does not match any requested distance")
 		}
@@ -459,7 +459,7 @@ func containsUint(x uint, xs []uint) bool {
 
 // callToNode sends the given call and sets up a handler for response packets (of message
 // type responseType). Responses are dispatched to the call's response channel.
-func (t *UDPv5) callToNode(n *enode.Node, responseType byte, req v5wire.Packet) *callV5 {
+func (t *UDPv5) callToNode(n *qnode.Node, responseType byte, req v5wire.Packet) *callV5 {
 	addr := &net.UDPAddr{IP: n.IP(), Port: n.UDP()}
 	c := &callV5{id: n.ID(), addr: addr, node: n}
 	t.initCall(c, responseType, req)
@@ -467,7 +467,7 @@ func (t *UDPv5) callToNode(n *enode.Node, responseType byte, req v5wire.Packet) 
 }
 
 // callToID is like callToNode, but for cases where the node record is not available.
-func (t *UDPv5) callToID(id enode.ID, addr *net.UDPAddr, responseType byte, req v5wire.Packet) *callV5 {
+func (t *UDPv5) callToID(id qnode.ID, addr *net.UDPAddr, responseType byte, req v5wire.Packet) *callV5 {
 	c := &callV5{id: id, addr: addr}
 	t.initCall(c, responseType, req)
 	return c
@@ -595,7 +595,7 @@ func (t *UDPv5) startResponseTimeout(c *callV5) {
 }
 
 // sendNextCall sends the next call in the call queue if there is no active call.
-func (t *UDPv5) sendNextCall(id enode.ID) {
+func (t *UDPv5) sendNextCall(id qnode.ID) {
 	queue := t.callQueue[id]
 	if len(queue) == 0 || t.activeCallByNode[id] != nil {
 		return
@@ -627,12 +627,12 @@ func (t *UDPv5) sendCall(c *callV5) {
 
 // sendResponse sends a response packet to the given node.
 // This doesn't trigger a handshake even if no keys are available.
-func (t *UDPv5) sendResponse(toID enode.ID, toAddr *net.UDPAddr, packet v5wire.Packet) error {
+func (t *UDPv5) sendResponse(toID qnode.ID, toAddr *net.UDPAddr, packet v5wire.Packet) error {
 	_, err := t.send(toID, toAddr, packet, nil)
 	return err
 }
 
-func (t *UDPv5) sendFromAnotherThread(toID enode.ID, toAddr *net.UDPAddr, packet v5wire.Packet) {
+func (t *UDPv5) sendFromAnotherThread(toID qnode.ID, toAddr *net.UDPAddr, packet v5wire.Packet) {
 	select {
 	case t.sendCh <- sendRequest{toID, toAddr, packet}:
 	case <-t.closeCtx.Done():
@@ -640,7 +640,7 @@ func (t *UDPv5) sendFromAnotherThread(toID enode.ID, toAddr *net.UDPAddr, packet
 }
 
 // send sends a packet to the given node.
-func (t *UDPv5) send(toID enode.ID, toAddr *net.UDPAddr, packet v5wire.Packet, c *v5wire.Whoareyou) (v5wire.Nonce, error) {
+func (t *UDPv5) send(toID qnode.ID, toAddr *net.UDPAddr, packet v5wire.Packet, c *v5wire.Whoareyou) (v5wire.Nonce, error) {
 	addr := toAddr.String()
 	t.logcontext = append(t.logcontext[:0], "id", toID, "addr", addr)
 	t.logcontext = packet.AppendLogInfo(t.logcontext)
@@ -720,7 +720,7 @@ func (t *UDPv5) handlePacket(rawpacket []byte, fromAddr *net.UDPAddr) error {
 }
 
 // handleCallResponse dispatches a response packet to the call waiting for it.
-func (t *UDPv5) handleCallResponse(fromID enode.ID, fromAddr *net.UDPAddr, p v5wire.Packet) bool {
+func (t *UDPv5) handleCallResponse(fromID qnode.ID, fromAddr *net.UDPAddr, p v5wire.Packet) bool {
 	ac := t.activeCallByNode[fromID]
 	if ac == nil || !bytes.Equal(p.RequestID(), ac.reqid) {
 		t.log.Debug(fmt.Sprintf("Unsolicited/late %s response", p.Name()), "id", fromID, "addr", fromAddr)
@@ -740,7 +740,7 @@ func (t *UDPv5) handleCallResponse(fromID enode.ID, fromAddr *net.UDPAddr, p v5w
 }
 
 // getNode looks for a node record in table and database.
-func (t *UDPv5) getNode(id enode.ID) *enode.Node {
+func (t *UDPv5) getNode(id qnode.ID) *qnode.Node {
 	if n := t.tab.getNode(id); n != nil {
 		return n
 	}
@@ -751,7 +751,7 @@ func (t *UDPv5) getNode(id enode.ID) *enode.Node {
 }
 
 // handle processes incoming packets according to their message type.
-func (t *UDPv5) handle(p v5wire.Packet, fromID enode.ID, fromAddr *net.UDPAddr) {
+func (t *UDPv5) handle(p v5wire.Packet, fromID qnode.ID, fromAddr *net.UDPAddr) {
 	switch p := p.(type) {
 	case *v5wire.Unknown:
 		t.handleUnknown(p, fromID, fromAddr)
@@ -775,7 +775,7 @@ func (t *UDPv5) handle(p v5wire.Packet, fromID enode.ID, fromAddr *net.UDPAddr) 
 }
 
 // handleUnknown initiates a handshake by responding with WHOAREYOU.
-func (t *UDPv5) handleUnknown(p *v5wire.Unknown, fromID enode.ID, fromAddr *net.UDPAddr) {
+func (t *UDPv5) handleUnknown(p *v5wire.Unknown, fromID qnode.ID, fromAddr *net.UDPAddr) {
 	challenge := &v5wire.Whoareyou{Nonce: p.Nonce}
 	crand.Read(challenge.IDNonce[:])
 	if n := t.getNode(fromID); n != nil {
@@ -791,7 +791,7 @@ var (
 )
 
 // handleWhoareyou resends the active call as a handshake packet.
-func (t *UDPv5) handleWhoareyou(p *v5wire.Whoareyou, fromID enode.ID, fromAddr *net.UDPAddr) {
+func (t *UDPv5) handleWhoareyou(p *v5wire.Whoareyou, fromID qnode.ID, fromAddr *net.UDPAddr) {
 	c, err := t.matchWithCall(fromID, p.Nonce)
 	if err != nil {
 		t.log.Debug("Invalid "+p.Name(), "addr", fromAddr, "err", err)
@@ -799,9 +799,9 @@ func (t *UDPv5) handleWhoareyou(p *v5wire.Whoareyou, fromID enode.ID, fromAddr *
 	}
 
 	if c.node == nil {
-		// Can't perform handshake because we don't have the ENR.
-		t.log.Debug("Can't handle "+p.Name(), "addr", fromAddr, "err", "call has no ENR")
-		c.err <- errors.New("remote wants handshake, but call has no ENR")
+		// Can't perform handshake because we don't have the QNR.
+		t.log.Debug("Can't handle "+p.Name(), "addr", fromAddr, "err", "call has no QNR")
+		c.err <- errors.New("remote wants handshake, but call has no QNR")
 		return
 	}
 	// Resend the call that was answered by WHOAREYOU.
@@ -813,7 +813,7 @@ func (t *UDPv5) handleWhoareyou(p *v5wire.Whoareyou, fromID enode.ID, fromAddr *
 }
 
 // matchWithCall checks whether a handshake attempt matches the active call.
-func (t *UDPv5) matchWithCall(fromID enode.ID, nonce v5wire.Nonce) (*callV5, error) {
+func (t *UDPv5) matchWithCall(fromID qnode.ID, nonce v5wire.Nonce) (*callV5, error) {
 	c := t.activeCallByAuth[nonce]
 	if c == nil {
 		return nil, errChallengeNoCall
@@ -825,7 +825,7 @@ func (t *UDPv5) matchWithCall(fromID enode.ID, nonce v5wire.Nonce) (*callV5, err
 }
 
 // handlePing sends a PONG response.
-func (t *UDPv5) handlePing(p *v5wire.Ping, fromID enode.ID, fromAddr *net.UDPAddr) {
+func (t *UDPv5) handlePing(p *v5wire.Ping, fromID qnode.ID, fromAddr *net.UDPAddr) {
 	remoteIP := fromAddr.IP
 	// Handle IPv4 mapped IPv6 addresses in the
 	// event the local node is binded to an
@@ -837,12 +837,12 @@ func (t *UDPv5) handlePing(p *v5wire.Ping, fromID enode.ID, fromAddr *net.UDPAdd
 		ReqID:  p.ReqID,
 		ToIP:   remoteIP,
 		ToPort: uint16(fromAddr.Port),
-		ENRSeq: t.localNode.Node().Seq(),
+		QNRSeq: t.localNode.Node().Seq(),
 	})
 }
 
 // handleFindnode returns nodes to the requester.
-func (t *UDPv5) handleFindnode(p *v5wire.Findnode, fromID enode.ID, fromAddr *net.UDPAddr) {
+func (t *UDPv5) handleFindnode(p *v5wire.Findnode, fromID qnode.ID, fromAddr *net.UDPAddr) {
 	nodes := t.collectTableNodes(fromAddr.IP, p.Distances, findnodeResultLimit)
 	for _, resp := range packNodes(p.ReqID, nodes) {
 		t.sendResponse(fromID, fromAddr, resp)
@@ -850,8 +850,8 @@ func (t *UDPv5) handleFindnode(p *v5wire.Findnode, fromID enode.ID, fromAddr *ne
 }
 
 // collectTableNodes creates a FINDNODE result set for the given distances.
-func (t *UDPv5) collectTableNodes(rip net.IP, distances []uint, limit int) []*enode.Node {
-	var nodes []*enode.Node
+func (t *UDPv5) collectTableNodes(rip net.IP, distances []uint, limit int) []*qnode.Node {
+	var nodes []*qnode.Node
 	var processed = make(map[uint]struct{})
 	for _, dist := range distances {
 		// Reject duplicate / invalid distances.
@@ -861,9 +861,9 @@ func (t *UDPv5) collectTableNodes(rip net.IP, distances []uint, limit int) []*en
 		}
 
 		// Get the nodes.
-		var bn []*enode.Node
+		var bn []*qnode.Node
 		if dist == 0 {
-			bn = []*enode.Node{t.Self()}
+			bn = []*qnode.Node{t.Self()}
 		} else if dist <= 256 {
 			t.tab.mutex.Lock()
 			bn = unwrapNodes(t.tab.bucketAtDistance(int(dist)).entries)
@@ -887,7 +887,7 @@ func (t *UDPv5) collectTableNodes(rip net.IP, distances []uint, limit int) []*en
 }
 
 // packNodes creates NODES response packets for the given node list.
-func packNodes(reqid []byte, nodes []*enode.Node) []*v5wire.Nodes {
+func packNodes(reqid []byte, nodes []*qnode.Node) []*v5wire.Nodes {
 	if len(nodes) == 0 {
 		return []*v5wire.Nodes{{ReqID: reqid, RespCount: 1}}
 	}

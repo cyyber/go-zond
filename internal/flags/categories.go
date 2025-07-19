@@ -19,10 +19,10 @@ package flags
 import "github.com/urfave/cli/v2"
 
 const (
-	ZondCategory       = "ZOND"
+	QRLCategory        = "QRL"
 	DevCategory        = "DEVELOPER CHAIN"
 	StateCategory      = "STATE HISTORY MANAGEMENT"
-	TxPoolCategory     = "TRANSACTION POOL (ZVM)"
+	TxPoolCategory     = "TRANSACTION POOL (QRVM)"
 	PerfCategory       = "PERFORMANCE TUNING"
 	AccountCategory    = "ACCOUNT"
 	APICategory        = "API AND CONSOLE"

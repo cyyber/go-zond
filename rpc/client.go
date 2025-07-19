@@ -44,7 +44,7 @@ var (
 // Timeouts
 const (
 	defaultDialTimeout = 10 * time.Second // used if context has no deadline
-	subscribeTimeout   = 10 * time.Second // overall timeout eth_subscribe, rpc_modules calls
+	subscribeTimeout   = 10 * time.Second // overall timeout qrl_subscribe, rpc_modules calls
 )
 
 const (
@@ -481,9 +481,9 @@ func (c *Client) Notify(ctx context.Context, method string, args ...interface{})
 	return c.send(ctx, op, msg)
 }
 
-// ZondSubscribe registers a subscription under the "zond" namespace.
-func (c *Client) ZondSubscribe(ctx context.Context, channel interface{}, args ...interface{}) (*ClientSubscription, error) {
-	return c.Subscribe(ctx, "zond", channel, args...)
+// QRLSubscribe registers a subscription under the "qrl" namespace.
+func (c *Client) QRLSubscribe(ctx context.Context, channel interface{}, args ...interface{}) (*ClientSubscription, error) {
+	return c.Subscribe(ctx, "qrl", channel, args...)
 }
 
 // Subscribe calls the "<namespace>_subscribe" method with the given arguments,

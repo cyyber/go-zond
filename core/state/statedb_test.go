@@ -536,7 +536,7 @@ func TestTouchDelete(t *testing.T) {
 // See https://github.com/theQRL/go-zond/pull/15225#issuecomment-380191512
 func TestCopyOfCopy(t *testing.T) {
 	state, _ := New(types.EmptyRootHash, NewDatabase(rawdb.NewMemoryDatabase()), nil)
-	addr, _ := common.NewAddressFromString("Z000000000000000000000000000000000000aaaa")
+	addr, _ := common.NewAddressFromString("Q000000000000000000000000000000000000aaaa")
 	state.SetBalance(addr, big.NewInt(42))
 
 	if got := state.Copy().GetBalance(addr).Uint64(); got != 42 {
@@ -556,7 +556,7 @@ func TestCopyCommitCopy(t *testing.T) {
 	state, _ := New(types.EmptyRootHash, tdb, nil)
 
 	// Create an account and check if the retrieved balance is correct
-	addr, _ := common.NewAddressFromString("Zaffeaffeaffeaffeaffeaffeaffeaffeaffeaffe")
+	addr, _ := common.NewAddressFromString("Qaffeaffeaffeaffeaffeaffeaffeaffeaffeaffe")
 	skey := common.HexToHash("aaa")
 	sval := common.HexToHash("bbb")
 
@@ -629,7 +629,7 @@ func TestCopyCopyCommitCopy(t *testing.T) {
 	state, _ := New(types.EmptyRootHash, NewDatabase(rawdb.NewMemoryDatabase()), nil)
 
 	// Create an account and check if the retrieved balance is correct
-	addr, _ := common.NewAddressFromString("Zaffeaffeaffeaffeaffeaffeaffeaffeaffeaffe")
+	addr, _ := common.NewAddressFromString("Qaffeaffeaffeaffeaffeaffeaffeaffeaffeaffe")
 	skey := common.HexToHash("aaa")
 	sval := common.HexToHash("bbb")
 
@@ -698,7 +698,7 @@ func TestCommitCopy(t *testing.T) {
 	state, _ := New(types.EmptyRootHash, NewDatabase(rawdb.NewMemoryDatabase()), nil)
 
 	// Create an account and check if the retrieved balance is correct
-	addr, _ := common.NewAddressFromString("Zaffeaffeaffeaffeaffeaffeaffeaffeaffeaffe")
+	addr, _ := common.NewAddressFromString("Qaffeaffeaffeaffeaffeaffeaffeaffeaffeaffe")
 	skey := common.HexToHash("aaa")
 	sval := common.HexToHash("bbb")
 
@@ -872,11 +872,11 @@ func TestStateDBAccessList(t *testing.T) {
 		}
 	}
 
-	state.AddAddressToAccessList(addr("Z00000000000000000000000000000000000000aa"))          // 1
-	state.AddSlotToAccessList(addr("Z00000000000000000000000000000000000000bb"), slot("01")) // 2,3
-	state.AddSlotToAccessList(addr("Z00000000000000000000000000000000000000bb"), slot("02")) // 4
-	verifyAddrs("Z00000000000000000000000000000000000000aa", "Z00000000000000000000000000000000000000bb")
-	verifySlots("Z00000000000000000000000000000000000000bb", "01", "02")
+	state.AddAddressToAccessList(addr("Q00000000000000000000000000000000000000aa"))          // 1
+	state.AddSlotToAccessList(addr("Q00000000000000000000000000000000000000bb"), slot("01")) // 2,3
+	state.AddSlotToAccessList(addr("Q00000000000000000000000000000000000000bb"), slot("02")) // 4
+	verifyAddrs("Q00000000000000000000000000000000000000aa", "Q00000000000000000000000000000000000000bb")
+	verifySlots("Q00000000000000000000000000000000000000bb", "01", "02")
 
 	// Make a copy
 	stateCopy1 := state.Copy()
@@ -885,78 +885,78 @@ func TestStateDBAccessList(t *testing.T) {
 	}
 
 	// same again, should cause no journal entries
-	state.AddSlotToAccessList(addr("Z00000000000000000000000000000000000000bb"), slot("01"))
-	state.AddSlotToAccessList(addr("Z00000000000000000000000000000000000000bb"), slot("02"))
-	state.AddAddressToAccessList(addr("Z00000000000000000000000000000000000000aa"))
+	state.AddSlotToAccessList(addr("Q00000000000000000000000000000000000000bb"), slot("01"))
+	state.AddSlotToAccessList(addr("Q00000000000000000000000000000000000000bb"), slot("02"))
+	state.AddAddressToAccessList(addr("Q00000000000000000000000000000000000000aa"))
 	if exp, got := 4, state.journal.length(); exp != got {
 		t.Fatalf("journal length mismatch: have %d, want %d", got, exp)
 	}
 	// some new ones
-	state.AddSlotToAccessList(addr("Z00000000000000000000000000000000000000bb"), slot("03")) // 5
-	state.AddSlotToAccessList(addr("Z00000000000000000000000000000000000000aa"), slot("01")) // 6
-	state.AddSlotToAccessList(addr("Z00000000000000000000000000000000000000cc"), slot("01")) // 7,8
-	state.AddAddressToAccessList(addr("Z00000000000000000000000000000000000000cc"))
+	state.AddSlotToAccessList(addr("Q00000000000000000000000000000000000000bb"), slot("03")) // 5
+	state.AddSlotToAccessList(addr("Q00000000000000000000000000000000000000aa"), slot("01")) // 6
+	state.AddSlotToAccessList(addr("Q00000000000000000000000000000000000000cc"), slot("01")) // 7,8
+	state.AddAddressToAccessList(addr("Q00000000000000000000000000000000000000cc"))
 	if exp, got := 8, state.journal.length(); exp != got {
 		t.Fatalf("journal length mismatch: have %d, want %d", got, exp)
 	}
 
-	verifyAddrs("Z00000000000000000000000000000000000000aa", "Z00000000000000000000000000000000000000bb", "Z00000000000000000000000000000000000000cc")
-	verifySlots("Z00000000000000000000000000000000000000aa", "01")
-	verifySlots("Z00000000000000000000000000000000000000bb", "01", "02", "03")
-	verifySlots("Z00000000000000000000000000000000000000cc", "01")
+	verifyAddrs("Q00000000000000000000000000000000000000aa", "Q00000000000000000000000000000000000000bb", "Q00000000000000000000000000000000000000cc")
+	verifySlots("Q00000000000000000000000000000000000000aa", "01")
+	verifySlots("Q00000000000000000000000000000000000000bb", "01", "02", "03")
+	verifySlots("Q00000000000000000000000000000000000000cc", "01")
 
 	// now start rolling back changes
 	state.journal.revert(state, 7)
-	if _, ok := state.SlotInAccessList(addr("Z00000000000000000000000000000000000000cc"), slot("01")); ok {
+	if _, ok := state.SlotInAccessList(addr("Q00000000000000000000000000000000000000cc"), slot("01")); ok {
 		t.Fatalf("slot present, expected missing")
 	}
-	verifyAddrs("Z00000000000000000000000000000000000000aa", "Z00000000000000000000000000000000000000bb", "Z00000000000000000000000000000000000000cc")
-	verifySlots("Z00000000000000000000000000000000000000aa", "01")
-	verifySlots("Z00000000000000000000000000000000000000bb", "01", "02", "03")
+	verifyAddrs("Q00000000000000000000000000000000000000aa", "Q00000000000000000000000000000000000000bb", "Q00000000000000000000000000000000000000cc")
+	verifySlots("Q00000000000000000000000000000000000000aa", "01")
+	verifySlots("Q00000000000000000000000000000000000000bb", "01", "02", "03")
 
 	state.journal.revert(state, 6)
-	if state.AddressInAccessList(addr("Z00000000000000000000000000000000000000cc")) {
+	if state.AddressInAccessList(addr("Q00000000000000000000000000000000000000cc")) {
 		t.Fatalf("addr present, expected missing")
 	}
-	verifyAddrs("Z00000000000000000000000000000000000000aa", "Z00000000000000000000000000000000000000bb")
-	verifySlots("Z00000000000000000000000000000000000000aa", "01")
-	verifySlots("Z00000000000000000000000000000000000000bb", "01", "02", "03")
+	verifyAddrs("Q00000000000000000000000000000000000000aa", "Q00000000000000000000000000000000000000bb")
+	verifySlots("Q00000000000000000000000000000000000000aa", "01")
+	verifySlots("Q00000000000000000000000000000000000000bb", "01", "02", "03")
 
 	state.journal.revert(state, 5)
-	if _, ok := state.SlotInAccessList(addr("Z00000000000000000000000000000000000000aa"), slot("01")); ok {
+	if _, ok := state.SlotInAccessList(addr("Q00000000000000000000000000000000000000aa"), slot("01")); ok {
 		t.Fatalf("slot present, expected missing")
 	}
-	verifyAddrs("Z00000000000000000000000000000000000000aa", "Z00000000000000000000000000000000000000bb")
-	verifySlots("Z00000000000000000000000000000000000000bb", "01", "02", "03")
+	verifyAddrs("Q00000000000000000000000000000000000000aa", "Q00000000000000000000000000000000000000bb")
+	verifySlots("Q00000000000000000000000000000000000000bb", "01", "02", "03")
 
 	state.journal.revert(state, 4)
-	if _, ok := state.SlotInAccessList(addr("Z00000000000000000000000000000000000000bb"), slot("03")); ok {
+	if _, ok := state.SlotInAccessList(addr("Q00000000000000000000000000000000000000bb"), slot("03")); ok {
 		t.Fatalf("slot present, expected missing")
 	}
-	verifyAddrs("Z00000000000000000000000000000000000000aa", "Z00000000000000000000000000000000000000bb")
-	verifySlots("Z00000000000000000000000000000000000000bb", "01", "02")
+	verifyAddrs("Q00000000000000000000000000000000000000aa", "Q00000000000000000000000000000000000000bb")
+	verifySlots("Q00000000000000000000000000000000000000bb", "01", "02")
 
 	state.journal.revert(state, 3)
-	if _, ok := state.SlotInAccessList(addr("Z00000000000000000000000000000000000000bb"), slot("02")); ok {
+	if _, ok := state.SlotInAccessList(addr("Q00000000000000000000000000000000000000bb"), slot("02")); ok {
 		t.Fatalf("slot present, expected missing")
 	}
-	verifyAddrs("Z00000000000000000000000000000000000000aa", "Z00000000000000000000000000000000000000bb")
-	verifySlots("Z00000000000000000000000000000000000000bb", "01")
+	verifyAddrs("Q00000000000000000000000000000000000000aa", "Q00000000000000000000000000000000000000bb")
+	verifySlots("Q00000000000000000000000000000000000000bb", "01")
 
 	state.journal.revert(state, 2)
-	if _, ok := state.SlotInAccessList(addr("Z00000000000000000000000000000000000000bb"), slot("01")); ok {
+	if _, ok := state.SlotInAccessList(addr("Q00000000000000000000000000000000000000bb"), slot("01")); ok {
 		t.Fatalf("slot present, expected missing")
 	}
-	verifyAddrs("Z00000000000000000000000000000000000000aa", "Z00000000000000000000000000000000000000bb")
+	verifyAddrs("Q00000000000000000000000000000000000000aa", "Q00000000000000000000000000000000000000bb")
 
 	state.journal.revert(state, 1)
-	if state.AddressInAccessList(addr("Z00000000000000000000000000000000000000bb")) {
+	if state.AddressInAccessList(addr("Q00000000000000000000000000000000000000bb")) {
 		t.Fatalf("addr present, expected missing")
 	}
-	verifyAddrs("Z00000000000000000000000000000000000000aa")
+	verifyAddrs("Q00000000000000000000000000000000000000aa")
 
 	state.journal.revert(state, 0)
-	if state.AddressInAccessList(addr("Z00000000000000000000000000000000000000aa")) {
+	if state.AddressInAccessList(addr("Q00000000000000000000000000000000000000aa")) {
 		t.Fatalf("addr present, expected missing")
 	}
 	if got, exp := len(state.accessList.addresses), 0; got != exp {
@@ -968,8 +968,8 @@ func TestStateDBAccessList(t *testing.T) {
 	// Check the copy
 	// Make a copy
 	state = stateCopy1
-	verifyAddrs("Z00000000000000000000000000000000000000aa", "Z00000000000000000000000000000000000000bb")
-	verifySlots("Z00000000000000000000000000000000000000bb", "01", "02")
+	verifyAddrs("Q00000000000000000000000000000000000000aa", "Q00000000000000000000000000000000000000bb")
+	verifySlots("Q00000000000000000000000000000000000000bb", "01", "02")
 	if got, exp := len(state.accessList.addresses), 2; got != exp {
 		t.Fatalf("expected empty, got %d", got)
 	}
@@ -1026,7 +1026,7 @@ func TestResetObject(t *testing.T) {
 		db       = NewDatabaseWithNodeDB(disk, tdb)
 		snaps, _ = snapshot.New(snapshot.Config{CacheSize: 10}, disk, tdb, types.EmptyRootHash)
 		state, _ = New(types.EmptyRootHash, db, snaps)
-		addr, _  = common.NewAddressFromString("Z0000000000000000000000000000000000000001")
+		addr, _  = common.NewAddressFromString("Q0000000000000000000000000000000000000001")
 		slotA    = common.HexToHash("0x1")
 		slotB    = common.HexToHash("0x2")
 	)
@@ -1060,7 +1060,7 @@ func TestDeleteStorage(t *testing.T) {
 		db       = NewDatabaseWithNodeDB(disk, tdb)
 		snaps, _ = snapshot.New(snapshot.Config{CacheSize: 10}, disk, tdb, types.EmptyRootHash)
 		state, _ = New(types.EmptyRootHash, db, snaps)
-		addr, _  = common.NewAddressFromString("Z0000000000000000000000000000000000000001")
+		addr, _  = common.NewAddressFromString("Q0000000000000000000000000000000000000001")
 	)
 	// Initialize account and populate storage
 	state.SetBalance(addr, big.NewInt(1))

@@ -26,13 +26,13 @@ import (
 
 	"github.com/theQRL/go-zond/common/math"
 	"github.com/theQRL/go-zond/crypto"
-	"github.com/theQRL/go-zond/p2p/enode"
+	"github.com/theQRL/go-zond/p2p/qnode"
 )
 
 // node represents a host on the network.
 // The fields of Node may not be modified.
 type node struct {
-	enode.Node
+	qnode.Node
 	addedAt        time.Time // time when the node was added to the table
 	livenessChecks uint      // how often liveness was checked
 }
@@ -60,15 +60,15 @@ func decodePubkey(curve elliptic.Curve, e []byte) (*ecdsa.PublicKey, error) {
 	return p, nil
 }
 
-func (e encPubkey) id() enode.ID {
-	return enode.ID(crypto.Keccak256Hash(e[:]))
+func (e encPubkey) id() qnode.ID {
+	return qnode.ID(crypto.Keccak256Hash(e[:]))
 }
 
-func wrapNode(n *enode.Node) *node {
+func wrapNode(n *qnode.Node) *node {
 	return &node{Node: *n}
 }
 
-func wrapNodes(ns []*enode.Node) []*node {
+func wrapNodes(ns []*qnode.Node) []*node {
 	result := make([]*node, len(ns))
 	for i, n := range ns {
 		result[i] = wrapNode(n)
@@ -76,12 +76,12 @@ func wrapNodes(ns []*enode.Node) []*node {
 	return result
 }
 
-func unwrapNode(n *node) *enode.Node {
+func unwrapNode(n *node) *qnode.Node {
 	return &n.Node
 }
 
-func unwrapNodes(ns []*node) []*enode.Node {
-	result := make([]*enode.Node, len(ns))
+func unwrapNodes(ns []*node) []*qnode.Node {
+	result := make([]*qnode.Node, len(ns))
 	for i, n := range ns {
 		result[i] = unwrapNode(n)
 	}

@@ -24,7 +24,7 @@ import (
 
 	"github.com/theQRL/go-zond/crypto"
 	"github.com/theQRL/go-zond/p2p/discover/v4wire"
-	"github.com/theQRL/go-zond/p2p/enode"
+	"github.com/theQRL/go-zond/p2p/qnode"
 )
 
 const waitTime = 300 * time.Millisecond
@@ -32,7 +32,7 @@ const waitTime = 300 * time.Millisecond
 type testenv struct {
 	l1, l2     net.PacketConn
 	key        *ecdsa.PrivateKey
-	remote     *enode.Node
+	remote     *qnode.Node
 	remoteAddr *net.UDPAddr
 }
 
@@ -49,7 +49,7 @@ func newTestEnv(remote string, listen1, listen2 string) *testenv {
 	if err != nil {
 		panic(err)
 	}
-	node, err := enode.Parse(enode.ValidSchemes, remote)
+	node, err := qnode.Parse(qnode.ValidSchemes, remote)
 	if err != nil {
 		panic(err)
 	}
@@ -65,7 +65,7 @@ func newTestEnv(remote string, listen1, listen2 string) *testenv {
 		if udpPort = node.TCP(); udpPort == 0 {
 			udpPort = 30303
 		}
-		node = enode.NewV4(node.Pubkey(), ip, tcpPort, udpPort)
+		node = qnode.NewV4(node.Pubkey(), ip, tcpPort, udpPort)
 	}
 	addr := &net.UDPAddr{IP: node.IP(), Port: node.UDP()}
 	return &testenv{l1, l2, key, node, addr}

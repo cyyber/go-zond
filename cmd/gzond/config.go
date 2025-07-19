@@ -34,14 +34,14 @@ import (
 	"github.com/theQRL/go-zond/common"
 	"github.com/theQRL/go-zond/common/hexutil"
 	"github.com/theQRL/go-zond/internal/flags"
+	"github.com/theQRL/go-zond/internal/qrlapi"
 	"github.com/theQRL/go-zond/internal/version"
-	"github.com/theQRL/go-zond/internal/zondapi"
 	"github.com/theQRL/go-zond/log"
 	"github.com/theQRL/go-zond/metrics"
 	"github.com/theQRL/go-zond/node"
 	"github.com/theQRL/go-zond/params"
-	"github.com/theQRL/go-zond/zond/catalyst"
-	"github.com/theQRL/go-zond/zond/zondconfig"
+	"github.com/theQRL/go-zond/qrl/catalyst"
+	"github.com/theQRL/go-zond/qrl/qrlconfig"
 	"github.com/urfave/cli/v2"
 )
 
@@ -58,7 +58,7 @@ var (
 	configFileFlag = &cli.StringFlag{
 		Name:     "config",
 		Usage:    "TOML configuration file",
-		Category: flags.ZondCategory,
+		Category: flags.QRLCategory,
 	}
 )
 
@@ -84,15 +84,15 @@ var tomlSettings = toml.Config{
 	},
 }
 
-type ethstatsConfig struct {
+type qrlstatsConfig struct {
 	URL string `toml:",omitempty"`
 }
 
 type gzondConfig struct {
-	Zond      zondconfig.Config
-	Node      node.Config
-	Zondstats ethstatsConfig
-	Metrics   metrics.Config
+	QRL      qrlconfig.Config
+	Node     node.Config
+	QRLstats qrlstatsConfig
+	Metrics  metrics.Config
 }
 
 func loadConfig(file string, cfg *gzondConfig) error {
@@ -115,8 +115,8 @@ func defaultNodeConfig() node.Config {
 	cfg := node.DefaultConfig
 	cfg.Name = clientIdentifier
 	cfg.Version = params.VersionWithCommit(git.Commit, git.Date)
-	cfg.HTTPModules = append(cfg.HTTPModules, "zond")
-	cfg.WSModules = append(cfg.WSModules, "zond")
+	cfg.HTTPModules = append(cfg.HTTPModules, "qrl")
+	cfg.WSModules = append(cfg.WSModules, "qrl")
 	cfg.IPCPath = "gzond.ipc"
 	return cfg
 }
@@ -126,7 +126,7 @@ func defaultNodeConfig() node.Config {
 func loadBaseConfig(ctx *cli.Context) gzondConfig {
 	// Load defaults.
 	cfg := gzondConfig{
-		Zond:    zondconfig.Defaults,
+		QRL:     qrlconfig.Defaults,
 		Node:    defaultNodeConfig(),
 		Metrics: metrics.DefaultConfig,
 	}
@@ -155,24 +155,24 @@ func makeConfigNode(ctx *cli.Context) (*node.Node, gzondConfig) {
 		utils.Fatalf("Failed to set account manager backends: %v", err)
 	}
 
-	utils.SetZondConfig(ctx, stack, &cfg.Zond)
-	if ctx.IsSet(utils.ZondStatsURLFlag.Name) {
-		cfg.Zondstats.URL = ctx.String(utils.ZondStatsURLFlag.Name)
+	utils.SetQRLConfig(ctx, stack, &cfg.QRL)
+	if ctx.IsSet(utils.QRLStatsURLFlag.Name) {
+		cfg.QRLstats.URL = ctx.String(utils.QRLStatsURLFlag.Name)
 	}
 	applyMetricConfig(ctx, &cfg)
 
 	return stack, cfg
 }
 
-// makeFullNode loads gzond configuration and creates the Zond backend.
-func makeFullNode(ctx *cli.Context) (*node.Node, zondapi.Backend) {
+// makeFullNode loads gzond configuration and creates the QRL backend.
+func makeFullNode(ctx *cli.Context) (*node.Node, qrlapi.Backend) {
 	stack, cfg := makeConfigNode(ctx)
-	backend, zond := utils.RegisterZondService(stack, &cfg.Zond)
+	backend, qrl := utils.RegisterQRLService(stack, &cfg.QRL)
 
 	// Create gauge with gzond system and build information
-	if zond != nil {
+	if qrl != nil {
 		var protos []string
-		for _, p := range zond.Protocols() {
+		for _, p := range qrl.Protocols() {
 			protos = append(protos, fmt.Sprintf("%v/%d", p.Name, p.Version))
 		}
 		metrics.NewRegisteredGaugeInfo("gzond/info", nil).Update(metrics.GaugeInfoValue{
@@ -184,16 +184,16 @@ func makeFullNode(ctx *cli.Context) (*node.Node, zondapi.Backend) {
 	}
 
 	// Configure log filter RPC API.
-	filterSystem := utils.RegisterFilterAPI(stack, backend, &cfg.Zond)
+	filterSystem := utils.RegisterFilterAPI(stack, backend, &cfg.QRL)
 
 	// Configure GraphQL if requested.
 	if ctx.IsSet(utils.GraphQLEnabledFlag.Name) {
 		utils.RegisterGraphQLService(stack, backend, filterSystem, &cfg.Node)
 	}
 
-	// Add the Zond Stats daemon if requested.
-	if cfg.Zondstats.URL != "" {
-		utils.RegisterZondStatsService(stack, backend, cfg.Zondstats.URL)
+	// Add the QRL Stats daemon if requested.
+	if cfg.QRLstats.URL != "" {
+		utils.RegisterQRLStatsService(stack, backend, cfg.QRLstats.URL)
 	}
 
 	// Configure full-sync tester service if requested
@@ -202,20 +202,20 @@ func makeFullNode(ctx *cli.Context) (*node.Node, zondapi.Backend) {
 		if len(hex) != common.HashLength {
 			utils.Fatalf("invalid sync target length: have %d, want %d", len(hex), common.HashLength)
 		}
-		utils.RegisterFullSyncTester(stack, zond, common.BytesToHash(hex))
+		utils.RegisterFullSyncTester(stack, qrl, common.BytesToHash(hex))
 	}
 
 	// Start the dev mode if requested, or launch the engine API for
 	// interacting with external consensus client.
 	if ctx.IsSet(utils.DeveloperFlag.Name) {
-		simBeacon, err := catalyst.NewSimulatedBeacon(ctx.Uint64(utils.DeveloperPeriodFlag.Name), zond)
+		simBeacon, err := catalyst.NewSimulatedBeacon(ctx.Uint64(utils.DeveloperPeriodFlag.Name), qrl)
 		if err != nil {
 			utils.Fatalf("failed to register dev mode catalyst service: %v", err)
 		}
 		catalyst.RegisterSimulatedBeaconAPIs(stack, simBeacon)
 		stack.RegisterLifecycle(simBeacon)
 	} else {
-		err := catalyst.Register(stack, zond)
+		err := catalyst.Register(stack, qrl)
 		if err != nil {
 			utils.Fatalf("failed to register catalyst service: %v", err)
 		}
@@ -228,8 +228,8 @@ func dumpConfig(ctx *cli.Context) error {
 	_, cfg := makeConfigNode(ctx)
 	comment := ""
 
-	if cfg.Zond.Genesis != nil {
-		cfg.Zond.Genesis = nil
+	if cfg.QRL.Genesis != nil {
+		cfg.QRL.Genesis = nil
 		comment += "# Note: this config doesn't contain the genesis block.\n\n"
 	}
 

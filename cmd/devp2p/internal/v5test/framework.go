@@ -27,8 +27,8 @@ import (
 	"github.com/theQRL/go-zond/common/mclock"
 	"github.com/theQRL/go-zond/crypto"
 	"github.com/theQRL/go-zond/p2p/discover/v5wire"
-	"github.com/theQRL/go-zond/p2p/enode"
-	"github.com/theQRL/go-zond/p2p/enr"
+	"github.com/theQRL/go-zond/p2p/qnode"
+	"github.com/theQRL/go-zond/p2p/qnr"
 )
 
 // readError represents an error during packet reading.
@@ -56,9 +56,9 @@ const waitTime = 300 * time.Millisecond
 
 // conn is a connection to the node under test.
 type conn struct {
-	localNode  *enode.LocalNode
+	localNode  *qnode.LocalNode
 	localKey   *ecdsa.PrivateKey
-	remote     *enode.Node
+	remote     *qnode.Node
 	remoteAddr *net.UDPAddr
 	listeners  []net.PacketConn
 
@@ -72,16 +72,16 @@ type logger interface {
 }
 
 // newConn sets up a connection to the given node.
-func newConn(dest *enode.Node, log logger) *conn {
+func newConn(dest *qnode.Node, log logger) *conn {
 	key, err := crypto.GenerateKey()
 	if err != nil {
 		panic(err)
 	}
-	db, err := enode.OpenDB("")
+	db, err := qnode.OpenDB("")
 	if err != nil {
 		panic(err)
 	}
-	ln := enode.NewLocalNode(db, key)
+	ln := qnode.NewLocalNode(db, key)
 
 	return &conn{
 		localKey:   key,
@@ -141,13 +141,13 @@ func (tc *conn) reqresp(c net.PacketConn, req v5wire.Packet) v5wire.Packet {
 }
 
 // findnode sends a FINDNODE request and waits for its responses.
-func (tc *conn) findnode(c net.PacketConn, dists []uint) ([]*enode.Node, error) {
+func (tc *conn) findnode(c net.PacketConn, dists []uint) ([]*qnode.Node, error) {
 	var (
 		findnode = &v5wire.Findnode{ReqID: tc.nextReqID(), Distances: dists}
 		reqnonce = tc.write(c, findnode, nil)
 		first    = true
 		total    uint8
-		results  []*enode.Node
+		results  []*qnode.Node
 	)
 	for n := 1; n > 0; {
 		switch resp := tc.read(c).(type) {
@@ -163,7 +163,7 @@ func (tc *conn) findnode(c net.PacketConn, dists []uint) ([]*enode.Node, error) 
 			// Handle ping from remote.
 			tc.write(c, &v5wire.Pong{
 				ReqID:  resp.ReqID,
-				ENRSeq: tc.localNode.Seq(),
+				QNRSeq: tc.localNode.Seq(),
 			}, nil)
 		case *v5wire.Nodes:
 			// Got NODES! Check request ID.
@@ -241,10 +241,10 @@ func laddr(c net.PacketConn) *net.UDPAddr {
 	return c.LocalAddr().(*net.UDPAddr)
 }
 
-func checkRecords(records []*enr.Record) ([]*enode.Node, error) {
-	nodes := make([]*enode.Node, len(records))
+func checkRecords(records []*qnr.Record) ([]*qnode.Node, error) {
+	nodes := make([]*qnode.Node, len(records))
 	for i := range records {
-		n, err := enode.New(enode.ValidSchemes, records[i])
+		n, err := qnode.New(qnode.ValidSchemes, records[i])
 		if err != nil {
 			return nil, err
 		}

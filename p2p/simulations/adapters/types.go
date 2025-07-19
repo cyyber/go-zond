@@ -31,8 +31,8 @@ import (
 	"github.com/theQRL/go-zond/log"
 	"github.com/theQRL/go-zond/node"
 	"github.com/theQRL/go-zond/p2p"
-	"github.com/theQRL/go-zond/p2p/enode"
-	"github.com/theQRL/go-zond/p2p/enr"
+	"github.com/theQRL/go-zond/p2p/qnode"
+	"github.com/theQRL/go-zond/p2p/qnr"
 	"github.com/theQRL/go-zond/rpc"
 )
 
@@ -43,7 +43,7 @@ import (
 //   - ExecNode, a child process node
 //   - DockerNode, a node running in a Docker container
 type Node interface {
-	// Addr returns the node's address (e.g. an Enode URL)
+	// Addr returns the node's address (e.g. a Qnode URL)
 	Addr() []byte
 
 	// Client returns the RPC client which is created once the node is
@@ -80,7 +80,7 @@ type NodeAdapter interface {
 type NodeConfig struct {
 	// ID is the node's ID which is used to identify the node in the
 	// simulation network
-	ID enode.ID
+	ID qnode.ID
 
 	// PrivateKey is the node's private key which is used by the devp2p
 	// stack to encrypt communications
@@ -109,14 +109,14 @@ type NodeConfig struct {
 	// ExternalSigner specifies an external URI for a clef-type signer
 	ExternalSigner string
 
-	// Enode
-	node *enode.Node
+	// Qnode
+	node *qnode.Node
 
-	// ENR Record with entries to overwrite
-	Record enr.Record
+	// QNR Record with entries to overwrite
+	Record qnr.Record
 
 	// function to sanction or prevent suggesting a peer
-	Reachable func(id enode.ID) bool
+	Reachable func(id qnode.ID) bool
 
 	Port uint16
 
@@ -203,7 +203,7 @@ func (n *NodeConfig) UnmarshalJSON(data []byte) error {
 }
 
 // Node returns the node descriptor represented by the config.
-func (n *NodeConfig) Node() *enode.Node {
+func (n *NodeConfig) Node() *qnode.Node {
 	return n.node
 }
 
@@ -220,11 +220,11 @@ func RandomNodeConfig() *NodeConfig {
 		panic("unable to assign tcp port")
 	}
 
-	enodId := enode.PubkeyToIDV4(&prvkey.PublicKey)
+	qnodId := qnode.PubkeyToIDV4(&prvkey.PublicKey)
 	return &NodeConfig{
 		PrivateKey:      prvkey,
-		ID:              enodId,
-		Name:            fmt.Sprintf("node_%s", enodId.String()),
+		ID:              qnodId,
+		Name:            fmt.Sprintf("node_%s", qnodId.String()),
 		Port:            port,
 		EnableMsgEvents: true,
 		LogVerbosity:    log.LvlInfo,
@@ -259,9 +259,9 @@ type ServiceContext struct {
 
 // RPCDialer is used when initialising services which need to connect to
 // other nodes in the network (for example a simulated Swarm node which needs
-// to connect to a Gzond node to resolve ZNS names)
+// to connect to a Gzond node to resolve QRNS names)
 type RPCDialer interface {
-	DialRPC(id enode.ID) (*rpc.Client, error)
+	DialRPC(id qnode.ID) (*rpc.Client, error)
 }
 
 // LifecycleConstructor allows a Lifecycle to be constructed during node start-up.
@@ -297,29 +297,29 @@ func RegisterLifecycles(lifecycles LifecycleConstructors) {
 	}
 }
 
-// adds the host part to the configuration's ENR, signs it
-// creates and  the corresponding enode object to the configuration
-func (n *NodeConfig) initEnode(ip net.IP, tcpport int, udpport int) error {
-	enrIp := enr.IP(ip)
-	n.Record.Set(&enrIp)
-	enrTcpPort := enr.TCP(tcpport)
-	n.Record.Set(&enrTcpPort)
-	enrUdpPort := enr.UDP(udpport)
-	n.Record.Set(&enrUdpPort)
+// adds the host part to the configuration's QNR, signs it
+// creates and  the corresponding qnode object to the configuration
+func (n *NodeConfig) initQnode(ip net.IP, tcpport int, udpport int) error {
+	qnrIp := qnr.IP(ip)
+	n.Record.Set(&qnrIp)
+	qnrTcpPort := qnr.TCP(tcpport)
+	n.Record.Set(&qnrTcpPort)
+	qnrUdpPort := qnr.UDP(udpport)
+	n.Record.Set(&qnrUdpPort)
 
-	err := enode.SignV4(&n.Record, n.PrivateKey)
+	err := qnode.SignV4(&n.Record, n.PrivateKey)
 	if err != nil {
-		return fmt.Errorf("unable to generate ENR: %v", err)
+		return fmt.Errorf("unable to generate QNR: %v", err)
 	}
-	nod, err := enode.New(enode.V4ID{}, &n.Record)
+	nod, err := qnode.New(qnode.V4ID{}, &n.Record)
 	if err != nil {
-		return fmt.Errorf("unable to create enode: %v", err)
+		return fmt.Errorf("unable to create qnode: %v", err)
 	}
 	log.Trace("simnode new", "record", n.Record)
 	n.node = nod
 	return nil
 }
 
-func (n *NodeConfig) initDummyEnode() error {
-	return n.initEnode(net.IPv4(127, 0, 0, 1), int(n.Port), 0)
+func (n *NodeConfig) initDummyQnode() error {
+	return n.initQnode(net.IPv4(127, 0, 0, 1), int(n.Port), 0)
 }

@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-// Package types contains data types related to Zond consensus.
+// Package types contains data types related to QRL consensus.
 package types
 
 import (
@@ -34,7 +34,7 @@ import (
 //go:generate go run github.com/fjl/gencodec -type Header -field-override headerMarshaling -out gen_header_json.go
 //go:generate go run ../../rlp/rlpgen -type Header -out gen_header_rlp.go
 
-// Header represents a block header in the Zond blockchain.
+// Header represents a block header in the QRL blockchain.
 type Header struct {
 	ParentHash      common.Hash    `json:"parentHash"       gencodec:"required"`
 	Coinbase        common.Address `json:"miner"`
@@ -121,7 +121,7 @@ type Body struct {
 	Withdrawals  []*Withdrawal `rlp:"optional"`
 }
 
-// Block represents a Zond block.
+// Block represents a QRL block.
 //
 // Note the Block type tries to be 'immutable', and contains certain caches that rely
 // on that. The rules around block immutability are as follows:
@@ -147,13 +147,13 @@ type Block struct {
 	hash atomic.Value
 	size atomic.Value
 
-	// These fields are used by package zond to track
+	// These fields are used by package qrl to track
 	// inter-peer block relay.
 	ReceivedAt   time.Time
 	ReceivedFrom interface{}
 }
 
-// "external" block encoding. used for zond protocol, etc.
+// "external" block encoding. used for qrl protocol, etc.
 type extblock struct {
 	Header      *Header
 	Txs         []*Transaction

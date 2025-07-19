@@ -22,7 +22,7 @@ import (
 
 	"github.com/theQRL/go-zond/internal/debug"
 	"github.com/theQRL/go-zond/internal/flags"
-	"github.com/theQRL/go-zond/p2p/enode"
+	"github.com/theQRL/go-zond/p2p/qnode"
 	"github.com/urfave/cli/v2"
 )
 
@@ -45,7 +45,7 @@ func init() {
 
 	// Add subcommands.
 	app.Commands = []*cli.Command{
-		enrdumpCommand,
+		qnrdumpCommand,
 		keyCommand,
 		discv4Command,
 		discv5Command,
@@ -75,7 +75,7 @@ func commandHasFlag(ctx *cli.Context, flag cli.Flag) bool {
 }
 
 // getNodeArg handles the common case of a single node descriptor argument.
-func getNodeArg(ctx *cli.Context) *enode.Node {
+func getNodeArg(ctx *cli.Context) *qnode.Node {
 	if ctx.NArg() < 1 {
 		exit("missing node as command-line argument")
 	}

@@ -80,7 +80,7 @@ func (beacon *Beacon) Author(header *types.Header) (common.Address, error) {
 }
 
 // VerifyHeader checks whether a header conforms to the consensus rules of the
-// stock Zond consensus engine.
+// stock QRL consensus engine.
 func (beacon *Beacon) VerifyHeader(chain consensus.ChainHeaderReader, header *types.Header) error {
 	// Short circuit if the parent is not known
 	parent := chain.GetHeader(header.ParentHash, header.Number.Uint64()-1)
@@ -101,7 +101,7 @@ func (beacon *Beacon) VerifyHeaders(chain consensus.ChainHeaderReader, headers [
 }
 
 // verifyHeader checks whether a header conforms to the consensus rules of the
-// stock Zond consensus engine. The difference between the beacon and classic is
+// stock QRL consensus engine. The difference between the beacon and classic is
 // (a) The following fields are expected to be constants:
 //
 //	to be the desired constants

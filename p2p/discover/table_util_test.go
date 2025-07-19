@@ -28,53 +28,53 @@ import (
 	"sync"
 
 	"github.com/theQRL/go-zond/crypto"
-	"github.com/theQRL/go-zond/p2p/enode"
-	"github.com/theQRL/go-zond/p2p/enr"
+	"github.com/theQRL/go-zond/p2p/qnode"
+	"github.com/theQRL/go-zond/p2p/qnr"
 )
 
-var nullNode *enode.Node
+var nullNode *qnode.Node
 
 func init() {
-	var r enr.Record
-	r.Set(enr.IP{0, 0, 0, 0})
-	nullNode = enode.SignNull(&r, enode.ID{})
+	var r qnr.Record
+	r.Set(qnr.IP{0, 0, 0, 0})
+	nullNode = qnode.SignNull(&r, qnode.ID{})
 }
 
-func newTestTable(t transport) (*Table, *enode.DB) {
+func newTestTable(t transport) (*Table, *qnode.DB) {
 	cfg := Config{}
-	db, _ := enode.OpenDB("")
+	db, _ := qnode.OpenDB("")
 	tab, _ := newTable(t, db, cfg)
 	go tab.loop()
 	return tab, db
 }
 
-// nodeAtDistance creates a node for which enode.LogDist(base, n.id) == ld.
-func nodeAtDistance(base enode.ID, ld int, ip net.IP) *node {
-	var r enr.Record
-	r.Set(enr.IP(ip))
-	r.Set(enr.UDP(30303))
-	return wrapNode(enode.SignNull(&r, idAtDistance(base, ld)))
+// nodeAtDistance creates a node for which qnode.LogDist(base, n.id) == ld.
+func nodeAtDistance(base qnode.ID, ld int, ip net.IP) *node {
+	var r qnr.Record
+	r.Set(qnr.IP(ip))
+	r.Set(qnr.UDP(30303))
+	return wrapNode(qnode.SignNull(&r, idAtDistance(base, ld)))
 }
 
-// nodesAtDistance creates n nodes for which enode.LogDist(base, node.ID()) == ld.
-func nodesAtDistance(base enode.ID, ld int, n int) []*enode.Node {
-	results := make([]*enode.Node, n)
+// nodesAtDistance creates n nodes for which qnode.LogDist(base, node.ID()) == ld.
+func nodesAtDistance(base qnode.ID, ld int, n int) []*qnode.Node {
+	results := make([]*qnode.Node, n)
 	for i := range results {
 		results[i] = unwrapNode(nodeAtDistance(base, ld, intIP(i)))
 	}
 	return results
 }
 
-func nodesToRecords(nodes []*enode.Node) []*enr.Record {
-	records := make([]*enr.Record, len(nodes))
+func nodesToRecords(nodes []*qnode.Node) []*qnr.Record {
+	records := make([]*qnr.Record, len(nodes))
 	for i := range nodes {
 		records[i] = nodes[i].Record()
 	}
 	return records
 }
 
-// idAtDistance returns a random hash such that enode.LogDist(a, b) == n
-func idAtDistance(a enode.ID, n int) (b enode.ID) {
+// idAtDistance returns a random hash such that qnode.LogDist(a, b) == n
+func idAtDistance(a qnode.ID, n int) (b qnode.ID) {
 	if n == 0 {
 		return a
 	}
@@ -99,7 +99,7 @@ func intIP(i int) net.IP {
 
 // fillBucket inserts nodes into the given bucket until it is full.
 func fillBucket(tab *Table, n *node) (last *node) {
-	ld := enode.LogDist(tab.self().ID(), n.ID())
+	ld := qnode.LogDist(tab.self().ID(), n.ID())
 	b := tab.bucket(n.ID())
 	for len(b.entries) < bucketSize {
 		b.entries = append(b.entries, nodeAtDistance(tab.self().ID(), ld, intIP(ld)))
@@ -117,39 +117,39 @@ func fillTable(tab *Table, nodes []*node) {
 
 type pingRecorder struct {
 	mu           sync.Mutex
-	dead, pinged map[enode.ID]bool
-	records      map[enode.ID]*enode.Node
-	n            *enode.Node
+	dead, pinged map[qnode.ID]bool
+	records      map[qnode.ID]*qnode.Node
+	n            *qnode.Node
 }
 
 func newPingRecorder() *pingRecorder {
-	var r enr.Record
-	r.Set(enr.IP{0, 0, 0, 0})
-	n := enode.SignNull(&r, enode.ID{})
+	var r qnr.Record
+	r.Set(qnr.IP{0, 0, 0, 0})
+	n := qnode.SignNull(&r, qnode.ID{})
 
 	return &pingRecorder{
-		dead:    make(map[enode.ID]bool),
-		pinged:  make(map[enode.ID]bool),
-		records: make(map[enode.ID]*enode.Node),
+		dead:    make(map[qnode.ID]bool),
+		pinged:  make(map[qnode.ID]bool),
+		records: make(map[qnode.ID]*qnode.Node),
 		n:       n,
 	}
 }
 
 // updateRecord updates a node record. Future calls to ping and
-// RequestENR will return this record.
-func (t *pingRecorder) updateRecord(n *enode.Node) {
+// RequestQNR will return this record.
+func (t *pingRecorder) updateRecord(n *qnode.Node) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	t.records[n.ID()] = n
 }
 
 // Stubs to satisfy the transport interface.
-func (t *pingRecorder) Self() *enode.Node           { return nullNode }
-func (t *pingRecorder) lookupSelf() []*enode.Node   { return nil }
-func (t *pingRecorder) lookupRandom() []*enode.Node { return nil }
+func (t *pingRecorder) Self() *qnode.Node           { return nullNode }
+func (t *pingRecorder) lookupSelf() []*qnode.Node   { return nil }
+func (t *pingRecorder) lookupRandom() []*qnode.Node { return nil }
 
 // ping simulates a ping request.
-func (t *pingRecorder) ping(n *enode.Node) (seq uint64, err error) {
+func (t *pingRecorder) ping(n *qnode.Node) (seq uint64, err error) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
@@ -163,8 +163,8 @@ func (t *pingRecorder) ping(n *enode.Node) (seq uint64, err error) {
 	return seq, nil
 }
 
-// RequestENR simulates an ENR request.
-func (t *pingRecorder) RequestENR(n *enode.Node) (*enode.Node, error) {
+// RequestQNR simulates a QNR request.
+func (t *pingRecorder) RequestQNR(n *qnode.Node) (*qnode.Node, error) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
@@ -175,7 +175,7 @@ func (t *pingRecorder) RequestENR(n *enode.Node) (*enode.Node, error) {
 }
 
 func hasDuplicates(slice []*node) bool {
-	seen := make(map[enode.ID]bool, len(slice))
+	seen := make(map[qnode.ID]bool, len(slice))
 	for i, e := range slice {
 		if e == nil {
 			panic(fmt.Sprintf("nil *Node at %d", i))
@@ -189,7 +189,7 @@ func hasDuplicates(slice []*node) bool {
 }
 
 // checkNodesEqual checks whether the two given node lists contain the same nodes.
-func checkNodesEqual(got, want []*enode.Node) error {
+func checkNodesEqual(got, want []*qnode.Node) error {
 	if len(got) == len(want) {
 		for i := range got {
 			if !nodeEqual(got[i], want[i]) {
@@ -212,19 +212,19 @@ NotEqual:
 	return errors.New(output.String())
 }
 
-func nodeEqual(n1 *enode.Node, n2 *enode.Node) bool {
+func nodeEqual(n1 *qnode.Node, n2 *qnode.Node) bool {
 	return n1.ID() == n2.ID() && n1.IP().Equal(n2.IP())
 }
 
-func sortByID(nodes []*enode.Node) {
-	slices.SortFunc(nodes, func(a, b *enode.Node) int {
+func sortByID(nodes []*qnode.Node) {
+	slices.SortFunc(nodes, func(a, b *qnode.Node) int {
 		return bytes.Compare(a.ID().Bytes(), b.ID().Bytes())
 	})
 }
 
-func sortedByDistanceTo(distbase enode.ID, slice []*node) bool {
+func sortedByDistanceTo(distbase qnode.ID, slice []*node) bool {
 	return slices.IsSortedFunc(slice, func(a, b *node) int {
-		return enode.DistCmp(distbase, a.ID(), b.ID())
+		return qnode.DistCmp(distbase, a.ID(), b.ID())
 	})
 }
 

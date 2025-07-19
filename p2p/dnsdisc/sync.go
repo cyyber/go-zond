@@ -22,7 +22,7 @@ import (
 	"time"
 
 	"github.com/theQRL/go-zond/common/mclock"
-	"github.com/theQRL/go-zond/p2p/enode"
+	"github.com/theQRL/go-zond/p2p/qnode"
 )
 
 // This is the number of consecutive leaf requests that may fail before
@@ -39,7 +39,7 @@ type clientTree struct {
 	rootFailCount int
 
 	root  *rootEntry
-	enrs  *subtreeSync
+	qnrs  *subtreeSync
 	links *subtreeSync
 
 	lc         *linkCache          // tracks all links between all trees
@@ -59,7 +59,7 @@ func (ct *clientTree) syncAll(dest map[string]entry) error {
 	if err := ct.links.resolveAll(dest); err != nil {
 		return err
 	}
-	if err := ct.enrs.resolveAll(dest); err != nil {
+	if err := ct.qnrs.resolveAll(dest); err != nil {
 		return err
 	}
 	return nil
@@ -67,7 +67,7 @@ func (ct *clientTree) syncAll(dest map[string]entry) error {
 
 // syncRandom retrieves a single entry of the tree. The Node return value
 // is non-nil if the entry was a node.
-func (ct *clientTree) syncRandom(ctx context.Context) (n *enode.Node, err error) {
+func (ct *clientTree) syncRandom(ctx context.Context) (n *qnode.Node, err error) {
 	if ct.rootUpdateDue() {
 		if err := ct.updateRoot(ctx); err != nil {
 			return nil, err
@@ -81,20 +81,20 @@ func (ct *clientTree) syncRandom(ctx context.Context) (n *enode.Node, err error)
 		}
 	}()
 
-	// Link tree sync has priority, run it to completion before syncing ENRs.
+	// Link tree sync has priority, run it to completion before syncing QNRs.
 	if !ct.links.done() {
 		err := ct.syncNextLink(ctx)
 		return nil, err
 	}
 	ct.gcLinks()
 
-	// Sync next random entry in ENR tree. Once every node has been visited, we simply
+	// Sync next random entry in QNR tree. Once every node has been visited, we simply
 	// start over. This is fine because entries are cached internally by the client LRU
 	// also by DNS resolvers.
-	if ct.enrs.done() {
-		ct.enrs = newSubtreeSync(ct.c, ct.loc, ct.root.eroot, false)
+	if ct.qnrs.done() {
+		ct.qnrs = newSubtreeSync(ct.c, ct.loc, ct.root.eroot, false)
 	}
-	return ct.syncNextRandomENR(ctx)
+	return ct.syncNextRandomQNR(ctx)
 }
 
 // canSyncRandom checks if any meaningful action can be performed by syncRandom.
@@ -102,7 +102,7 @@ func (ct *clientTree) canSyncRandom() bool {
 	// Note: the check for non-zero leaf count is very important here.
 	// If we're done syncing all nodes, and no leaves were found, the tree
 	// is empty and we can't use it for sync.
-	return ct.rootUpdateDue() || !ct.links.done() || !ct.enrs.done() || ct.enrs.leaves != 0
+	return ct.rootUpdateDue() || !ct.links.done() || !ct.qnrs.done() || ct.qnrs.leaves != 0
 }
 
 // gcLinks removes outdated links from the global link cache. GC runs once
@@ -130,15 +130,15 @@ func (ct *clientTree) syncNextLink(ctx context.Context) error {
 	return nil
 }
 
-func (ct *clientTree) syncNextRandomENR(ctx context.Context) (*enode.Node, error) {
-	index := rand.Intn(len(ct.enrs.missing))
-	hash := ct.enrs.missing[index]
-	e, err := ct.enrs.resolveNext(ctx, hash)
+func (ct *clientTree) syncNextRandomQNR(ctx context.Context) (*qnode.Node, error) {
+	index := rand.Intn(len(ct.qnrs.missing))
+	hash := ct.qnrs.missing[index]
+	e, err := ct.qnrs.resolveNext(ctx, hash)
 	if err != nil {
 		return nil, err
 	}
-	ct.enrs.missing = removeHash(ct.enrs.missing, index)
-	if ee, ok := e.(*enrEntry); ok {
+	ct.qnrs.missing = removeHash(ct.qnrs.missing, index)
+	if ee, ok := e.(*qnrEntry); ok {
 		return ee.node, nil
 	}
 	return nil, nil
@@ -184,8 +184,8 @@ func (ct *clientTree) updateRoot(ctx context.Context) error {
 		ct.links = newSubtreeSync(ct.c, ct.loc, root.lroot, true)
 		ct.curLinks = make(map[string]struct{})
 	}
-	if ct.enrs == nil || root.eroot != ct.enrs.root {
-		ct.enrs = newSubtreeSync(ct.c, ct.loc, root.eroot, false)
+	if ct.qnrs == nil || root.eroot != ct.qnrs.root {
+		ct.qnrs = newSubtreeSync(ct.c, ct.loc, root.eroot, false)
 	}
 	return nil
 }
@@ -224,7 +224,7 @@ func (ct *clientTree) slowdownRootUpdate(ctx context.Context) bool {
 	}
 }
 
-// subtreeSync is the sync of an ENR or link subtree.
+// subtreeSync is the sync of a QNR or link subtree.
 type subtreeSync struct {
 	c       *Client
 	loc     *linkEntry
@@ -263,14 +263,14 @@ func (ts *subtreeSync) resolveNext(ctx context.Context, hash string) (entry, err
 		return nil, err
 	}
 	switch e := e.(type) {
-	case *enrEntry:
+	case *qnrEntry:
 		if ts.link {
-			return nil, errENRInLinkTree
+			return nil, errQNRInLinkTree
 		}
 		ts.leaves++
 	case *linkEntry:
 		if !ts.link {
-			return nil, errLinkInENRTree
+			return nil, errLinkInQNRTree
 		}
 		ts.leaves++
 	case *branchEntry:

@@ -25,7 +25,7 @@ import (
 	"github.com/theQRL/go-zond/core/types"
 	"github.com/theQRL/go-zond/internal/blocktest"
 	"github.com/theQRL/go-zond/params"
-	"github.com/theQRL/go-zond/zonddb"
+	"github.com/theQRL/go-zond/qrldb"
 )
 
 var newTestHasher = blocktest.NewHasher
@@ -34,11 +34,11 @@ var newTestHasher = blocktest.NewHasher
 func TestLookupStorage(t *testing.T) {
 	tests := []struct {
 		name                        string
-		writeTxLookupEntriesByBlock func(zonddb.Writer, *types.Block)
+		writeTxLookupEntriesByBlock func(qrldb.Writer, *types.Block)
 	}{
 		{
 			"DatabaseV6",
-			func(db zonddb.Writer, block *types.Block) {
+			func(db qrldb.Writer, block *types.Block) {
 				WriteTxLookupEntriesByBlock(db, block)
 			},
 		},

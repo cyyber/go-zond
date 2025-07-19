@@ -29,7 +29,7 @@ import (
 	"github.com/theQRL/go-zond/core/vm"
 	"github.com/theQRL/go-zond/crypto/pqcrypto"
 	"github.com/theQRL/go-zond/params"
-	"github.com/theQRL/go-zond/zonddb"
+	"github.com/theQRL/go-zond/qrldb"
 )
 
 func BenchmarkInsertChain_empty_memdb(b *testing.B) {
@@ -109,7 +109,7 @@ func init() {
 	}
 }
 
-// genTxRing returns a block generator that sends zond in a ring
+// genTxRing returns a block generator that sends quanta in a ring
 // among n accounts. This is creates n entries in the state database
 // and fills the blocks with many small transactions.
 func genTxRing(naccounts int) func(int, *BlockGen) {
@@ -154,7 +154,7 @@ func genTxRing(naccounts int) func(int, *BlockGen) {
 
 func benchInsertChain(b *testing.B, disk bool, gen func(int, *BlockGen)) {
 	// Create the database in memory or in a temporary directory.
-	var db zonddb.Database
+	var db qrldb.Database
 	var err error
 	if !disk {
 		db = rawdb.NewMemoryDatabase()
@@ -225,7 +225,7 @@ func BenchmarkChainWrite_full_500k(b *testing.B) {
 
 // makeChainForBench writes a given number of headers or empty blocks/receipts
 // into a database.
-func makeChainForBench(db zonddb.Database, full bool, count uint64) {
+func makeChainForBench(db qrldb.Database, full bool, count uint64) {
 	var hash common.Hash
 	for n := uint64(0); n < count; n++ {
 		header := &types.Header{

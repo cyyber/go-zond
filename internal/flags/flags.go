@@ -55,7 +55,7 @@ var (
 )
 
 // DirectoryFlag is custom cli.Flag type which expand the received string to an absolute path.
-// e.g. ~/.zond -> /home/username/.zond
+// e.g. ~/.qrl -> /home/username/.qrl
 type DirectoryFlag struct {
 	Name string
 

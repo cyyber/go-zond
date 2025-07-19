@@ -28,10 +28,10 @@ import (
 // In this example, our client wishes to track the latest 'block number'
 // known to the server. The server supports two methods:
 //
-// zond_getBlockByNumber("latest", {})
+// qrl_getBlockByNumber("latest", {})
 //    returns the latest block object.
 //
-// zond_subscribe("newHeads")
+// qrl_subscribe("newHeads")
 //    creates a subscription which fires block objects when new blocks arrive.
 
 type Block struct {
@@ -66,7 +66,7 @@ func subscribeBlocks(client *rpc.Client, subch chan Block) {
 	defer cancel()
 
 	// Subscribe to new blocks.
-	sub, err := client.ZondSubscribe(ctx, subch, "newHeads")
+	sub, err := client.QRLSubscribe(ctx, subch, "newHeads")
 	if err != nil {
 		fmt.Println("subscribe error:", err)
 		return
@@ -75,7 +75,7 @@ func subscribeBlocks(client *rpc.Client, subch chan Block) {
 	// The connection is established now.
 	// Update the channel with the current block.
 	var lastBlock Block
-	err = client.CallContext(ctx, &lastBlock, "zond_getBlockByNumber", "latest", false)
+	err = client.CallContext(ctx, &lastBlock, "qrl_getBlockByNumber", "latest", false)
 	if err != nil {
 		fmt.Println("can't get latest block:", err)
 		return

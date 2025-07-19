@@ -29,8 +29,8 @@ import (
 
 	"github.com/theQRL/go-zond/common/math"
 	"github.com/theQRL/go-zond/crypto"
-	"github.com/theQRL/go-zond/p2p/enode"
-	"github.com/theQRL/go-zond/p2p/enr"
+	"github.com/theQRL/go-zond/p2p/qnode"
+	"github.com/theQRL/go-zond/p2p/qnr"
 	"github.com/theQRL/go-zond/rlp"
 )
 
@@ -40,8 +40,8 @@ const (
 	PongPacket
 	FindnodePacket
 	NeighborsPacket
-	ENRRequestPacket
-	ENRResponsePacket
+	QNRRequestPacket
+	QNRResponsePacket
 )
 
 // RPC request structures
@@ -50,7 +50,7 @@ type (
 		Version    uint
 		From, To   Endpoint
 		Expiration uint64
-		ENRSeq     uint64 `rlp:"optional"` // Sequence number of local record, added by EIP-868.
+		QNRSeq     uint64 `rlp:"optional"` // Sequence number of local record, added by EIP-868.
 
 		// Ignore additional fields (for forward compatibility).
 		Rest []rlp.RawValue `rlp:"tail"`
@@ -64,7 +64,7 @@ type (
 		To         Endpoint
 		ReplyTok   []byte // This contains the hash of the ping packet.
 		Expiration uint64 // Absolute timestamp at which the packet becomes invalid.
-		ENRSeq     uint64 `rlp:"optional"` // Sequence number of local record, added by EIP-868.
+		QNRSeq     uint64 `rlp:"optional"` // Sequence number of local record, added by EIP-868.
 
 		// Ignore additional fields (for forward compatibility).
 		Rest []rlp.RawValue `rlp:"tail"`
@@ -86,17 +86,17 @@ type (
 		Rest []rlp.RawValue `rlp:"tail"`
 	}
 
-	// ENRRequest queries for the remote node's record.
-	ENRRequest struct {
+	// QNRRequest queries for the remote node's record.
+	QNRRequest struct {
 		Expiration uint64
 		// Ignore additional fields (for forward compatibility).
 		Rest []rlp.RawValue `rlp:"tail"`
 	}
 
-	// ENRResponse is the reply to ENRRequest.
-	ENRResponse struct {
-		ReplyTok []byte // Hash of the ENRRequest packet.
-		Record   enr.Record
+	// QNRResponse is the reply to QNRRequest.
+	QNRResponse struct {
+		ReplyTok []byte // Hash of the QNRRequest packet.
+		Record   qnr.Record
 		// Ignore additional fields (for forward compatibility).
 		Rest []rlp.RawValue `rlp:"tail"`
 	}
@@ -130,8 +130,8 @@ const MaxNeighbors = 12
 type Pubkey [64]byte
 
 // ID returns the node ID corresponding to the public key.
-func (e Pubkey) ID() enode.ID {
-	return enode.ID(crypto.Keccak256Hash(e[:]))
+func (e Pubkey) ID() qnode.ID {
+	return qnode.ID(crypto.Keccak256Hash(e[:]))
 }
 
 // Node represents information about a node.
@@ -179,11 +179,11 @@ func (req *Findnode) Kind() byte   { return FindnodePacket }
 func (req *Neighbors) Name() string { return "NEIGHBORS/v4" }
 func (req *Neighbors) Kind() byte   { return NeighborsPacket }
 
-func (req *ENRRequest) Name() string { return "ENRREQUEST/v4" }
-func (req *ENRRequest) Kind() byte   { return ENRRequestPacket }
+func (req *QNRRequest) Name() string { return "QNRREQUEST/v4" }
+func (req *QNRRequest) Kind() byte   { return QNRRequestPacket }
 
-func (req *ENRResponse) Name() string { return "ENRRESPONSE/v4" }
-func (req *ENRResponse) Kind() byte   { return ENRResponsePacket }
+func (req *QNRResponse) Name() string { return "QNRRESPONSE/v4" }
+func (req *QNRResponse) Kind() byte   { return QNRResponsePacket }
 
 // Expired checks whether the given UNIX time stamp is in the past.
 func Expired(ts uint64) bool {
@@ -231,10 +231,10 @@ func Decode(input []byte) (Packet, Pubkey, []byte, error) {
 		req = new(Findnode)
 	case NeighborsPacket:
 		req = new(Neighbors)
-	case ENRRequestPacket:
-		req = new(ENRRequest)
-	case ENRResponsePacket:
-		req = new(ENRResponse)
+	case QNRRequestPacket:
+		req = new(QNRRequest)
+	case QNRResponsePacket:
+		req = new(QNRResponse)
 	default:
 		return nil, fromKey, hash, fmt.Errorf("unknown type: %d", ptype)
 	}

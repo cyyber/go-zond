@@ -19,7 +19,7 @@ package keystore
 import (
 	"math/big"
 
-	"github.com/theQRL/go-zond"
+	qrl "github.com/theQRL/go-zond"
 	"github.com/theQRL/go-zond/accounts"
 	"github.com/theQRL/go-zond/core/types"
 	"github.com/theQRL/go-zond/crypto"
@@ -77,7 +77,7 @@ func (w *keystoreWallet) Derive(path accounts.DerivationPath, pin bool) (account
 
 // SelfDerive implements accounts.Wallet, but is a noop for plain wallets since
 // there is no notion of hierarchical account derivation for plain keystore accounts.
-func (w *keystoreWallet) SelfDerive(bases []accounts.DerivationPath, chain zond.ChainStateReader) {
+func (w *keystoreWallet) SelfDerive(bases []accounts.DerivationPath, chain qrl.ChainStateReader) {
 }
 
 // signHash attempts to sign the given hash with

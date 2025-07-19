@@ -27,7 +27,7 @@ import (
 
 var (
 	bytesT  = reflect.TypeOf(Bytes(nil))
-	byteszT = reflect.TypeOf(BytesZ(nil))
+	bytesqT = reflect.TypeOf(BytesQ(nil))
 	bigT    = reflect.TypeOf((*Big)(nil))
 	uintT   = reflect.TypeOf(Uint(0))
 	uint64T = reflect.TypeOf(Uint64(0))
@@ -102,11 +102,11 @@ func UnmarshalFixedJSON(typ reflect.Type, input, out []byte) error {
 	return wrapTypeError(UnmarshalFixedText(typ.String(), input[1:len(input)-1], out), typ)
 }
 
-func UnmarshalFixedJSONZ(typ reflect.Type, input, out []byte) error {
+func UnmarshalFixedJSONQ(typ reflect.Type, input, out []byte) error {
 	if !isString(input) {
 		return errNonString(typ)
 	}
-	return wrapTypeError(UnmarshalFixedTextZ(typ.String(), input[1:len(input)-1], out), typ)
+	return wrapTypeError(UnmarshalFixedTextQ(typ.String(), input[1:len(input)-1], out), typ)
 }
 
 // UnmarshalFixedText decodes the input as a string with 0x prefix. The length of out
@@ -130,8 +130,8 @@ func UnmarshalFixedText(typname string, input, out []byte) error {
 	return nil
 }
 
-func UnmarshalFixedTextZ(typname string, input, out []byte) error {
-	raw, err := checkTextZ(input, true)
+func UnmarshalFixedTextQ(typname string, input, out []byte) error {
+	raw, err := checkTextQ(input, true)
 	if err != nil {
 		return err
 	}
@@ -350,29 +350,29 @@ func (b Uint) String() string {
 	return EncodeUint64(uint64(b))
 }
 
-// BytesZ marshals/unmarshals as a JSON string with Z prefix.
-// The empty slice marshals as "Z".
-type BytesZ []byte
+// BytesQ marshals/unmarshals as a JSON string with Q prefix.
+// The empty slice marshals as "Q".
+type BytesQ []byte
 
 // MarshalText implements encoding.TextMarshaler
-func (b BytesZ) MarshalText() ([]byte, error) {
+func (b BytesQ) MarshalText() ([]byte, error) {
 	result := make([]byte, len(b)*2+1)
-	copy(result, PrefixZ)
+	copy(result, PrefixQ)
 	hex.Encode(result[1:], b)
 	return result, nil
 }
 
 // UnmarshalJSON implements json.Unmarshaler.
-func (b *BytesZ) UnmarshalJSON(input []byte) error {
+func (b *BytesQ) UnmarshalJSON(input []byte) error {
 	if !isString(input) {
-		return errNonString(byteszT)
+		return errNonString(bytesqT)
 	}
 	return wrapTypeError(b.UnmarshalText(input[1:len(input)-1]), bytesT)
 }
 
 // UnmarshalText implements encoding.TextUnmarshaler.
-func (b *BytesZ) UnmarshalText(input []byte) error {
-	raw, err := checkTextZ(input, true)
+func (b *BytesQ) UnmarshalText(input []byte) error {
+	raw, err := checkTextQ(input, true)
 	if err != nil {
 		return err
 	}
@@ -386,25 +386,25 @@ func (b *BytesZ) UnmarshalText(input []byte) error {
 }
 
 // String returns the hex encoding of b.
-func (b BytesZ) String() string {
-	return EncodeZ(b)
+func (b BytesQ) String() string {
+	return EncodeQ(b)
 }
 
-// ImplementsGraphQLType returns true if BytesZ implements the specified GraphQL type.
-func (b BytesZ) ImplementsGraphQLType(name string) bool { return name == "BytesZ" }
+// ImplementsGraphQLType returns true if BytesQ implements the specified GraphQL type.
+func (b BytesQ) ImplementsGraphQLType(name string) bool { return name == "BytesQ" }
 
 // UnmarshalGraphQL unmarshals the provided GraphQL query data.
-func (b *BytesZ) UnmarshalGraphQL(input interface{}) error {
+func (b *BytesQ) UnmarshalGraphQL(input interface{}) error {
 	var err error
 	switch input := input.(type) {
 	case string:
-		data, err := DecodeZ(input)
+		data, err := DecodeQ(input)
 		if err != nil {
 			return err
 		}
 		*b = data
 	default:
-		err = fmt.Errorf("unexpected type %T for BytesZ", input)
+		err = fmt.Errorf("unexpected type %T for BytesQ", input)
 	}
 	return err
 }
@@ -417,8 +417,8 @@ func bytesHave0xPrefix(input []byte) bool {
 	return len(input) >= 2 && input[0] == '0' && (input[1] == 'x' || input[1] == 'X')
 }
 
-func bytesHaveZPrefix(input []byte) bool {
-	return len(input) >= 1 && input[0] == 'Z'
+func bytesHaveQPrefix(input []byte) bool {
+	return len(input) >= 1 && input[0] == 'Q'
 }
 
 func checkText(input []byte, wantPrefix bool) ([]byte, error) {
@@ -436,14 +436,14 @@ func checkText(input []byte, wantPrefix bool) ([]byte, error) {
 	return input, nil
 }
 
-func checkTextZ(input []byte, wantPrefix bool) ([]byte, error) {
+func checkTextQ(input []byte, wantPrefix bool) ([]byte, error) {
 	if len(input) == 0 {
 		return nil, nil // empty strings are allowed
 	}
-	if bytesHaveZPrefix(input) {
+	if bytesHaveQPrefix(input) {
 		input = input[1:]
 	} else if wantPrefix {
-		return nil, ErrMissingPrefixZ
+		return nil, ErrMissingPrefixQ
 	}
 	if len(input)%2 != 0 {
 		return nil, ErrOddLength

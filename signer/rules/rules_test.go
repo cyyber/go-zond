@@ -26,7 +26,7 @@ import (
 	"github.com/theQRL/go-zond/common"
 	"github.com/theQRL/go-zond/common/hexutil"
 	"github.com/theQRL/go-zond/core/types"
-	"github.com/theQRL/go-zond/internal/zondapi"
+	"github.com/theQRL/go-zond/internal/qrlapi"
 	"github.com/theQRL/go-zond/signer/core"
 	"github.com/theQRL/go-zond/signer/core/apitypes"
 	"github.com/theQRL/go-zond/signer/storage"
@@ -108,7 +108,7 @@ func (alwaysDenyUI) ShowInfo(message string) {
 	panic("implement me")
 }
 
-func (alwaysDenyUI) OnApprovedTx(tx zondapi.SignTransactionResult) {
+func (alwaysDenyUI) OnApprovedTx(tx qrlapi.SignTransactionResult) {
 	panic("implement me")
 }
 
@@ -158,8 +158,8 @@ func TestSignTxRequest(t *testing.T) {
 		console.log("transaction.to", r.transaction.to);
 		console.log("transaction.value", r.transaction.value);
 		console.log("transaction.nonce", r.transaction.nonce);
-		if(r.transaction.from.toLowerCase()=="z0000000000000000000000000000000000001337"){ return "Approve"}
-		if(r.transaction.from.toLowerCase()=="z000000000000000000000000000000000000dead"){ return "Reject"}
+		if(r.transaction.from.toLowerCase()=="q0000000000000000000000000000000000001337"){ return "Approve"}
+		if(r.transaction.from.toLowerCase()=="q000000000000000000000000000000000000dead"){ return "Reject"}
 	}`
 
 	r, err := initRuleEngine(js)
@@ -167,12 +167,12 @@ func TestSignTxRequest(t *testing.T) {
 		t.Errorf("Couldn't create evaluator %v", err)
 		return
 	}
-	to, err := mixAddr("Z000000000000000000000000000000000000dead")
+	to, err := mixAddr("Q000000000000000000000000000000000000dead")
 	if err != nil {
 		t.Error(err)
 		return
 	}
-	from, err := mixAddr("Z0000000000000000000000000000000000001337")
+	from, err := mixAddr("Q0000000000000000000000000000000000001337")
 
 	if err != nil {
 		t.Error(err)
@@ -235,7 +235,7 @@ func (d *dummyUI) ShowInfo(message string) {
 	d.calls = append(d.calls, "ShowInfo")
 }
 
-func (d *dummyUI) OnApprovedTx(tx zondapi.SignTransactionResult) {
+func (d *dummyUI) OnApprovedTx(tx qrlapi.SignTransactionResult) {
 	d.calls = append(d.calls, "OnApprovedTx")
 }
 
@@ -262,7 +262,7 @@ func TestForwarding(t *testing.T) {
 	r.ShowInfo("test")
 
 	//This one is not forwarded
-	r.OnApprovedTx(zondapi.SignTransactionResult{})
+	r.OnApprovedTx(qrlapi.SignTransactionResult{})
 
 	expCalls := 6
 	if len(ui.calls) != expCalls {
@@ -352,7 +352,7 @@ const ExampleTxWindow = `
 	// Time window: 1 week
 	var window = 1000* 3600*24*7;
 
-	// Limit : 1 zond
+	// Limit : 1 quanta
 	var limit = new BigNumber("1e18");
 
 	function isLimitOk(transaction){
@@ -418,8 +418,8 @@ const ExampleTxWindow = `
 `
 
 func dummyTx(value hexutil.Big) *core.SignTxRequest {
-	to, _ := mixAddr("Z000000000000000000000000000000000000dead")
-	from, _ := mixAddr("Z000000000000000000000000000000000000dead")
+	to, _ := mixAddr("Q000000000000000000000000000000000000dead")
+	from, _ := mixAddr("Q000000000000000000000000000000000000dead")
 	n := hexutil.Uint64(3)
 	gas := hexutil.Uint64(21000)
 	maxFeePerGas := hexutil.Big(*big.NewInt(2000000))
@@ -447,7 +447,7 @@ func dummyTxWithV(value uint64) *core.SignTxRequest {
 }
 
 func dummySigned(value *big.Int) *types.Transaction {
-	to, _ := common.NewAddressFromString("Z000000000000000000000000000000000000dead")
+	to, _ := common.NewAddressFromString("Q000000000000000000000000000000000000dead")
 	gas := uint64(21000)
 	gasFeeCap := big.NewInt(2000000)
 	data := make([]byte, 0)
@@ -467,7 +467,7 @@ func TestLimitWindow(t *testing.T) {
 		t.Errorf("Couldn't create evaluator %v", err)
 		return
 	}
-	// 0.3 zond: 429D069189E0000 planck
+	// 0.3 quanta: 429D069189E0000 planck
 	v := new(big.Int).SetBytes(common.Hex2Bytes("0429D069189E0000"))
 	h := hexutil.Big(*v)
 	// The first three should succeed
@@ -482,7 +482,7 @@ func TestLimitWindow(t *testing.T) {
 		}
 		// Create a dummy signed transaction
 
-		response := zondapi.SignTransactionResult{
+		response := qrlapi.SignTransactionResult{
 			Tx:  dummySigned(v),
 			Raw: common.Hex2Bytes("deadbeef"),
 		}
@@ -539,7 +539,7 @@ func (d *dontCallMe) ShowInfo(message string) {
 	d.t.Fatalf("Did not expect next-handler to be called")
 }
 
-func (d *dontCallMe) OnApprovedTx(tx zondapi.SignTransactionResult) {
+func (d *dontCallMe) OnApprovedTx(tx qrlapi.SignTransactionResult) {
 	d.t.Fatalf("Did not expect next-handler to be called")
 }
 
@@ -582,7 +582,7 @@ func TestSignData(t *testing.T) {
     return "Approve"
 }
 function ApproveSignData(r){
-    if( r.address.toLowerCase() == "z694267f14675d7e1b9494fd8d72fefe1755710fa")
+    if( r.address.toLowerCase() == "q694267f14675d7e1b9494fd8d72fefe1755710fa")
     {
         if(r.messages[0].value.indexOf("bazonk") >= 0){
             return "Approve"
@@ -598,7 +598,7 @@ function ApproveSignData(r){
 	}
 	message := "baz bazonk foo"
 	hash, rawdata := accounts.TextAndHash([]byte(message))
-	addr, _ := mixAddr("Z694267f14675d7e1b9494fd8d72fefe1755710fa")
+	addr, _ := mixAddr("Q694267f14675d7e1b9494fd8d72fefe1755710fa")
 
 	t.Logf("address %v %v\n", addr.String(), addr.Original())
 

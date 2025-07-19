@@ -20,7 +20,7 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/theQRL/go-zond/p2p/enode"
+	"github.com/theQRL/go-zond/p2p/qnode"
 )
 
 var (
@@ -31,7 +31,7 @@ var (
 // to the last node that is up, and avoiding connection to self.
 // It is useful when constructing a chain network topology
 // when Network adds and removes nodes dynamically.
-func (net *Network) ConnectToLastNode(id enode.ID) (err error) {
+func (net *Network) ConnectToLastNode(id qnode.ID) (err error) {
 	net.lock.Lock()
 	defer net.lock.Unlock()
 
@@ -49,7 +49,7 @@ func (net *Network) ConnectToLastNode(id enode.ID) (err error) {
 
 // ConnectToRandomNode connects the node with provided NodeID
 // to a random node that is up.
-func (net *Network) ConnectToRandomNode(id enode.ID) (err error) {
+func (net *Network) ConnectToRandomNode(id qnode.ID) (err error) {
 	net.lock.Lock()
 	defer net.lock.Unlock()
 
@@ -63,7 +63,7 @@ func (net *Network) ConnectToRandomNode(id enode.ID) (err error) {
 // ConnectNodesFull connects all nodes one to another.
 // It provides a complete connectivity in the network
 // which should be rarely needed.
-func (net *Network) ConnectNodesFull(ids []enode.ID) (err error) {
+func (net *Network) ConnectNodesFull(ids []qnode.ID) (err error) {
 	net.lock.Lock()
 	defer net.lock.Unlock()
 
@@ -82,14 +82,14 @@ func (net *Network) ConnectNodesFull(ids []enode.ID) (err error) {
 
 // ConnectNodesChain connects all nodes in a chain topology.
 // If ids argument is nil, all nodes that are up will be connected.
-func (net *Network) ConnectNodesChain(ids []enode.ID) (err error) {
+func (net *Network) ConnectNodesChain(ids []qnode.ID) (err error) {
 	net.lock.Lock()
 	defer net.lock.Unlock()
 
 	return net.connectNodesChain(ids)
 }
 
-func (net *Network) connectNodesChain(ids []enode.ID) (err error) {
+func (net *Network) connectNodesChain(ids []qnode.ID) (err error) {
 	if ids == nil {
 		ids = net.getUpNodeIDs()
 	}
@@ -104,7 +104,7 @@ func (net *Network) connectNodesChain(ids []enode.ID) (err error) {
 
 // ConnectNodesRing connects all nodes in a ring topology.
 // If ids argument is nil, all nodes that are up will be connected.
-func (net *Network) ConnectNodesRing(ids []enode.ID) (err error) {
+func (net *Network) ConnectNodesRing(ids []qnode.ID) (err error) {
 	net.lock.Lock()
 	defer net.lock.Unlock()
 
@@ -123,7 +123,7 @@ func (net *Network) ConnectNodesRing(ids []enode.ID) (err error) {
 
 // ConnectNodesStar connects all nodes into a star topology
 // If ids argument is nil, all nodes that are up will be connected.
-func (net *Network) ConnectNodesStar(ids []enode.ID, center enode.ID) (err error) {
+func (net *Network) ConnectNodesStar(ids []qnode.ID, center qnode.ID) (err error) {
 	net.lock.Lock()
 	defer net.lock.Unlock()
 
@@ -141,7 +141,7 @@ func (net *Network) ConnectNodesStar(ids []enode.ID, center enode.ID) (err error
 	return nil
 }
 
-func (net *Network) connectNotConnected(oneID, otherID enode.ID) error {
+func (net *Network) connectNotConnected(oneID, otherID qnode.ID) error {
 	return ignoreAlreadyConnectedErr(net.connect(oneID, otherID))
 }
 

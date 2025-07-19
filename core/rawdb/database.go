@@ -29,16 +29,16 @@ import (
 	"github.com/olekukonko/tablewriter"
 	"github.com/theQRL/go-zond/common"
 	"github.com/theQRL/go-zond/log"
-	"github.com/theQRL/go-zond/zonddb"
-	"github.com/theQRL/go-zond/zonddb/leveldb"
-	"github.com/theQRL/go-zond/zonddb/memorydb"
+	"github.com/theQRL/go-zond/qrldb"
+	"github.com/theQRL/go-zond/qrldb/leveldb"
+	"github.com/theQRL/go-zond/qrldb/memorydb"
 )
 
 // freezerdb is a database wrapper that enabled freezer data retrievals.
 type freezerdb struct {
 	ancientRoot string
-	zonddb.KeyValueStore
-	zonddb.AncientStore
+	qrldb.KeyValueStore
+	qrldb.AncientStore
 }
 
 // AncientDatadir returns the path of root ancient directory.
@@ -84,7 +84,7 @@ func (frdb *freezerdb) Freeze(threshold uint64) error {
 
 // nofreezedb is a database wrapper that disables freezer data retrievals.
 type nofreezedb struct {
-	zonddb.KeyValueStore
+	qrldb.KeyValueStore
 }
 
 // HasAncient returns an error as we don't have a backing chain freezer.
@@ -118,7 +118,7 @@ func (db *nofreezedb) AncientSize(kind string) (uint64, error) {
 }
 
 // ModifyAncients is not supported.
-func (db *nofreezedb) ModifyAncients(func(zonddb.AncientWriteOp) error) (int64, error) {
+func (db *nofreezedb) ModifyAncients(func(qrldb.AncientWriteOp) error) (int64, error) {
 	return 0, errNotSupported
 }
 
@@ -137,7 +137,7 @@ func (db *nofreezedb) Sync() error {
 	return errNotSupported
 }
 
-func (db *nofreezedb) ReadAncients(fn func(reader zonddb.AncientReaderOp) error) (err error) {
+func (db *nofreezedb) ReadAncients(fn func(reader qrldb.AncientReaderOp) error) (err error) {
 	// Unlike other ancient-related methods, this method does not return
 	// errNotSupported when invoked.
 	// The reason for this is that the caller might want to do several things:
@@ -166,7 +166,7 @@ func (db *nofreezedb) AncientDatadir() (string, error) {
 
 // NewDatabase creates a high level database on top of a given key-value data
 // store without a freezer moving immutable chain segments into cold storage.
-func NewDatabase(db zonddb.KeyValueStore) zonddb.Database {
+func NewDatabase(db qrldb.KeyValueStore) qrldb.Database {
 	return &nofreezedb{KeyValueStore: db}
 }
 
@@ -197,7 +197,7 @@ func resolveChainFreezerDir(ancient string) string {
 // value data store with a freezer moving immutable chain segments into cold
 // storage. The passed ancient indicates the path of root ancient directory
 // where the chain freezer can be opened.
-func NewDatabaseWithFreezer(db zonddb.KeyValueStore, ancient string, namespace string, readonly bool) (zonddb.Database, error) {
+func NewDatabaseWithFreezer(db qrldb.KeyValueStore, ancient string, namespace string, readonly bool) (qrldb.Database, error) {
 	// Create the idle freezer instance
 	frdb, err := newChainFreezer(resolveChainFreezerDir(ancient), namespace, readonly)
 	if err != nil {
@@ -299,20 +299,20 @@ func NewDatabaseWithFreezer(db zonddb.KeyValueStore, ancient string, namespace s
 
 // NewMemoryDatabase creates an ephemeral in-memory key-value database without a
 // freezer moving immutable chain segments into cold storage.
-func NewMemoryDatabase() zonddb.Database {
+func NewMemoryDatabase() qrldb.Database {
 	return NewDatabase(memorydb.New())
 }
 
 // NewMemoryDatabaseWithCap creates an ephemeral in-memory key-value database
 // with an initial starting capacity, but without a freezer moving immutable
 // chain segments into cold storage.
-func NewMemoryDatabaseWithCap(size int) zonddb.Database {
+func NewMemoryDatabaseWithCap(size int) qrldb.Database {
 	return NewDatabase(memorydb.NewWithCap(size))
 }
 
 // NewLevelDBDatabase creates a persistent key-value database without a freezer
 // moving immutable chain segments into cold storage.
-func NewLevelDBDatabase(file string, cache int, handles int, namespace string, readonly bool) (zonddb.Database, error) {
+func NewLevelDBDatabase(file string, cache int, handles int, namespace string, readonly bool) (qrldb.Database, error) {
 	db, err := leveldb.New(file, cache, handles, namespace, readonly)
 	if err != nil {
 		return nil, err
@@ -363,7 +363,7 @@ type OpenOptions struct {
 //	                   +----------------------------------------
 //	db is non-existent |  pebble default  |  specified type
 //	db is existent     |  from db         |  specified type (if compatible)
-func openKeyValueDatabase(o OpenOptions) (zonddb.Database, error) {
+func openKeyValueDatabase(o OpenOptions) (qrldb.Database, error) {
 	// Reject any unsupported database type
 	if len(o.Type) != 0 && o.Type != dbLeveldb && o.Type != dbPebble {
 		return nil, fmt.Errorf("unknown db.engine %v", o.Type)
@@ -402,7 +402,7 @@ func openKeyValueDatabase(o OpenOptions) (zonddb.Database, error) {
 // set on the provided OpenOptions.
 // The passed o.AncientDir indicates the path of root ancient directory where
 // the chain freezer can be opened.
-func Open(o OpenOptions) (zonddb.Database, error) {
+func Open(o OpenOptions) (qrldb.Database, error) {
 	kvdb, err := openKeyValueDatabase(o)
 	if err != nil {
 		return nil, err
@@ -450,7 +450,7 @@ func (s *stat) Count() string {
 
 // InspectDatabase traverses the entire database and checks the size
 // of all different categories of data.
-func InspectDatabase(db zonddb.Database, keyPrefix, keyStart []byte) error {
+func InspectDatabase(db qrldb.Database, keyPrefix, keyStart []byte) error {
 	it := db.NewIterator(keyPrefix, keyStart)
 	defer it.Release()
 
@@ -548,7 +548,7 @@ func InspectDatabase(db zonddb.Database, keyPrefix, keyStart []byte) error {
 				databaseVersionKey, headHeaderKey, headBlockKey, headFastBlockKey, headFinalizedBlockKey,
 				lastPivotKey, fastTrieProgressKey, snapshotDisabledKey, SnapshotRootKey, snapshotJournalKey,
 				snapshotGeneratorKey, snapshotRecoveryKey, txIndexTailKey, fastTxLookupLimitKey,
-				uncleanShutdownKey, badBlockKey, transitionStatusKey, skeletonSyncStatusKey,
+				uncleanShutdownKey, badBlockKey, skeletonSyncStatusKey,
 				persistentStateIDKey, trieJournalKey, snapshotSyncStatusKey,
 			} {
 				if bytes.Equal(key, meta) {
@@ -618,7 +618,7 @@ func InspectDatabase(db zonddb.Database, keyPrefix, keyStart []byte) error {
 }
 
 // printChainMetadata prints out chain metadata to stderr.
-func printChainMetadata(db zonddb.KeyValueStore) {
+func printChainMetadata(db qrldb.KeyValueStore) {
 	fmt.Fprintf(os.Stderr, "Chain metadata\n")
 	for _, v := range ReadChainMetadata(db) {
 		fmt.Fprintf(os.Stderr, "  %s\n", strings.Join(v, ": "))
@@ -629,7 +629,7 @@ func printChainMetadata(db zonddb.KeyValueStore) {
 // ReadChainMetadata returns a set of key/value pairs that contains informatin
 // about the database chain status. This can be used for diagnostic purposes
 // when investigating the state of the node.
-func ReadChainMetadata(db zonddb.KeyValueStore) [][]string {
+func ReadChainMetadata(db qrldb.KeyValueStore) [][]string {
 	pp := func(val *uint64) string {
 		if val == nil {
 			return "<nil>"

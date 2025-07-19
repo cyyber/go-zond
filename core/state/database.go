@@ -25,9 +25,9 @@ import (
 	"github.com/theQRL/go-zond/core/rawdb"
 	"github.com/theQRL/go-zond/core/types"
 	"github.com/theQRL/go-zond/crypto"
+	"github.com/theQRL/go-zond/qrldb"
 	"github.com/theQRL/go-zond/trie"
 	"github.com/theQRL/go-zond/trie/trienode"
-	"github.com/theQRL/go-zond/zonddb"
 )
 
 const (
@@ -56,13 +56,13 @@ type Database interface {
 	ContractCodeSize(addr common.Address, codeHash common.Hash) (int, error)
 
 	// DiskDB returns the underlying key-value disk database.
-	DiskDB() zonddb.KeyValueStore
+	DiskDB() qrldb.KeyValueStore
 
 	// TrieDB returns the underlying trie database for managing trie nodes.
 	TrieDB() *trie.Database
 }
 
-// Trie is a Ethereum Merkle Patricia trie.
+// Trie is a QRL Merkle Patricia trie.
 type Trie interface {
 	// GetKey returns the sha3 preimage of a hashed key that was previously used
 	// to store a value.
@@ -129,20 +129,20 @@ type Trie interface {
 	// If the trie does not contain a value for key, the returned proof contains all
 	// nodes of the longest existing prefix of the key (at least the root), ending
 	// with the node that proves the absence of the key.
-	Prove(key []byte, proofDb zonddb.KeyValueWriter) error
+	Prove(key []byte, proofDb qrldb.KeyValueWriter) error
 }
 
 // NewDatabase creates a backing store for state. The returned database is safe for
 // concurrent use, but does not retain any recent trie nodes in memory. To keep some
 // historical state in memory, use the NewDatabaseWithConfig constructor.
-func NewDatabase(db zonddb.Database) Database {
+func NewDatabase(db qrldb.Database) Database {
 	return NewDatabaseWithConfig(db, nil)
 }
 
 // NewDatabaseWithConfig creates a backing store for state. The returned database
 // is safe for concurrent use and retains a lot of collapsed RLP trie nodes in a
 // large memory cache.
-func NewDatabaseWithConfig(db zonddb.Database, config *trie.Config) Database {
+func NewDatabaseWithConfig(db qrldb.Database, config *trie.Config) Database {
 	return &cachingDB{
 		disk:          db,
 		codeSizeCache: lru.NewCache[common.Hash, int](codeSizeCacheSize),
@@ -152,7 +152,7 @@ func NewDatabaseWithConfig(db zonddb.Database, config *trie.Config) Database {
 }
 
 // NewDatabaseWithNodeDB creates a state database with an already initialized node database.
-func NewDatabaseWithNodeDB(db zonddb.Database, triedb *trie.Database) Database {
+func NewDatabaseWithNodeDB(db qrldb.Database, triedb *trie.Database) Database {
 	return &cachingDB{
 		disk:          db,
 		codeSizeCache: lru.NewCache[common.Hash, int](codeSizeCacheSize),
@@ -162,7 +162,7 @@ func NewDatabaseWithNodeDB(db zonddb.Database, triedb *trie.Database) Database {
 }
 
 type cachingDB struct {
-	disk          zonddb.KeyValueStore
+	disk          qrldb.KeyValueStore
 	codeSizeCache *lru.Cache[common.Hash, int]
 	codeCache     *lru.SizeConstrainedCache[common.Hash, []byte]
 	triedb        *trie.Database
@@ -238,7 +238,7 @@ func (db *cachingDB) ContractCodeSize(addr common.Address, codeHash common.Hash)
 }
 
 // DiskDB returns the underlying key-value disk database.
-func (db *cachingDB) DiskDB() zonddb.KeyValueStore {
+func (db *cachingDB) DiskDB() qrldb.KeyValueStore {
 	return db.disk
 }
 

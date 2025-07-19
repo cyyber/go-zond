@@ -27,7 +27,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/theQRL/go-zond"
+	qrl "github.com/theQRL/go-zond"
 	"github.com/theQRL/go-zond/accounts/abi"
 	"github.com/theQRL/go-zond/accounts/abi/bind"
 	"github.com/theQRL/go-zond/common"
@@ -55,8 +55,8 @@ func TestSimulatedBackend(t *testing.T) {
 	if isPending {
 		t.Fatal("transaction should not be pending")
 	}
-	if err != zond.NotFound {
-		t.Fatalf("err should be `zond.NotFound` but received %v", err)
+	if err != qrl.NotFound {
+		t.Fatalf("err should be `qrl.NotFound` but received %v", err)
 	}
 
 	// generate a transaction and confirm you can retrieve it
@@ -480,7 +480,7 @@ func TestEstimateGas(t *testing.T) {
 	var addr common.Address = key.GetAddress()
 	opts, _ := bind.NewKeyedTransactorWithChainID(key, big.NewInt(1337))
 
-	sim := NewSimulatedBackend(core.GenesisAlloc{addr: {Balance: big.NewInt(params.Zond)}}, 10000000)
+	sim := NewSimulatedBackend(core.GenesisAlloc{addr: {Balance: big.NewInt(params.Quanta)}}, 10000000)
 	defer sim.Close()
 
 	parsed, _ := abi.JSON(strings.NewReader(contractAbi))
@@ -489,12 +489,12 @@ func TestEstimateGas(t *testing.T) {
 
 	var cases = []struct {
 		name        string
-		message     zond.CallMsg
+		message     qrl.CallMsg
 		expect      uint64
 		expectError error
 		expectData  interface{}
 	}{
-		{"plain transfer(valid)", zond.CallMsg{
+		{"plain transfer(valid)", qrl.CallMsg{
 			From:      addr,
 			To:        &addr,
 			Gas:       0,
@@ -503,7 +503,7 @@ func TestEstimateGas(t *testing.T) {
 			Data:      nil,
 		}, params.TxGas, nil, nil},
 
-		{"plain transfer(invalid)", zond.CallMsg{
+		{"plain transfer(invalid)", qrl.CallMsg{
 			From:      addr,
 			To:        &contractAddr,
 			Gas:       0,
@@ -512,7 +512,7 @@ func TestEstimateGas(t *testing.T) {
 			Data:      nil,
 		}, 0, errors.New("execution reverted"), nil},
 
-		{"Revert", zond.CallMsg{
+		{"Revert", qrl.CallMsg{
 			From:      addr,
 			To:        &contractAddr,
 			Gas:       0,
@@ -521,7 +521,7 @@ func TestEstimateGas(t *testing.T) {
 			Data:      common.Hex2Bytes("d8b98391"),
 		}, 0, errors.New("execution reverted: revert reason"), "0x08c379a00000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000d72657665727420726561736f6e00000000000000000000000000000000000000"},
 
-		{"PureRevert", zond.CallMsg{
+		{"PureRevert", qrl.CallMsg{
 			From:      addr,
 			To:        &contractAddr,
 			Gas:       0,
@@ -530,7 +530,7 @@ func TestEstimateGas(t *testing.T) {
 			Data:      common.Hex2Bytes("aa8b1d30"),
 		}, 0, errors.New("execution reverted"), nil},
 
-		{"OOG", zond.CallMsg{
+		{"OOG", qrl.CallMsg{
 			From:      addr,
 			To:        &contractAddr,
 			Gas:       100000,
@@ -539,7 +539,7 @@ func TestEstimateGas(t *testing.T) {
 			Data:      common.Hex2Bytes("50f6fe34"),
 		}, 0, errors.New("gas required exceeds allowance (100000)"), nil},
 
-		{"Assert", zond.CallMsg{
+		{"Assert", qrl.CallMsg{
 			From:      addr,
 			To:        &contractAddr,
 			Gas:       100000,
@@ -548,7 +548,7 @@ func TestEstimateGas(t *testing.T) {
 			Data:      common.Hex2Bytes("b9b046f9"),
 		}, 0, errors.New("invalid opcode: INVALID"), nil},
 
-		{"Valid", zond.CallMsg{
+		{"Valid", qrl.CallMsg{
 			From:      addr,
 			To:        &contractAddr,
 			Gas:       100000,
@@ -585,17 +585,17 @@ func TestEstimateGasWithPrice(t *testing.T) {
 	key, _ := crypto.GenerateKey()
 	addr := crypto.PubkeyToAddress(key.PublicKey)
 
-	sim := NewSimulatedBackend(core.GenesisAlloc{addr: {Balance: big.NewInt(params.Zond*2 + 2e17)}}, 10000000)
+	sim := NewSimulatedBackend(core.GenesisAlloc{addr: {Balance: big.NewInt(params.Quanta*2 + 2e17)}}, 10000000)
 	defer sim.Close()
 
-	recipient, _ := common.NewAddressFromString("Z00000000000000000000000000000000deadbeef")
+	recipient, _ := common.NewAddressFromString("Q00000000000000000000000000000000deadbeef")
 	var cases = []struct {
 		name        string
-		message     zond.CallMsg
+		message     qrl.CallMsg
 		expect      uint64
 		expectError error
 	}{
-		{"EstimateWithoutPrice", zond.CallMsg{
+		{"EstimateWithoutPrice", qrl.CallMsg{
 			From:      addr,
 			To:        &recipient,
 			Gas:       0,
@@ -604,7 +604,7 @@ func TestEstimateGasWithPrice(t *testing.T) {
 			Data:      nil,
 		}, 21000, nil},
 
-		{"EstimateWithPrice", zond.CallMsg{
+		{"EstimateWithPrice", qrl.CallMsg{
 			From:      addr,
 			To:        &recipient,
 			Gas:       0,
@@ -613,43 +613,43 @@ func TestEstimateGasWithPrice(t *testing.T) {
 			Data:      nil,
 		}, 21000, nil},
 
-		{"EstimateWithVeryHighPrice", zond.CallMsg{
+		{"EstimateWithVeryHighPrice", qrl.CallMsg{
 			From:      addr,
 			To:        &recipient,
 			Gas:       0,
-			GasFeeCap: big.NewInt(1e14), // gascost = 2.1zond
-			Value:     big.NewInt(1e17), // the remaining balance for fee is 2.1zond
+			GasFeeCap: big.NewInt(1e14), // gascost = 2.1quanta
+			Value:     big.NewInt(1e17), // the remaining balance for fee is 2.1quanta
 			Data:      nil,
 		}, 21000, nil},
 
-		{"EstimateWithSuperhighPrice", zond.CallMsg{
+		{"EstimateWithSuperhighPrice", qrl.CallMsg{
 			From:      addr,
 			To:        &recipient,
 			Gas:       0,
-			GasFeeCap: big.NewInt(2e14), // gascost = 4.2zond,
+			GasFeeCap: big.NewInt(2e14), // gascost = 4.2quanta,
 			Value:     big.NewInt(100000000000),
 			Data:      nil,
-		}, 21000, errors.New("gas required exceeds allowance (10999)")}, // 10999=(2.2zond-1000planck)/(2e14)
+		}, 21000, errors.New("gas required exceeds allowance (10999)")}, // 10999=(2.2quanta-1000planck)/(2e14)
 
-		{"EstimateEIP1559WithHighFees", zond.CallMsg{
+		{"EstimateEIP1559WithHighFees", qrl.CallMsg{
 			From:      addr,
 			To:        &addr,
 			Gas:       0,
-			GasFeeCap: big.NewInt(1e14), // maxgascost = 2.1zond
+			GasFeeCap: big.NewInt(1e14), // maxgascost = 2.1quanta
 			GasTipCap: big.NewInt(1),
-			Value:     big.NewInt(1e17), // the remaining balance for fee is 2.1zond
+			Value:     big.NewInt(1e17), // the remaining balance for fee is 2.1quanta
 			Data:      nil,
 		}, params.TxGas, nil},
 
-		{"EstimateEIP1559WithSuperHighFees", zond.CallMsg{
+		{"EstimateEIP1559WithSuperHighFees", qrl.CallMsg{
 			From:      addr,
 			To:        &addr,
 			Gas:       0,
-			GasFeeCap: big.NewInt(1e14), // maxgascost = 2.1zond
+			GasFeeCap: big.NewInt(1e14), // maxgascost = 2.1quanta
 			GasTipCap: big.NewInt(1),
-			Value:     big.NewInt(1e17 + 1), // the remaining balance for fee is 2.1zond
+			Value:     big.NewInt(1e17 + 1), // the remaining balance for fee is 2.1quanta
 			Data:      nil,
-		}, params.TxGas, errors.New("gas required exceeds allowance (20999)")}, // 20999=(2.2zond-0.1zond-1planck)/(1e14)
+		}, params.TxGas, errors.New("gas required exceeds allowance (20999)")}, // 20999=(2.2quanta-0.1quanta-1planck)/(1e14)
 	}
 	for i, c := range cases {
 		got, err := sim.EstimateGas(context.Background(), c.message)
@@ -1078,7 +1078,7 @@ func TestCodeAt(t *testing.T) {
 	}
 }
 
-// When receive("X") is called with sender Z00... and value 1, it produces this tx receipt:
+// When receive("X") is called with sender Q00... and value 1, it produces this tx receipt:
 //
 //	receipt{status=1 cgas=23949 bloom=00000000004000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000040200000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000080000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000 logs=[log: b6818c8064f645cd82d99b59a1a267d6d61117ef [75fd880d39c1daf53b6547ab6cb59451fc6452d27caa90e5b6649dd8293b9eed] 000000000000000000000000376c47978271565f56deb45495afa69e59c16ab200000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000060000000000000000000000000000000000000000000000000000000000000000158 9ae378b6d4409eada347a5dc0c180f186cb62dc68fcc0f043425eb917335aa28 0 95d429d309bb9d753954195fe2d69bd140b4ae731b9b5b605c34323de162cf00 0]}
 func TestPendingAndCallContract(t *testing.T) {
@@ -1103,7 +1103,7 @@ func TestPendingAndCallContract(t *testing.T) {
 	}
 
 	// make sure you can call the contract in pending state
-	res, err := sim.PendingCallContract(bgCtx, zond.CallMsg{
+	res, err := sim.PendingCallContract(bgCtx, qrl.CallMsg{
 		From: testAddr,
 		To:   &addr,
 		Data: input,
@@ -1123,7 +1123,7 @@ func TestPendingAndCallContract(t *testing.T) {
 	sim.Commit()
 
 	// make sure you can call the contract
-	res, err = sim.CallContract(bgCtx, zond.CallMsg{
+	res, err = sim.CallContract(bgCtx, qrl.CallMsg{
 		From: testAddr,
 		To:   &addr,
 		Data: input,
@@ -1191,14 +1191,14 @@ func TestCallContractRevert(t *testing.T) {
 
 	call := make([]func([]byte) ([]byte, error), 2)
 	call[0] = func(input []byte) ([]byte, error) {
-		return sim.PendingCallContract(bgCtx, zond.CallMsg{
+		return sim.PendingCallContract(bgCtx, qrl.CallMsg{
 			From: testAddr,
 			To:   &addr,
 			Data: input,
 		})
 	}
 	call[1] = func(input []byte) ([]byte, error) {
-		return sim.CallContract(bgCtx, zond.CallMsg{
+		return sim.CallContract(bgCtx, qrl.CallMsg{
 			From: testAddr,
 			To:   &addr,
 			Data: input,

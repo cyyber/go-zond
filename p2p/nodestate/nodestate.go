@@ -26,10 +26,10 @@ import (
 	"github.com/theQRL/go-zond/common/mclock"
 	"github.com/theQRL/go-zond/log"
 	"github.com/theQRL/go-zond/metrics"
-	"github.com/theQRL/go-zond/p2p/enode"
-	"github.com/theQRL/go-zond/p2p/enr"
+	"github.com/theQRL/go-zond/p2p/qnode"
+	"github.com/theQRL/go-zond/p2p/qnr"
+	"github.com/theQRL/go-zond/qrldb"
 	"github.com/theQRL/go-zond/rlp"
-	"github.com/theQRL/go-zond/zonddb"
 )
 
 var (
@@ -65,9 +65,9 @@ type (
 		started, closed     bool
 		lock                sync.Mutex
 		clock               mclock.Clock
-		db                  zonddb.KeyValueStore
+		db                  qrldb.KeyValueStore
 		dbNodeKey           []byte
-		nodes               map[enode.ID]*nodeInfo
+		nodes               map[qnode.ID]*nodeInfo
 		offlineCallbackList []offlineCallback
 		opFlag              bool       // an operation has started
 		opWait              *sync.Cond // signaled when the operation ends
@@ -132,15 +132,15 @@ type (
 	// state flags that is included in the subscription state mask is changed.
 	// Note: oldState and newState are also masked with the subscription mask so only
 	// the relevant bits are included.
-	StateCallback func(n *enode.Node, oldState, newState Flags)
+	StateCallback func(n *qnode.Node, oldState, newState Flags)
 
 	// FieldCallback is a subscription callback which is called when the value of
 	// a specific field is changed.
-	FieldCallback func(n *enode.Node, state Flags, oldValue, newValue interface{})
+	FieldCallback func(n *qnode.Node, state Flags, oldValue, newValue interface{})
 
 	// nodeInfo contains node state, fields and state timeouts
 	nodeInfo struct {
-		node       *enode.Node
+		node       *qnode.Node
 		state      bitMask
 		timeouts   []*nodeStateTimeout
 		fields     []interface{}
@@ -149,7 +149,7 @@ type (
 	}
 
 	nodeInfoEnc struct {
-		Enr     enr.Record
+		Qnr     qnr.Record
 		Version uint
 		State   bitMask
 		Fields  [][]byte
@@ -317,7 +317,7 @@ func (f Flags) String() string {
 // NewNodeStateMachine creates a new node state machine.
 // If db is not nil then the node states, fields and active timeouts are persisted.
 // Persistence can be enabled or disabled for each state flag and field.
-func NewNodeStateMachine(db zonddb.KeyValueStore, dbKey []byte, clock mclock.Clock, setup *Setup) *NodeStateMachine {
+func NewNodeStateMachine(db qrldb.KeyValueStore, dbKey []byte, clock mclock.Clock, setup *Setup) *NodeStateMachine {
 	if setup.flags == nil {
 		panic("No state flags defined")
 	}
@@ -329,7 +329,7 @@ func NewNodeStateMachine(db zonddb.KeyValueStore, dbKey []byte, clock mclock.Clo
 		dbNodeKey: dbKey,
 		clock:     clock,
 		setup:     setup,
-		nodes:     make(map[enode.ID]*nodeInfo),
+		nodes:     make(map[qnode.ID]*nodeInfo),
 		fields:    make([]*fieldInfo, len(setup.fields)),
 	}
 	ns.opWait = sync.NewCond(&ns.lock)
@@ -402,7 +402,7 @@ func (ns *NodeStateMachine) SubscribeField(field Field, callback FieldCallback) 
 }
 
 // newNode creates a new nodeInfo
-func (ns *NodeStateMachine) newNode(n *enode.Node) *nodeInfo {
+func (ns *NodeStateMachine) newNode(n *qnode.Node) *nodeInfo {
 	return &nodeInfo{node: n, fields: make([]interface{}, len(ns.fields))}
 }
 
@@ -457,7 +457,7 @@ func (ns *NodeStateMachine) Stop() {
 func (ns *NodeStateMachine) loadFromDb() {
 	it := ns.db.NewIterator(ns.dbNodeKey, nil)
 	for it.Next() {
-		var id enode.ID
+		var id qnode.ID
 		if len(it.Key()) != len(ns.dbNodeKey)+len(id) {
 			log.Error("Node state db entry with invalid length", "found", len(it.Key()), "expected", len(ns.dbNodeKey)+len(id))
 			continue
@@ -467,19 +467,19 @@ func (ns *NodeStateMachine) loadFromDb() {
 	}
 }
 
-type dummyIdentity enode.ID
+type dummyIdentity qnode.ID
 
-func (id dummyIdentity) Verify(r *enr.Record, sig []byte) error { return nil }
-func (id dummyIdentity) NodeAddr(r *enr.Record) []byte          { return id[:] }
+func (id dummyIdentity) Verify(r *qnr.Record, sig []byte) error { return nil }
+func (id dummyIdentity) NodeAddr(r *qnr.Record) []byte          { return id[:] }
 
 // decodeNode decodes a node database entry and adds it to the node set if successful
-func (ns *NodeStateMachine) decodeNode(id enode.ID, data []byte) {
+func (ns *NodeStateMachine) decodeNode(id qnode.ID, data []byte) {
 	var enc nodeInfoEnc
 	if err := rlp.DecodeBytes(data, &enc); err != nil {
 		log.Error("Failed to decode node info", "id", id, "error", err)
 		return
 	}
-	n, _ := enode.New(dummyIdentity(id), &enc.Enr)
+	n, _ := qnode.New(dummyIdentity(id), &enc.Qnr)
 	node := ns.newNode(n)
 	node.db = true
 
@@ -520,7 +520,7 @@ func (ns *NodeStateMachine) decodeNode(id enode.ID, data []byte) {
 }
 
 // saveNode saves the given node info to the database
-func (ns *NodeStateMachine) saveNode(id enode.ID, node *nodeInfo) error {
+func (ns *NodeStateMachine) saveNode(id qnode.ID, node *nodeInfo) error {
 	if ns.db == nil {
 		return nil
 	}
@@ -530,7 +530,7 @@ func (ns *NodeStateMachine) saveNode(id enode.ID, node *nodeInfo) error {
 		storedState &= ^t.mask
 	}
 	enc := nodeInfoEnc{
-		Enr:     *node.node.Record(),
+		Qnr:     *node.node.Record(),
 		Version: ns.setup.Version,
 		State:   storedState,
 		Fields:  make([][]byte, len(ns.fields)),
@@ -577,7 +577,7 @@ func (ns *NodeStateMachine) saveNode(id enode.ID, node *nodeInfo) error {
 }
 
 // deleteNode removes a node info from the database
-func (ns *NodeStateMachine) deleteNode(id enode.ID) {
+func (ns *NodeStateMachine) deleteNode(id qnode.ID) {
 	ns.db.Delete(append(ns.dbNodeKey, id[:]...))
 }
 
@@ -593,8 +593,8 @@ func (ns *NodeStateMachine) saveToDb() {
 	}
 }
 
-// updateEnode updates the enode entry belonging to the given node if it already exists
-func (ns *NodeStateMachine) updateEnode(n *enode.Node) (enode.ID, *nodeInfo) {
+// updateQnode updates the qnode entry belonging to the given node if it already exists
+func (ns *NodeStateMachine) updateQnode(n *qnode.Node) (qnode.ID, *nodeInfo) {
 	id := n.ID()
 	node := ns.nodes[id]
 	if node != nil && n.Seq() > node.node.Seq() {
@@ -605,12 +605,12 @@ func (ns *NodeStateMachine) updateEnode(n *enode.Node) (enode.ID, *nodeInfo) {
 }
 
 // Persist saves the persistent state and fields of the given node immediately
-func (ns *NodeStateMachine) Persist(n *enode.Node) error {
+func (ns *NodeStateMachine) Persist(n *qnode.Node) error {
 	ns.lock.Lock()
 	defer ns.lock.Unlock()
 
 	ns.checkStarted()
-	if id, node := ns.updateEnode(n); node != nil && node.dirty {
+	if id, node := ns.updateQnode(n); node != nil && node.dirty {
 		err := ns.saveNode(id, node)
 		if err != nil {
 			log.Error("Failed to save node", "id", id, "error", err)
@@ -622,7 +622,7 @@ func (ns *NodeStateMachine) Persist(n *enode.Node) error {
 
 // SetState updates the given node state flags and blocks until the operation is finished.
 // If a flag with a timeout is set again, the operation removes or replaces the existing timeout.
-func (ns *NodeStateMachine) SetState(n *enode.Node, setFlags, resetFlags Flags, timeout time.Duration) error {
+func (ns *NodeStateMachine) SetState(n *qnode.Node, setFlags, resetFlags Flags, timeout time.Duration) error {
 	ns.lock.Lock()
 	defer ns.lock.Unlock()
 
@@ -636,7 +636,7 @@ func (ns *NodeStateMachine) SetState(n *enode.Node, setFlags, resetFlags Flags, 
 
 // SetStateSub updates the given node state flags without blocking (should be called
 // from a subscription/operation callback).
-func (ns *NodeStateMachine) SetStateSub(n *enode.Node, setFlags, resetFlags Flags, timeout time.Duration) {
+func (ns *NodeStateMachine) SetStateSub(n *qnode.Node, setFlags, resetFlags Flags, timeout time.Duration) {
 	ns.lock.Lock()
 	defer ns.lock.Unlock()
 
@@ -644,10 +644,10 @@ func (ns *NodeStateMachine) SetStateSub(n *enode.Node, setFlags, resetFlags Flag
 	ns.setState(n, setFlags, resetFlags, timeout)
 }
 
-func (ns *NodeStateMachine) setState(n *enode.Node, setFlags, resetFlags Flags, timeout time.Duration) {
+func (ns *NodeStateMachine) setState(n *qnode.Node, setFlags, resetFlags Flags, timeout time.Duration) {
 	ns.checkStarted()
 	set, reset := ns.stateMask(setFlags), ns.stateMask(resetFlags)
-	id, node := ns.updateEnode(n)
+	id, node := ns.updateQnode(n)
 	if node == nil {
 		if set == 0 {
 			return
@@ -783,7 +783,7 @@ func (ns *NodeStateMachine) offlineCallbacks(start bool) {
 
 // AddTimeout adds a node state timeout associated to the given state flag(s).
 // After the specified time interval, the relevant states will be reset.
-func (ns *NodeStateMachine) AddTimeout(n *enode.Node, flags Flags, timeout time.Duration) error {
+func (ns *NodeStateMachine) AddTimeout(n *qnode.Node, flags Flags, timeout time.Duration) error {
 	ns.lock.Lock()
 	defer ns.lock.Unlock()
 
@@ -796,8 +796,8 @@ func (ns *NodeStateMachine) AddTimeout(n *enode.Node, flags Flags, timeout time.
 }
 
 // addTimeout adds a node state timeout associated to the given state flag(s).
-func (ns *NodeStateMachine) addTimeout(n *enode.Node, mask bitMask, timeout time.Duration) {
-	_, node := ns.updateEnode(n)
+func (ns *NodeStateMachine) addTimeout(n *qnode.Node, mask bitMask, timeout time.Duration) {
+	_, node := ns.updateQnode(n)
 	if node == nil {
 		return
 	}
@@ -851,7 +851,7 @@ func (ns *NodeStateMachine) removeTimeouts(node *nodeInfo, mask bitMask) {
 // GetField retrieves the given field of the given node. Note that when used in a
 // subscription callback the result can be out of sync with the state change represented
 // by the callback parameters so extra safety checks might be necessary.
-func (ns *NodeStateMachine) GetField(n *enode.Node, field Field) interface{} {
+func (ns *NodeStateMachine) GetField(n *qnode.Node, field Field) interface{} {
 	ns.lock.Lock()
 	defer ns.lock.Unlock()
 
@@ -859,7 +859,7 @@ func (ns *NodeStateMachine) GetField(n *enode.Node, field Field) interface{} {
 	if ns.closed {
 		return nil
 	}
-	if _, node := ns.updateEnode(n); node != nil {
+	if _, node := ns.updateQnode(n); node != nil {
 		return node.fields[ns.fieldIndex(field)]
 	}
 	return nil
@@ -868,7 +868,7 @@ func (ns *NodeStateMachine) GetField(n *enode.Node, field Field) interface{} {
 // GetState retrieves the current state of the given node. Note that when used in a
 // subscription callback the result can be out of sync with the state change represented
 // by the callback parameters so extra safety checks might be necessary.
-func (ns *NodeStateMachine) GetState(n *enode.Node) Flags {
+func (ns *NodeStateMachine) GetState(n *qnode.Node) Flags {
 	ns.lock.Lock()
 	defer ns.lock.Unlock()
 
@@ -876,14 +876,14 @@ func (ns *NodeStateMachine) GetState(n *enode.Node) Flags {
 	if ns.closed {
 		return Flags{}
 	}
-	if _, node := ns.updateEnode(n); node != nil {
+	if _, node := ns.updateQnode(n); node != nil {
 		return Flags{mask: node.state, setup: ns.setup}
 	}
 	return Flags{}
 }
 
 // SetField sets the given field of the given node and blocks until the operation is finished
-func (ns *NodeStateMachine) SetField(n *enode.Node, field Field, value interface{}) error {
+func (ns *NodeStateMachine) SetField(n *qnode.Node, field Field, value interface{}) error {
 	ns.lock.Lock()
 	defer ns.lock.Unlock()
 
@@ -897,7 +897,7 @@ func (ns *NodeStateMachine) SetField(n *enode.Node, field Field, value interface
 
 // SetFieldSub sets the given field of the given node without blocking (should be called
 // from a subscription/operation callback).
-func (ns *NodeStateMachine) SetFieldSub(n *enode.Node, field Field, value interface{}) error {
+func (ns *NodeStateMachine) SetFieldSub(n *qnode.Node, field Field, value interface{}) error {
 	ns.lock.Lock()
 	defer ns.lock.Unlock()
 
@@ -905,9 +905,9 @@ func (ns *NodeStateMachine) SetFieldSub(n *enode.Node, field Field, value interf
 	return ns.setField(n, field, value)
 }
 
-func (ns *NodeStateMachine) setField(n *enode.Node, field Field, value interface{}) error {
+func (ns *NodeStateMachine) setField(n *qnode.Node, field Field, value interface{}) error {
 	ns.checkStarted()
-	id, node := ns.updateEnode(n)
+	id, node := ns.updateQnode(n)
 	if node == nil {
 		if value == nil {
 			return nil
@@ -956,11 +956,11 @@ func (ns *NodeStateMachine) setField(n *enode.Node, field Field, value interface
 // disabled flags set.
 // Note that this callback is not an operation callback but ForEach can be called from an
 // Operation callback or Operation can also be called from a ForEach callback if necessary.
-func (ns *NodeStateMachine) ForEach(requireFlags, disableFlags Flags, cb func(n *enode.Node, state Flags)) {
+func (ns *NodeStateMachine) ForEach(requireFlags, disableFlags Flags, cb func(n *qnode.Node, state Flags)) {
 	ns.lock.Lock()
 	ns.checkStarted()
 	type callback struct {
-		node  *enode.Node
+		node  *qnode.Node
 		state bitMask
 	}
 	require, disable := ns.stateMask(requireFlags), ns.stateMask(disableFlags)
@@ -976,8 +976,8 @@ func (ns *NodeStateMachine) ForEach(requireFlags, disableFlags Flags, cb func(n 
 	}
 }
 
-// GetNode returns the enode currently associated with the given ID
-func (ns *NodeStateMachine) GetNode(id enode.ID) *enode.Node {
+// GetNode returns the qnode currently associated with the given ID
+func (ns *NodeStateMachine) GetNode(id qnode.ID) *qnode.Node {
 	ns.lock.Lock()
 	defer ns.lock.Unlock()
 
@@ -992,7 +992,7 @@ func (ns *NodeStateMachine) GetNode(id enode.ID) *enode.Node {
 // being in a given set specified by required and disabled state flags
 func (ns *NodeStateMachine) AddLogMetrics(requireFlags, disableFlags Flags, name string, inMeter, outMeter metrics.Meter, gauge metrics.Gauge) {
 	var count int64
-	ns.SubscribeState(requireFlags.Or(disableFlags), func(n *enode.Node, oldState, newState Flags) {
+	ns.SubscribeState(requireFlags.Or(disableFlags), func(n *qnode.Node, oldState, newState Flags) {
 		oldMatch := oldState.HasAll(requireFlags) && oldState.HasNone(disableFlags)
 		newMatch := newState.HasAll(requireFlags) && newState.HasNone(disableFlags)
 		if newMatch == oldMatch {

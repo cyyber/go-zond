@@ -28,8 +28,8 @@ import (
 	"github.com/theQRL/go-zond/core/types"
 	"github.com/theQRL/go-zond/core/vm"
 	"github.com/theQRL/go-zond/params"
+	"github.com/theQRL/go-zond/qrldb"
 	"github.com/theQRL/go-zond/trie"
-	"github.com/theQRL/go-zond/zonddb"
 )
 
 // BlockGen creates blocks for testing.
@@ -74,7 +74,7 @@ func (b *BlockGen) SetExtra(data []byte) {
 // There are a few options can be passed as well in order to run some
 // customized rules.
 // - bc:       enables the ability to query historical block hashes for BLOCKHASH
-// - vmConfig: extends the flexibility for customizing zvm rules, e.g. enable extra EIPs
+// - vmConfig: extends the flexibility for customizing qrvm rules, e.g. enable extra QIPs
 func (b *BlockGen) addTx(bc *BlockChain, vmConfig vm.Config, tx *types.Transaction) {
 	if b.gasPool == nil {
 		b.SetCoinbase(common.Address{})
@@ -114,7 +114,7 @@ func (b *BlockGen) AddTxWithChain(bc *BlockChain, tx *types.Transaction) {
 
 // AddTxWithVMConfig adds a transaction to the generated block. If no coinbase has
 // been set, the block's coinbase is set to the zero address.
-// The zvm interpreter can be customized with the provided vm config.
+// The qrvm interpreter can be customized with the provided vm config.
 func (b *BlockGen) AddTxWithVMConfig(tx *types.Transaction, config vm.Config) {
 	b.addTx(nil, config, tx)
 }
@@ -225,7 +225,7 @@ func (b *BlockGen) OffsetTime(seconds int64) {
 // every block. Any transactions added to the generator
 // become part of the block. If gen is nil, the blocks will be empty
 // and their coinbase will be the zero address.
-func GenerateChain(config *params.ChainConfig, parent *types.Block, engine consensus.Engine, db zonddb.Database, n int, gen func(int, *BlockGen)) ([]*types.Block, []types.Receipts) {
+func GenerateChain(config *params.ChainConfig, parent *types.Block, engine consensus.Engine, db qrldb.Database, n int, gen func(int, *BlockGen)) ([]*types.Block, []types.Receipts) {
 	if config == nil {
 		config = params.TestChainConfig
 	}
@@ -278,7 +278,7 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, engine conse
 // GenerateChainWithGenesis is a wrapper of GenerateChain which will initialize
 // genesis block to database first according to the provided genesis specification
 // then generate chain on top.
-func GenerateChainWithGenesis(genesis *Genesis, engine consensus.Engine, n int, gen func(int, *BlockGen)) (zonddb.Database, []*types.Block, []types.Receipts) {
+func GenerateChainWithGenesis(genesis *Genesis, engine consensus.Engine, n int, gen func(int, *BlockGen)) (qrldb.Database, []*types.Block, []types.Receipts) {
 	db := rawdb.NewMemoryDatabase()
 	triedb := trie.NewDatabase(db, trie.HashDefaults)
 	defer triedb.Close()
@@ -311,7 +311,7 @@ func makeHeader(chain consensus.ChainReader, parent *types.Block, state *state.S
 }
 
 // makeHeaderChain creates a deterministic chain of headers rooted at parent.
-func makeHeaderChain(chainConfig *params.ChainConfig, parent *types.Header, n int, engine consensus.Engine, db zonddb.Database, seed int) []*types.Header {
+func makeHeaderChain(chainConfig *params.ChainConfig, parent *types.Header, n int, engine consensus.Engine, db qrldb.Database, seed int) []*types.Header {
 	blocks := makeBlockChain(chainConfig, types.NewBlockWithHeader(parent), n, engine, db, seed)
 	headers := make([]*types.Header, len(blocks))
 	for i, block := range blocks {
@@ -321,7 +321,7 @@ func makeHeaderChain(chainConfig *params.ChainConfig, parent *types.Header, n in
 }
 
 // makeHeaderChainWithGenesis creates a deterministic chain of headers from genesis.
-func makeHeaderChainWithGenesis(genesis *Genesis, n int, engine consensus.Engine, seed int) (zonddb.Database, []*types.Header) {
+func makeHeaderChainWithGenesis(genesis *Genesis, n int, engine consensus.Engine, seed int) (qrldb.Database, []*types.Header) {
 	db, blocks := makeBlockChainWithGenesis(genesis, n, engine, seed)
 	headers := make([]*types.Header, len(blocks))
 	for i, block := range blocks {
@@ -331,7 +331,7 @@ func makeHeaderChainWithGenesis(genesis *Genesis, n int, engine consensus.Engine
 }
 
 // makeBlockChain creates a deterministic chain of blocks rooted at parent.
-func makeBlockChain(chainConfig *params.ChainConfig, parent *types.Block, n int, engine consensus.Engine, db zonddb.Database, seed int) []*types.Block {
+func makeBlockChain(chainConfig *params.ChainConfig, parent *types.Block, n int, engine consensus.Engine, db qrldb.Database, seed int) []*types.Block {
 	blocks, _ := GenerateChain(chainConfig, parent, engine, db, n, func(i int, b *BlockGen) {
 		b.SetCoinbase(common.Address{0: byte(seed), 19: byte(i)})
 	})
@@ -339,7 +339,7 @@ func makeBlockChain(chainConfig *params.ChainConfig, parent *types.Block, n int,
 }
 
 // makeBlockChain creates a deterministic chain of blocks from genesis
-func makeBlockChainWithGenesis(genesis *Genesis, n int, engine consensus.Engine, seed int) (zonddb.Database, []*types.Block) {
+func makeBlockChainWithGenesis(genesis *Genesis, n int, engine consensus.Engine, seed int) (qrldb.Database, []*types.Block) {
 	db, blocks, _ := GenerateChainWithGenesis(genesis, engine, n, func(i int, b *BlockGen) {
 		b.SetCoinbase(common.Address{0: byte(seed), 19: byte(i)})
 	})

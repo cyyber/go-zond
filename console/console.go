@@ -58,7 +58,7 @@ const DefaultPrompt = "> "
 type Config struct {
 	DataDir  string              // Data directory to store the console history at
 	DocRoot  string              // Filesystem path from where to load JavaScript files from
-	Client   *rpc.Client         // RPC client to execute Zond requests through
+	Client   *rpc.Client         // RPC client to execute QRL requests through
 	Prompt   string              // Input prompt prefix string (defaults to DefaultPrompt)
 	Prompter prompt.UserPrompter // Input prompter to allow interactive user feedback (defaults to TerminalPrompter)
 	Printer  io.Writer           // Output writer to serialize any display strings to (defaults to os.Stdout)
@@ -69,7 +69,7 @@ type Config struct {
 // JavaScript console attached to a running node via an external or in-process RPC
 // client.
 type Console struct {
-	client   *rpc.Client         // RPC client to execute Zond requests through
+	client   *rpc.Client         // RPC client to execute QRL requests through
 	jsre     *jsre.JSRE          // JavaScript runtime environment running the interpreter
 	prompt   string              // Input prompt prefix string
 	prompter prompt.UserPrompter // Input prompter to allow interactive user feedback
@@ -198,7 +198,7 @@ func (c *Console) initWeb3(bridge *bridge) error {
 	return err
 }
 
-var defaultAPIs = map[string]string{"zond": "1.0", "net": "1.0", "debug": "1.0"}
+var defaultAPIs = map[string]string{"qrl": "1.0", "net": "1.0", "debug": "1.0"}
 
 // initExtensions loads and registers web3.js extensions.
 func (c *Console) initExtensions() error {
@@ -214,7 +214,7 @@ func (c *Console) initExtensions() error {
 	}
 
 	// Compute aliases from server-provided modules.
-	aliases := map[string]struct{}{"zond": {}}
+	aliases := map[string]struct{}{"qrl": {}}
 	for api := range apis {
 		if api == "web3" {
 			continue
@@ -277,7 +277,7 @@ func (c *Console) AutoCompleteInput(line string, pos int) (string, []string, str
 		return "", nil, ""
 	}
 	// Chunk data to relevant part for autocompletion
-	// E.g. in case of nested lines zond.getBalance(zond.coinb<tab><tab>
+	// E.g. in case of nested lines qrl.getBalance(zond.coinb<tab><tab>
 	start := pos - 1
 	for ; start > 0; start-- {
 		// Skip all methods and namespaces (i.e. including the dot)
@@ -295,12 +295,12 @@ func (c *Console) AutoCompleteInput(line string, pos int) (string, []string, str
 // Welcome show summary of current Gzond instance and some metadata about the
 // console's available modules.
 func (c *Console) Welcome() {
-	message := "Welcome to the Gzond JavaScript console!\n\n"
+	message := "Welcome to the QRL JavaScript console!\n\n"
 
 	// Print some generic Gzond metadata
 	if res, err := c.jsre.Run(`
 		var message = "instance: " + web3.version.node + "\n";
-		message += "at block: " + zond.blockNumber + " (" + new Date(1000 * zond.getBlock(zond.blockNumber).timestamp) + ")\n";
+		message += "at block: " + qrl.blockNumber + " (" + new Date(1000 * qrl.getBlock(qrl.blockNumber).timestamp) + ")\n";
 		try {
 			message += " datadir: " + admin.datadir + "\n";
 		} catch (err) {}

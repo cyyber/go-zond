@@ -29,8 +29,8 @@ import (
 	"github.com/theQRL/go-zond/event"
 	"github.com/theQRL/go-zond/log"
 	"github.com/theQRL/go-zond/metrics"
-	"github.com/theQRL/go-zond/p2p/enode"
-	"github.com/theQRL/go-zond/p2p/enr"
+	"github.com/theQRL/go-zond/p2p/qnode"
+	"github.com/theQRL/go-zond/p2p/qnr"
 	"github.com/theQRL/go-zond/rlp"
 )
 
@@ -93,7 +93,7 @@ const (
 // a p2p.Server or when a message is sent or received on a peer connection
 type PeerEvent struct {
 	Type          PeerEventType `json:"type"`
-	Peer          enode.ID      `json:"peer"`
+	Peer          qnode.ID      `json:"peer"`
 	Error         string        `json:"error,omitempty"`
 	Protocol      string        `json:"protocol,omitempty"`
 	MsgCode       *uint64       `json:"msg_code,omitempty"`
@@ -121,7 +121,7 @@ type Peer struct {
 }
 
 // NewPeer returns a peer for testing purposes.
-func NewPeer(id enode.ID, name string, caps []Cap) *Peer {
+func NewPeer(id qnode.ID, name string, caps []Cap) *Peer {
 	// Generate a fake set of local protocols to match as running caps. Almost
 	// no fields needs to be meaningful here as we're only using it to cross-
 	// check with the "remote" caps array.
@@ -131,7 +131,7 @@ func NewPeer(id enode.ID, name string, caps []Cap) *Peer {
 		protos[i].Version = cap.Version
 	}
 	pipe, _ := net.Pipe()
-	node := enode.SignNull(new(enr.Record), id)
+	node := qnode.SignNull(new(qnr.Record), id)
 	conn := &conn{fd: pipe, transport: nil, node: node, caps: caps, name: name}
 	peer := newPeer(log.Root(), conn, protos)
 	close(peer.closed) // ensures Disconnect doesn't block
@@ -141,19 +141,19 @@ func NewPeer(id enode.ID, name string, caps []Cap) *Peer {
 // NewPeerPipe creates a peer for testing purposes.
 // The message pipe given as the last parameter is closed when
 // Disconnect is called on the peer.
-func NewPeerPipe(id enode.ID, name string, caps []Cap, pipe *MsgPipeRW) *Peer {
+func NewPeerPipe(id qnode.ID, name string, caps []Cap, pipe *MsgPipeRW) *Peer {
 	p := NewPeer(id, name, caps)
 	p.testPipe = pipe
 	return p
 }
 
 // ID returns the node's public key.
-func (p *Peer) ID() enode.ID {
+func (p *Peer) ID() qnode.ID {
 	return p.rw.node.ID()
 }
 
 // Node returns the peer's node descriptor.
-func (p *Peer) Node() *enode.Node {
+func (p *Peer) Node() *qnode.Node {
 	return p.rw.node
 }
 
@@ -493,8 +493,8 @@ func (rw *protoRW) ReadMsg() (Msg, error) {
 // peer. Sub-protocol independent fields are contained and initialized here, with
 // protocol specifics delegated to all connected sub-protocols.
 type PeerInfo struct {
-	ENR     string   `json:"enr,omitempty"` // Ethereum Node Record
-	Enode   string   `json:"enode"`         // Node URL
+	QNR     string   `json:"qnr,omitempty"` // Quantum Node Record
+	Qnode   string   `json:"qnode"`         // Node URL
 	ID      string   `json:"id"`            // Unique node identifier
 	Name    string   `json:"name"`          // Name of the node, including client type, version, OS, custom data
 	Caps    []string `json:"caps"`          // Protocols advertised by this peer
@@ -517,14 +517,14 @@ func (p *Peer) Info() *PeerInfo {
 	}
 	// Assemble the generic peer metadata
 	info := &PeerInfo{
-		Enode:     p.Node().URLv4(),
+		Qnode:     p.Node().URLv4(),
 		ID:        p.ID().String(),
 		Name:      p.Fullname(),
 		Caps:      caps,
 		Protocols: make(map[string]interface{}, len(p.running)),
 	}
 	if p.Node().Seq() > 0 {
-		info.ENR = p.Node().String()
+		info.QNR = p.Node().String()
 	}
 	info.Network.LocalAddress = p.LocalAddr().String()
 	info.Network.RemoteAddress = p.RemoteAddr().String()

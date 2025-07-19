@@ -20,11 +20,11 @@ import (
 	"testing"
 
 	"github.com/theQRL/go-zond/node"
-	"github.com/theQRL/go-zond/p2p/enode"
+	"github.com/theQRL/go-zond/p2p/qnode"
 	"github.com/theQRL/go-zond/p2p/simulations/adapters"
 )
 
-func newTestNetwork(t *testing.T, nodeCount int) (*Network, []enode.ID) {
+func newTestNetwork(t *testing.T, nodeCount int) (*Network, []qnode.ID) {
 	t.Helper()
 	adapter := adapters.NewSimAdapter(adapters.LifecycleConstructors{
 		"noopwoop": func(ctx *adapters.ServiceContext, stack *node.Node) (node.Lifecycle, error) {
@@ -38,7 +38,7 @@ func newTestNetwork(t *testing.T, nodeCount int) (*Network, []enode.ID) {
 	})
 
 	// create and start nodes
-	ids := make([]enode.ID, nodeCount)
+	ids := make([]qnode.ID, nodeCount)
 	for i := range ids {
 		conf := adapters.RandomNodeConfig()
 		node, err := network.NewNodeWithConfig(conf)

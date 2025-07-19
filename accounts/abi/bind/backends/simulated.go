@@ -24,7 +24,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/theQRL/go-zond"
+	qrl "github.com/theQRL/go-zond"
 	"github.com/theQRL/go-zond/accounts/abi"
 	"github.com/theQRL/go-zond/accounts/abi/bind"
 	"github.com/theQRL/go-zond/common"
@@ -40,9 +40,9 @@ import (
 	"github.com/theQRL/go-zond/event"
 	"github.com/theQRL/go-zond/log"
 	"github.com/theQRL/go-zond/params"
+	"github.com/theQRL/go-zond/qrl/filters"
+	"github.com/theQRL/go-zond/qrldb"
 	"github.com/theQRL/go-zond/rpc"
-	"github.com/theQRL/go-zond/zond/filters"
-	"github.com/theQRL/go-zond/zonddb"
 )
 
 // This nil assignment ensures at compile time that SimulatedBackend implements bind.ContractBackend.
@@ -60,8 +60,8 @@ var (
 // ChainReader, ChainStateReader, ContractBackend, ContractCaller, ContractFilterer, ContractTransactor,
 // DeployBackend, GasEstimator, GasPricer, LogFilterer, PendingContractCaller, TransactionReader, and TransactionSender
 type SimulatedBackend struct {
-	database   zonddb.Database  // In memory database to store our testing data
-	blockchain *core.BlockChain // Zond blockchain to handle the consensus
+	database   qrldb.Database   // In memory database to store our testing data
+	blockchain *core.BlockChain // QRL blockchain to handle the consensus
 
 	mu              sync.Mutex
 	pendingBlock    *types.Block   // Currently pending block that will be imported on request
@@ -77,7 +77,7 @@ type SimulatedBackend struct {
 // NewSimulatedBackendWithDatabase creates a new binding backend based on the given database
 // and uses a simulated blockchain for testing purposes.
 // A simulated backend always uses chainID 1337.
-func NewSimulatedBackendWithDatabase(database zonddb.Database, alloc core.GenesisAlloc, gasLimit uint64) *SimulatedBackend {
+func NewSimulatedBackendWithDatabase(database qrldb.Database, alloc core.GenesisAlloc, gasLimit uint64) *SimulatedBackend {
 	genesis := core.Genesis{
 		Config:   params.AllBeaconProtocolChanges,
 		GasLimit: gasLimit,
@@ -250,7 +250,7 @@ func (b *SimulatedBackend) TransactionReceipt(ctx context.Context, txHash common
 
 	receipt, _, _, _ := rawdb.ReadReceipt(b.database, txHash, b.config)
 	if receipt == nil {
-		return nil, zond.NotFound
+		return nil, qrl.NotFound
 	}
 	return receipt, nil
 }
@@ -271,7 +271,7 @@ func (b *SimulatedBackend) TransactionByHash(ctx context.Context, txHash common.
 	if tx != nil {
 		return tx, false, nil
 	}
-	return nil, false, zond.NotFound
+	return nil, false, qrl.NotFound
 }
 
 // BlockByHash retrieves a block based on the block hash.
@@ -414,7 +414,7 @@ func newRevertError(result *core.ExecutionResult) *revertError {
 	}
 }
 
-// revertError is an API error that encompasses an ZVM revert with JSON error
+// revertError is an API error that encompasses a QRVM revert with JSON error
 // code and a binary data blob.
 type revertError struct {
 	error
@@ -433,7 +433,7 @@ func (e *revertError) ErrorData() interface{} {
 }
 
 // CallContract executes a contract call.
-func (b *SimulatedBackend) CallContract(ctx context.Context, call zond.CallMsg, blockNumber *big.Int) ([]byte, error) {
+func (b *SimulatedBackend) CallContract(ctx context.Context, call qrl.CallMsg, blockNumber *big.Int) ([]byte, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -456,7 +456,7 @@ func (b *SimulatedBackend) CallContract(ctx context.Context, call zond.CallMsg, 
 }
 
 // PendingCallContract executes a contract call on the pending state.
-func (b *SimulatedBackend) PendingCallContract(ctx context.Context, call zond.CallMsg) ([]byte, error) {
+func (b *SimulatedBackend) PendingCallContract(ctx context.Context, call qrl.CallMsg) ([]byte, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	defer b.pendingState.RevertToSnapshot(b.pendingState.Snapshot())
@@ -501,7 +501,7 @@ func (b *SimulatedBackend) SuggestGasTipCap(ctx context.Context) (*big.Int, erro
 
 // EstimateGas executes the requested code against the currently pending block/state and
 // returns the used amount of gas.
-func (b *SimulatedBackend) EstimateGas(ctx context.Context, call zond.CallMsg) (uint64, error) {
+func (b *SimulatedBackend) EstimateGas(ctx context.Context, call qrl.CallMsg) (uint64, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -601,7 +601,7 @@ func (b *SimulatedBackend) EstimateGas(ctx context.Context, call zond.CallMsg) (
 
 // callContract implements common code between normal and pending contract calls.
 // state is modified during execution, make sure to copy it if necessary.
-func (b *SimulatedBackend) callContract(ctx context.Context, call zond.CallMsg, header *types.Header, stateDB *state.StateDB) (*core.ExecutionResult, error) {
+func (b *SimulatedBackend) callContract(ctx context.Context, call qrl.CallMsg, header *types.Header, stateDB *state.StateDB) (*core.ExecutionResult, error) {
 	// User specified 1559 gas fields (or none), use those
 	if call.GasFeeCap == nil {
 		call.GasFeeCap = new(big.Int)
@@ -609,7 +609,7 @@ func (b *SimulatedBackend) callContract(ctx context.Context, call zond.CallMsg, 
 	if call.GasTipCap == nil {
 		call.GasTipCap = new(big.Int)
 	}
-	// Backfill the legacy gasPrice for ZVM execution, unless we're all zeroes
+	// Backfill the legacy gasPrice for QRVM execution, unless we're all zeroes
 	gasPrice := new(big.Int)
 	if call.GasFeeCap.BitLen() > 0 || call.GasTipCap.BitLen() > 0 {
 		head := b.blockchain.CurrentHeader()
@@ -644,9 +644,9 @@ func (b *SimulatedBackend) callContract(ctx context.Context, call zond.CallMsg, 
 
 	// Create a new environment which holds all relevant information
 	// about the transaction and calling mechanisms.
-	txContext := core.NewZVMTxContext(msg)
-	zvmContext := core.NewZVMBlockContext(header, b.blockchain, nil)
-	vmEnv := vm.NewZVM(zvmContext, txContext, stateDB, b.config, vm.Config{NoBaseFee: true})
+	txContext := core.NewQRVMTxContext(msg)
+	qrvmContext := core.NewQRVMBlockContext(header, b.blockchain, nil)
+	vmEnv := vm.NewQRVM(qrvmContext, txContext, stateDB, b.config, vm.Config{NoBaseFee: true})
 	gasPool := new(core.GasPool).AddGas(math.MaxUint64)
 
 	return core.ApplyMessage(vmEnv, msg, gasPool)
@@ -691,7 +691,7 @@ func (b *SimulatedBackend) SendTransaction(ctx context.Context, tx *types.Transa
 // returning all the results in one batch.
 //
 // TODO(karalabe): Deprecate when the subscription one can return past data too.
-func (b *SimulatedBackend) FilterLogs(ctx context.Context, query zond.FilterQuery) ([]types.Log, error) {
+func (b *SimulatedBackend) FilterLogs(ctx context.Context, query qrl.FilterQuery) ([]types.Log, error) {
 	var filter *filters.Filter
 	if query.BlockHash != nil {
 		// Block filter requested, construct a single-shot filter
@@ -723,7 +723,7 @@ func (b *SimulatedBackend) FilterLogs(ctx context.Context, query zond.FilterQuer
 
 // SubscribeFilterLogs creates a background log filtering operation, returning a
 // subscription immediately, which can be used to stream the found events.
-func (b *SimulatedBackend) SubscribeFilterLogs(ctx context.Context, query zond.FilterQuery, ch chan<- types.Log) (zond.Subscription, error) {
+func (b *SimulatedBackend) SubscribeFilterLogs(ctx context.Context, query qrl.FilterQuery, ch chan<- types.Log) (qrl.Subscription, error) {
 	// Subscribe to contract events
 	sink := make(chan []*types.Log)
 
@@ -756,7 +756,7 @@ func (b *SimulatedBackend) SubscribeFilterLogs(ctx context.Context, query zond.F
 }
 
 // SubscribeNewHead returns an event subscription for a new header.
-func (b *SimulatedBackend) SubscribeNewHead(ctx context.Context, ch chan<- *types.Header) (zond.Subscription, error) {
+func (b *SimulatedBackend) SubscribeNewHead(ctx context.Context, ch chan<- *types.Header) (qrl.Subscription, error) {
 	// subscribe to a new head
 	sink := make(chan *types.Header)
 	sub := b.events.SubscribeNewHeads(sink)
@@ -816,12 +816,12 @@ func (b *SimulatedBackend) Blockchain() *core.BlockChain {
 // filterBackend implements filters.Backend to support filtering for logs without
 // taking bloom-bits acceleration structures into account.
 type filterBackend struct {
-	db      zonddb.Database
+	db      qrldb.Database
 	bc      *core.BlockChain
 	backend *SimulatedBackend
 }
 
-func (fb *filterBackend) ChainDb() zonddb.Database { return fb.db }
+func (fb *filterBackend) ChainDb() qrldb.Database { return fb.db }
 
 func (fb *filterBackend) EventMux() *event.TypeMux { panic("not supported") }
 

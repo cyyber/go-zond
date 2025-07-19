@@ -185,7 +185,7 @@ func writeKeyFile(file string, content []byte) error {
 }
 
 // keyFileName implements the naming convention for keyfiles:
-// UTC--<created_at UTC ISO8601>-<z-prefixed address hex>
+// UTC--<created_at UTC ISO8601>-<q-prefixed address hex>
 func keyFileName(keyAddr common.Address) string {
 	ts := time.Now().UTC()
 	return fmt.Sprintf("UTC--%s--%#x", toISO8601(ts), keyAddr)
