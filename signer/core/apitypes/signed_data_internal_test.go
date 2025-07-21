@@ -96,7 +96,7 @@ func TestParseAddress(t *testing.T) {
 			Output: common.FromHex("0x0000000000000000000000000102030405060708090A0B0C0D0E0F1011121314"),
 		},
 		{
-			Input:  "Z0102030405060708090A0B0C0D0E0F1011121314",
+			Input:  "Q0102030405060708090A0B0C0D0E0F1011121314",
 			Output: common.FromHex("0x0000000000000000000000000102030405060708090A0B0C0D0E0F1011121314"),
 		},
 		{
@@ -104,8 +104,8 @@ func TestParseAddress(t *testing.T) {
 			Output: common.FromHex("0x0000000000000000000000000102030405060708090A0B0C0D0E0F1011121314"),
 		},
 		// Various error-cases:
-		{Input: "Z000102030405060708090A0B0C0D0E0F1011121314"}, // too long string
-		{Input: "Z01"}, // too short string
+		{Input: "Q000102030405060708090A0B0C0D0E0F1011121314"}, // too long string
+		{Input: "Q01"}, // too short string
 		{Input: ""},
 		{Input: [32]byte{}},       // too long fixed-size array
 		{Input: [21]byte{}},       // too long fixed-size array
@@ -222,9 +222,9 @@ func TestConvertUint256DataToSlice(t *testing.T) {
 }
 
 func TestConvertAddressDataToSlice(t *testing.T) {
-	addr1, _ := common.NewAddressFromString("Z0000000000000000000000000000000000000001")
-	addr2, _ := common.NewAddressFromString("Z0000000000000000000000000000000000000002")
-	addr3, _ := common.NewAddressFromString("Z0000000000000000000000000000000000000003")
+	addr1, _ := common.NewAddressFromString("Q0000000000000000000000000000000000000001")
+	addr2, _ := common.NewAddressFromString("Q0000000000000000000000000000000000000002")
+	addr3, _ := common.NewAddressFromString("Q0000000000000000000000000000000000000003")
 
 	slice := []common.Address{addr1, addr2, addr3}
 	var it interface{} = slice

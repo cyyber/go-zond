@@ -20,8 +20,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/theQRL/go-zond/p2p/enode"
-	"github.com/theQRL/go-zond/p2p/enr"
+	"github.com/theQRL/go-zond/p2p/qnode"
+	"github.com/theQRL/go-zond/p2p/qnr"
 )
 
 // Protocol represents a P2P subprotocol implementation.
@@ -53,15 +53,15 @@ type Protocol struct {
 	// PeerInfo is an optional helper method to retrieve protocol specific metadata
 	// about a certain peer in the network. If an info retrieval function is set,
 	// but returns nil, it is assumed that the protocol handshake is still running.
-	PeerInfo func(id enode.ID) interface{}
+	PeerInfo func(id qnode.ID) interface{}
 
 	// DialCandidates, if non-nil, is a way to tell Server about protocol-specific nodes
 	// that should be dialed. The server continuously reads nodes from the iterator and
 	// attempts to create connections to them.
-	DialCandidates enode.Iterator
+	DialCandidates qnode.Iterator
 
 	// Attributes contains protocol specific information for the node record.
-	Attributes []enr.Entry
+	Attributes []qnr.Entry
 }
 
 func (p Protocol) cap() Cap {

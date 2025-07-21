@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-// Package state provides a caching layer atop the Ethereum state trie.
+// Package state provides a caching layer atop the QRL state trie.
 package state
 
 import (
@@ -47,7 +47,7 @@ type revision struct {
 	journalIndex int
 }
 
-// StateDB structs within the zond protocol are used to store anything
+// StateDB structs within the qrl protocol are used to store anything
 // within the merkle trie. StateDBs take care of caching and storing
 // nested states. It's the general query interface to retrieve:
 //
@@ -602,13 +602,13 @@ func (s *StateDB) createObject(addr common.Address) (newobj, prev *stateObject) 
 // CreateAccount explicitly creates a state object. If a state object with the address
 // already exists the balance is carried over to the new account.
 //
-// CreateAccount is called during the ZVM CREATE operation. The situation might arise that
+// CreateAccount is called during the QRVM CREATE operation. The situation might arise that
 // a contract does the following:
 //
 //  1. sends funds to sha(account ++ (nonce + 1))
 //  2. tx_create(sha(account ++ nonce)) (note that this gets the address of 1)
 //
-// Carrying over the balance ensures that Zond doesn't disappear.
+// Carrying over the balance ensures that Quanta doesn't disappear.
 func (s *StateDB) CreateAccount(addr common.Address) {
 	newObj, prev := s.createObject(addr)
 	if prev != nil {
@@ -863,7 +863,7 @@ func (s *StateDB) IntermediateRoot(deleteEmptyObjects bool) common.Hash {
 }
 
 // SetTxContext sets the current transaction hash and index which are
-// used when the ZVM emits new state logs. It should be invoked before
+// used when the QRVM emits new state logs. It should be invoked before
 // transaction execution.
 func (s *StateDB) SetTxContext(thash common.Hash, ti int) {
 	s.thash = thash
@@ -1249,7 +1249,7 @@ func (s *StateDB) Prepare(rules params.Rules, sender, coinbase common.Address, d
 	al.AddAddress(sender)
 	if dst != nil {
 		al.AddAddress(*dst)
-		// If it's a create-tx, the destination will be added inside zvm.create
+		// If it's a create-tx, the destination will be added inside qrvm.create
 	}
 	for _, addr := range precompiles {
 		al.AddAddress(addr)

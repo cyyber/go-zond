@@ -27,7 +27,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/theQRL/go-zond/p2p/enode"
+	"github.com/theQRL/go-zond/p2p/qnode"
 )
 
 func TestMocker(t *testing.T) {
@@ -83,7 +83,7 @@ func TestMocker(t *testing.T) {
 
 	// wait until all nodes are started and connected
 	// store every node up event in a map (value is irrelevant, mimic Set datatype)
-	nodemap := make(map[enode.ID]bool)
+	nodemap := make(map[qnode.ID]bool)
 	nodesComplete := false
 	connCount := 0
 	wg.Add(1)

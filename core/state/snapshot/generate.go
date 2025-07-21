@@ -28,10 +28,10 @@ import (
 	"github.com/theQRL/go-zond/core/rawdb"
 	"github.com/theQRL/go-zond/core/types"
 	"github.com/theQRL/go-zond/log"
+	"github.com/theQRL/go-zond/qrldb"
 	"github.com/theQRL/go-zond/rlp"
 	"github.com/theQRL/go-zond/trie"
 	"github.com/theQRL/go-zond/trie/trienode"
-	"github.com/theQRL/go-zond/zonddb"
 )
 
 var (
@@ -55,7 +55,7 @@ var (
 // generateSnapshot regenerates a brand new snapshot based on an existing state
 // database and head block asynchronously. The snapshot is returned immediately
 // and generation is continued in the background until done.
-func generateSnapshot(diskdb zonddb.KeyValueStore, triedb *trie.Database, cache int, root common.Hash) *diskLayer {
+func generateSnapshot(diskdb qrldb.KeyValueStore, triedb *trie.Database, cache int, root common.Hash) *diskLayer {
 	// Create a new disk layer with an initialized state marker at zero
 	var (
 		stats     = &generatorStats{start: time.Now()}
@@ -82,7 +82,7 @@ func generateSnapshot(diskdb zonddb.KeyValueStore, triedb *trie.Database, cache 
 }
 
 // journalProgress persists the generator stats into the database to resume later.
-func journalProgress(db zonddb.KeyValueWriter, marker []byte, stats *generatorStats) {
+func journalProgress(db qrldb.KeyValueWriter, marker []byte, stats *generatorStats) {
 	// Write out the generator marker. Note it's a standalone disk layer generator
 	// which is not mixed with journal. It's ok if the generator is persisted while
 	// journal is not.
@@ -480,7 +480,7 @@ func (dl *diskLayer) checkAndFlush(ctx *generatorContext, current []byte) error 
 	case abort = <-dl.genAbort:
 	default:
 	}
-	if ctx.batch.ValueSize() > zonddb.IdealBatchSize || abort != nil {
+	if ctx.batch.ValueSize() > qrldb.IdealBatchSize || abort != nil {
 		if bytes.Compare(current, dl.genMarker) < 0 {
 			log.Error("Snapshot generator went backwards", "current", fmt.Sprintf("%x", current), "genMarker", fmt.Sprintf("%x", dl.genMarker))
 		}

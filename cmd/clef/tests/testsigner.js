@@ -36,7 +36,7 @@ function reload(){
 
 function init(){
     if (typeof accts == 'undefined' || accts.length == 0){
-        accts = zond.accounts
+        accts = qrl.accounts
         console.log("Got accounts ", accts);
     }
 }
@@ -44,14 +44,14 @@ init()
 function testTx(){
     if( accts && accts.length > 0) {
         var a = accts[0]
-        var txdata = zond.signTransaction({from: a, to: a, value: 1, nonce: 1, gas: 1, maxFeePerGas: 1, maxPriorityFeePerGas: 0})
+        var txdata = qrl.signTransaction({from: a, to: a, value: 1, nonce: 1, gas: 1, maxFeePerGas: 1, maxPriorityFeePerGas: 0})
         console.log("transaction signing response",  txdata)
     }
 }
 function testSignText(){
     if( accts && accts.length > 0){
         var a = accts[0]
-        var r = zond.sign(a, "0x68656c6c6f20776f726c64"); //hello world
+        var r = qrl.sign(a, "0x68656c6c6f20776f726c64"); //hello world
         console.log("signing response",  r)
     }
 }

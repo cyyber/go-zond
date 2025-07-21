@@ -409,7 +409,7 @@ func TestClientSubscribeInvalidArg(t *testing.T) {
 				t.Error(string(buf))
 			}
 		}()
-		client.ZondSubscribe(context.Background(), arg, "foo_bar")
+		client.QRLSubscribe(context.Background(), arg, "foo_bar")
 	}
 	check(true, nil)
 	check(true, 1)

@@ -12,7 +12,7 @@
 # 4. configures the Windows firewall for gzond
 # 5. create gzond, attach and uninstall start menu entries
 # 6. configures the registry that allows Windows to manage the package through its platform tools
-# 7. adds the environment system wide variable ZOND_SOCKET
+# 7. adds the environment system wide variable QRL_SOCKET
 # 8. adds the install directory to %PATH%
 #
 # Requirements:
@@ -29,9 +29,9 @@
 # - sign installer
 CRCCheck on
 
-!define GROUPNAME "Zond"
+!define GROUPNAME "QRL"
 !define APPNAME "Gzond"
-!define DESCRIPTION "Official Go implementation of the Zond protocol"
+!define DESCRIPTION "Official Go implementation of the QRL protocol"
 !addplugindir .\
 
 # Require admin rights on NT6+ (When UAC is turned on)

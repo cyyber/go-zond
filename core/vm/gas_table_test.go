@@ -83,7 +83,7 @@ func TestCreateGas(t *testing.T) {
 			}
 			config := Config{}
 
-			vmenv := NewZVM(vmctx, TxContext{}, statedb, params.AllBeaconProtocolChanges, config)
+			vmenv := NewQRVM(vmctx, TxContext{}, statedb, params.AllBeaconProtocolChanges, config)
 			var startGas = uint64(testGas)
 			ret, gas, err := vmenv.Call(AccountRef(common.Address{}), address, nil, startGas, new(big.Int))
 			if err != nil {

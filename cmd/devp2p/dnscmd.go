@@ -27,7 +27,7 @@ import (
 
 	"github.com/theQRL/go-zond/common"
 	"github.com/theQRL/go-zond/p2p/dnsdisc"
-	"github.com/theQRL/go-zond/p2p/enode"
+	"github.com/theQRL/go-zond/p2p/qnode"
 	"github.com/urfave/cli/v2"
 )
 
@@ -284,7 +284,7 @@ func dnsClient(ctx *cli.Context) *dnsdisc.Client {
 //
 // The 'definition' format is a directory containing two files:
 //
-//      enrtree-info.json    -- contains sequence number & links to other trees
+//      qnrtree-info.json    -- contains sequence number & links to other trees
 //      nodes.json           -- contains the nodes as a JSON array.
 //
 // This format exists because it's convenient to edit. nodes.json can be generated
@@ -292,7 +292,7 @@ func dnsClient(ctx *cli.Context) *dnsdisc.Client {
 
 type dnsDefinition struct {
 	Meta  dnsMetaJSON
-	Nodes []*enode.Node
+	Nodes []*qnode.Node
 }
 
 type dnsMetaJSON struct {
@@ -397,7 +397,7 @@ func writeTreeNodes(directory string, def *dnsDefinition) {
 }
 
 func treeDefinitionFiles(directory string) (string, string) {
-	meta := filepath.Join(directory, "enrtree-info.json")
+	meta := filepath.Join(directory, "qnrtree-info.json")
 	nodes := filepath.Join(directory, "nodes.json")
 	return meta, nodes
 }

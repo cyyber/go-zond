@@ -24,13 +24,13 @@ import (
 
 	"github.com/theQRL/go-zond/internal/utesting"
 	"github.com/theQRL/go-zond/p2p/discover/v5wire"
-	"github.com/theQRL/go-zond/p2p/enode"
 	"github.com/theQRL/go-zond/p2p/netutil"
+	"github.com/theQRL/go-zond/p2p/qnode"
 )
 
 // Suite is the discv5 test suite.
 type Suite struct {
-	Dest             *enode.Node
+	Dest             *qnode.Node
 	Listen1, Listen2 string // listening addresses
 }
 
@@ -237,7 +237,7 @@ func (s *Suite) TestFindnodeZeroDistance(t *utesting.T) {
 func (s *Suite) TestFindnodeResults(t *utesting.T) {
 	// Create bystanders.
 	nodes := make([]*bystander, 5)
-	added := make(chan enode.ID, len(nodes))
+	added := make(chan qnode.ID, len(nodes))
 	for i := range nodes {
 		nodes[i] = newBystander(t, s, added)
 		defer nodes[i].close()
@@ -261,11 +261,11 @@ func (s *Suite) TestFindnodeResults(t *utesting.T) {
 
 	// Collect our nodes by distance.
 	var dists []uint
-	expect := make(map[enode.ID]*enode.Node)
+	expect := make(map[qnode.ID]*qnode.Node)
 	for _, bn := range nodes {
 		n := bn.conn.localNode.Node()
 		expect[n.ID()] = n
-		d := uint(enode.LogDist(n.ID(), s.Dest.ID()))
+		d := uint(qnode.LogDist(n.ID(), s.Dest.ID()))
 		if !containsUint(dists, d) {
 			dists = append(dists, d)
 		}
@@ -293,15 +293,15 @@ func (s *Suite) TestFindnodeResults(t *utesting.T) {
 
 // A bystander is a node whose only purpose is filling a spot in the remote table.
 type bystander struct {
-	dest *enode.Node
+	dest *qnode.Node
 	conn *conn
 	l    net.PacketConn
 
-	addedCh chan enode.ID
+	addedCh chan qnode.ID
 	done    sync.WaitGroup
 }
 
-func newBystander(t *utesting.T, s *Suite, added chan enode.ID) *bystander {
+func newBystander(t *utesting.T, s *Suite, added chan qnode.ID) *bystander {
 	conn, l := s.listen1(t)
 	conn.setEndpoint(l) // bystander nodes need IP/port to get pinged
 	bn := &bystander{
@@ -316,7 +316,7 @@ func newBystander(t *utesting.T, s *Suite, added chan enode.ID) *bystander {
 }
 
 // id returns the node ID of the bystander.
-func (bn *bystander) id() enode.ID {
+func (bn *bystander) id() qnode.ID {
 	return bn.conn.localNode.ID()
 }
 
@@ -339,7 +339,7 @@ func (bn *bystander) loop() {
 		if !wasAdded && time.Since(lastPing) > 10*time.Second {
 			bn.conn.reqresp(bn.l, &v5wire.Ping{
 				ReqID:  bn.conn.nextReqID(),
-				ENRSeq: bn.dest.Seq(),
+				QNRSeq: bn.dest.Seq(),
 			})
 			lastPing = time.Now()
 		}
@@ -348,7 +348,7 @@ func (bn *bystander) loop() {
 		case *v5wire.Ping:
 			bn.conn.write(bn.l, &v5wire.Pong{
 				ReqID:  p.ReqID,
-				ENRSeq: bn.conn.localNode.Seq(),
+				QNRSeq: bn.conn.localNode.Seq(),
 				ToIP:   bn.dest.IP(),
 				ToPort: uint16(bn.dest.UDP()),
 			}, nil)

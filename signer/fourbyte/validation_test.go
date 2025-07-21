@@ -78,31 +78,31 @@ func TestTransactionValidation(t *testing.T) {
 	)
 	testcases := []txtestcase{
 		// Invalid to checksum
-		{from: "Z000000000000000000000000000000000000dead", to: "Z000000000000000000000000000000000000dead",
+		{from: "Q000000000000000000000000000000000000dead", to: "Q000000000000000000000000000000000000dead",
 			n: "0x01", g: "0x20", mfpg: "0x40", mpfpg: "0x0", value: "0x01", numMessages: 1},
-		// valid Z000000000000000000000000000000000000dEaD
-		{from: "Z000000000000000000000000000000000000dead", to: "Z000000000000000000000000000000000000dEaD",
+		// valid Q000000000000000000000000000000000000dEaD
+		{from: "Q000000000000000000000000000000000000dead", to: "Q000000000000000000000000000000000000dEaD",
 			n: "0x01", g: "0x20", mfpg: "0x40", mpfpg: "0x0", value: "0x01", numMessages: 0},
 		// conflicting input and data
-		{from: "Z000000000000000000000000000000000000dead", to: "Z000000000000000000000000000000000000dEaD",
+		{from: "Q000000000000000000000000000000000000dead", to: "Q000000000000000000000000000000000000dEaD",
 			n: "0x01", g: "0x20", mfpg: "0x40", mpfpg: "0x0", value: "0x01", d: "0x01", i: "0x02", expectErr: true},
 		// Data can't be parsed
-		{from: "Z000000000000000000000000000000000000dead", to: "Z000000000000000000000000000000000000dEaD",
+		{from: "Q000000000000000000000000000000000000dead", to: "Q000000000000000000000000000000000000dEaD",
 			n: "0x01", g: "0x20", mfpg: "0x40", mpfpg: "0x0", value: "0x01", d: "0x0102", numMessages: 1},
 		// Data (on Input) can't be parsed
-		{from: "Z000000000000000000000000000000000000dead", to: "Z000000000000000000000000000000000000dEaD",
+		{from: "Q000000000000000000000000000000000000dead", to: "Q000000000000000000000000000000000000dEaD",
 			n: "0x01", g: "0x20", mfpg: "0x40", mpfpg: "0x0", value: "0x01", i: "0x0102", numMessages: 1},
 		// Send to 0
-		{from: "Z000000000000000000000000000000000000dead", to: "Z0000000000000000000000000000000000000000",
+		{from: "Q000000000000000000000000000000000000dead", to: "Q0000000000000000000000000000000000000000",
 			n: "0x01", g: "0x20", mfpg: "0x40", mpfpg: "0x0", value: "0x01", numMessages: 1},
 		// Create empty contract (no value)
-		{from: "Z000000000000000000000000000000000000dead", to: "",
+		{from: "Q000000000000000000000000000000000000dead", to: "",
 			n: "0x01", g: "0x20", mfpg: "0x40", mpfpg: "0x0", value: "0x00", numMessages: 1},
 		// Create empty contract (with value)
-		{from: "Z000000000000000000000000000000000000dead", to: "",
+		{from: "Q000000000000000000000000000000000000dead", to: "",
 			n: "0x01", g: "0x20", mfpg: "0x40", mpfpg: "0x0", value: "0x01", expectErr: true},
 		// Small payload for create
-		{from: "Z000000000000000000000000000000000000dead", to: "",
+		{from: "Q000000000000000000000000000000000000dead", to: "",
 			n: "0x01", g: "0x20", mfpg: "0x40", mpfpg: "0x0", value: "0x01", d: "0x01", numMessages: 1},
 	}
 	for i, test := range testcases {

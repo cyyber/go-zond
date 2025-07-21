@@ -34,7 +34,7 @@ import (
 	"github.com/theQRL/go-zond/log"
 	"github.com/theQRL/go-zond/node"
 	"github.com/theQRL/go-zond/p2p"
-	"github.com/theQRL/go-zond/p2p/enode"
+	"github.com/theQRL/go-zond/p2p/qnode"
 	"github.com/theQRL/go-zond/p2p/simulations/adapters"
 	"github.com/theQRL/go-zond/rpc"
 )
@@ -51,12 +51,12 @@ func TestMain(m *testing.M) {
 // testService implements the node.Service interface and provides protocols
 // and APIs which are useful for testing nodes in a simulation network
 type testService struct {
-	id enode.ID
+	id qnode.ID
 
 	// peerCount is incremented once a peer handshake has been performed
 	peerCount int64
 
-	peers    map[enode.ID]*testPeer
+	peers    map[qnode.ID]*testPeer
 	peersMtx sync.Mutex
 
 	// state stores []byte which is used to test creating and loading
@@ -67,7 +67,7 @@ type testService struct {
 func newTestService(ctx *adapters.ServiceContext, stack *node.Node) (node.Lifecycle, error) {
 	svc := &testService{
 		id:    ctx.Config.ID,
-		peers: make(map[enode.ID]*testPeer),
+		peers: make(map[qnode.ID]*testPeer),
 	}
 	svc.state.Store(ctx.Snapshot)
 
@@ -81,7 +81,7 @@ type testPeer struct {
 	dumReady  chan struct{}
 }
 
-func (t *testService) peer(id enode.ID) *testPeer {
+func (t *testService) peer(id qnode.ID) *testPeer {
 	t.peersMtx.Lock()
 	defer t.peersMtx.Unlock()
 	if peer, ok := t.peers[id]; ok {
@@ -420,7 +420,7 @@ type expectEvents struct {
 }
 
 func (t *expectEvents) nodeEvent(id string, up bool) *Event {
-	config := &adapters.NodeConfig{ID: enode.HexID(id)}
+	config := &adapters.NodeConfig{ID: qnode.HexID(id)}
 	return &Event{Type: EventTypeNode, Node: newNode(nil, config, up)}
 }
 
@@ -428,8 +428,8 @@ func (t *expectEvents) connEvent(one, other string, up bool) *Event {
 	return &Event{
 		Type: EventTypeConn,
 		Conn: &Conn{
-			One:   enode.HexID(one),
-			Other: enode.HexID(other),
+			One:   qnode.HexID(one),
+			Other: qnode.HexID(other),
 			Up:    up,
 		},
 	}

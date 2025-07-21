@@ -46,7 +46,7 @@ var (
 		Subcommands: []*cli.Command{
 			{
 				Name:      "prune-state",
-				Usage:     "Prune stale zond state data based on the snapshot",
+				Usage:     "Prune stale qrl state data based on the snapshot",
 				ArgsUsage: "<root>",
 				Action:    pruneState,
 				Flags: flags.Merge([]cli.Flag{

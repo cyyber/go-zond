@@ -35,7 +35,7 @@ const (
 	// signature and no receive function is specified.
 	Fallback
 	// Receive represents the receive function.
-	// This function is executed on plain Zond transfers.
+	// This function is executed on plain Quanta transfers.
 	Receive
 	// Function represents a normal function.
 	Function
@@ -155,7 +155,7 @@ func (method Method) IsConstant() bool {
 }
 
 // IsPayable returns the indicator whether the method can process
-// plain zond transfers.
+// plain quanta transfers.
 func (method Method) IsPayable() bool {
 	return method.StateMutability == "payable"
 }

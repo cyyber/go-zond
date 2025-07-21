@@ -187,25 +187,6 @@ func (bc *BlockChain) GetBlockByNumber(number uint64) *types.Block {
 	return bc.GetBlock(hash, number)
 }
 
-// GetBlocksFromHash returns the block corresponding to hash and up to n-1 ancestors.
-// [deprecated by zond/62]
-func (bc *BlockChain) GetBlocksFromHash(hash common.Hash, n int) (blocks []*types.Block) {
-	number := bc.hc.GetBlockNumber(hash)
-	if number == nil {
-		return nil
-	}
-	for i := 0; i < n; i++ {
-		block := bc.GetBlock(hash, *number)
-		if block == nil {
-			break
-		}
-		blocks = append(blocks, block)
-		hash = block.ParentHash()
-		*number--
-	}
-	return
-}
-
 // GetReceiptsByHash retrieves the receipts for all transactions in a given block.
 func (bc *BlockChain) GetReceiptsByHash(hash common.Hash) types.Receipts {
 	if receipts, ok := bc.receiptsCache.Get(hash); ok {

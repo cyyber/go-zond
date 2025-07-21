@@ -25,18 +25,18 @@ import (
 	"time"
 
 	"github.com/theQRL/go-zond/common"
-	"github.com/theQRL/go-zond/p2p/enode"
+	"github.com/theQRL/go-zond/p2p/qnode"
 )
 
 const jsonIndent = "    "
 
 // nodeSet is the nodes.json file format. It holds a set of node records
 // as a JSON object.
-type nodeSet map[enode.ID]nodeJSON
+type nodeSet map[qnode.ID]nodeJSON
 
 type nodeJSON struct {
 	Seq uint64      `json:"seq"`
-	N   *enode.Node `json:"record"`
+	N   *qnode.Node `json:"record"`
 
 	// The score tracks how many liveness checks were performed. It is incremented by one
 	// every time the node passes a check, and halved every time it doesn't.
@@ -71,20 +71,20 @@ func writeNodesJSON(file string, nodes nodeSet) {
 }
 
 // nodes returns the node records contained in the set.
-func (ns nodeSet) nodes() []*enode.Node {
-	result := make([]*enode.Node, 0, len(ns))
+func (ns nodeSet) nodes() []*qnode.Node {
+	result := make([]*qnode.Node, 0, len(ns))
 	for _, n := range ns {
 		result = append(result, n.N)
 	}
 	// Sort by ID.
-	slices.SortFunc(result, func(a, b *enode.Node) int {
+	slices.SortFunc(result, func(a, b *qnode.Node) int {
 		return bytes.Compare(a.ID().Bytes(), b.ID().Bytes())
 	})
 	return result
 }
 
 // add ensures the given nodes are present in the set.
-func (ns nodeSet) add(nodes ...*enode.Node) {
+func (ns nodeSet) add(nodes ...*qnode.Node) {
 	for _, n := range nodes {
 		v := ns[n.ID()]
 		v.N = n

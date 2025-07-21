@@ -16,7 +16,7 @@
 
 /*
 Package hexutil implements hex encoding with 0x prefix.
-This encoding is used by the Zond RPC API to transport binary data in JSON payloads.
+This encoding is used by the QRL RPC API to transport binary data in JSON payloads.
 
 # Encoding Rules
 
@@ -39,7 +39,7 @@ import (
 
 const (
 	Prefix0x = "0x"
-	PrefixZ  = "Z"
+	PrefixQ  = "Q"
 
 	uintBits = 32 << (uint64(^uint(0)) >> 63)
 )
@@ -49,7 +49,7 @@ var (
 	ErrEmptyString    = &decError{"empty hex string"}
 	ErrSyntax         = &decError{"invalid hex string"}
 	ErrMissingPrefix  = &decError{"hex string without 0x prefix"}
-	ErrMissingPrefixZ = &decError{"hex string without Z prefix"}
+	ErrMissingPrefixQ = &decError{"hex string without Q prefix"}
 	ErrOddLength      = &decError{"hex string of odd length"}
 	ErrEmptyNumber    = &decError{"hex string \"0x\""}
 	ErrLeadingZero    = &decError{"hex number with leading zero digits"}
@@ -192,13 +192,13 @@ func EncodeBig(bigint *big.Int) string {
 	}
 }
 
-// DecodeZ decodes a hex string with Z prefix.
-func DecodeZ(input string) ([]byte, error) {
+// DecodeQ decodes a hex string with Q prefix.
+func DecodeQ(input string) ([]byte, error) {
 	if len(input) == 0 {
 		return nil, ErrEmptyString
 	}
-	if !hasZPrefix(input) {
-		return nil, ErrMissingPrefixZ
+	if !hasQPrefix(input) {
+		return nil, ErrMissingPrefixQ
 	}
 	b, err := hex.DecodeString(input[1:])
 	if err != nil {
@@ -207,17 +207,17 @@ func DecodeZ(input string) ([]byte, error) {
 	return b, err
 }
 
-// EncodeZ encodes b as a hex string with Z prefix.
-func EncodeZ(b []byte) string {
+// EncodeQ encodes b as a hex string with Q prefix.
+func EncodeQ(b []byte) string {
 	enc := make([]byte, len(b)*2+1)
-	copy(enc, PrefixZ)
+	copy(enc, PrefixQ)
 	hex.Encode(enc[1:], b)
 	return string(enc)
 }
 
-// MustDecodeZ decodes a hex string with Z prefix. It panics for invalid input.
-func MustDecodeZ(input string) []byte {
-	dec, err := DecodeZ(input)
+// MustDecodeQ decodes a hex string with Q prefix. It panics for invalid input.
+func MustDecodeQ(input string) []byte {
+	dec, err := DecodeQ(input)
 	if err != nil {
 		panic(err)
 	}
@@ -228,8 +228,8 @@ func has0xPrefix(input string) bool {
 	return len(input) >= 2 && input[0] == '0' && (input[1] == 'x' || input[1] == 'X')
 }
 
-func hasZPrefix(input string) bool {
-	return len(input) >= 1 && input[0] == 'Z'
+func hasQPrefix(input string) bool {
+	return len(input) >= 1 && input[0] == 'Q'
 }
 
 func checkNumber(input string) (raw string, err error) {

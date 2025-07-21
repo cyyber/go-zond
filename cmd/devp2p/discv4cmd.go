@@ -29,7 +29,7 @@ import (
 	"github.com/theQRL/go-zond/crypto"
 	"github.com/theQRL/go-zond/internal/flags"
 	"github.com/theQRL/go-zond/p2p/discover"
-	"github.com/theQRL/go-zond/p2p/enode"
+	"github.com/theQRL/go-zond/p2p/qnode"
 	"github.com/theQRL/go-zond/params"
 	"github.com/urfave/cli/v2"
 )
@@ -55,8 +55,8 @@ var (
 		Flags:     discoveryNodeFlags,
 	}
 	discv4RequestRecordCommand = &cli.Command{
-		Name:      "requestenr",
-		Usage:     "Requests a node record using EIP-868 enrRequest",
+		Name:      "requestqnr",
+		Usage:     "Requests a node record using EIP-868 qnrRequest",
 		Action:    discv4RequestRecord,
 		ArgsUsage: "<node>",
 		Flags:     discoveryNodeFlags,
@@ -86,7 +86,7 @@ var (
 		Usage:  "Runs tests against a node",
 		Action: discv4Test,
 		Flags: []cli.Flag{
-			remoteEnodeFlag,
+			remoteQnodeFlag,
 			testPatternFlag,
 			testTAPFlag,
 			testListen1Flag,
@@ -114,7 +114,7 @@ var (
 	}
 	extAddrFlag = &cli.StringFlag{
 		Name:  "extaddr",
-		Usage: "UDP endpoint announced in ENR. You can provide a bare IP address or IP:port as the value of this flag.",
+		Usage: "UDP endpoint announced in QNR. You can provide a bare IP address or IP:port as the value of this flag.",
 	}
 	crawlTimeoutFlag = &cli.DurationFlag{
 		Name:  "timeout",
@@ -126,10 +126,10 @@ var (
 		Usage: "How many parallel discoveries to attempt.",
 		Value: 16,
 	}
-	remoteEnodeFlag = &cli.StringFlag{
+	remoteQnodeFlag = &cli.StringFlag{
 		Name:    "remote",
-		Usage:   "Enode of the remote node under test",
-		EnvVars: []string{"REMOTE_ENODE"},
+		Usage:   "Qnode of the remote node under test",
+		EnvVars: []string{"REMOTE_QNODE"},
 	}
 )
 
@@ -159,7 +159,7 @@ func discv4RequestRecord(ctx *cli.Context) error {
 	disc := startV4(ctx)
 	defer disc.Close()
 
-	respN, err := disc.RequestENR(n)
+	respN, err := disc.RequestQNR(n)
 	if err != nil {
 		return fmt.Errorf("can't retrieve record: %v", err)
 	}
@@ -187,7 +187,7 @@ func discv4ResolveJSON(ctx *cli.Context) error {
 	}
 
 	// Add extra nodes from command line arguments.
-	var nodeargs []*enode.Node
+	var nodeargs []*qnode.Node
 	for i := 1; i < ctx.NArg(); i++ {
 		n, err := parseNode(ctx.Args().Get(i))
 		if err != nil {
@@ -199,7 +199,7 @@ func discv4ResolveJSON(ctx *cli.Context) error {
 	// Run the crawler.
 	disc := startV4(ctx)
 	defer disc.Close()
-	c := newCrawler(inputSet, disc, enode.IterNodes(nodeargs))
+	c := newCrawler(inputSet, disc, qnode.IterNodes(nodeargs))
 	c.revalidateInterval = 0
 	output := c.run(0, 1)
 	writeNodesJSON(nodesFile, output)
@@ -228,10 +228,10 @@ func discv4Crawl(ctx *cli.Context) error {
 // discv4Test runs the protocol test suite.
 func discv4Test(ctx *cli.Context) error {
 	// Configure test package globals.
-	if !ctx.IsSet(remoteEnodeFlag.Name) {
-		return fmt.Errorf("Missing -%v", remoteEnodeFlag.Name)
+	if !ctx.IsSet(remoteQnodeFlag.Name) {
+		return fmt.Errorf("Missing -%v", remoteQnodeFlag.Name)
 	}
-	v4test.Remote = ctx.String(remoteEnodeFlag.Name)
+	v4test.Remote = ctx.String(remoteQnodeFlag.Name)
 	v4test.Listen1 = ctx.String(testListen1Flag.Name)
 	v4test.Listen2 = ctx.String(testListen2Flag.Name)
 	return runTests(ctx, v4test.AllTests)
@@ -248,7 +248,7 @@ func startV4(ctx *cli.Context) *discover.UDPv4 {
 	return disc
 }
 
-func makeDiscoveryConfig(ctx *cli.Context) (*enode.LocalNode, discover.Config) {
+func makeDiscoveryConfig(ctx *cli.Context) (*qnode.LocalNode, discover.Config) {
 	var cfg discover.Config
 
 	if ctx.IsSet(nodekeyFlag.Name) {
@@ -270,11 +270,11 @@ func makeDiscoveryConfig(ctx *cli.Context) (*enode.LocalNode, discover.Config) {
 	}
 
 	dbpath := ctx.String(nodedbFlag.Name)
-	db, err := enode.OpenDB(dbpath)
+	db, err := qnode.OpenDB(dbpath)
 	if err != nil {
 		exit(err)
 	}
-	ln := enode.NewLocalNode(db, cfg.PrivateKey)
+	ln := qnode.NewLocalNode(db, cfg.PrivateKey)
 	return ln, cfg
 }
 
@@ -298,7 +298,7 @@ func parseExtAddr(spec string) (ip net.IP, port int, ok bool) {
 	return ip, port, true
 }
 
-func listen(ctx *cli.Context, ln *enode.LocalNode) *net.UDPConn {
+func listen(ctx *cli.Context, ln *qnode.LocalNode) *net.UDPConn {
 	addr := ctx.String(listenAddrFlag.Name)
 	if addr == "" {
 		addr = "0.0.0.0:0"
@@ -308,7 +308,7 @@ func listen(ctx *cli.Context, ln *enode.LocalNode) *net.UDPConn {
 		exit(err)
 	}
 
-	// Configure UDP endpoint in ENR from listener address.
+	// Configure UDP endpoint in QNR from listener address.
 	usocket := socket.(*net.UDPConn)
 	uaddr := socket.LocalAddr().(*net.UDPAddr)
 	if uaddr.IP.IsUnspecified() {
@@ -318,7 +318,7 @@ func listen(ctx *cli.Context, ln *enode.LocalNode) *net.UDPConn {
 	}
 	ln.SetFallbackUDP(uaddr.Port)
 
-	// If an ENR endpoint is set explicitly on the command-line, override
+	// If a QNR endpoint is set explicitly on the command-line, override
 	// the information from the listening address. Note this is careful not
 	// to set the UDP port if the external address doesn't have it.
 	extAddr := ctx.String(extAddrFlag.Name)
@@ -336,7 +336,7 @@ func listen(ctx *cli.Context, ln *enode.LocalNode) *net.UDPConn {
 	return usocket
 }
 
-func parseBootnodes(ctx *cli.Context) ([]*enode.Node, error) {
+func parseBootnodes(ctx *cli.Context) ([]*qnode.Node, error) {
 	s := params.MainnetBootnodes
 	if ctx.IsSet(bootnodesFlag.Name) {
 		input := ctx.String(bootnodesFlag.Name)
@@ -345,7 +345,7 @@ func parseBootnodes(ctx *cli.Context) ([]*enode.Node, error) {
 		}
 		s = strings.Split(input, ",")
 	}
-	nodes := make([]*enode.Node, len(s))
+	nodes := make([]*qnode.Node, len(s))
 	var err error
 	for i, record := range s {
 		nodes[i], err = parseNode(record)

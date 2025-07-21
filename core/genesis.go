@@ -33,9 +33,9 @@ import (
 	"github.com/theQRL/go-zond/core/types"
 	"github.com/theQRL/go-zond/log"
 	"github.com/theQRL/go-zond/params"
+	"github.com/theQRL/go-zond/qrldb"
 	"github.com/theQRL/go-zond/rlp"
 	"github.com/theQRL/go-zond/trie"
-	"github.com/theQRL/go-zond/zonddb"
 )
 
 //go:generate go run github.com/fjl/gencodec -type Genesis -field-override genesisSpecMarshaling -out gen_genesis.go
@@ -62,7 +62,7 @@ type Genesis struct {
 	BaseFee    *big.Int    `json:"baseFeePerGas"`
 }
 
-func ReadGenesis(db zonddb.Database) (*Genesis, error) {
+func ReadGenesis(db qrldb.Database) (*Genesis, error) {
 	var genesis Genesis
 	stored := rawdb.ReadCanonicalHash(db, 0)
 	if (stored == common.Hash{}) {
@@ -136,7 +136,7 @@ func (ga *GenesisAlloc) deriveHash() (common.Hash, error) {
 // flush is very similar with deriveHash, but the main difference is
 // all the generated states will be persisted into the given database.
 // Also, the genesis state specification will be flushed as well.
-func (ga *GenesisAlloc) flush(db zonddb.Database, triedb *trie.Database, blockhash common.Hash) error {
+func (ga *GenesisAlloc) flush(db qrldb.Database, triedb *trie.Database, blockhash common.Hash) error {
 	statedb, err := state.New(types.EmptyRootHash, state.NewDatabaseWithNodeDB(db, triedb), nil)
 	if err != nil {
 		return err
@@ -172,7 +172,7 @@ func (ga *GenesisAlloc) flush(db zonddb.Database, triedb *trie.Database, blockha
 
 // CommitGenesisState loads the stored genesis state with the given block
 // hash and commits it into the provided trie database.
-func CommitGenesisState(db zonddb.Database, triedb *trie.Database, blockhash common.Hash) error {
+func CommitGenesisState(db qrldb.Database, triedb *trie.Database, blockhash common.Hash) error {
 	var alloc GenesisAlloc
 	blob := rawdb.ReadGenesisStateSpec(db, blockhash)
 	if len(blob) != 0 {
@@ -272,11 +272,11 @@ func (e *GenesisMismatchError) Error() string {
 // error is a *params.ConfigCompatError and the new, unwritten config is returned.
 //
 // The returned chain configuration is never nil.
-func SetupGenesisBlock(db zonddb.Database, triedb *trie.Database, genesis *Genesis) (*params.ChainConfig, common.Hash, error) {
+func SetupGenesisBlock(db qrldb.Database, triedb *trie.Database, genesis *Genesis) (*params.ChainConfig, common.Hash, error) {
 	return SetupGenesisBlockWithOverride(db, triedb, genesis)
 }
 
-func SetupGenesisBlockWithOverride(db zonddb.Database, triedb *trie.Database, genesis *Genesis) (*params.ChainConfig, common.Hash, error) {
+func SetupGenesisBlockWithOverride(db qrldb.Database, triedb *trie.Database, genesis *Genesis) (*params.ChainConfig, common.Hash, error) {
 	if genesis != nil && genesis.Config == nil {
 		return params.AllBeaconProtocolChanges, common.Hash{}, errGenesisNoConfig
 	}
@@ -361,7 +361,7 @@ func SetupGenesisBlockWithOverride(db zonddb.Database, triedb *trie.Database, ge
 
 // LoadChainConfig loads the stored chain config if it is already present in
 // database, otherwise, return the config in the provided genesis specification.
-func LoadChainConfig(db zonddb.Database, genesis *Genesis) (*params.ChainConfig, error) {
+func LoadChainConfig(db qrldb.Database, genesis *Genesis) (*params.ChainConfig, error) {
 	// Load the stored chain config from the database. It can be nil
 	// in case the database is empty. Notably, we only care about the
 	// chain config corresponds to the canonical chain.
@@ -441,7 +441,7 @@ func (g *Genesis) ToBlock() *types.Block {
 
 // Commit writes the block and state of a genesis specification to the database.
 // The block is committed as the canonical head block.
-func (g *Genesis) Commit(db zonddb.Database, triedb *trie.Database) (*types.Block, error) {
+func (g *Genesis) Commit(db qrldb.Database, triedb *trie.Database) (*types.Block, error) {
 	block := g.ToBlock()
 	if block.Number().Sign() != 0 {
 		return nil, errors.New("can't commit genesis block with number > 0")
@@ -471,7 +471,7 @@ func (g *Genesis) Commit(db zonddb.Database, triedb *trie.Database) (*types.Bloc
 
 // MustCommit writes the genesis block and state to db, panicking on error.
 // The block is committed as the canonical head block.
-func (g *Genesis) MustCommit(db zonddb.Database, triedb *trie.Database) *types.Block {
+func (g *Genesis) MustCommit(db qrldb.Database, triedb *trie.Database) *types.Block {
 	block, err := g.Commit(db, triedb)
 	if err != nil {
 		panic(err)
@@ -480,7 +480,7 @@ func (g *Genesis) MustCommit(db zonddb.Database, triedb *trie.Database) *types.B
 }
 
 // TODO(now.youtrack.cloud/issue/TGZ-16)
-// DefaultGenesisBlock returns the Zond main net genesis block.
+// DefaultGenesisBlock returns the QRL main net genesis block.
 func DefaultGenesisBlock() *Genesis {
 	return &Genesis{
 		Config:    params.MainnetChainConfig,

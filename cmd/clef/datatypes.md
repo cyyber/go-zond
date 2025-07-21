@@ -9,12 +9,12 @@ Example:
 ```json
 {
   "content_type": "text/plain",
-  "address": "ZDEADbEeF000000000000000000000000DeaDbeEf",
+  "address": "QDEADbEeF000000000000000000000000DeaDbeEf",
   "raw_data": "GUV0aGVyZXVtIFNpZ25lZCBNZXNzYWdlOgoxMWhlbGxvIHdvcmxk",
   "messages": [
     {
       "name": "message",
-      "value": "\u0019Zond Signed Message:\n11hello world",
+      "value": "\u0019QRL Signed Message:\n11hello world",
       "type": "text/plain"
     }
   ],
@@ -60,7 +60,7 @@ Example:
 ```json
 {
   "transaction": {
-    "from": "ZDEADbEeF000000000000000000000000DeaDbeEf",
+    "from": "QDEADbEeF000000000000000000000000DeaDbeEf",
     "to": null,
     "gas": "0x3e8",
     "maxFeePerGas": "0x5",
@@ -96,7 +96,7 @@ Example:
 ```json
 {
   "transaction": {
-    "from": "ZDEADbEeF000000000000000000000000DeaDbeEf",
+    "from": "QDEADbEeF000000000000000000000000DeaDbeEf",
     "to": null,
     "gas": "0x3e8",
     "maxFeePerGas": "0x5",
@@ -116,7 +116,7 @@ Example:
 ```json
 {
   "transaction": {
-    "from": "Z",
+    "from": "Q",
     "to": null,
     "gas": "0x0",
     "maxFeePerGas": "0x0",
@@ -149,7 +149,7 @@ Example:
     "maxFeePerGas": "0x1",
     "maxPriorityFeePerGas": "0x0",
     "gas": "0x1",
-    "to": "Z8a8eafb1cf62bfbeb1741769dae1a9dd47996192",
+    "to": "Q8a8eafb1cf62bfbeb1741769dae1a9dd47996192",
     "value": "0x1",
     "input": "0x",
     "signature": "0x716bd90515acb1e68e5ac5867aa11a1e65399c3349d479f5fb698554ebc6f293",
@@ -189,11 +189,11 @@ Example:
 {
   "accounts": [
     {
-      "address": "Zdeadbeef000000000000000000000000deadbeef",
+      "address": "Qdeadbeef000000000000000000000000deadbeef",
       "url": "keystore:///path/to/keyfile/a"
     },
     {
-      "address": "Z1111111122222222222233333333334444444444",
+      "address": "Q1111111122222222222233333333334444444444",
       "url": "keystore:///path/to/keyfile/b"
     }
   ],
@@ -215,11 +215,11 @@ Example:
 {
   "accounts": [
     {
-      "address": "Z0000000000000000000000000000000000000000",
+      "address": "Q0000000000000000000000000000000000000000",
       "url": ".. ignored .."
     },
     {
-      "address": "Zffffffffffffffffffffffffffffffffffffffff",
+      "address": "Qffffffffffffffffffffffffffffffffffffffff",
       "url": ""
     }
   ]

@@ -101,10 +101,10 @@ func init() {
 
 func testTwoOperandOp(t *testing.T, tests []TwoOperandTestcase, opFn executionFunc, name string) {
 	var (
-		env            = NewZVM(BlockContext{}, TxContext{}, nil, params.TestChainConfig, Config{})
-		stack          = newstack()
-		pc             = uint64(0)
-		zvmInterpreter = env.interpreter
+		env             = NewQRVM(BlockContext{}, TxContext{}, nil, params.TestChainConfig, Config{})
+		stack           = newstack()
+		pc              = uint64(0)
+		qrvmInterpreter = env.interpreter
 	)
 
 	for i, test := range tests {
@@ -113,7 +113,7 @@ func testTwoOperandOp(t *testing.T, tests []TwoOperandTestcase, opFn executionFu
 		expected := new(uint256.Int).SetBytes(common.Hex2Bytes(test.Expected))
 		stack.push(x)
 		stack.push(y)
-		opFn(&pc, zvmInterpreter, &ScopeContext{nil, stack, nil})
+		opFn(&pc, qrvmInterpreter, &ScopeContext{nil, stack, nil})
 		if len(stack.data) != 1 {
 			t.Errorf("Expected one item on stack after %v, got %d: ", name, len(stack.data))
 		}
@@ -200,10 +200,10 @@ func TestSAR(t *testing.T) {
 
 func TestAddMod(t *testing.T) {
 	var (
-		env            = NewZVM(BlockContext{}, TxContext{}, nil, params.TestChainConfig, Config{})
-		stack          = newstack()
-		zvmInterpreter = NewZVMInterpreter(env)
-		pc             = uint64(0)
+		env             = NewQRVM(BlockContext{}, TxContext{}, nil, params.TestChainConfig, Config{})
+		stack           = newstack()
+		qrvmInterpreter = NewQRVMInterpreter(env)
+		pc              = uint64(0)
 	)
 	tests := []struct {
 		x        string
@@ -228,7 +228,7 @@ func TestAddMod(t *testing.T) {
 		stack.push(z)
 		stack.push(y)
 		stack.push(x)
-		opAddmod(&pc, zvmInterpreter, &ScopeContext{nil, stack, nil})
+		opAddmod(&pc, qrvmInterpreter, &ScopeContext{nil, stack, nil})
 		actual := stack.pop()
 		if actual.Cmp(expected) != 0 {
 			t.Errorf("Testcase %d, expected  %x, got %x", i, expected, actual)
@@ -244,7 +244,7 @@ func TestWriteExpectedValues(t *testing.T) {
 	// getResult is a convenience function to generate the expected values
 	getResult := func(args []*twoOperandParams, opFn executionFunc) []TwoOperandTestcase {
 		var (
-			env         = NewZVM(BlockContext{}, TxContext{}, nil, params.TestChainConfig, Config{})
+			env         = NewQRVM(BlockContext{}, TxContext{}, nil, params.TestChainConfig, Config{})
 			stack       = newstack()
 			pc          = uint64(0)
 			interpreter = env.interpreter
@@ -289,13 +289,13 @@ func TestJsonTestcases(t *testing.T) {
 
 func opBenchmark(bench *testing.B, op executionFunc, args ...string) {
 	var (
-		env            = NewZVM(BlockContext{}, TxContext{}, nil, params.TestChainConfig, Config{})
-		stack          = newstack()
-		scope          = &ScopeContext{nil, stack, nil}
-		zvmInterpreter = NewZVMInterpreter(env)
+		env             = NewQRVM(BlockContext{}, TxContext{}, nil, params.TestChainConfig, Config{})
+		stack           = newstack()
+		scope           = &ScopeContext{nil, stack, nil}
+		qrvmInterpreter = NewQRVMInterpreter(env)
 	)
 
-	env.interpreter = zvmInterpreter
+	env.interpreter = qrvmInterpreter
 	// convert args
 	intArgs := make([]*uint256.Int, len(args))
 	for i, arg := range args {
@@ -307,7 +307,7 @@ func opBenchmark(bench *testing.B, op executionFunc, args ...string) {
 		for _, arg := range intArgs {
 			stack.push(arg)
 		}
-		op(&pc, zvmInterpreter, scope)
+		op(&pc, qrvmInterpreter, scope)
 		stack.pop()
 	}
 	bench.StopTimer()
@@ -530,25 +530,25 @@ func BenchmarkOpIsZero(b *testing.B) {
 
 func TestOpMstore(t *testing.T) {
 	var (
-		env            = NewZVM(BlockContext{}, TxContext{}, nil, params.TestChainConfig, Config{})
-		stack          = newstack()
-		mem            = NewMemory()
-		zvmInterpreter = NewZVMInterpreter(env)
+		env             = NewQRVM(BlockContext{}, TxContext{}, nil, params.TestChainConfig, Config{})
+		stack           = newstack()
+		mem             = NewMemory()
+		qrvmInterpreter = NewQRVMInterpreter(env)
 	)
 
-	env.interpreter = zvmInterpreter
+	env.interpreter = qrvmInterpreter
 	mem.Resize(64)
 	pc := uint64(0)
 	v := "abcdef00000000000000abba000000000deaf000000c0de00100000000133700"
 	stack.push(new(uint256.Int).SetBytes(common.Hex2Bytes(v)))
 	stack.push(new(uint256.Int))
-	opMstore(&pc, zvmInterpreter, &ScopeContext{mem, stack, nil})
+	opMstore(&pc, qrvmInterpreter, &ScopeContext{mem, stack, nil})
 	if got := common.Bytes2Hex(mem.GetCopy(0, 32)); got != v {
 		t.Fatalf("Mstore fail, got %v, expected %v", got, v)
 	}
 	stack.push(new(uint256.Int).SetUint64(0x1))
 	stack.push(new(uint256.Int))
-	opMstore(&pc, zvmInterpreter, &ScopeContext{mem, stack, nil})
+	opMstore(&pc, qrvmInterpreter, &ScopeContext{mem, stack, nil})
 	if common.Bytes2Hex(mem.GetCopy(0, 32)) != "0000000000000000000000000000000000000000000000000000000000000001" {
 		t.Fatalf("Mstore failed to overwrite previous value")
 	}
@@ -556,13 +556,13 @@ func TestOpMstore(t *testing.T) {
 
 func BenchmarkOpMstore(bench *testing.B) {
 	var (
-		env            = NewZVM(BlockContext{}, TxContext{}, nil, params.TestChainConfig, Config{})
-		stack          = newstack()
-		mem            = NewMemory()
-		zvmInterpreter = NewZVMInterpreter(env)
+		env             = NewQRVM(BlockContext{}, TxContext{}, nil, params.TestChainConfig, Config{})
+		stack           = newstack()
+		mem             = NewMemory()
+		qrvmInterpreter = NewQRVMInterpreter(env)
 	)
 
-	env.interpreter = zvmInterpreter
+	env.interpreter = qrvmInterpreter
 	mem.Resize(64)
 	pc := uint64(0)
 	memStart := new(uint256.Int)
@@ -572,18 +572,18 @@ func BenchmarkOpMstore(bench *testing.B) {
 	for i := 0; i < bench.N; i++ {
 		stack.push(value)
 		stack.push(memStart)
-		opMstore(&pc, zvmInterpreter, &ScopeContext{mem, stack, nil})
+		opMstore(&pc, qrvmInterpreter, &ScopeContext{mem, stack, nil})
 	}
 }
 
 func BenchmarkOpKeccak256(bench *testing.B) {
 	var (
-		env            = NewZVM(BlockContext{}, TxContext{}, nil, params.TestChainConfig, Config{})
-		stack          = newstack()
-		mem            = NewMemory()
-		zvmInterpreter = NewZVMInterpreter(env)
+		env             = NewQRVM(BlockContext{}, TxContext{}, nil, params.TestChainConfig, Config{})
+		stack           = newstack()
+		mem             = NewMemory()
+		qrvmInterpreter = NewQRVMInterpreter(env)
 	)
-	env.interpreter = zvmInterpreter
+	env.interpreter = qrvmInterpreter
 	mem.Resize(32)
 	pc := uint64(0)
 	start := new(uint256.Int)
@@ -592,7 +592,7 @@ func BenchmarkOpKeccak256(bench *testing.B) {
 	for i := 0; i < bench.N; i++ {
 		stack.push(uint256.NewInt(32))
 		stack.push(start)
-		opKeccak256(&pc, zvmInterpreter, &ScopeContext{mem, stack, nil})
+		opKeccak256(&pc, qrvmInterpreter, &ScopeContext{mem, stack, nil})
 	}
 }
 
@@ -606,46 +606,46 @@ func TestCreate2Addresses(t *testing.T) {
 
 	for i, tt := range []testcase{
 		{
-			origin:   "Z0000000000000000000000000000000000000000",
+			origin:   "Q0000000000000000000000000000000000000000",
 			salt:     "0x0000000000000000000000000000000000000000",
 			code:     "0x00",
-			expected: "Z4d1a2e2bb4f88f0250f26ffff098b0b30b26bf38",
+			expected: "Q4d1a2e2bb4f88f0250f26ffff098b0b30b26bf38",
 		},
 		{
-			origin:   "Zdeadbeef00000000000000000000000000000000",
+			origin:   "Qdeadbeef00000000000000000000000000000000",
 			salt:     "0x0000000000000000000000000000000000000000",
 			code:     "0x00",
-			expected: "ZB928f69Bb1D91Cd65274e3c79d8986362984fDA3",
+			expected: "QB928f69Bb1D91Cd65274e3c79d8986362984fDA3",
 		},
 		{
-			origin:   "Zdeadbeef00000000000000000000000000000000",
+			origin:   "Qdeadbeef00000000000000000000000000000000",
 			salt:     "0xfeed000000000000000000000000000000000000",
 			code:     "0x00",
-			expected: "ZD04116cDd17beBE565EB2422F2497E06cC1C9833",
+			expected: "QD04116cDd17beBE565EB2422F2497E06cC1C9833",
 		},
 		{
-			origin:   "Z0000000000000000000000000000000000000000",
+			origin:   "Q0000000000000000000000000000000000000000",
 			salt:     "0x0000000000000000000000000000000000000000",
 			code:     "0xdeadbeef",
-			expected: "Z70f2b2914A2a4b783FaEFb75f459A580616Fcb5e",
+			expected: "Q70f2b2914A2a4b783FaEFb75f459A580616Fcb5e",
 		},
 		{
-			origin:   "Z00000000000000000000000000000000deadbeef",
+			origin:   "Q00000000000000000000000000000000deadbeef",
 			salt:     "0xcafebabe",
 			code:     "0xdeadbeef",
-			expected: "Z60f3f640a8508fC6a86d45DF051962668E1e8AC7",
+			expected: "Q60f3f640a8508fC6a86d45DF051962668E1e8AC7",
 		},
 		{
-			origin:   "Z00000000000000000000000000000000deadbeef",
+			origin:   "Q00000000000000000000000000000000deadbeef",
 			salt:     "0xcafebabe",
 			code:     "0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
-			expected: "Z1d8bfDC5D46DC4f61D6b6115972536eBE6A8854C",
+			expected: "Q1d8bfDC5D46DC4f61D6b6115972536eBE6A8854C",
 		},
 		{
-			origin:   "Z0000000000000000000000000000000000000000",
+			origin:   "Q0000000000000000000000000000000000000000",
 			salt:     "0x0000000000000000000000000000000000000000",
 			code:     "0x",
-			expected: "ZE33C0C7F7df4809055C3ebA6c09CFe4BaF1BD9e0",
+			expected: "QE33C0C7F7df4809055C3ebA6c09CFe4BaF1BD9e0",
 		},
 	} {
 		origin, _ := common.NewAddressFromString(tt.origin)
@@ -682,12 +682,12 @@ func TestRandom(t *testing.T) {
 		{name: "hash(0x010203)", random: crypto.Keccak256Hash([]byte{0x01, 0x02, 0x03})},
 	} {
 		var (
-			env            = NewZVM(BlockContext{Random: &tt.random}, TxContext{}, nil, params.TestChainConfig, Config{})
-			stack          = newstack()
-			pc             = uint64(0)
-			zvmInterpreter = env.interpreter
+			env             = NewQRVM(BlockContext{Random: &tt.random}, TxContext{}, nil, params.TestChainConfig, Config{})
+			stack           = newstack()
+			pc              = uint64(0)
+			qrvmInterpreter = env.interpreter
 		)
-		opRandom(&pc, zvmInterpreter, &ScopeContext{nil, stack, nil})
+		opRandom(&pc, qrvmInterpreter, &ScopeContext{nil, stack, nil})
 		if len(stack.data) != 1 {
 			t.Errorf("Expected one item on stack after %v, got %d: ", tt.name, len(stack.data))
 		}

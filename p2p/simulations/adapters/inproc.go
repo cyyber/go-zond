@@ -29,7 +29,7 @@ import (
 	"github.com/theQRL/go-zond/log"
 	"github.com/theQRL/go-zond/node"
 	"github.com/theQRL/go-zond/p2p"
-	"github.com/theQRL/go-zond/p2p/enode"
+	"github.com/theQRL/go-zond/p2p/qnode"
 	"github.com/theQRL/go-zond/p2p/simulations/pipes"
 	"github.com/theQRL/go-zond/rpc"
 )
@@ -39,7 +39,7 @@ import (
 type SimAdapter struct {
 	pipe       func() (net.Conn, net.Conn, error)
 	mtx        sync.RWMutex
-	nodes      map[enode.ID]*SimNode
+	nodes      map[qnode.ID]*SimNode
 	lifecycles LifecycleConstructors
 }
 
@@ -50,7 +50,7 @@ type SimAdapter struct {
 func NewSimAdapter(services LifecycleConstructors) *SimAdapter {
 	return &SimAdapter{
 		pipe:       pipes.NetPipe,
-		nodes:      make(map[enode.ID]*SimNode),
+		nodes:      make(map[qnode.ID]*SimNode),
 		lifecycles: services,
 	}
 }
@@ -86,7 +86,7 @@ func (s *SimAdapter) NewNode(config *NodeConfig) (Node, error) {
 		}
 	}
 
-	err := config.initDummyEnode()
+	err := config.initDummyQnode()
 	if err != nil {
 		return nil, err
 	}
@@ -119,7 +119,7 @@ func (s *SimAdapter) NewNode(config *NodeConfig) (Node, error) {
 
 // Dial implements the p2p.NodeDialer interface by connecting to the node using
 // an in-memory net.Pipe
-func (s *SimAdapter) Dial(ctx context.Context, dest *enode.Node) (conn net.Conn, err error) {
+func (s *SimAdapter) Dial(ctx context.Context, dest *qnode.Node) (conn net.Conn, err error) {
 	node, ok := s.GetNode(dest.ID())
 	if !ok {
 		return nil, fmt.Errorf("unknown node: %s", dest.ID())
@@ -142,7 +142,7 @@ func (s *SimAdapter) Dial(ctx context.Context, dest *enode.Node) (conn net.Conn,
 
 // DialRPC implements the RPCDialer interface by creating an in-memory RPC
 // client of the given node
-func (s *SimAdapter) DialRPC(id enode.ID) (*rpc.Client, error) {
+func (s *SimAdapter) DialRPC(id qnode.ID) (*rpc.Client, error) {
 	node, ok := s.GetNode(id)
 	if !ok {
 		return nil, fmt.Errorf("unknown node: %s", id)
@@ -151,7 +151,7 @@ func (s *SimAdapter) DialRPC(id enode.ID) (*rpc.Client, error) {
 }
 
 // GetNode returns the node with the given ID if it exists
-func (s *SimAdapter) GetNode(id enode.ID) (*SimNode, bool) {
+func (s *SimAdapter) GetNode(id qnode.ID) (*SimNode, bool) {
 	s.mtx.RLock()
 	defer s.mtx.RUnlock()
 	node, ok := s.nodes[id]
@@ -163,7 +163,7 @@ func (s *SimAdapter) GetNode(id enode.ID) (*SimNode, bool) {
 // pipe
 type SimNode struct {
 	lock         sync.RWMutex
-	ID           enode.ID
+	ID           qnode.ID
 	config       *NodeConfig
 	adapter      *SimAdapter
 	node         *node.Node
@@ -184,7 +184,7 @@ func (sn *SimNode) Addr() []byte {
 }
 
 // Node returns a node descriptor representing the SimNode
-func (sn *SimNode) Node() *enode.Node {
+func (sn *SimNode) Node() *qnode.Node {
 	return sn.config.Node()
 }
 
@@ -343,7 +343,7 @@ func (sn *SimNode) NodeInfo() *p2p.NodeInfo {
 	if server == nil {
 		return &p2p.NodeInfo{
 			ID:    sn.ID.String(),
-			Enode: sn.Node().String(),
+			Qnode: sn.Node().String(),
 		}
 	}
 	return server.NodeInfo()

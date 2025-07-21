@@ -48,7 +48,7 @@ var (
 	DefaultAuthVhosts  = []string{"localhost"} // Default virtual hosts for the authenticated apis
 	DefaultAuthOrigins = []string{"localhost"} // Default origins for the authenticated apis
 	DefaultAuthPrefix  = ""                    // Default prefix for the authenticated apis
-	DefaultAuthModules = []string{"zond", "engine"}
+	DefaultAuthModules = []string{"qrl", "engine"}
 )
 
 // DefaultConfig contains reasonable default settings.
@@ -82,19 +82,19 @@ func DefaultDataDir() string {
 	if home != "" {
 		switch runtime.GOOS {
 		case "darwin":
-			return filepath.Join(home, "Library", "Zond")
+			return filepath.Join(home, "Library", "QRL")
 		case "windows":
 			// We used to put everything in %HOME%\AppData\Roaming, but this caused
 			// problems with non-typical setups. If this fallback location exists and
 			// is non-empty, use it, otherwise DTRT and check %LOCALAPPDATA%.
-			fallback := filepath.Join(home, "AppData", "Roaming", "Zond")
+			fallback := filepath.Join(home, "AppData", "Roaming", "QRL")
 			appdata := windowsAppData()
 			if appdata == "" || isNonEmptyDir(fallback) {
 				return fallback
 			}
-			return filepath.Join(appdata, "Zond")
+			return filepath.Join(appdata, "QRL")
 		default:
-			return filepath.Join(home, ".zond")
+			return filepath.Join(home, ".qrl")
 		}
 	}
 	// As we cannot guess a stable location, return empty and handle later

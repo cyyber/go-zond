@@ -28,9 +28,9 @@ import (
 	"github.com/theQRL/go-zond/core/types"
 	"github.com/theQRL/go-zond/log"
 	"github.com/theQRL/go-zond/params"
+	"github.com/theQRL/go-zond/qrldb"
 	"github.com/theQRL/go-zond/trie/trienode"
 	"github.com/theQRL/go-zond/trie/triestate"
-	"github.com/theQRL/go-zond/zonddb"
 )
 
 const (
@@ -103,7 +103,7 @@ func (c *Config) sanitize() *Config {
 	return &conf
 }
 
-// Defaults contains default settings for Zond mainnet.
+// Defaults contains default settings for QRL mainnet.
 var Defaults = &Config{
 	StateHistory:   params.FullImmutabilityThreshold,
 	CleanCacheSize: defaultCleanSize,
@@ -131,7 +131,7 @@ type Database struct {
 	readOnly   bool                     // Indicator if database is opened in read only mode
 	bufferSize int                      // Memory allowance (in bytes) for caching dirty nodes
 	config     *Config                  // Configuration for database
-	diskdb     zonddb.Database          // Persistent storage for matured trie nodes
+	diskdb     qrldb.Database           // Persistent storage for matured trie nodes
 	tree       *layerTree               // The group for all known layers
 	freezer    *rawdb.ResettableFreezer // Freezer for storing trie histories, nil possible in tests
 	lock       sync.RWMutex             // Lock to prevent mutations from happening at the same time
@@ -140,7 +140,7 @@ type Database struct {
 // New attempts to load an already existing layer from a persistent key-value
 // store (with a number of memory layers from a journal). If the journal is not
 // matched with the base persistent layer, all the recorded diff layers are discarded.
-func New(diskdb zonddb.Database, config *Config) *Database {
+func New(diskdb qrldb.Database, config *Config) *Database {
 	if config == nil {
 		config = Defaults
 	}

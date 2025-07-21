@@ -28,9 +28,9 @@ import (
 	"time"
 
 	"github.com/theQRL/go-zond/crypto"
-	"github.com/theQRL/go-zond/p2p/enode"
-	"github.com/theQRL/go-zond/p2p/enr"
 	"github.com/theQRL/go-zond/p2p/netutil"
+	"github.com/theQRL/go-zond/p2p/qnode"
+	"github.com/theQRL/go-zond/p2p/qnr"
 )
 
 func TestTable_pingReplace(t *testing.T) {
@@ -58,7 +58,7 @@ func testPingReplace(t *testing.T, newNodeIsResponding, lastInBucketIsResponding
 
 	// Fill up the sender's bucket.
 	pingKey, _ := crypto.HexToECDSA("45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8")
-	pingSender := wrapNode(enode.NewV4(&pingKey.PublicKey, net.IP{127, 0, 0, 1}, 99, 99))
+	pingSender := wrapNode(qnode.NewV4(&pingKey.PublicKey, net.IP{127, 0, 0, 1}, 99, 99))
 	last := fillBucket(tab, pingSender)
 
 	// Add the sender as if it just pinged us. Revalidate should replace the last node in
@@ -102,7 +102,7 @@ func TestBucket_bumpNoDuplicates(t *testing.T) {
 			n := rand.Intn(bucketSize-1) + 1
 			nodes := make([]*node, n)
 			for i := range nodes {
-				nodes[i] = nodeAtDistance(enode.ID{}, 200, intIP(200))
+				nodes[i] = nodeAtDistance(qnode.ID{}, 200, intIP(200))
 			}
 			args[0] = reflect.ValueOf(nodes)
 			// generate random bump positions.
@@ -231,7 +231,7 @@ func TestTable_findnodeByID(t *testing.T) {
 					continue // don't run the check below for nodes in result
 				}
 				farthestResult := result[len(result)-1].ID()
-				if enode.DistCmp(test.Target, n.ID(), farthestResult) < 0 {
+				if qnode.DistCmp(test.Target, n.ID(), farthestResult) < 0 {
 					t.Errorf("table contains node that is closer to target but it's not in result")
 					t.Logf("  Target:          %v", test.Target)
 					t.Logf("  Farthest Result: %v", farthestResult)
@@ -248,22 +248,22 @@ func TestTable_findnodeByID(t *testing.T) {
 }
 
 type closeTest struct {
-	Self   enode.ID
-	Target enode.ID
+	Self   qnode.ID
+	Target qnode.ID
 	All    []*node
 	N      int
 }
 
 func (*closeTest) Generate(rand *rand.Rand, size int) reflect.Value {
 	t := &closeTest{
-		Self:   gen(enode.ID{}, rand).(enode.ID),
-		Target: gen(enode.ID{}, rand).(enode.ID),
+		Self:   gen(qnode.ID{}, rand).(qnode.ID),
+		Target: gen(qnode.ID{}, rand).(qnode.ID),
 		N:      rand.Intn(bucketSize),
 	}
-	for _, id := range gen([]enode.ID{}, rand).([]enode.ID) {
-		r := new(enr.Record)
-		r.Set(enr.IP(genIP(rand)))
-		n := wrapNode(enode.SignNull(r, id))
+	for _, id := range gen([]qnode.ID{}, rand).([]qnode.ID) {
+		r := new(qnr.Record)
+		r.Set(qnr.IP(genIP(rand)))
+		n := wrapNode(qnode.SignNull(r, id))
 		n.livenessChecks = 1
 		t.All = append(t.All, n)
 	}
@@ -290,8 +290,8 @@ func TestTable_addVerifiedNode(t *testing.T) {
 
 	// Add a changed version of n2.
 	newrec := n2.Record()
-	newrec.Set(enr.IP{99, 99, 99, 99})
-	newn2 := wrapNode(enode.SignNull(newrec, n2.ID()))
+	newrec.Set(qnr.IP{99, 99, 99, 99})
+	newn2 := wrapNode(qnode.SignNull(newrec, n2.ID()))
 	tab.addVerifiedNode(newn2)
 
 	// Check that bucket is updated correctly.
@@ -322,8 +322,8 @@ func TestTable_addSeenNode(t *testing.T) {
 
 	// Add a changed version of n2.
 	newrec := n2.Record()
-	newrec.Set(enr.IP{99, 99, 99, 99})
-	newn2 := wrapNode(enode.SignNull(newrec, n2.ID()))
+	newrec.Set(qnr.IP{99, 99, 99, 99})
+	newn2 := wrapNode(qnode.SignNull(newrec, n2.ID()))
 	tab.addSeenNode(newn2)
 
 	// Check that bucket content is unchanged.
@@ -333,7 +333,7 @@ func TestTable_addSeenNode(t *testing.T) {
 	checkIPLimitInvariant(t, tab)
 }
 
-// This test checks that ENR updates happen during revalidation. If a node in the table
+// This test checks that QNR updates happen during revalidation. If a node in the table
 // announces a new sequence number, the new record should be pulled.
 func TestTable_revalidateSyncRecord(t *testing.T) {
 	transport := newPingRecorder()
@@ -343,15 +343,15 @@ func TestTable_revalidateSyncRecord(t *testing.T) {
 	defer tab.close()
 
 	// Insert a node.
-	var r enr.Record
-	r.Set(enr.IP(net.IP{127, 0, 0, 1}))
-	id := enode.ID{1}
-	n1 := wrapNode(enode.SignNull(&r, id))
+	var r qnr.Record
+	r.Set(qnr.IP(net.IP{127, 0, 0, 1}))
+	id := qnode.ID{1}
+	n1 := wrapNode(qnode.SignNull(&r, id))
 	tab.addSeenNode(n1)
 
 	// Update the node record.
-	r.Set(enr.WithEntry("foo", "bar"))
-	n2 := enode.SignNull(&r, id)
+	r.Set(qnr.WithEntry("foo", "bar"))
+	n2 := qnode.SignNull(&r, id)
 	transport.updateRecord(n2)
 
 	tab.doRevalidate(make(chan struct{}, 1))
@@ -362,7 +362,7 @@ func TestTable_revalidateSyncRecord(t *testing.T) {
 }
 
 func TestNodesPush(t *testing.T) {
-	var target enode.ID
+	var target qnode.ID
 	n1 := nodeAtDistance(target, 255, intIP(1))
 	n2 := nodeAtDistance(target, 254, intIP(2))
 	n3 := nodeAtDistance(target, 253, intIP(3))

@@ -34,7 +34,7 @@ import (
 	"github.com/theQRL/go-zond/core/state/snapshot"
 	"github.com/theQRL/go-zond/core/types"
 	"github.com/theQRL/go-zond/core/vm"
-	"github.com/theQRL/go-zond/zond/tracers/logger"
+	"github.com/theQRL/go-zond/qrl/tracers/logger"
 )
 
 func TestState(t *testing.T) {
@@ -62,7 +62,7 @@ func TestState(t *testing.T) {
 
 	// For Istanbul, older tests were moved into LegacyTests
 	for _, dir := range []string{
-		filepath.Join(baseDir, "EIPTests", "StateTests"),
+		filepath.Join(baseDir, "QIPTests", "StateTests"),
 		stateTestDir,
 		legacyStateTestDir,
 		benchmarksDir,
@@ -139,7 +139,7 @@ func withTrace(t *testing.T, gasLimit uint64, test func(vm.Config) error) {
 	// Test failed, re-run with tracing enabled.
 	t.Error(err)
 	if gasLimit > traceErrorLimit {
-		t.Log("gas limit too high for ZVM trace")
+		t.Log("gas limit too high for QRVM trace")
 		return
 	}
 	buf := new(bytes.Buffer)
@@ -151,15 +151,15 @@ func withTrace(t *testing.T, gasLimit uint64, test func(vm.Config) error) {
 	}
 	w.Flush()
 	if buf.Len() == 0 {
-		t.Log("no ZVM operation logs generated")
+		t.Log("no QRVM operation logs generated")
 	} else {
-		t.Log("ZVM operation log:\n" + buf.String())
+		t.Log("QRVM operation log:\n" + buf.String())
 	}
-	// t.Logf("ZVM output: 0x%x", tracer.Output())
-	// t.Logf("ZVM error: %v", tracer.Error())
+	// t.Logf("QRVM output: 0x%x", tracer.Output())
+	// t.Logf("QRVM error: %v", tracer.Error())
 }
 
-func BenchmarkZVM(b *testing.B) {
+func BenchmarkQRVM(b *testing.B) {
 	// Walk the directory.
 	dir := benchmarksDir
 	dirinfo, err := os.Stat(dir)
@@ -206,14 +206,14 @@ func runBenchmark(b *testing.B, t *StateTest) {
 		b.Run(key, func(b *testing.B) {
 			vmconfig := vm.Config{}
 
-			config, eips, err := GetChainConfig(subtest.Fork)
+			config, qips, err := GetChainConfig(subtest.Fork)
 			if err != nil {
 				b.Error(err)
 				return
 			}
 			var rules = config.Rules(new(big.Int), 0)
 
-			vmconfig.ExtraEips = eips
+			vmconfig.ExtraQips = qips
 			block := t.genesis(config).ToBlock()
 			triedb, _, statedb := MakePreState(rawdb.NewMemoryDatabase(), t.json.Pre, false, rawdb.HashScheme)
 			defer triedb.Close()
@@ -247,12 +247,12 @@ func runBenchmark(b *testing.B, t *StateTest) {
 				}
 			}
 
-			// Prepare the ZVM.
-			txContext := core.NewZVMTxContext(msg)
-			context := core.NewZVMBlockContext(block.Header(), nil, &t.json.Env.Coinbase)
+			// Prepare the QRVM.
+			txContext := core.NewQRVMTxContext(msg)
+			context := core.NewQRVMBlockContext(block.Header(), nil, &t.json.Env.Coinbase)
 			context.GetHash = vmTestBlockHash
 			context.BaseFee = baseFee
-			zvm := vm.NewZVM(context, txContext, statedb, config, vmconfig)
+			qrvm := vm.NewQRVM(context, txContext, statedb, config, vmconfig)
 
 			// Create "contract" for sender to cache code analysis.
 			sender := vm.NewContract(vm.AccountRef(msg.From), vm.AccountRef(msg.From),
@@ -271,7 +271,7 @@ func runBenchmark(b *testing.B, t *StateTest) {
 				start := time.Now()
 
 				// Execute the message.
-				_, leftOverGas, err := zvm.Call(sender, *msg.To, msg.Data, msg.GasLimit, msg.Value)
+				_, leftOverGas, err := qrvm.Call(sender, *msg.To, msg.Data, msg.GasLimit, msg.Value)
 				if err != nil {
 					b.Error(err)
 					return

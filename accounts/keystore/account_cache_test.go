@@ -34,14 +34,14 @@ import (
 )
 
 var (
-	address1, _       = common.NewAddressFromString("Z2068da65aa0167e1d55fd692786cf87117fcf3fc")
-	address2, _       = common.NewAddressFromString("Z208f56097044fc0302ee090d7f410df6a6897392")
-	address3, _       = common.NewAddressFromString("Z2061d4bb7a03eddcab945a5cfc7b5b32eac2284e")
+	address1, _       = common.NewAddressFromString("Q2068da65aa0167e1d55fd692786cf87117fcf3fc")
+	address2, _       = common.NewAddressFromString("Q208f56097044fc0302ee090d7f410df6a6897392")
+	address3, _       = common.NewAddressFromString("Q2061d4bb7a03eddcab945a5cfc7b5b32eac2284e")
 	cachetestDir, _   = filepath.Abs(filepath.Join("testdata", "keystore"))
 	cachetestAccounts = []accounts.Account{
 		{
 			Address: address1,
-			URL:     accounts.URL{Scheme: KeyStoreScheme, Path: filepath.Join(cachetestDir, "UTC--2024-05-27T07-48-33.872599000Z--Z2068da65aa0167e1d55fd692786cf87117fcf3fc")},
+			URL:     accounts.URL{Scheme: KeyStoreScheme, Path: filepath.Join(cachetestDir, "UTC--2024-05-27T07-48-33.872599000Z--Q2068da65aa0167e1d55fd692786cf87117fcf3fc")},
 		},
 		{
 			Address: address2,
@@ -117,7 +117,7 @@ func TestWatchNewFile(t *testing.T) {
 func TestWatchNoDir(t *testing.T) {
 	t.Parallel()
 	// Create ks but not the directory that it watches.
-	dir := filepath.Join(os.TempDir(), fmt.Sprintf("zond-keystore-watchnodir-test-%d-%d", os.Getpid(), rand.Int()))
+	dir := filepath.Join(os.TempDir(), fmt.Sprintf("qrl-keystore-watchnodir-test-%d-%d", os.Getpid(), rand.Int()))
 	ks := NewKeyStore(dir, LightArgon2idT, LightArgon2idM, LightArgon2idP)
 	list := ks.Accounts()
 	if len(list) > 0 {
@@ -166,13 +166,13 @@ func TestCacheAddDeleteOrder(t *testing.T) {
 	cache, _ := newAccountCache("testdata/no-such-dir")
 	cache.watcher.running = true // prevent unexpected reloads
 
-	address1, _ := common.NewAddressFromString("Z095e7baea6a6c7c4c2dfeb977efac326af552d87")
-	address2, _ := common.NewAddressFromString("Z2cac1adea150210703ba75ed097ddfe24e14f213")
-	address3, _ := common.NewAddressFromString("Z8bda78331c916a08481428e4b07c96d3e916d165")
-	address4, _ := common.NewAddressFromString("Zd49ff4eeb0b2686ed89c0fc0f2b6ea533ddbbd5e")
-	address5, _ := common.NewAddressFromString("Z7ef5a6135f1fd6a02593eedc869c6d41d934aef8")
-	address6, _ := common.NewAddressFromString("Zf466859ead1932d743d622cb74fc058882e8648a")
-	address7, _ := common.NewAddressFromString("Z289d485d9771714cce91d3393d764e1311907acc")
+	address1, _ := common.NewAddressFromString("Q095e7baea6a6c7c4c2dfeb977efac326af552d87")
+	address2, _ := common.NewAddressFromString("Q2cac1adea150210703ba75ed097ddfe24e14f213")
+	address3, _ := common.NewAddressFromString("Q8bda78331c916a08481428e4b07c96d3e916d165")
+	address4, _ := common.NewAddressFromString("Qd49ff4eeb0b2686ed89c0fc0f2b6ea533ddbbd5e")
+	address5, _ := common.NewAddressFromString("Q7ef5a6135f1fd6a02593eedc869c6d41d934aef8")
+	address6, _ := common.NewAddressFromString("Qf466859ead1932d743d622cb74fc058882e8648a")
+	address7, _ := common.NewAddressFromString("Q289d485d9771714cce91d3393d764e1311907acc")
 	accs := []accounts.Account{
 		{
 			Address: address1,
@@ -192,7 +192,7 @@ func TestCacheAddDeleteOrder(t *testing.T) {
 		},
 		{
 			Address: address5,
-			URL:     accounts.URL{Scheme: KeyStoreScheme, Path: "UTC--2016-03-22T12-57-55.920751759Z--Z7ef5a6135f1fd6a02593eedc869c6d41d934aef8"},
+			URL:     accounts.URL{Scheme: KeyStoreScheme, Path: "UTC--2016-03-22T12-57-55.920751759Z--Q7ef5a6135f1fd6a02593eedc869c6d41d934aef8"},
 		},
 		{
 			Address: address6,
@@ -223,7 +223,7 @@ func TestCacheAddDeleteOrder(t *testing.T) {
 			t.Errorf("expected hasAccount(%x) to return true", a.Address)
 		}
 	}
-	address, _ := common.NewAddressFromString("Z20769b85de2678a06231c5debf5facc9e0e7e89a")
+	address, _ := common.NewAddressFromString("Q20769b85de2678a06231c5debf5facc9e0e7e89a")
 	if cache.hasAddress(address) {
 		t.Errorf("expected hasAccount(%x) to return false", address)
 	}
@@ -259,9 +259,9 @@ func TestCacheFind(t *testing.T) {
 	cache, _ := newAccountCache(dir)
 	cache.watcher.running = true // prevent unexpected reloads
 
-	address1, _ := common.NewAddressFromString("Z095e7baea6a6c7c4c2dfeb977efac326af552d87")
-	address2, _ := common.NewAddressFromString("Z2cac1adea150210703ba75ed097ddfe24e14f213")
-	address3, _ := common.NewAddressFromString("Zd49ff4eeb0b2686ed89c0fc0f2b6ea533ddbbd5e")
+	address1, _ := common.NewAddressFromString("Q095e7baea6a6c7c4c2dfeb977efac326af552d87")
+	address2, _ := common.NewAddressFromString("Q2cac1adea150210703ba75ed097ddfe24e14f213")
+	address3, _ := common.NewAddressFromString("Qd49ff4eeb0b2686ed89c0fc0f2b6ea533ddbbd5e")
 	accs := []accounts.Account{
 		{
 			Address: address1,
@@ -284,7 +284,7 @@ func TestCacheFind(t *testing.T) {
 		cache.add(a)
 	}
 
-	address, _ := common.NewAddressFromString("Zf466859ead1932d743d622cb74fc058882e8648a")
+	address, _ := common.NewAddressFromString("Qf466859ead1932d743d622cb74fc058882e8648a")
 	nomatchAccount := accounts.Account{
 		Address: address,
 		URL:     accounts.URL{Scheme: KeyStoreScheme, Path: filepath.Join(dir, "something")},
@@ -337,7 +337,7 @@ func TestUpdatedKeyfileContents(t *testing.T) {
 	t.Parallel()
 
 	// Create a temporary keystore to test with
-	dir := filepath.Join(os.TempDir(), fmt.Sprintf("zond-keystore-updatedkeyfilecontents-test-%d-%d", os.Getpid(), rand.Int()))
+	dir := filepath.Join(os.TempDir(), fmt.Sprintf("qrl-keystore-updatedkeyfilecontents-test-%d-%d", os.Getpid(), rand.Int()))
 	ks := NewKeyStore(dir, LightArgon2idT, LightArgon2idM, LightArgon2idP)
 
 	list := ks.Accounts()

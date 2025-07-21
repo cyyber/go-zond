@@ -25,13 +25,13 @@ import (
 	"github.com/theQRL/go-zond/core/rawdb"
 	"github.com/theQRL/go-zond/core/types"
 	"github.com/theQRL/go-zond/crypto"
+	"github.com/theQRL/go-zond/qrldb"
+	"github.com/theQRL/go-zond/qrldb/memorydb"
 	"github.com/theQRL/go-zond/trie/trienode"
-	"github.com/theQRL/go-zond/zonddb"
-	"github.com/theQRL/go-zond/zonddb/memorydb"
 )
 
 // makeTestTrie create a sample test trie to test node-wise reconstruction.
-func makeTestTrie(scheme string) (zonddb.Database, *Database, *StateTrie, map[string][]byte) {
+func makeTestTrie(scheme string) (qrldb.Database, *Database, *StateTrie, map[string][]byte) {
 	// Create an empty trie
 	db := rawdb.NewMemoryDatabase()
 	triedb := newTestDatabase(db, scheme)
@@ -70,7 +70,7 @@ func makeTestTrie(scheme string) (zonddb.Database, *Database, *StateTrie, map[st
 
 // checkTrieContents cross references a reconstructed trie with an expected data
 // content map.
-func checkTrieContents(t *testing.T, db zonddb.Database, scheme string, root []byte, content map[string][]byte) {
+func checkTrieContents(t *testing.T, db qrldb.Database, scheme string, root []byte, content map[string][]byte) {
 	// Check root availability and trie contents
 	ndb := newTestDatabase(db, scheme)
 	trie, err := NewStateTrie(TrieID(common.BytesToHash(root)), ndb)
@@ -88,7 +88,7 @@ func checkTrieContents(t *testing.T, db zonddb.Database, scheme string, root []b
 }
 
 // checkTrieConsistency checks that all nodes in a trie are indeed present.
-func checkTrieConsistency(db zonddb.Database, scheme string, root common.Hash) error {
+func checkTrieConsistency(db qrldb.Database, scheme string, root common.Hash) error {
 	ndb := newTestDatabase(db, scheme)
 	trie, err := NewStateTrie(TrieID(root), ndb)
 	if err != nil {
@@ -658,7 +658,7 @@ func testSyncOrdering(t *testing.T, scheme string) {
 	}
 }
 
-func syncWith(t *testing.T, root common.Hash, db zonddb.Database, srcDb *Database) {
+func syncWith(t *testing.T, root common.Hash, db qrldb.Database, srcDb *Database) {
 	// Create a destination trie and sync with the scheduler
 	sched := NewSync(root, db, nil, srcDb.Scheme())
 

@@ -22,20 +22,20 @@ import (
 	"github.com/theQRL/go-zond/common"
 	"github.com/theQRL/go-zond/core/rawdb"
 	"github.com/theQRL/go-zond/log"
-	"github.com/theQRL/go-zond/zonddb"
+	"github.com/theQRL/go-zond/qrldb"
 )
 
 // ShutdownTracker is a service that reports previous unclean shutdowns
 // upon start. It needs to be started after a successful start-up and stopped
 // after a successful shutdown, just before the db is closed.
 type ShutdownTracker struct {
-	db     zonddb.Database
+	db     qrldb.Database
 	stopCh chan struct{}
 }
 
 // NewShutdownTracker creates a new ShutdownTracker instance and has
 // no other side-effect.
-func NewShutdownTracker(db zonddb.Database) *ShutdownTracker {
+func NewShutdownTracker(db qrldb.Database) *ShutdownTracker {
 	return &ShutdownTracker{
 		db:     db,
 		stopCh: make(chan struct{}),

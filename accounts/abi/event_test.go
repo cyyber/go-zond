@@ -74,7 +74,7 @@ var jsonEventMixedCase = []byte(`{
 // 1000000
 var transferData1 = "00000000000000000000000000000000000000000000000000000000000f4240"
 
-// "Z00Ce0d46d924CC8437c806721496599FC3FFA268", 2218516807680, "usd"
+// "Q00Ce0d46d924CC8437c806721496599FC3FFA268", 2218516807680, "usd"
 var pledgeData1 = "00000000000000000000000000ce0d46d924cc8437c806721496599fc3ffa2680000000000000000000000000000000000000000000000000000020489e800007573640000000000000000000000000000000000000000000000000000000000"
 
 // 1000000,2218516807680,1000001
@@ -208,7 +208,7 @@ func TestEventTupleUnpack(t *testing.T) {
 	bigintExpected := big.NewInt(1000000)
 	bigintExpected2 := big.NewInt(2218516807680)
 	bigintExpected3 := big.NewInt(1000001)
-	addr, _ := common.NewAddressFromString("Z00Ce0d46d924CC8437c806721496599FC3FFA268")
+	addr, _ := common.NewAddressFromString("Q00Ce0d46d924CC8437c806721496599FC3FFA268")
 	var testCases = []struct {
 		data     string
 		dest     interface{}
@@ -222,42 +222,42 @@ func TestEventTupleUnpack(t *testing.T) {
 		&EventTransfer{Value: bigintExpected},
 		jsonEventTransfer,
 		"",
-		"Can unpack ZRC20 Transfer event into structure",
+		"Can unpack SQRC-TF1 Transfer event into structure",
 	}, {
 		transferData1,
 		&[]interface{}{&bigint},
 		&[]interface{}{&bigintExpected},
 		jsonEventTransfer,
 		"",
-		"Can unpack ZRC20 Transfer event into slice",
+		"Can unpack SQRC-TF1 Transfer event into slice",
 	}, {
 		transferData1,
 		&EventTransferWithTag{},
 		&EventTransferWithTag{Value1: bigintExpected},
 		jsonEventTransfer,
 		"",
-		"Can unpack ZRC20 Transfer event into structure with abi: tag",
+		"Can unpack SQRC-TF1 Transfer event into structure with abi: tag",
 	}, {
 		transferData1,
 		&BadEventTransferWithDuplicatedTag{},
 		&BadEventTransferWithDuplicatedTag{},
 		jsonEventTransfer,
 		"struct: abi tag in 'Value2' already mapped",
-		"Can not unpack ZRC20 Transfer event with duplicated abi tag",
+		"Can not unpack SQRC-TF1 Transfer event with duplicated abi tag",
 	}, {
 		transferData1,
 		&BadEventTransferWithSameFieldAndTag{},
 		&BadEventTransferWithSameFieldAndTag{},
 		jsonEventTransfer,
 		"abi: multiple variables maps to the same abi field 'value'",
-		"Can not unpack ZRC20 Transfer event with a field and a tag mapping to the same abi variable",
+		"Can not unpack SQRC-TF1 Transfer event with a field and a tag mapping to the same abi variable",
 	}, {
 		transferData1,
 		&BadEventTransferWithEmptyTag{},
 		&BadEventTransferWithEmptyTag{},
 		jsonEventTransfer,
 		"struct: abi tag in 'Value' is empty",
-		"Can not unpack ZRC20 Transfer event with an empty tag",
+		"Can not unpack SQRC-TF1 Transfer event with an empty tag",
 	}, {
 		pledgeData1,
 		&EventPledge{},

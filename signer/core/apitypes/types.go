@@ -77,7 +77,7 @@ func (v *ValidationMessages) GetWarnings() error {
 }
 
 // SendTxArgs represents the arguments to submit a transaction
-// This struct is identical to zondapi.TransactionArgs, except for the usage of
+// This struct is identical to qrlapi.TransactionArgs, except for the usage of
 // common.MixedcaseAddress in From and To
 type SendTxArgs struct {
 	From                 common.MixedcaseAddress  `json:"from"`

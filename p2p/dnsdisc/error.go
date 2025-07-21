@@ -26,7 +26,7 @@ var (
 	errUnknownEntry = errors.New("unknown entry type")
 	errNoPubkey     = errors.New("missing public key")
 	errBadPubkey    = errors.New("invalid public key")
-	errInvalidENR   = errors.New("invalid node record")
+	errInvalidQNR   = errors.New("invalid node record")
 	errInvalidChild = errors.New("invalid child hash")
 	errInvalidSig   = errors.New("invalid base64 signature")
 	errSyntax       = errors.New("invalid syntax")
@@ -37,8 +37,8 @@ var (
 	errNoRoot        = errors.New("no valid root found")
 	errNoEntry       = errors.New("no valid tree entry found")
 	errHashMismatch  = errors.New("hash mismatch")
-	errENRInLinkTree = errors.New("enr entry in link tree")
-	errLinkInENRTree = errors.New("link entry in ENR tree")
+	errQNRInLinkTree = errors.New("qnr entry in link tree")
+	errLinkInQNRTree = errors.New("link entry in QNR tree")
 )
 
 type nameError struct {

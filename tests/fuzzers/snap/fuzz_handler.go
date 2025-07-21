@@ -30,10 +30,10 @@ import (
 	"github.com/theQRL/go-zond/core/rawdb"
 	"github.com/theQRL/go-zond/core/vm"
 	"github.com/theQRL/go-zond/p2p"
-	"github.com/theQRL/go-zond/p2p/enode"
+	"github.com/theQRL/go-zond/p2p/qnode"
 	"github.com/theQRL/go-zond/params"
+	"github.com/theQRL/go-zond/qrl/protocols/snap"
 	"github.com/theQRL/go-zond/rlp"
-	"github.com/theQRL/go-zond/zond/protocols/snap"
 )
 
 var trieRoot common.Hash
@@ -88,7 +88,7 @@ type dummyBackend struct {
 
 func (d *dummyBackend) Chain() *core.BlockChain                { return d.chain }
 func (d *dummyBackend) RunPeer(*snap.Peer, snap.Handler) error { return nil }
-func (d *dummyBackend) PeerInfo(enode.ID) interface{}          { return "Foo" }
+func (d *dummyBackend) PeerInfo(qnode.ID) interface{}          { return "Foo" }
 func (d *dummyBackend) Handle(*snap.Peer, snap.Packet) error   { return nil }
 
 type dummyRW struct {

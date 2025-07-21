@@ -48,7 +48,7 @@ Note that exporting your key in unencrypted format is NOT supported.
 
 Keys are stored under <DATADIR>/keystore.
 It is safe to transfer the entire directory or the individual keys therein
-between zond nodes by simply copying.
+between qrl nodes by simply copying.
 
 Make sure you backup your keys regularly.`,
 		Subcommands: []*cli.Command{
@@ -145,7 +145,7 @@ For non-interactive use the password can be specified with the -password flag:
     gzond account import [options] <keyfile>
 
 Note:
-As you can directly copy your encrypted accounts to another zond instance,
+As you can directly copy your encrypted accounts to another qrl instance,
 this import mechanism is not needed when you transfer an account between
 nodes.
 `,

@@ -197,25 +197,25 @@ func BenchmarkPrecompiledIdentity(bench *testing.B) {
 
 // Tests the sample inputs from the ModExp EIP 198.
 func TestPrecompiledModExp(t *testing.T) {
-	testJson("modexp", "Z0000000000000000000000000000000000000005", t)
+	testJson("modexp", "Q0000000000000000000000000000000000000005", t)
 }
 func BenchmarkPrecompiledModExp(b *testing.B) {
-	benchJson("modexp", "Z0000000000000000000000000000000000000005", b)
+	benchJson("modexp", "Q0000000000000000000000000000000000000005", b)
 }
 
 func TestPrecompiledModExpEip2565(t *testing.T) {
-	testJson("modexp_eip2565", "Z00000000000000000000000000000000000000f5", t)
+	testJson("modexp_eip2565", "Q00000000000000000000000000000000000000f5", t)
 }
 func BenchmarkPrecompiledModExpEip2565(b *testing.B) {
-	benchJson("modexp_eip2565", "Z00000000000000000000000000000000000000f5", b)
+	benchJson("modexp_eip2565", "Q00000000000000000000000000000000000000f5", b)
 }
 
 // Tests the sample inputs from the elliptic curve addition EIP 213.
 func TestPrecompiledBn256Add(t *testing.T) {
-	testJson("bn256Add", "Z0000000000000000000000000000000000000006", t)
+	testJson("bn256Add", "Q0000000000000000000000000000000000000006", t)
 }
 func BenchmarkPrecompiledBn256Add(b *testing.B) {
-	benchJson("bn256Add", "Z0000000000000000000000000000000000000006", b)
+	benchJson("bn256Add", "Q0000000000000000000000000000000000000006", b)
 }
 
 // Tests OOG
@@ -225,28 +225,28 @@ func TestPrecompiledModExpOOG(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, test := range modexpTests {
-		testPrecompiledOOG("Z0000000000000000000000000000000000000005", test, t)
+		testPrecompiledOOG("Q0000000000000000000000000000000000000005", test, t)
 	}
 }
 
 // Tests the sample inputs from the elliptic curve scalar multiplication EIP 213.
 func TestPrecompiledBn256ScalarMul(t *testing.T) {
-	testJson("bn256ScalarMul", "Z0000000000000000000000000000000000000007", t)
+	testJson("bn256ScalarMul", "Q0000000000000000000000000000000000000007", t)
 }
 func BenchmarkPrecompiledBn256ScalarMul(b *testing.B) {
-	benchJson("bn256ScalarMul", "Z0000000000000000000000000000000000000007", b)
+	benchJson("bn256ScalarMul", "Q0000000000000000000000000000000000000007", b)
 }
 
 // Tests the sample inputs from the elliptic curve pairing check EIP 197.
 func TestPrecompiledBn256Pairing(t *testing.T) {
-	testJson("bn256Pairing", "Z0000000000000000000000000000000000000008", t)
+	testJson("bn256Pairing", "Q0000000000000000000000000000000000000008", t)
 }
 func BenchmarkPrecompiledBn256Pairing(b *testing.B) {
-	benchJson("bn256Pairing", "Z0000000000000000000000000000000000000008", b)
+	benchJson("bn256Pairing", "Q0000000000000000000000000000000000000008", b)
 }
 
 func TestPrecompiledDepositroot(t *testing.T) {
-	testJson("depositroot", "Z0000000000000000000000000000000000000001", t)
+	testJson("depositroot", "Q0000000000000000000000000000000000000001", t)
 }
 
 func testJson(name, addr string, t *testing.T) {

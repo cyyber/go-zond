@@ -16,12 +16,12 @@
 
 package params
 
-// These are the multipliers for zond denominations.
+// These are the multipliers for qrl denominations.
 // Example: To get the planck value of an amount in 'gplanck', use
 //
 //	new(big.Int).Mul(value, big.NewInt(params.GPlanck))
 const (
 	Planck  = 1
 	GPlanck = 1e9
-	Zond    = 1e18
+	Quanta  = 1e18
 )

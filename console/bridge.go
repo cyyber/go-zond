@@ -34,7 +34,7 @@ import (
 // bridge is a collection of JavaScript utility methods to bride the .js runtime
 // environment and the Go RPC connection backing the remote method calls.
 type bridge struct {
-	client   *rpc.Client         // RPC client to execute Zond requests through
+	client   *rpc.Client         // RPC client to execute QRL requests through
 	prompter prompt.UserPrompter // Input prompter to allow interactive user feedback
 	printer  io.Writer           // Output writer to serialize any display strings to
 }
@@ -90,12 +90,12 @@ func (b *bridge) SleepBlocks(call jsre.Call) (goja.Value, error) {
 	// Poll the current block number until either it or a timeout is reached.
 	deadline := time.Now().Add(time.Duration(sleep) * time.Second)
 	var lastNumber hexutil.Uint64
-	if err := b.client.Call(&lastNumber, "zond_blockNumber"); err != nil {
+	if err := b.client.Call(&lastNumber, "qrl_blockNumber"); err != nil {
 		return nil, err
 	}
 	for time.Now().Before(deadline) {
 		var number hexutil.Uint64
-		if err := b.client.Call(&number, "zond_blockNumber"); err != nil {
+		if err := b.client.Call(&number, "qrl_blockNumber"); err != nil {
 			return nil, err
 		}
 		if number != lastNumber {

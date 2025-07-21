@@ -22,16 +22,16 @@ import (
 	"time"
 
 	"github.com/theQRL/go-zond/log"
-	"github.com/theQRL/go-zond/p2p/enode"
+	"github.com/theQRL/go-zond/p2p/qnode"
 )
 
 type crawler struct {
 	input     nodeSet
 	output    nodeSet
 	disc      resolver
-	iters     []enode.Iterator
-	inputIter enode.Iterator
-	ch        chan *enode.Node
+	iters     []qnode.Iterator
+	inputIter qnode.Iterator
+	ch        chan *qnode.Node
 	closed    chan struct{}
 
 	// settings
@@ -48,17 +48,17 @@ const (
 )
 
 type resolver interface {
-	RequestENR(*enode.Node) (*enode.Node, error)
+	RequestQNR(*qnode.Node) (*qnode.Node, error)
 }
 
-func newCrawler(input nodeSet, disc resolver, iters ...enode.Iterator) *crawler {
+func newCrawler(input nodeSet, disc resolver, iters ...qnode.Iterator) *crawler {
 	c := &crawler{
 		input:     input,
 		output:    make(nodeSet, len(input)),
 		disc:      disc,
 		iters:     iters,
-		inputIter: enode.IterNodes(input.nodes()),
-		ch:        make(chan *enode.Node),
+		inputIter: qnode.IterNodes(input.nodes()),
+		ch:        make(chan *qnode.Node),
 		closed:    make(chan struct{}),
 	}
 	c.iters = append(c.iters, c.inputIter)
@@ -75,7 +75,7 @@ func (c *crawler) run(timeout time.Duration, nthreads int) nodeSet {
 		timeoutTimer = time.NewTimer(timeout)
 		timeoutCh    <-chan time.Time
 		statusTicker = time.NewTicker(time.Second * 8)
-		doneCh       = make(chan enode.Iterator, len(c.iters))
+		doneCh       = make(chan qnode.Iterator, len(c.iters))
 		liveIters    = len(c.iters)
 	)
 	if nthreads < 1 {
@@ -157,7 +157,7 @@ loop:
 	return c.output
 }
 
-func (c *crawler) runIterator(done chan<- enode.Iterator, it enode.Iterator) {
+func (c *crawler) runIterator(done chan<- qnode.Iterator, it qnode.Iterator) {
 	defer func() { done <- it }()
 	for it.Next() {
 		select {
@@ -170,7 +170,7 @@ func (c *crawler) runIterator(done chan<- enode.Iterator, it enode.Iterator) {
 
 // updateNode updates the info about the given node, and returns a status
 // about what changed
-func (c *crawler) updateNode(n *enode.Node) int {
+func (c *crawler) updateNode(n *qnode.Node) int {
 	c.mu.RLock()
 	node, ok := c.output[n.ID()]
 	c.mu.RUnlock()
@@ -183,7 +183,7 @@ func (c *crawler) updateNode(n *enode.Node) int {
 	// Request the node record.
 	status := nodeUpdated
 	node.LastCheck = truncNow()
-	if nn, err := c.disc.RequestENR(n); err != nil {
+	if nn, err := c.disc.RequestQNR(n); err != nil {
 		if node.Score == 0 {
 			// Node doesn't implement EIP-868.
 			log.Debug("Skipping node", "id", n.ID())

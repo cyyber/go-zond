@@ -25,8 +25,8 @@ import (
 
 	"github.com/theQRL/go-zond/common/mclock"
 	"github.com/theQRL/go-zond/core/rawdb"
-	"github.com/theQRL/go-zond/p2p/enode"
-	"github.com/theQRL/go-zond/p2p/enr"
+	"github.com/theQRL/go-zond/p2p/qnode"
+	"github.com/theQRL/go-zond/p2p/qnr"
 	"github.com/theQRL/go-zond/rlp"
 )
 
@@ -54,10 +54,10 @@ func testSetup(flagPersist []bool, fieldType []reflect.Type) (*Setup, []Flags, [
 	return setup, flags, fields
 }
 
-func testNode(b byte) *enode.Node {
-	r := &enr.Record{}
+func testNode(b byte) *qnode.Node {
+	r := &qnr.Record{}
 	r.SetSig(dummyIdentity{b}, []byte{42})
-	n, _ := enode.New(dummyIdentity{b}, r)
+	n, _ := qnode.New(dummyIdentity{b}, r)
 	return n
 }
 
@@ -70,9 +70,9 @@ func TestCallback(t *testing.T) {
 	set0 := make(chan struct{}, 1)
 	set1 := make(chan struct{}, 1)
 	set2 := make(chan struct{}, 1)
-	ns.SubscribeState(flags[0], func(n *enode.Node, oldState, newState Flags) { set0 <- struct{}{} })
-	ns.SubscribeState(flags[1], func(n *enode.Node, oldState, newState Flags) { set1 <- struct{}{} })
-	ns.SubscribeState(flags[2], func(n *enode.Node, oldState, newState Flags) { set2 <- struct{}{} })
+	ns.SubscribeState(flags[0], func(n *qnode.Node, oldState, newState Flags) { set0 <- struct{}{} })
+	ns.SubscribeState(flags[1], func(n *qnode.Node, oldState, newState Flags) { set1 <- struct{}{} })
+	ns.SubscribeState(flags[2], func(n *qnode.Node, oldState, newState Flags) { set2 <- struct{}{} })
 
 	ns.Start()
 
@@ -182,7 +182,7 @@ func TestSetState(t *testing.T) {
 
 	type change struct{ old, new Flags }
 	set := make(chan change, 1)
-	ns.SubscribeState(flags[0].Or(flags[1]), func(n *enode.Node, oldState, newState Flags) {
+	ns.SubscribeState(flags[0].Or(flags[1]), func(n *qnode.Node, oldState, newState Flags) {
 		set <- change{
 			old: oldState,
 			new: newState,
@@ -303,7 +303,7 @@ func TestFieldSub(t *testing.T) {
 		lastState                  Flags
 		lastOldValue, lastNewValue interface{}
 	)
-	ns.SubscribeField(fields[0], func(n *enode.Node, state Flags, oldValue, newValue interface{}) {
+	ns.SubscribeField(fields[0], func(n *qnode.Node, state Flags, oldValue, newValue interface{}) {
 		lastState, lastOldValue, lastNewValue = state, oldValue, newValue
 	})
 	check := func(state Flags, oldValue, newValue interface{}) {
@@ -319,7 +319,7 @@ func TestFieldSub(t *testing.T) {
 	check(s.OfflineFlag(), uint64(100), nil)
 
 	ns2 := NewNodeStateMachine(mdb, []byte("-ns"), clock, s)
-	ns2.SubscribeField(fields[0], func(n *enode.Node, state Flags, oldValue, newValue interface{}) {
+	ns2.SubscribeField(fields[0], func(n *qnode.Node, state Flags, oldValue, newValue interface{}) {
 		lastState, lastOldValue, lastNewValue = state, oldValue, newValue
 	})
 	ns2.Start()
@@ -338,7 +338,7 @@ func TestDuplicatedFlags(t *testing.T) {
 
 	type change struct{ old, new Flags }
 	set := make(chan change, 1)
-	ns.SubscribeState(flags[0], func(n *enode.Node, oldState, newState Flags) {
+	ns.SubscribeState(flags[0], func(n *qnode.Node, oldState, newState Flags) {
 		set <- change{oldState, newState}
 	})
 
@@ -381,19 +381,19 @@ func TestCallbackOrder(t *testing.T) {
 	s, flags, _ := testSetup([]bool{false, false, false, false}, nil)
 	ns := NewNodeStateMachine(mdb, []byte("-ns"), clock, s)
 
-	ns.SubscribeState(flags[0], func(n *enode.Node, oldState, newState Flags) {
+	ns.SubscribeState(flags[0], func(n *qnode.Node, oldState, newState Flags) {
 		if newState.Equals(flags[0]) {
 			ns.SetStateSub(n, flags[1], Flags{}, 0)
 			ns.SetStateSub(n, flags[2], Flags{}, 0)
 		}
 	})
-	ns.SubscribeState(flags[1], func(n *enode.Node, oldState, newState Flags) {
+	ns.SubscribeState(flags[1], func(n *qnode.Node, oldState, newState Flags) {
 		if newState.Equals(flags[1]) {
 			ns.SetStateSub(n, flags[3], Flags{}, 0)
 		}
 	})
 	lastState := Flags{}
-	ns.SubscribeState(MergeFlags(flags[1], flags[2], flags[3]), func(n *enode.Node, oldState, newState Flags) {
+	ns.SubscribeState(MergeFlags(flags[1], flags[2], flags[3]), func(n *qnode.Node, oldState, newState Flags) {
 		if !oldState.Equals(lastState) {
 			t.Fatalf("Wrong callback order")
 		}

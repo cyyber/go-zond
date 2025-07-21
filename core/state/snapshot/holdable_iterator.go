@@ -18,21 +18,21 @@ package snapshot
 
 import (
 	"github.com/theQRL/go-zond/common"
-	"github.com/theQRL/go-zond/zonddb"
+	"github.com/theQRL/go-zond/qrldb"
 )
 
 // holdableIterator is a wrapper of underlying database iterator. It extends
 // the basic iterator interface by adding Hold which can hold the element
 // locally where the iterator is currently located and serve it up next time.
 type holdableIterator struct {
-	it     zonddb.Iterator
+	it     qrldb.Iterator
 	key    []byte
 	val    []byte
 	atHeld bool
 }
 
 // newHoldableIterator initializes the holdableIterator with the given iterator.
-func newHoldableIterator(it zonddb.Iterator) *holdableIterator {
+func newHoldableIterator(it qrldb.Iterator) *holdableIterator {
 	return &holdableIterator{it: it}
 }
 

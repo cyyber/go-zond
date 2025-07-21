@@ -33,7 +33,7 @@ import (
 	"github.com/theQRL/go-zond/common/hexutil"
 	"github.com/theQRL/go-zond/common/mclock"
 	"github.com/theQRL/go-zond/crypto"
-	"github.com/theQRL/go-zond/p2p/enode"
+	"github.com/theQRL/go-zond/p2p/qnode"
 )
 
 // To regenerate discv5 test vectors, run
@@ -291,8 +291,8 @@ func TestDecodeErrorsV5(t *testing.T) {
 // This test checks that all test vectors can be decoded.
 func TestTestVectorsV5(t *testing.T) {
 	var (
-		idA     = enode.PubkeyToIDV4(&testKeyA.PublicKey)
-		idB     = enode.PubkeyToIDV4(&testKeyB.PublicKey)
+		idA     = qnode.PubkeyToIDV4(&testKeyA.PublicKey)
+		idB     = qnode.PubkeyToIDV4(&testKeyB.PublicKey)
 		addr    = "127.0.0.1"
 		session = &session{
 			writeKey: hexutil.MustDecode("0x00000000000000000000000000000000"),
@@ -329,7 +329,7 @@ func TestTestVectorsV5(t *testing.T) {
 			name: "v5.1-ping-message",
 			packet: &Ping{
 				ReqID:  []byte{0, 0, 0, 1},
-				ENRSeq: 2,
+				QNRSeq: 2,
 			},
 			prep: func(net *handshakeTest) {
 				net.nodeA.c.sc.storeNewSession(idB, addr, session)
@@ -337,10 +337,10 @@ func TestTestVectorsV5(t *testing.T) {
 			},
 		},
 		{
-			name: "v5.1-ping-handshake-enr",
+			name: "v5.1-ping-handshake-qnr",
 			packet: &Ping{
 				ReqID:  []byte{0, 0, 0, 1},
-				ENRSeq: 1,
+				QNRSeq: 1,
 			},
 			challenge: &challenge0A,
 			prep: func(net *handshakeTest) {
@@ -353,7 +353,7 @@ func TestTestVectorsV5(t *testing.T) {
 			name: "v5.1-ping-handshake",
 			packet: &Ping{
 				ReqID:  []byte{0, 0, 0, 1},
-				ENRSeq: 1,
+				QNRSeq: 1,
 			},
 			challenge: &challenge1A,
 			prep: func(net *handshakeTest) {
@@ -406,7 +406,7 @@ func testVectorComment(net *handshakeTest, p Packet, challenge *Whoareyou, nonce
 		fmt.Fprintf(o, "whoareyou.challenge-data = %#x\n", p.ChallengeData)
 		fmt.Fprintf(o, "whoareyou.request-nonce = %#x\n", p.Nonce[:])
 		fmt.Fprintf(o, "whoareyou.id-nonce = %#x\n", p.IDNonce[:])
-		fmt.Fprintf(o, "whoareyou.enr-seq = %d\n", p.RecordSeq)
+		fmt.Fprintf(o, "whoareyou.qnr-seq = %d\n", p.RecordSeq)
 	}
 
 	fmt.Fprintf(o, "src-node-id = %#x\n", net.nodeA.id().Bytes())
@@ -419,7 +419,7 @@ func testVectorComment(net *handshakeTest, p Packet, challenge *Whoareyou, nonce
 		fmt.Fprintf(o, "nonce = %#x\n", nonce[:])
 		fmt.Fprintf(o, "read-key = %#x\n", net.nodeA.c.sc.session(net.nodeB.id(), net.nodeB.addr()).writeKey)
 		fmt.Fprintf(o, "ping.req-id = %#x\n", p.ReqID)
-		fmt.Fprintf(o, "ping.enr-seq = %d\n", p.ENRSeq)
+		fmt.Fprintf(o, "ping.qnr-seq = %d\n", p.QNRSeq)
 		if challenge != nil {
 			// Handshake message packet.
 			fmt.Fprint(o, "\nhandshake inputs:\n\n")
@@ -447,7 +447,7 @@ func BenchmarkV5_DecodeHandshakePingSecp256k1(b *testing.B) {
 	if err != nil {
 		b.Fatal("can't encode handshake packet")
 	}
-	challenge.Node = nil // force ENR signature verification in decoder
+	challenge.Node = nil // force QNR signature verification in decoder
 	b.ResetTimer()
 
 	input := make([]byte, len(enc))
@@ -473,7 +473,7 @@ func BenchmarkV5_DecodePing(b *testing.B) {
 	net.nodeA.c.sc.storeNewSession(net.nodeB.id(), net.nodeB.addr(), session)
 	net.nodeB.c.sc.storeNewSession(net.nodeA.id(), net.nodeA.addr(), session.keysFlipped())
 	addrB := net.nodeA.addr()
-	ping := &Ping{ReqID: []byte("reqid"), ENRSeq: 5}
+	ping := &Ping{ReqID: []byte("reqid"), QNRSeq: 5}
 	enc, _, err := net.nodeA.c.Encode(net.nodeB.id(), addrB, ping, nil)
 	if err != nil {
 		b.Fatalf("can't encode: %v", err)
@@ -498,7 +498,7 @@ type handshakeTest struct {
 }
 
 type handshakeTestNode struct {
-	ln *enode.LocalNode
+	ln *qnode.LocalNode
 	c  *Codec
 }
 
@@ -515,8 +515,8 @@ func (t *handshakeTest) close() {
 }
 
 func (n *handshakeTestNode) init(key *ecdsa.PrivateKey, ip net.IP, clock mclock.Clock, protocolID [6]byte) {
-	db, _ := enode.OpenDB("")
-	n.ln = enode.NewLocalNode(db, key)
+	db, _ := qnode.OpenDB("")
+	n.ln = qnode.NewLocalNode(db, key)
 	n.ln.SetStaticIP(ip)
 	n.c = NewCodec(n.ln, key, clock, nil)
 }
@@ -571,7 +571,7 @@ func (n *handshakeTestNode) decode(input []byte) (Packet, error) {
 	return p, err
 }
 
-func (n *handshakeTestNode) n() *enode.Node {
+func (n *handshakeTestNode) n() *qnode.Node {
 	return n.ln.Node()
 }
 
@@ -579,7 +579,7 @@ func (n *handshakeTestNode) addr() string {
 	return n.ln.Node().IP().String()
 }
 
-func (n *handshakeTestNode) id() enode.ID {
+func (n *handshakeTestNode) id() qnode.ID {
 	return n.ln.ID()
 }
 

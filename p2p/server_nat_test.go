@@ -63,15 +63,15 @@ func TestServerPortMapping(t *testing.T) {
 	if reqCount != 2 {
 		t.Error("wrong request count:", reqCount)
 	}
-	enr := srv.LocalNode().Node()
-	if enr.IP().String() != "192.0.2.0" {
-		t.Error("wrong IP in ENR:", enr.IP())
+	qnr := srv.LocalNode().Node()
+	if qnr.IP().String() != "192.0.2.0" {
+		t.Error("wrong IP in QNR:", qnr.IP())
 	}
-	if enr.TCP() != 30000 {
-		t.Error("wrong TCP port in ENR:", enr.TCP())
+	if qnr.TCP() != 30000 {
+		t.Error("wrong TCP port in QNR:", qnr.TCP())
 	}
-	if enr.UDP() != 30000 {
-		t.Error("wrong UDP port in ENR:", enr.UDP())
+	if qnr.UDP() != 30000 {
+		t.Error("wrong UDP port in QNR:", qnr.UDP())
 	}
 }
 

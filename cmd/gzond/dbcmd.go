@@ -37,8 +37,8 @@ import (
 	"github.com/theQRL/go-zond/crypto"
 	"github.com/theQRL/go-zond/internal/flags"
 	"github.com/theQRL/go-zond/log"
+	"github.com/theQRL/go-zond/qrldb"
 	"github.com/theQRL/go-zond/trie"
-	"github.com/theQRL/go-zond/zonddb"
 	"github.com/urfave/cli/v2"
 )
 
@@ -207,7 +207,7 @@ func removeDB(ctx *cli.Context) error {
 		log.Info("Full node state database missing", "path", path)
 	}
 	// Remove the full node ancient database
-	path = config.Zond.DatabaseFreezer
+	path = config.QRL.DatabaseFreezer
 	switch {
 	case path == "":
 		path = filepath.Join(stack.ResolvePath("chaindata"), "ancient")
@@ -334,7 +334,7 @@ func checkStateContent(ctx *cli.Context) error {
 	return nil
 }
 
-func showLeveldbStats(db zonddb.KeyValueStater) {
+func showLeveldbStats(db qrldb.KeyValueStater) {
 	if stats, err := db.Stat("leveldb.stats"); err != nil {
 		log.Warn("Failed to read database stats", "error", err)
 	} else {
@@ -592,7 +592,7 @@ func importLDBdata(ctx *cli.Context) error {
 }
 
 type preimageIterator struct {
-	iter zonddb.Iterator
+	iter qrldb.Iterator
 }
 
 func (iter *preimageIterator) Next() (byte, []byte, []byte, bool) {
@@ -611,8 +611,8 @@ func (iter *preimageIterator) Release() {
 
 type snapshotIterator struct {
 	init    bool
-	account zonddb.Iterator
-	storage zonddb.Iterator
+	account qrldb.Iterator
+	storage qrldb.Iterator
 }
 
 func (iter *snapshotIterator) Next() (byte, []byte, []byte, bool) {
@@ -641,12 +641,12 @@ func (iter *snapshotIterator) Release() {
 }
 
 // chainExporters defines the export scheme for all exportable chain data.
-var chainExporters = map[string]func(db zonddb.Database) utils.ChainDataIterator{
-	"preimage": func(db zonddb.Database) utils.ChainDataIterator {
+var chainExporters = map[string]func(db qrldb.Database) utils.ChainDataIterator{
+	"preimage": func(db qrldb.Database) utils.ChainDataIterator {
 		iter := db.NewIterator(rawdb.PreimagePrefix, nil)
 		return &preimageIterator{iter: iter}
 	},
-	"snapshot": func(db zonddb.Database) utils.ChainDataIterator {
+	"snapshot": func(db qrldb.Database) utils.ChainDataIterator {
 		account := db.NewIterator(rawdb.SnapshotAccountPrefix, nil)
 		storage := db.NewIterator(rawdb.SnapshotStoragePrefix, nil)
 		return &snapshotIterator{account: account, storage: storage}

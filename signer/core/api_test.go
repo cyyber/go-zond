@@ -31,7 +31,7 @@ import (
 	"github.com/theQRL/go-zond/common"
 	"github.com/theQRL/go-zond/common/hexutil"
 	"github.com/theQRL/go-zond/core/types"
-	"github.com/theQRL/go-zond/internal/zondapi"
+	"github.com/theQRL/go-zond/internal/qrlapi"
 	"github.com/theQRL/go-zond/signer/core"
 	"github.com/theQRL/go-zond/signer/core/apitypes"
 	"github.com/theQRL/go-zond/signer/fourbyte"
@@ -49,9 +49,9 @@ func (ui *headlessUi) OnInputRequired(info core.UserInputRequest) (core.UserInpu
 	return core.UserInputResponse{Text: input}, nil
 }
 
-func (ui *headlessUi) OnSignerStartup(info core.StartupInfo)         {}
-func (ui *headlessUi) RegisterUIServer(api *core.UIServerAPI)        {}
-func (ui *headlessUi) OnApprovedTx(tx zondapi.SignTransactionResult) {}
+func (ui *headlessUi) OnSignerStartup(info core.StartupInfo)        {}
+func (ui *headlessUi) RegisterUIServer(api *core.UIServerAPI)       {}
+func (ui *headlessUi) OnApprovedTx(tx qrlapi.SignTransactionResult) {}
 
 func (ui *headlessUi) ApproveTx(request *core.SignTxRequest) (core.SignTxResponse, error) {
 	switch <-ui.approveCh {
@@ -216,7 +216,7 @@ func TestNewAcc(t *testing.T) {
 }
 
 func mkTestTx(from common.MixedcaseAddress) apitypes.SendTxArgs {
-	address, _ := common.NewAddressFromString("Z0000000000000000000000000000000000001337")
+	address, _ := common.NewAddressFromString("Q0000000000000000000000000000000000001337")
 	to := common.NewMixedcaseAddress(address)
 	gas := hexutil.Uint64(21000)
 	maxFeePerGas := (hexutil.Big)(*big.NewInt(2000000000))
@@ -237,7 +237,7 @@ func mkTestTx(from common.MixedcaseAddress) apitypes.SendTxArgs {
 func TestSignTx(t *testing.T) {
 	var (
 		list      []common.Address
-		res, res2 *zondapi.SignTransactionResult
+		res, res2 *qrlapi.SignTransactionResult
 		err       error
 	)
 

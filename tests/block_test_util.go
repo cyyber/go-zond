@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-// Package tests implements execution of Zond JSON tests.
+// Package tests implements execution of QRL JSON tests.
 package tests
 
 import (
@@ -97,7 +97,7 @@ type btHeaderMarshaling struct {
 	BaseFeePerGas *math.HexOrDecimal256
 }
 
-func (t *BlockTest) Run(snapshotter bool, scheme string, tracer vm.ZVMLogger) error {
+func (t *BlockTest) Run(snapshotter bool, scheme string, tracer vm.QRVMLogger) error {
 	config, ok := Forks[t.json.Network]
 	if !ok {
 		return UnsupportedForkError{t.json.Network}

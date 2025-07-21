@@ -34,7 +34,7 @@ import (
 	"github.com/julienschmidt/httprouter"
 	"github.com/theQRL/go-zond/event"
 	"github.com/theQRL/go-zond/p2p"
-	"github.com/theQRL/go-zond/p2p/enode"
+	"github.com/theQRL/go-zond/p2p/qnode"
 	"github.com/theQRL/go-zond/p2p/simulations/adapters"
 	"github.com/theQRL/go-zond/rpc"
 )
@@ -709,7 +709,7 @@ func (s *Server) wrapHandler(handler http.HandlerFunc) httprouter.Handle {
 		ctx := req.Context()
 
 		if id := params.ByName("nodeid"); id != "" {
-			var nodeID enode.ID
+			var nodeID qnode.ID
 			var node *Node
 			if nodeID.UnmarshalText([]byte(id)) == nil {
 				node = s.network.GetNode(nodeID)
@@ -724,7 +724,7 @@ func (s *Server) wrapHandler(handler http.HandlerFunc) httprouter.Handle {
 		}
 
 		if id := params.ByName("peerid"); id != "" {
-			var peerID enode.ID
+			var peerID qnode.ID
 			var peer *Node
 			if peerID.UnmarshalText([]byte(id)) == nil {
 				peer = s.network.GetNode(peerID)

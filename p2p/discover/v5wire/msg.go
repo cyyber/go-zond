@@ -22,8 +22,8 @@ import (
 
 	"github.com/theQRL/go-zond/common/hexutil"
 	"github.com/theQRL/go-zond/common/mclock"
-	"github.com/theQRL/go-zond/p2p/enode"
-	"github.com/theQRL/go-zond/p2p/enr"
+	"github.com/theQRL/go-zond/p2p/qnode"
+	"github.com/theQRL/go-zond/p2p/qnr"
 	"github.com/theQRL/go-zond/rlp"
 )
 
@@ -66,11 +66,11 @@ type (
 		ChallengeData []byte   // Encoded challenge
 		Nonce         Nonce    // Nonce of request packet
 		IDNonce       [16]byte // Identity proof data
-		RecordSeq     uint64   // ENR sequence number of recipient
+		RecordSeq     uint64   // QNR sequence number of recipient
 
 		// Node is the locally known node record of recipient.
 		// This must be set by the caller of Encode.
-		Node *enode.Node
+		Node *qnode.Node
 
 		sent mclock.AbsTime // for handshake GC.
 	}
@@ -78,13 +78,13 @@ type (
 	// PING is sent during liveness checks.
 	Ping struct {
 		ReqID  []byte
-		ENRSeq uint64
+		QNRSeq uint64
 	}
 
 	// PONG is the reply to PING.
 	Pong struct {
 		ReqID  []byte
-		ENRSeq uint64
+		QNRSeq uint64
 		ToIP   net.IP // These fields should mirror the UDP envelope address of the ping
 		ToPort uint16 // packet, which provides a way to discover the external address (after NAT).
 	}
@@ -103,7 +103,7 @@ type (
 	Nodes struct {
 		ReqID     []byte
 		RespCount uint8 // total number of responses to the request
-		Nodes     []*enr.Record
+		Nodes     []*qnr.Record
 	}
 
 	// TALKREQ is an application-level request.
@@ -172,7 +172,7 @@ func (p *Ping) RequestID() []byte      { return p.ReqID }
 func (p *Ping) SetRequestID(id []byte) { p.ReqID = id }
 
 func (p *Ping) AppendLogInfo(ctx []interface{}) []interface{} {
-	return append(ctx, "req", hexutil.Bytes(p.ReqID), "enrseq", p.ENRSeq)
+	return append(ctx, "req", hexutil.Bytes(p.ReqID), "qnrseq", p.QNRSeq)
 }
 
 func (*Pong) Name() string             { return "PONG/v5" }
@@ -181,7 +181,7 @@ func (p *Pong) RequestID() []byte      { return p.ReqID }
 func (p *Pong) SetRequestID(id []byte) { p.ReqID = id }
 
 func (p *Pong) AppendLogInfo(ctx []interface{}) []interface{} {
-	return append(ctx, "req", hexutil.Bytes(p.ReqID), "enrseq", p.ENRSeq)
+	return append(ctx, "req", hexutil.Bytes(p.ReqID), "qnrseq", p.QNRSeq)
 }
 
 func (p *Findnode) Name() string           { return "FINDNODE/v5" }

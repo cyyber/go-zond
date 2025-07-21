@@ -37,9 +37,9 @@ import (
 	"github.com/theQRL/go-zond/crypto/pqcrypto"
 	"github.com/theQRL/go-zond/node"
 	"github.com/theQRL/go-zond/params"
-	"github.com/theQRL/go-zond/zond"
-	"github.com/theQRL/go-zond/zond/filters"
-	"github.com/theQRL/go-zond/zond/zondconfig"
+	"github.com/theQRL/go-zond/qrl"
+	"github.com/theQRL/go-zond/qrl/filters"
+	"github.com/theQRL/go-zond/qrl/qrlconfig"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -143,7 +143,7 @@ func TestGraphQLBlockSerialization(t *testing.T) {
 		},
 		// should return `status` as decimal
 		{
-			body: `{"query": "{block {number call (data : {from : \"Za94f5374fce5edbc8e2a8697c15331677e6ebf0b\", to: \"Z6295ee1b4f6dd65047762f924ecd367c17eabf8f\", data :\"0x12a7b914\"}){data status}}}"}`,
+			body: `{"query": "{block {number call (data : {from : \"Qa94f5374fce5edbc8e2a8697c15331677e6ebf0b\", to: \"Q6295ee1b4f6dd65047762f924ecd367c17eabf8f\", data :\"0x12a7b914\"}){data status}}}"}`,
 			want: `{"data":{"block":{"number":"0xa","call":{"data":"0x","status":"0x1"}}}}`,
 			code: 200,
 		},
@@ -172,7 +172,7 @@ func TestGraphQLBlockSerializationEIP2718(t *testing.T) {
 		key, _  = pqcrypto.HexToDilithium("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
 		address = key.GetAddress()
 		funds   = big.NewInt(1000000000000000)
-		dad, _  = common.NewAddressFromString("Z0000000000000000000000000000000000000dad")
+		dad, _  = common.NewAddressFromString("Q0000000000000000000000000000000000000dad")
 	)
 	stack := createNode(t)
 	defer stack.Close()
@@ -227,7 +227,7 @@ func TestGraphQLBlockSerializationEIP2718(t *testing.T) {
 	}{
 		{
 			body: `{"query": "{block {number transactions { from { address } to { address } value hash type accessList { address storageKeys } index}}}"}`,
-			want: `{"data":{"block":{"number":"0x1","transactions":[{"from":{"address":"Z20a1a68e6818a1142f85671db01ef7226debf822"},"to":{"address":"Z0000000000000000000000000000000000000dad"},"value":"0x64","hash":"0xb1f09f2f538e9651622d4d80a698d4a73096f3c9b5fdd5a4bed000e661a348d8","type":"0x2","accessList":[],"index":"0x0"},{"from":{"address":"Z20a1a68e6818a1142f85671db01ef7226debf822"},"to":{"address":"Z0000000000000000000000000000000000000dad"},"value":"0x32","hash":"0x2236c0393d39c4842d7463aa32788f3a9d278f46e8000c02377bbb0692ce29bb","type":"0x2","accessList":[{"address":"Z0000000000000000000000000000000000000dad","storageKeys":["0x0000000000000000000000000000000000000000000000000000000000000000"]}],"index":"0x1"}]}}}`,
+			want: `{"data":{"block":{"number":"0x1","transactions":[{"from":{"address":"Q20a1a68e6818a1142f85671db01ef7226debf822"},"to":{"address":"Q0000000000000000000000000000000000000dad"},"value":"0x64","hash":"0xb1f09f2f538e9651622d4d80a698d4a73096f3c9b5fdd5a4bed000e661a348d8","type":"0x2","accessList":[],"index":"0x0"},{"from":{"address":"Q20a1a68e6818a1142f85671db01ef7226debf822"},"to":{"address":"Q0000000000000000000000000000000000000dad"},"value":"0x32","hash":"0x2236c0393d39c4842d7463aa32788f3a9d278f46e8000c02377bbb0692ce29bb","type":"0x2","accessList":[{"address":"Q0000000000000000000000000000000000000dad","storageKeys":["0x0000000000000000000000000000000000000000000000000000000000000000"]}],"index":"0x1"}]}}}`,
 			code: 200,
 		},
 	} {
@@ -270,13 +270,13 @@ func TestGraphQLConcurrentResolvers(t *testing.T) {
 	var (
 		key, _  = crypto.GenerateDilithiumKey()
 		addr    = key.GetAddress()
-		dadStr  = "Z0000000000000000000000000000000000000dad"
+		dadStr  = "Q0000000000000000000000000000000000000dad"
 		dad, _  = common.NewAddressFromString(dadStr)
 		genesis = &core.Genesis{
 			Config:   params.AllBeaconProtocolChanges,
 			GasLimit: 11500000,
 			Alloc: core.GenesisAlloc{
-				addr: {Balance: big.NewInt(params.Zond)},
+				addr: {Balance: big.NewInt(params.Quanta)},
 				dad: {
 					// LOG0(0, 0), LOG0(0, 0), RETURN(0, 0)
 					Code:    common.Hex2Bytes("60006000a060006000a060006000f3"),
@@ -341,7 +341,7 @@ func TestGraphQLConcurrentResolvers(t *testing.T) {
 		},
 		// Test values for a non-existent account.
 		{
-			body: fmt.Sprintf(`{ block { account(address: "%s") { balance transactionCount code } } }`, "Z1111111111111111111111111111111111111111"),
+			body: fmt.Sprintf(`{ block { account(address: "%s") { balance transactionCount code } } }`, "Q1111111111111111111111111111111111111111"),
 			want: `{"block":{"account":{"balance":"0x0","transactionCount":"0x0","code":"0x"}}}`,
 		},
 	} {
@@ -368,7 +368,7 @@ func TestWithdrawals(t *testing.T) {
 			Config:   params.AllBeaconProtocolChanges,
 			GasLimit: 11500000,
 			Alloc: core.GenesisAlloc{
-				addr: {Balance: big.NewInt(params.Zond)},
+				addr: {Balance: big.NewInt(params.Quanta)},
 			},
 		}
 		signer = types.LatestSigner(genesis.Config)
@@ -432,7 +432,7 @@ func createNode(t *testing.T) *node.Node {
 }
 
 func newGQLService(t *testing.T, stack *node.Node, gspec *core.Genesis, genBlocks int, genfunc func(i int, gen *core.BlockGen)) (*handler, []*types.Block) {
-	zondConf := &zondconfig.Config{
+	qrlConf := &qrlconfig.Config{
 		Genesis:        gspec,
 		NetworkId:      1337,
 		TrieCleanCache: 5,
@@ -441,20 +441,20 @@ func newGQLService(t *testing.T, stack *node.Node, gspec *core.Genesis, genBlock
 		SnapshotCache:  5,
 	}
 	var engine consensus.Engine = beacon.NewFaker()
-	zondBackend, err := zond.New(stack, zondConf)
+	qrlBackend, err := qrl.New(stack, qrlConf)
 	if err != nil {
-		t.Fatalf("could not create eth backend: %v", err)
+		t.Fatalf("could not create qrl backend: %v", err)
 	}
 	// Create some blocks and import them
-	chain, _ := core.GenerateChain(params.AllBeaconProtocolChanges, zondBackend.BlockChain().Genesis(),
-		engine, zondBackend.ChainDb(), genBlocks, genfunc)
-	_, err = zondBackend.BlockChain().InsertChain(chain)
+	chain, _ := core.GenerateChain(params.AllBeaconProtocolChanges, qrlBackend.BlockChain().Genesis(),
+		engine, qrlBackend.ChainDb(), genBlocks, genfunc)
+	_, err = qrlBackend.BlockChain().InsertChain(chain)
 	if err != nil {
 		t.Fatalf("could not create import blocks: %v", err)
 	}
 	// Set up handler
-	filterSystem := filters.NewFilterSystem(zondBackend.APIBackend, filters.Config{})
-	handler, err := newHandler(stack, zondBackend.APIBackend, filterSystem, []string{}, []string{})
+	filterSystem := filters.NewFilterSystem(qrlBackend.APIBackend, filters.Config{})
+	handler, err := newHandler(stack, qrlBackend.APIBackend, filterSystem, []string{}, []string{})
 	if err != nil {
 		t.Fatalf("could not create graphql service: %v", err)
 	}

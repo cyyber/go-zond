@@ -38,7 +38,7 @@ import (
 	"github.com/theQRL/go-zond/log"
 	"github.com/theQRL/go-zond/metrics"
 	"github.com/theQRL/go-zond/node"
-	"github.com/theQRL/go-zond/zonddb"
+	"github.com/theQRL/go-zond/qrldb"
 	"github.com/urfave/cli/v2"
 )
 
@@ -341,7 +341,7 @@ func exportChain(ctx *cli.Context) error {
 	return nil
 }
 
-func parseDumpConfig(ctx *cli.Context, stack *node.Node) (*state.DumpConfig, zonddb.Database, common.Hash, error) {
+func parseDumpConfig(ctx *cli.Context, stack *node.Node) (*state.DumpConfig, qrldb.Database, common.Hash, error) {
 	db := utils.MakeChainDatabase(ctx, stack, true)
 	var header *types.Header
 	if ctx.NArg() > 1 {

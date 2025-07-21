@@ -25,8 +25,8 @@ import (
 	"github.com/theQRL/go-zond/core/rawdb"
 	"github.com/theQRL/go-zond/crypto"
 	"github.com/theQRL/go-zond/log"
+	"github.com/theQRL/go-zond/qrldb"
 	"github.com/theQRL/go-zond/trie/trienode"
-	"github.com/theQRL/go-zond/zonddb"
 )
 
 // nodebuffer is a collection of modified trie nodes to aggregate the disk
@@ -124,7 +124,7 @@ func (b *nodebuffer) commit(nodes map[common.Hash]map[string]*trienode.Node) *no
 // revert is the reverse operation of commit. It also merges the provided nodes
 // into the nodebuffer, the difference is that the provided node set should
 // revert the changes made by the last state transition.
-func (b *nodebuffer) revert(db zonddb.KeyValueReader, nodes map[common.Hash]map[string]*trienode.Node) error {
+func (b *nodebuffer) revert(db qrldb.KeyValueReader, nodes map[common.Hash]map[string]*trienode.Node) error {
 	// Short circuit if no embedded state transition to revert.
 	if b.layers == 0 {
 		return errStateUnrecoverable
@@ -199,14 +199,14 @@ func (b *nodebuffer) empty() bool {
 
 // setSize sets the buffer size to the provided number, and invokes a flush
 // operation if the current memory usage exceeds the new limit.
-func (b *nodebuffer) setSize(size int, db zonddb.KeyValueStore, clean *fastcache.Cache, id uint64) error {
+func (b *nodebuffer) setSize(size int, db qrldb.KeyValueStore, clean *fastcache.Cache, id uint64) error {
 	b.limit = uint64(size)
 	return b.flush(db, clean, id, false)
 }
 
 // flush persists the in-memory dirty trie node into the disk if the configured
 // memory threshold is reached. Note, all data must be written atomically.
-func (b *nodebuffer) flush(db zonddb.KeyValueStore, clean *fastcache.Cache, id uint64, force bool) error {
+func (b *nodebuffer) flush(db qrldb.KeyValueStore, clean *fastcache.Cache, id uint64, force bool) error {
 	if b.size <= b.limit && !force {
 		return nil
 	}
@@ -238,7 +238,7 @@ func (b *nodebuffer) flush(db zonddb.KeyValueStore, clean *fastcache.Cache, id u
 // writeNodes writes the trie nodes into the provided database batch.
 // Note this function will also inject all the newly written nodes
 // into clean cache.
-func writeNodes(batch zonddb.Batch, nodes map[common.Hash]map[string]*trienode.Node, clean *fastcache.Cache) (total int) {
+func writeNodes(batch qrldb.Batch, nodes map[common.Hash]map[string]*trienode.Node, clean *fastcache.Cache) (total int) {
 	for owner, subset := range nodes {
 		for path, n := range subset {
 			if n.IsDeleted() {

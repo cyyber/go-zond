@@ -47,7 +47,7 @@ import (
 	"github.com/theQRL/go-zond/crypto"
 	"github.com/theQRL/go-zond/internal/flags"
 	"github.com/theQRL/go-zond/p2p"
-	"github.com/theQRL/go-zond/p2p/enode"
+	"github.com/theQRL/go-zond/p2p/qnode"
 	"github.com/theQRL/go-zond/p2p/simulations"
 	"github.com/theQRL/go-zond/p2p/simulations/adapters"
 	"github.com/theQRL/go-zond/rpc"
@@ -301,7 +301,7 @@ func createNode(ctx *cli.Context) error {
 		if err != nil {
 			return err
 		}
-		config.ID = enode.PubkeyToIDV4(&privKey.PublicKey)
+		config.ID = qnode.PubkeyToIDV4(&privKey.PublicKey)
 		config.PrivateKey = privKey
 	}
 	if services := ctx.String(servicesFlag.Name); services != "" {
@@ -329,7 +329,7 @@ func showNode(ctx *cli.Context) error {
 	fmt.Fprintf(w, "NAME\t%s\n", node.Name)
 	fmt.Fprintf(w, "PROTOCOLS\t%s\n", strings.Join(protocolList(node), ","))
 	fmt.Fprintf(w, "ID\t%s\n", node.ID)
-	fmt.Fprintf(w, "ENODE\t%s\n", node.Enode)
+	fmt.Fprintf(w, "QNODE\t%s\n", node.Qnode)
 	for name, proto := range node.Protocols {
 		fmt.Fprintln(w)
 		fmt.Fprintf(w, "--- PROTOCOL INFO: %s\n", name)

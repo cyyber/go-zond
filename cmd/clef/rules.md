@@ -4,8 +4,8 @@ The `signer` binary contains a ruleset engine, implemented with [OttoVM](https:/
 
 It enables usecases like the following:
 
-* I want to auto-approve transactions with contract `CasinoDapp`, with up to `0.05 zond` in value to maximum `1 zond` per 24h period
-* I want to auto-approve transaction to contract `ZondAlarmClock` with `data`=`0xdeadbeef`, if `value=0`, `gas < 44k` and `maxFeePerGas < 40Gplanck`
+* I want to auto-approve transactions with contract `CasinoDapp`, with up to `0.05 quanta` in value to maximum `1 quanta` per 24h period
+* I want to auto-approve transaction to contract `QRLAlarmClock` with `data`=`0xdeadbeef`, if `value=0`, `gas < 44k` and `maxFeePerGas < 40Gplanck`
 
 The two main features that are required for this to work well are;
 
@@ -32,7 +32,7 @@ function ApproveTx(req) {
 	var limit = big.Newint("0xb1a2bc2ec50000")
 	var value = asBig(req.transaction.value);
 
-	if (req.transaction.to.toLowerCase() == "zae967917c465db8578ca9024c205720b1a3651a9") && value.lt(limit)) {
+	if (req.transaction.to.toLowerCase() == "qae967917c465db8578ca9024c205720b1a3651a9") && value.lt(limit)) {
 		return "Approve"
 	}
 	// If we return "Reject", it will be rejected.
@@ -149,7 +149,7 @@ function big(str) {
 // Time window: 1 week
 var window = 1000* 3600*24*7;
 
-// Limit: 1 zond
+// Limit: 1 quanta
 var limit = new BigNumber("1e18");
 
 function isLimitOk(transaction) {
@@ -215,10 +215,10 @@ function OnApprovedTx(resp) {
 
 ```js
 function ApproveTx(r) {
-	if (r.transaction.from.toLowerCase() == "z0000000000000000000000000000000000001337") {
+	if (r.transaction.from.toLowerCase() == "q0000000000000000000000000000000000001337") {
 		return "Approve"
 	}
-	if (r.transaction.from.toLowerCase() == "z000000000000000000000000000000000000dead") {
+	if (r.transaction.from.toLowerCase() == "q000000000000000000000000000000000000dead") {
 		return "Reject"
 	}
 	// Otherwise goes to manual processing

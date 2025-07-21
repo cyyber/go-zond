@@ -21,24 +21,24 @@ import (
 
 	"github.com/theQRL/go-zond/common"
 	"github.com/theQRL/go-zond/log"
-	"github.com/theQRL/go-zond/zonddb"
+	"github.com/theQRL/go-zond/qrldb"
 )
 
 // ReadSnapshotDisabled retrieves if the snapshot maintenance is disabled.
-func ReadSnapshotDisabled(db zonddb.KeyValueReader) bool {
+func ReadSnapshotDisabled(db qrldb.KeyValueReader) bool {
 	disabled, _ := db.Has(snapshotDisabledKey)
 	return disabled
 }
 
 // WriteSnapshotDisabled stores the snapshot pause flag.
-func WriteSnapshotDisabled(db zonddb.KeyValueWriter) {
+func WriteSnapshotDisabled(db qrldb.KeyValueWriter) {
 	if err := db.Put(snapshotDisabledKey, []byte("42")); err != nil {
 		log.Crit("Failed to store snapshot disabled flag", "err", err)
 	}
 }
 
 // DeleteSnapshotDisabled deletes the flag keeping the snapshot maintenance disabled.
-func DeleteSnapshotDisabled(db zonddb.KeyValueWriter) {
+func DeleteSnapshotDisabled(db qrldb.KeyValueWriter) {
 	if err := db.Delete(snapshotDisabledKey); err != nil {
 		log.Crit("Failed to remove snapshot disabled flag", "err", err)
 	}
@@ -46,7 +46,7 @@ func DeleteSnapshotDisabled(db zonddb.KeyValueWriter) {
 
 // ReadSnapshotRoot retrieves the root of the block whose state is contained in
 // the persisted snapshot.
-func ReadSnapshotRoot(db zonddb.KeyValueReader) common.Hash {
+func ReadSnapshotRoot(db qrldb.KeyValueReader) common.Hash {
 	data, _ := db.Get(SnapshotRootKey)
 	if len(data) != common.HashLength {
 		return common.Hash{}
@@ -56,7 +56,7 @@ func ReadSnapshotRoot(db zonddb.KeyValueReader) common.Hash {
 
 // WriteSnapshotRoot stores the root of the block whose state is contained in
 // the persisted snapshot.
-func WriteSnapshotRoot(db zonddb.KeyValueWriter, root common.Hash) {
+func WriteSnapshotRoot(db qrldb.KeyValueWriter, root common.Hash) {
 	if err := db.Put(SnapshotRootKey, root[:]); err != nil {
 		log.Crit("Failed to store snapshot root", "err", err)
 	}
@@ -66,47 +66,47 @@ func WriteSnapshotRoot(db zonddb.KeyValueWriter, root common.Hash) {
 // the persisted snapshot. Since snapshots are not immutable, this  method can
 // be used during updates, so a crash or failure will mark the entire snapshot
 // invalid.
-func DeleteSnapshotRoot(db zonddb.KeyValueWriter) {
+func DeleteSnapshotRoot(db qrldb.KeyValueWriter) {
 	if err := db.Delete(SnapshotRootKey); err != nil {
 		log.Crit("Failed to remove snapshot root", "err", err)
 	}
 }
 
 // ReadAccountSnapshot retrieves the snapshot entry of an account trie leaf.
-func ReadAccountSnapshot(db zonddb.KeyValueReader, hash common.Hash) []byte {
+func ReadAccountSnapshot(db qrldb.KeyValueReader, hash common.Hash) []byte {
 	data, _ := db.Get(accountSnapshotKey(hash))
 	return data
 }
 
 // WriteAccountSnapshot stores the snapshot entry of an account trie leaf.
-func WriteAccountSnapshot(db zonddb.KeyValueWriter, hash common.Hash, entry []byte) {
+func WriteAccountSnapshot(db qrldb.KeyValueWriter, hash common.Hash, entry []byte) {
 	if err := db.Put(accountSnapshotKey(hash), entry); err != nil {
 		log.Crit("Failed to store account snapshot", "err", err)
 	}
 }
 
 // DeleteAccountSnapshot removes the snapshot entry of an account trie leaf.
-func DeleteAccountSnapshot(db zonddb.KeyValueWriter, hash common.Hash) {
+func DeleteAccountSnapshot(db qrldb.KeyValueWriter, hash common.Hash) {
 	if err := db.Delete(accountSnapshotKey(hash)); err != nil {
 		log.Crit("Failed to delete account snapshot", "err", err)
 	}
 }
 
 // ReadStorageSnapshot retrieves the snapshot entry of an storage trie leaf.
-func ReadStorageSnapshot(db zonddb.KeyValueReader, accountHash, storageHash common.Hash) []byte {
+func ReadStorageSnapshot(db qrldb.KeyValueReader, accountHash, storageHash common.Hash) []byte {
 	data, _ := db.Get(storageSnapshotKey(accountHash, storageHash))
 	return data
 }
 
 // WriteStorageSnapshot stores the snapshot entry of an storage trie leaf.
-func WriteStorageSnapshot(db zonddb.KeyValueWriter, accountHash, storageHash common.Hash, entry []byte) {
+func WriteStorageSnapshot(db qrldb.KeyValueWriter, accountHash, storageHash common.Hash, entry []byte) {
 	if err := db.Put(storageSnapshotKey(accountHash, storageHash), entry); err != nil {
 		log.Crit("Failed to store storage snapshot", "err", err)
 	}
 }
 
 // DeleteStorageSnapshot removes the snapshot entry of an storage trie leaf.
-func DeleteStorageSnapshot(db zonddb.KeyValueWriter, accountHash, storageHash common.Hash) {
+func DeleteStorageSnapshot(db qrldb.KeyValueWriter, accountHash, storageHash common.Hash) {
 	if err := db.Delete(storageSnapshotKey(accountHash, storageHash)); err != nil {
 		log.Crit("Failed to delete storage snapshot", "err", err)
 	}
@@ -114,20 +114,20 @@ func DeleteStorageSnapshot(db zonddb.KeyValueWriter, accountHash, storageHash co
 
 // IterateStorageSnapshots returns an iterator for walking the entire storage
 // space of a specific account.
-func IterateStorageSnapshots(db zonddb.Iteratee, accountHash common.Hash) zonddb.Iterator {
+func IterateStorageSnapshots(db qrldb.Iteratee, accountHash common.Hash) qrldb.Iterator {
 	return NewKeyLengthIterator(db.NewIterator(storageSnapshotsKey(accountHash), nil), len(SnapshotStoragePrefix)+2*common.HashLength)
 }
 
 // ReadSnapshotJournal retrieves the serialized in-memory diff layers saved at
 // the last shutdown. The blob is expected to be max a few 10s of megabytes.
-func ReadSnapshotJournal(db zonddb.KeyValueReader) []byte {
+func ReadSnapshotJournal(db qrldb.KeyValueReader) []byte {
 	data, _ := db.Get(snapshotJournalKey)
 	return data
 }
 
 // WriteSnapshotJournal stores the serialized in-memory diff layers to save at
 // shutdown. The blob is expected to be max a few 10s of megabytes.
-func WriteSnapshotJournal(db zonddb.KeyValueWriter, journal []byte) {
+func WriteSnapshotJournal(db qrldb.KeyValueWriter, journal []byte) {
 	if err := db.Put(snapshotJournalKey, journal); err != nil {
 		log.Crit("Failed to store snapshot journal", "err", err)
 	}
@@ -135,7 +135,7 @@ func WriteSnapshotJournal(db zonddb.KeyValueWriter, journal []byte) {
 
 // DeleteSnapshotJournal deletes the serialized in-memory diff layers saved at
 // the last shutdown
-func DeleteSnapshotJournal(db zonddb.KeyValueWriter) {
+func DeleteSnapshotJournal(db qrldb.KeyValueWriter) {
 	if err := db.Delete(snapshotJournalKey); err != nil {
 		log.Crit("Failed to remove snapshot journal", "err", err)
 	}
@@ -143,14 +143,14 @@ func DeleteSnapshotJournal(db zonddb.KeyValueWriter) {
 
 // ReadSnapshotGenerator retrieves the serialized snapshot generator saved at
 // the last shutdown.
-func ReadSnapshotGenerator(db zonddb.KeyValueReader) []byte {
+func ReadSnapshotGenerator(db qrldb.KeyValueReader) []byte {
 	data, _ := db.Get(snapshotGeneratorKey)
 	return data
 }
 
 // WriteSnapshotGenerator stores the serialized snapshot generator to save at
 // shutdown.
-func WriteSnapshotGenerator(db zonddb.KeyValueWriter, generator []byte) {
+func WriteSnapshotGenerator(db qrldb.KeyValueWriter, generator []byte) {
 	if err := db.Put(snapshotGeneratorKey, generator); err != nil {
 		log.Crit("Failed to store snapshot generator", "err", err)
 	}
@@ -158,7 +158,7 @@ func WriteSnapshotGenerator(db zonddb.KeyValueWriter, generator []byte) {
 
 // DeleteSnapshotGenerator deletes the serialized snapshot generator saved at
 // the last shutdown
-func DeleteSnapshotGenerator(db zonddb.KeyValueWriter) {
+func DeleteSnapshotGenerator(db qrldb.KeyValueWriter) {
 	if err := db.Delete(snapshotGeneratorKey); err != nil {
 		log.Crit("Failed to remove snapshot generator", "err", err)
 	}
@@ -166,7 +166,7 @@ func DeleteSnapshotGenerator(db zonddb.KeyValueWriter) {
 
 // ReadSnapshotRecoveryNumber retrieves the block number of the last persisted
 // snapshot layer.
-func ReadSnapshotRecoveryNumber(db zonddb.KeyValueReader) *uint64 {
+func ReadSnapshotRecoveryNumber(db qrldb.KeyValueReader) *uint64 {
 	data, _ := db.Get(snapshotRecoveryKey)
 	if len(data) == 0 {
 		return nil
@@ -180,7 +180,7 @@ func ReadSnapshotRecoveryNumber(db zonddb.KeyValueReader) *uint64 {
 
 // WriteSnapshotRecoveryNumber stores the block number of the last persisted
 // snapshot layer.
-func WriteSnapshotRecoveryNumber(db zonddb.KeyValueWriter, number uint64) {
+func WriteSnapshotRecoveryNumber(db qrldb.KeyValueWriter, number uint64) {
 	var buf [8]byte
 	binary.BigEndian.PutUint64(buf[:], number)
 	if err := db.Put(snapshotRecoveryKey, buf[:]); err != nil {
@@ -190,20 +190,20 @@ func WriteSnapshotRecoveryNumber(db zonddb.KeyValueWriter, number uint64) {
 
 // DeleteSnapshotRecoveryNumber deletes the block number of the last persisted
 // snapshot layer.
-func DeleteSnapshotRecoveryNumber(db zonddb.KeyValueWriter) {
+func DeleteSnapshotRecoveryNumber(db qrldb.KeyValueWriter) {
 	if err := db.Delete(snapshotRecoveryKey); err != nil {
 		log.Crit("Failed to remove snapshot recovery number", "err", err)
 	}
 }
 
 // ReadSnapshotSyncStatus retrieves the serialized sync status saved at shutdown.
-func ReadSnapshotSyncStatus(db zonddb.KeyValueReader) []byte {
+func ReadSnapshotSyncStatus(db qrldb.KeyValueReader) []byte {
 	data, _ := db.Get(snapshotSyncStatusKey)
 	return data
 }
 
 // WriteSnapshotSyncStatus stores the serialized sync status to save at shutdown.
-func WriteSnapshotSyncStatus(db zonddb.KeyValueWriter, status []byte) {
+func WriteSnapshotSyncStatus(db qrldb.KeyValueWriter, status []byte) {
 	if err := db.Put(snapshotSyncStatusKey, status); err != nil {
 		log.Crit("Failed to store snapshot sync status", "err", err)
 	}

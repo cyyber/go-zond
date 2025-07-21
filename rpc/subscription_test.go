@@ -48,7 +48,7 @@ func TestNewID(t *testing.T) {
 
 func TestSubscriptions(t *testing.T) {
 	var (
-		namespaces        = []string{"zond", "bzz"}
+		namespaces        = []string{"qrl", "bzz"}
 		service           = &notificationTestService{}
 		subCount          = len(namespaces)
 		notificationCount = 3

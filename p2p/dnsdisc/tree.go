@@ -27,8 +27,8 @@ import (
 	"strings"
 
 	"github.com/theQRL/go-zond/crypto"
-	"github.com/theQRL/go-zond/p2p/enode"
-	"github.com/theQRL/go-zond/p2p/enr"
+	"github.com/theQRL/go-zond/p2p/qnode"
+	"github.com/theQRL/go-zond/p2p/qnr"
 	"github.com/theQRL/go-zond/rlp"
 	"golang.org/x/crypto/sha3"
 )
@@ -103,10 +103,10 @@ func (t *Tree) Links() []string {
 }
 
 // Nodes returns all nodes contained in the tree.
-func (t *Tree) Nodes() []*enode.Node {
-	var nodes []*enode.Node
+func (t *Tree) Nodes() []*qnode.Node {
+	var nodes []*qnode.Node
 	for _, e := range t.entries {
-		if ee, ok := e.(*enrEntry); ok {
+		if ee, ok := e.(*qnrEntry); ok {
 			nodes = append(nodes, ee.node)
 		}
 	}
@@ -137,7 +137,7 @@ So the total size is roughly a fixed overhead of `39`, and the size of the query
 name) and response. The query size is, for example,
 FVY6INQ6LZ33WLCHO3BPR3FH6Y.snap.mainnet.ethdisco.net (52)
 
-We also have some static data in the response, such as `enrtree-branch:`, and potentially
+We also have some static data in the response, such as `qnrtree-branch:`, and potentially
 splitting the response up with `" "`, leaving us with a size of roughly `400` that we need
 to stay below.
 
@@ -151,9 +151,9 @@ const (
 )
 
 // MakeTree creates a tree containing the given nodes and links.
-func MakeTree(seq uint, nodes []*enode.Node, links []string) (*Tree, error) {
+func MakeTree(seq uint, nodes []*qnode.Node, links []string) (*Tree, error) {
 	// Sort records by ID and ensure all nodes have a valid record.
-	records := make([]*enode.Node, len(nodes))
+	records := make([]*qnode.Node, len(nodes))
 
 	copy(records, nodes)
 	sortByID(records)
@@ -164,9 +164,9 @@ func MakeTree(seq uint, nodes []*enode.Node, links []string) (*Tree, error) {
 	}
 
 	// Create the leaf list.
-	enrEntries := make([]entry, len(records))
+	qnrEntries := make([]entry, len(records))
 	for i, r := range records {
-		enrEntries[i] = &enrEntry{r}
+		qnrEntries[i] = &qnrEntry{r}
 	}
 	linkEntries := make([]entry, len(links))
 	for i, l := range links {
@@ -179,7 +179,7 @@ func MakeTree(seq uint, nodes []*enode.Node, links []string) (*Tree, error) {
 
 	// Create intermediate nodes.
 	t := &Tree{entries: make(map[string]entry)}
-	eroot := t.build(enrEntries)
+	eroot := t.build(qnrEntries)
 	t.entries[subdomain(eroot)] = eroot
 	lroot := t.build(linkEntries)
 	t.entries[subdomain(lroot)] = lroot
@@ -213,8 +213,8 @@ func (t *Tree) build(entries []entry) entry {
 	return t.build(subtrees)
 }
 
-func sortByID(nodes []*enode.Node) []*enode.Node {
-	slices.SortFunc(nodes, func(a, b *enode.Node) int {
+func sortByID(nodes []*qnode.Node) []*qnode.Node {
+	slices.SortFunc(nodes, func(a, b *qnode.Node) int {
 		return bytes.Compare(a.ID().Bytes(), b.ID().Bytes())
 	})
 	return nodes
@@ -236,8 +236,8 @@ type (
 	branchEntry struct {
 		children []string
 	}
-	enrEntry struct {
-		node *enode.Node
+	qnrEntry struct {
+		node *qnode.Node
 	}
 	linkEntry struct {
 		str    string
@@ -254,10 +254,10 @@ var (
 )
 
 const (
-	rootPrefix   = "enrtree-root:v1"
-	linkPrefix   = "enrtree://"
-	branchPrefix = "enrtree-branch:"
-	enrPrefix    = "enr:"
+	rootPrefix   = "qnrtree-root:v1"
+	linkPrefix   = "qnrtree://"
+	branchPrefix = "qnrtree-branch:"
+	qnrPrefix    = "qnr:"
 )
 
 func subdomain(e entry) string {
@@ -286,7 +286,7 @@ func (e *branchEntry) String() string {
 	return branchPrefix + strings.Join(e.children, ",")
 }
 
-func (e *enrEntry) String() string {
+func (e *qnrEntry) String() string {
 	return e.node.String()
 }
 
@@ -302,14 +302,14 @@ func newLinkEntry(domain string, pubkey *ecdsa.PublicKey) *linkEntry {
 
 // Entry Parsing
 
-func parseEntry(e string, validSchemes enr.IdentityScheme) (entry, error) {
+func parseEntry(e string, validSchemes qnr.IdentityScheme) (entry, error) {
 	switch {
 	case strings.HasPrefix(e, linkPrefix):
 		return parseLinkEntry(e)
 	case strings.HasPrefix(e, branchPrefix):
 		return parseBranch(e)
-	case strings.HasPrefix(e, enrPrefix):
-		return parseENR(e, validSchemes)
+	case strings.HasPrefix(e, qnrPrefix):
+		return parseQNR(e, validSchemes)
 	default:
 		return nil, errUnknownEntry
 	}
@@ -341,7 +341,7 @@ func parseLinkEntry(e string) (entry, error) {
 
 func parseLink(e string) (*linkEntry, error) {
 	if !strings.HasPrefix(e, linkPrefix) {
-		return nil, fmt.Errorf("wrong/missing scheme 'enrtree' in URL")
+		return nil, fmt.Errorf("wrong/missing scheme 'qnrtree' in URL")
 	}
 	e = e[len(linkPrefix):]
 	pos := strings.IndexByte(e, '@')
@@ -375,21 +375,21 @@ func parseBranch(e string) (entry, error) {
 	return &branchEntry{hashes}, nil
 }
 
-func parseENR(e string, validSchemes enr.IdentityScheme) (entry, error) {
-	e = e[len(enrPrefix):]
+func parseQNR(e string, validSchemes qnr.IdentityScheme) (entry, error) {
+	e = e[len(qnrPrefix):]
 	enc, err := b64format.DecodeString(e)
 	if err != nil {
-		return nil, entryError{"enr", errInvalidENR}
+		return nil, entryError{"qnr", errInvalidQNR}
 	}
-	var rec enr.Record
+	var rec qnr.Record
 	if err := rlp.DecodeBytes(enc, &rec); err != nil {
-		return nil, entryError{"enr", err}
+		return nil, entryError{"qnr", err}
 	}
-	n, err := enode.New(validSchemes, &rec)
+	n, err := qnode.New(validSchemes, &rec)
 	if err != nil {
-		return nil, entryError{"enr", err}
+		return nil, entryError{"qnr", err}
 	}
-	return &enrEntry{n}, nil
+	return &qnrEntry{n}, nil
 }
 
 func isValidHash(s string) bool {
@@ -413,7 +413,7 @@ func truncateHash(hash string) string {
 
 // URL encoding
 
-// ParseURL parses an enrtree:// URL and returns its components.
+// ParseURL parses a qnrtree:// URL and returns its components.
 func ParseURL(url string) (domain string, pubkey *ecdsa.PublicKey, err error) {
 	le, err := parseLink(url)
 	if err != nil {

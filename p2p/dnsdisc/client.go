@@ -31,8 +31,8 @@ import (
 	"github.com/theQRL/go-zond/common/mclock"
 	"github.com/theQRL/go-zond/crypto"
 	"github.com/theQRL/go-zond/log"
-	"github.com/theQRL/go-zond/p2p/enode"
-	"github.com/theQRL/go-zond/p2p/enr"
+	"github.com/theQRL/go-zond/p2p/qnode"
+	"github.com/theQRL/go-zond/p2p/qnr"
 	"golang.org/x/sync/singleflight"
 	"golang.org/x/time/rate"
 )
@@ -52,7 +52,7 @@ type Config struct {
 	RecheckInterval time.Duration      // time between tree root update checks (default 30min)
 	CacheLimit      int                // maximum number of cached records (default 1000)
 	RateLimit       float64            // maximum DNS requests / second (default 3)
-	ValidSchemes    enr.IdentityScheme // acceptable ENR identity schemes (default enode.ValidSchemes)
+	ValidSchemes    qnr.IdentityScheme // acceptable QNR identity schemes (default qnode.ValidSchemes)
 	Resolver        Resolver           // the DNS resolver to use (defaults to system DNS)
 	Logger          log.Logger         // destination of client log messages (defaults to root logger)
 }
@@ -82,7 +82,7 @@ func (cfg Config) withDefaults() Config {
 		cfg.RateLimit = defaultRateLimit
 	}
 	if cfg.ValidSchemes == nil {
-		cfg.ValidSchemes = enode.ValidSchemes
+		cfg.ValidSchemes = qnode.ValidSchemes
 	}
 	if cfg.Resolver == nil {
 		cfg.Resolver = new(net.Resolver)
@@ -109,7 +109,7 @@ func NewClient(cfg Config) *Client {
 func (c *Client) SyncTree(url string) (*Tree, error) {
 	le, err := parseLink(url)
 	if err != nil {
-		return nil, fmt.Errorf("invalid enrtree URL: %v", err)
+		return nil, fmt.Errorf("invalid qnrtree URL: %v", err)
 	}
 	ct := newClientTree(c, new(linkCache), le)
 	t := &Tree{entries: make(map[string]entry)}
@@ -122,7 +122,7 @@ func (c *Client) SyncTree(url string) (*Tree, error) {
 
 // NewIterator creates an iterator that visits all nodes at the
 // given tree URLs.
-func (c *Client) NewIterator(urls ...string) (enode.Iterator, error) {
+func (c *Client) NewIterator(urls ...string) (qnode.Iterator, error) {
 	it := c.newRandomIterator()
 	for _, url := range urls {
 		if err := it.addTree(url); err != nil {
@@ -216,7 +216,7 @@ func (c *Client) doResolveEntry(ctx context.Context, domain, hash string) (entry
 
 // randomIterator traverses a set of trees and returns nodes found in them.
 type randomIterator struct {
-	cur      *enode.Node
+	cur      *qnode.Node
 	ctx      context.Context
 	cancelFn context.CancelFunc
 	c        *Client
@@ -240,7 +240,7 @@ func (c *Client) newRandomIterator() *randomIterator {
 }
 
 // Node returns the current node.
-func (it *randomIterator) Node() *enode.Node {
+func (it *randomIterator) Node() *qnode.Node {
 	return it.cur
 }
 
@@ -259,18 +259,18 @@ func (it *randomIterator) Next() bool {
 	return it.cur != nil
 }
 
-// addTree adds an enrtree:// URL to the iterator.
+// addTree adds a qnrtree:// URL to the iterator.
 func (it *randomIterator) addTree(url string) error {
 	le, err := parseLink(url)
 	if err != nil {
-		return fmt.Errorf("invalid enrtree URL: %v", err)
+		return fmt.Errorf("invalid qnrtree URL: %v", err)
 	}
 	it.lc.addLink("", le.str)
 	return nil
 }
 
 // nextNode syncs random tree entries until it finds a node.
-func (it *randomIterator) nextNode() *enode.Node {
+func (it *randomIterator) nextNode() *qnode.Node {
 	for {
 		ct := it.pickTree()
 		if ct == nil {

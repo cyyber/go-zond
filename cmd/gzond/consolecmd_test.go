@@ -30,8 +30,8 @@ import (
 )
 
 const (
-	ipcAPIs  = "admin:1.0 debug:1.0 engine:1.0 miner:1.0 net:1.0 rpc:1.0 txpool:1.0 web3:1.0 zond:1.0"
-	httpAPIs = "net:1.0 rpc:1.0 web3:1.0 zond:1.0"
+	ipcAPIs  = "admin:1.0 debug:1.0 engine:1.0 miner:1.0 net:1.0 qrl:1.0 rpc:1.0 txpool:1.0 web3:1.0"
+	httpAPIs = "net:1.0 qrl:1.0 rpc:1.0 web3:1.0"
 )
 
 // spawns gzond with the given command line args, using a set of flags to minimise
@@ -66,7 +66,7 @@ func TestConsoleWelcome(t *testing.T) {
 
 	// Verify the actual welcome message to the required template
 	gzond.Expect(`
-Welcome to the Gzond JavaScript console!
+Welcome to the QRL JavaScript console!
 
 instance: Gzond/v{{gzondver}}/{{goos}}-{{goarch}}/{{gover}}
 at block: 0 ({{niltime}})
@@ -139,7 +139,7 @@ func testAttachWelcome(t *testing.T, gzond *testgzond, endpoint, apis string) {
 
 	// Verify the actual welcome message to the required template
 	attach.Expect(`
-Welcome to the Gzond JavaScript console!
+Welcome to the QRL JavaScript console!
 
 instance: Gzond/v{{gzondver}}/{{goos}}-{{goarch}}/{{gover}}
 at block: 0 ({{niltime}}){{if ipc}}

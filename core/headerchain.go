@@ -33,8 +33,8 @@ import (
 	"github.com/theQRL/go-zond/core/types"
 	"github.com/theQRL/go-zond/log"
 	"github.com/theQRL/go-zond/params"
+	"github.com/theQRL/go-zond/qrldb"
 	"github.com/theQRL/go-zond/rlp"
-	"github.com/theQRL/go-zond/zonddb"
 )
 
 const (
@@ -56,7 +56,7 @@ const (
 // the necessary mutex locking/unlocking.
 type HeaderChain struct {
 	config        *params.ChainConfig
-	chainDb       zonddb.Database
+	chainDb       qrldb.Database
 	genesisHeader *types.Header
 
 	currentHeader     atomic.Value // Current head of the header chain (may be above the block chain!)
@@ -73,7 +73,7 @@ type HeaderChain struct {
 
 // NewHeaderChain creates a new HeaderChain structure. ProcInterrupt points
 // to the parent's interrupt semaphore.
-func NewHeaderChain(chainDb zonddb.Database, config *params.ChainConfig, engine consensus.Engine, procInterrupt func() bool) (*HeaderChain, error) {
+func NewHeaderChain(chainDb qrldb.Database, config *params.ChainConfig, engine consensus.Engine, procInterrupt func() bool) (*HeaderChain, error) {
 	// Seed a fast but crypto originating random generator
 	seed, err := crand.Int(crand.Reader, big.NewInt(math.MaxInt64))
 	if err != nil {
@@ -495,11 +495,11 @@ type (
 	// before head header is updated. The method will return the actual block it
 	// updated the head to (missing state) and a flag if setHead should continue
 	// rewinding till that forcefully (exceeded ancient limits)
-	UpdateHeadBlocksCallback func(zonddb.KeyValueWriter, *types.Header) (*types.Header, bool)
+	UpdateHeadBlocksCallback func(qrldb.KeyValueWriter, *types.Header) (*types.Header, bool)
 
 	// DeleteBlockContentCallback is a callback function that is called by SetHead
 	// before each header is deleted.
-	DeleteBlockContentCallback func(zonddb.KeyValueWriter, common.Hash, uint64)
+	DeleteBlockContentCallback func(qrldb.KeyValueWriter, common.Hash, uint64)
 )
 
 // SetHead rewinds the local chain to a new head. Everything above the new head

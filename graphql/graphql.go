@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-// Package graphql provides a GraphQL interface to Zond node data.
+// Package graphql provides a GraphQL interface to QRL node data.
 package graphql
 
 import (
@@ -27,17 +27,17 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/theQRL/go-zond"
+	qrl "github.com/theQRL/go-zond"
 	"github.com/theQRL/go-zond/common"
 	"github.com/theQRL/go-zond/common/hexutil"
 	"github.com/theQRL/go-zond/common/math"
 	"github.com/theQRL/go-zond/consensus/misc/eip1559"
 	"github.com/theQRL/go-zond/core/state"
 	"github.com/theQRL/go-zond/core/types"
-	"github.com/theQRL/go-zond/internal/zondapi"
+	"github.com/theQRL/go-zond/internal/qrlapi"
+	"github.com/theQRL/go-zond/qrl/filters"
 	"github.com/theQRL/go-zond/rlp"
 	"github.com/theQRL/go-zond/rpc"
-	"github.com/theQRL/go-zond/zond/filters"
 )
 
 var (
@@ -77,7 +77,7 @@ func (b *Long) UnmarshalGraphQL(input interface{}) error {
 	return err
 }
 
-// Account represents a Zond account at a particular block.
+// Account represents a QRL account at a particular block.
 type Account struct {
 	r             *Resolver
 	address       common.Address
@@ -207,7 +207,7 @@ func (w *Withdrawal) Amount(ctx context.Context) hexutil.Uint64 {
 	return hexutil.Uint64(w.amount)
 }
 
-// Transaction represents a Zond transaction.
+// Transaction represents a QRL transaction.
 // backend and hash are mandatory; all others will be fetched when required.
 type Transaction struct {
 	r    *Resolver
@@ -562,7 +562,7 @@ func (t *Transaction) RawReceipt(ctx context.Context) (hexutil.Bytes, error) {
 
 type BlockType int
 
-// Block represents a Zond block.
+// Block represents a QRL block.
 // backend, and numberOrHash are mandatory. All other fields are lazily fetched
 // when required.
 type Block struct {
@@ -969,8 +969,8 @@ func (b *Block) Account(ctx context.Context, args struct {
 // CallData encapsulates arguments to `call` or `estimateGas`.
 // All arguments are optional.
 type CallData struct {
-	From                 *common.Address // The Zond address the call is from.
-	To                   *common.Address // The Zond address the call is to.
+	From                 *common.Address // The QRL address the call is from.
+	To                   *common.Address // The QRL address the call is to.
 	Gas                  *Long           // The amount of gas provided for the call.
 	MaxFeePerGas         *hexutil.Big    // The max price of each unit of gas, in planck.
 	MaxPriorityFeePerGas *hexutil.Big    // The max tip of each unit of gas, in planck.
@@ -998,9 +998,9 @@ func (c *CallResult) Status() hexutil.Uint64 {
 }
 
 func (b *Block) Call(ctx context.Context, args struct {
-	Data zondapi.TransactionArgs
+	Data qrlapi.TransactionArgs
 }) (*CallResult, error) {
-	result, err := zondapi.DoCall(ctx, b.r.backend, args.Data, *b.numberOrHash, nil, nil, b.r.backend.RPCZVMTimeout(), b.r.backend.RPCGasCap())
+	result, err := qrlapi.DoCall(ctx, b.r.backend, args.Data, *b.numberOrHash, nil, nil, b.r.backend.RPCQRVMTimeout(), b.r.backend.RPCGasCap())
 	if err != nil {
 		return nil, err
 	}
@@ -1017,9 +1017,9 @@ func (b *Block) Call(ctx context.Context, args struct {
 }
 
 func (b *Block) EstimateGas(ctx context.Context, args struct {
-	Data zondapi.TransactionArgs
+	Data qrlapi.TransactionArgs
 }) (hexutil.Uint64, error) {
-	return zondapi.DoEstimateGas(ctx, b.r.backend, args.Data, *b.numberOrHash, nil, b.r.backend.RPCGasCap())
+	return qrlapi.DoEstimateGas(ctx, b.r.backend, args.Data, *b.numberOrHash, nil, b.r.backend.RPCGasCap())
 }
 
 type Pending struct {
@@ -1060,10 +1060,10 @@ func (p *Pending) Account(ctx context.Context, args struct {
 }
 
 func (p *Pending) Call(ctx context.Context, args struct {
-	Data zondapi.TransactionArgs
+	Data qrlapi.TransactionArgs
 }) (*CallResult, error) {
 	pendingBlockNr := rpc.BlockNumberOrHashWithNumber(rpc.PendingBlockNumber)
-	result, err := zondapi.DoCall(ctx, p.r.backend, args.Data, pendingBlockNr, nil, nil, p.r.backend.RPCZVMTimeout(), p.r.backend.RPCGasCap())
+	result, err := qrlapi.DoCall(ctx, p.r.backend, args.Data, pendingBlockNr, nil, nil, p.r.backend.RPCQRVMTimeout(), p.r.backend.RPCGasCap())
 	if err != nil {
 		return nil, err
 	}
@@ -1080,15 +1080,15 @@ func (p *Pending) Call(ctx context.Context, args struct {
 }
 
 func (p *Pending) EstimateGas(ctx context.Context, args struct {
-	Data zondapi.TransactionArgs
+	Data qrlapi.TransactionArgs
 }) (hexutil.Uint64, error) {
 	latestBlockNr := rpc.BlockNumberOrHashWithNumber(rpc.LatestBlockNumber)
-	return zondapi.DoEstimateGas(ctx, p.r.backend, args.Data, latestBlockNr, nil, p.r.backend.RPCGasCap())
+	return qrlapi.DoEstimateGas(ctx, p.r.backend, args.Data, latestBlockNr, nil, p.r.backend.RPCGasCap())
 }
 
 // Resolver is the top-level object in the GraphQL hierarchy.
 type Resolver struct {
-	backend      zondapi.Backend
+	backend      qrlapi.Backend
 	filterSystem *filters.FilterSystem
 }
 
@@ -1189,7 +1189,7 @@ func (r *Resolver) SendRawTransaction(ctx context.Context, args struct{ Data hex
 	if err := tx.UnmarshalBinary(args.Data); err != nil {
 		return common.Hash{}, err
 	}
-	hash, err := zondapi.SubmitTransaction(ctx, r.backend, tx)
+	hash, err := qrlapi.SubmitTransaction(ctx, r.backend, tx)
 	return hash, err
 }
 
@@ -1261,7 +1261,7 @@ func (r *Resolver) ChainID(ctx context.Context) (hexutil.Big, error) {
 
 // SyncState represents the synchronisation status returned from the `syncing` accessor.
 type SyncState struct {
-	progress zond.SyncProgress
+	progress qrl.SyncProgress
 }
 
 func (s *SyncState) StartingBlock() hexutil.Uint64 {

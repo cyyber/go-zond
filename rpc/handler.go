@@ -401,7 +401,7 @@ func (h *handler) handleResponses(batch []*jsonrpcMessage, handleCall func(*json
 		delete(h.respWait, string(msg.ID))
 
 		// For subscription responses, start the subscription if the server
-		// indicates success. EthSubscribe gets unblocked in either case through
+		// indicates success. QrlSubscribe gets unblocked in either case through
 		// the op.resp channel.
 		if op.sub != nil {
 			if msg.Error != nil {

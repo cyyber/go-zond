@@ -25,7 +25,7 @@ import (
 
 	"github.com/dop251/goja"
 	"github.com/theQRL/go-zond/internal/jsre/deps"
-	"github.com/theQRL/go-zond/internal/zondapi"
+	"github.com/theQRL/go-zond/internal/qrlapi"
 	"github.com/theQRL/go-zond/log"
 	"github.com/theQRL/go-zond/signer/core"
 	"github.com/theQRL/go-zond/signer/storage"
@@ -227,7 +227,7 @@ func (r *rulesetUI) OnSignerStartup(info core.StartupInfo) {
 	}
 }
 
-func (r *rulesetUI) OnApprovedTx(tx zondapi.SignTransactionResult) {
+func (r *rulesetUI) OnApprovedTx(tx qrlapi.SignTransactionResult) {
 	jsonTx, err := json.Marshal(tx)
 	if err != nil {
 		log.Warn("failed marshalling transaction", "tx", tx)

@@ -23,9 +23,9 @@ import (
 
 	"github.com/theQRL/go-zond/common/mclock"
 	"github.com/theQRL/go-zond/log"
-	"github.com/theQRL/go-zond/p2p/enode"
-	"github.com/theQRL/go-zond/p2p/enr"
 	"github.com/theQRL/go-zond/p2p/netutil"
+	"github.com/theQRL/go-zond/p2p/qnode"
+	"github.com/theQRL/go-zond/p2p/qnr"
 )
 
 // UDPConn is a network connection on which discovery can operate.
@@ -48,14 +48,14 @@ type Config struct {
 	Unhandled   chan<- ReadPacket // unhandled packets are sent on this channel
 
 	// Node table configuration:
-	Bootnodes       []*enode.Node // list of bootstrap nodes
+	Bootnodes       []*qnode.Node // list of bootstrap nodes
 	PingInterval    time.Duration // speed of node liveness check
 	RefreshInterval time.Duration // used in bucket refresh
 
 	// The options below are useful in very specific cases, like in unit tests.
 	V5ProtocolID *[6]byte
 	Log          log.Logger         // if set, log messages go here
-	ValidSchemes enr.IdentityScheme // allowed identity schemes
+	ValidSchemes qnr.IdentityScheme // allowed identity schemes
 	Clock        mclock.Clock
 }
 
@@ -73,7 +73,7 @@ func (cfg Config) withDefaults() Config {
 		cfg.Log = log.Root()
 	}
 	if cfg.ValidSchemes == nil {
-		cfg.ValidSchemes = enode.ValidSchemes
+		cfg.ValidSchemes = qnode.ValidSchemes
 	}
 	if cfg.Clock == nil {
 		cfg.Clock = mclock.System{}
@@ -82,7 +82,7 @@ func (cfg Config) withDefaults() Config {
 }
 
 // ListenUDP starts listening for discovery packets on the given UDP socket.
-func ListenUDP(c UDPConn, ln *enode.LocalNode, cfg Config) (*UDPv4, error) {
+func ListenUDP(c UDPConn, ln *qnode.LocalNode, cfg Config) (*UDPv4, error) {
 	return ListenV4(c, ln, cfg)
 }
 

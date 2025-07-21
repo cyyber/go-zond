@@ -20,18 +20,18 @@ import (
 	"testing"
 
 	"github.com/theQRL/go-zond/p2p"
-	"github.com/theQRL/go-zond/p2p/enode"
-	"github.com/theQRL/go-zond/p2p/enr"
+	"github.com/theQRL/go-zond/p2p/qnode"
+	"github.com/theQRL/go-zond/p2p/qnr"
 	"github.com/theQRL/go-zond/rpc"
 )
 
 // NoopService is the service that does not do anything
 // but implements node.Service interface.
 type NoopService struct {
-	c map[enode.ID]chan struct{}
+	c map[qnode.ID]chan struct{}
 }
 
-func NewNoopService(ackC map[enode.ID]chan struct{}) *NoopService {
+func NewNoopService(ackC map[qnode.ID]chan struct{}) *NoopService {
 	return &NoopService{
 		c: ackC,
 	}
@@ -54,10 +54,10 @@ func (t *NoopService) Protocols() []p2p.Protocol {
 			NodeInfo: func() interface{} {
 				return struct{}{}
 			},
-			PeerInfo: func(id enode.ID) interface{} {
+			PeerInfo: func(id qnode.ID) interface{} {
 				return struct{}{}
 			},
-			Attributes: []enr.Entry{},
+			Attributes: []qnr.Entry{},
 		},
 	}
 }
@@ -74,7 +74,7 @@ func (t *NoopService) Stop() error {
 	return nil
 }
 
-func VerifyRing(t *testing.T, net *Network, ids []enode.ID) {
+func VerifyRing(t *testing.T, net *Network, ids []qnode.ID) {
 	t.Helper()
 	n := len(ids)
 	for i := 0; i < n; i++ {
@@ -93,7 +93,7 @@ func VerifyRing(t *testing.T, net *Network, ids []enode.ID) {
 	}
 }
 
-func VerifyChain(t *testing.T, net *Network, ids []enode.ID) {
+func VerifyChain(t *testing.T, net *Network, ids []qnode.ID) {
 	t.Helper()
 	n := len(ids)
 	for i := 0; i < n; i++ {
@@ -112,7 +112,7 @@ func VerifyChain(t *testing.T, net *Network, ids []enode.ID) {
 	}
 }
 
-func VerifyFull(t *testing.T, net *Network, ids []enode.ID) {
+func VerifyFull(t *testing.T, net *Network, ids []qnode.ID) {
 	t.Helper()
 	n := len(ids)
 	var connections int
@@ -130,7 +130,7 @@ func VerifyFull(t *testing.T, net *Network, ids []enode.ID) {
 	}
 }
 
-func VerifyStar(t *testing.T, net *Network, ids []enode.ID, centerIndex int) {
+func VerifyStar(t *testing.T, net *Network, ids []qnode.ID, centerIndex int) {
 	t.Helper()
 	n := len(ids)
 	for i := 0; i < n; i++ {

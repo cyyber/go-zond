@@ -29,8 +29,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/theQRL/go-zond/crypto"
 	"github.com/theQRL/go-zond/p2p"
+	"github.com/theQRL/go-zond/qrldb"
 	"github.com/theQRL/go-zond/rpc"
-	"github.com/theQRL/go-zond/zonddb"
 )
 
 var (
@@ -170,7 +170,7 @@ func TestNodeOpenDatabaseFromLifecycleStart(t *testing.T) {
 	stack, _ := New(testNodeConfig())
 	defer stack.Close()
 
-	var db zonddb.Database
+	var db qrldb.Database
 	var err error
 	stack.RegisterLifecycle(&InstrumentedService{
 		startHook: func() {

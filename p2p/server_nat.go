@@ -22,8 +22,8 @@ import (
 
 	"github.com/theQRL/go-zond/common/mclock"
 	"github.com/theQRL/go-zond/log"
-	"github.com/theQRL/go-zond/p2p/enr"
 	"github.com/theQRL/go-zond/p2p/nat"
+	"github.com/theQRL/go-zond/p2p/qnr"
 )
 
 const (
@@ -174,10 +174,10 @@ func (srv *Server) portMappingLoop() {
 					log.Info("NAT mapped port")
 				}
 
-				// Update port in local ENR.
+				// Update port in local QNR.
 				switch m.protocol {
 				case "TCP":
-					srv.localnode.Set(enr.TCP(m.extPort))
+					srv.localnode.Set(qnr.TCP(m.extPort))
 				case "UDP":
 					srv.localnode.SetFallbackUDP(m.extPort)
 				}

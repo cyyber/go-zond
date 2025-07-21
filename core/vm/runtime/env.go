@@ -21,7 +21,7 @@ import (
 	"github.com/theQRL/go-zond/core/vm"
 )
 
-func NewEnv(cfg *Config) *vm.ZVM {
+func NewEnv(cfg *Config) *vm.QRVM {
 	txContext := vm.TxContext{
 		Origin:   cfg.Origin,
 		GasPrice: cfg.GasPrice,
@@ -38,5 +38,5 @@ func NewEnv(cfg *Config) *vm.ZVM {
 		Random:      cfg.Random,
 	}
 
-	return vm.NewZVM(blockContext, txContext, cfg.State, cfg.ChainConfig, cfg.ZVMConfig)
+	return vm.NewQRVM(blockContext, txContext, cfg.State, cfg.ChainConfig, cfg.QRVMConfig)
 }

@@ -14,8 +14,8 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-// Package zond defines interfaces for interacting with Zond.
-package zond
+// Package qrl defines interfaces for interacting with QRL.
+package qrl
 
 import (
 	"context"
@@ -96,7 +96,7 @@ type ChainStateReader interface {
 }
 
 // SyncProgress gives progress indications when the node is synchronising with
-// the Zond network.
+// the QRL network.
 type SyncProgress struct {
 	StartingBlock uint64 // Block number where sync began
 	CurrentBlock  uint64 // Current block number where sync is at
@@ -149,7 +149,7 @@ type CallMsg struct {
 }
 
 // A ContractCaller provides contract calls, essentially transactions that are executed by
-// the ZVM but not mined into the blockchain. ContractCall is a low-level method to
+// the QRVM but not mined into the blockchain. ContractCall is a low-level method to
 // execute such calls. For applications which are structured around specific contracts,
 // the abigen tool provides a nicer, properly typed way to perform calls.
 type ContractCaller interface {
@@ -158,7 +158,7 @@ type ContractCaller interface {
 
 // FilterQuery contains options for contract log filtering.
 type FilterQuery struct {
-	BlockHash *common.Hash     // used by zond_getLogs, return logs only from block with this hash
+	BlockHash *common.Hash     // used by qrl_getLogs, return logs only from block with this hash
 	FromBlock *big.Int         // beginning of the queried range, nil means genesis block
 	ToBlock   *big.Int         // end of the range, nil means latest block
 	Addresses []common.Address // restricts matches to events created by specific contracts

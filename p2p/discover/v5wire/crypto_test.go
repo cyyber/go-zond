@@ -27,7 +27,7 @@ import (
 
 	"github.com/theQRL/go-zond/common/hexutil"
 	"github.com/theQRL/go-zond/crypto"
-	"github.com/theQRL/go-zond/p2p/enode"
+	"github.com/theQRL/go-zond/p2p/qnode"
 )
 
 func TestVector_ECDH(t *testing.T) {
@@ -62,7 +62,7 @@ func TestVector_KDF(t *testing.T) {
 func TestVector_IDSignature(t *testing.T) {
 	var (
 		key    = hexPrivkey("0xfb757dc581730490a1d7a00deea65e9b1936924caaea8f44d476014856b68736")
-		destID = enode.HexID("0xbbbb9d047f0488c0b5a93c1c3f2d8bafc7c8ff337024a55434a0d0555de64db9")
+		destID = qnode.HexID("0xbbbb9d047f0488c0b5a93c1c3f2d8bafc7c8ff337024a55434a0d0555de64db9")
 		ephkey = hexutil.MustDecode("0x039961e4c2356d61bedb83052c115d311acb3a96f5777296dcf297351130266231")
 		cdata  = hexutil.MustDecode("0x000000000000000000000000000000006469736376350001010102030405060708090a0b0c00180102030405060708090a0b0c0d0e0f100000000000000000")
 	)
@@ -83,8 +83,8 @@ func TestDeriveKeys(t *testing.T) {
 	t.Parallel()
 
 	var (
-		n1    = enode.ID{1}
-		n2    = enode.ID{2}
+		n1    = qnode.ID{1}
+		n2    = qnode.ID{2}
 		cdata = []byte{1, 2, 3, 4}
 	)
 	sec1 := deriveKeys(sha256.New, testKeyA, &testKeyB.PublicKey, n1, n2, cdata)

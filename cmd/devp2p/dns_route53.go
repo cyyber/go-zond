@@ -111,7 +111,7 @@ func (c *route53Client) deploy(name string, t *dnsdisc.Tree) error {
 	changes := c.computeChanges(name, records, existing)
 
 	// Submit to API.
-	comment := fmt.Sprintf("enrtree update of %s at seq %d", name, t.Seq())
+	comment := fmt.Sprintf("qnrtree update of %s at seq %d", name, t.Seq())
 	return c.submitChanges(changes, comment)
 }
 
@@ -130,7 +130,7 @@ func (c *route53Client) deleteDomain(name string) error {
 	changes := makeDeletionChanges(existing, nil)
 
 	// Submit to API.
-	comment := "enrtree delete of " + name
+	comment := "qnrtree delete of " + name
 	return c.submitChanges(changes, comment)
 }
 

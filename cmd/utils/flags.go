@@ -46,7 +46,7 @@ import (
 	"github.com/theQRL/go-zond/crypto"
 	"github.com/theQRL/go-zond/graphql"
 	"github.com/theQRL/go-zond/internal/flags"
-	"github.com/theQRL/go-zond/internal/zondapi"
+	"github.com/theQRL/go-zond/internal/qrlapi"
 	"github.com/theQRL/go-zond/log"
 	"github.com/theQRL/go-zond/metrics"
 	"github.com/theQRL/go-zond/metrics/exp"
@@ -54,24 +54,24 @@ import (
 	"github.com/theQRL/go-zond/miner"
 	"github.com/theQRL/go-zond/node"
 	"github.com/theQRL/go-zond/p2p"
-	"github.com/theQRL/go-zond/p2p/enode"
 	"github.com/theQRL/go-zond/p2p/nat"
 	"github.com/theQRL/go-zond/p2p/netutil"
+	"github.com/theQRL/go-zond/p2p/qnode"
 	"github.com/theQRL/go-zond/params"
+	"github.com/theQRL/go-zond/qrl"
+	"github.com/theQRL/go-zond/qrl/catalyst"
+	"github.com/theQRL/go-zond/qrl/downloader"
+	"github.com/theQRL/go-zond/qrl/filters"
+	"github.com/theQRL/go-zond/qrl/gasprice"
+	"github.com/theQRL/go-zond/qrl/qrlconfig"
+	"github.com/theQRL/go-zond/qrl/tracers"
+	"github.com/theQRL/go-zond/qrldb"
+	"github.com/theQRL/go-zond/qrldb/remotedb"
+	"github.com/theQRL/go-zond/qrlstats"
 	"github.com/theQRL/go-zond/rpc"
 	"github.com/theQRL/go-zond/trie"
 	"github.com/theQRL/go-zond/trie/triedb/hashdb"
 	"github.com/theQRL/go-zond/trie/triedb/pathdb"
-	"github.com/theQRL/go-zond/zond"
-	"github.com/theQRL/go-zond/zond/catalyst"
-	"github.com/theQRL/go-zond/zond/downloader"
-	"github.com/theQRL/go-zond/zond/filters"
-	"github.com/theQRL/go-zond/zond/gasprice"
-	"github.com/theQRL/go-zond/zond/tracers"
-	"github.com/theQRL/go-zond/zond/zondconfig"
-	"github.com/theQRL/go-zond/zonddb"
-	"github.com/theQRL/go-zond/zonddb/remotedb"
-	"github.com/theQRL/go-zond/zondstats"
 	"github.com/urfave/cli/v2"
 )
 
@@ -88,7 +88,7 @@ var (
 		Name:     "datadir",
 		Usage:    "Data directory for the databases and keystore",
 		Value:    flags.DirectoryString(node.DefaultDataDir()),
-		Category: flags.ZondCategory,
+		Category: flags.QRLCategory,
 	}
 	RemoteDBFlag = &cli.StringFlag{
 		Name:     "remotedb",
@@ -99,17 +99,17 @@ var (
 		Name:     "db.engine",
 		Usage:    "Backing database implementation to use ('pebble' or 'leveldb')",
 		Value:    node.DefaultConfig.DBEngine,
-		Category: flags.ZondCategory,
+		Category: flags.QRLCategory,
 	}
 	AncientFlag = &flags.DirectoryFlag{
 		Name:     "datadir.ancient",
 		Usage:    "Root directory for ancient data (default = inside chaindata)",
-		Category: flags.ZondCategory,
+		Category: flags.QRLCategory,
 	}
 	MinFreeDiskSpaceFlag = &flags.DirectoryFlag{
 		Name:     "datadir.minfreedisk",
 		Usage:    "Minimum free disk space in MB, once reached triggers auto shut down (default = --cache.gc converted to MB, 0 = disabled)",
-		Category: flags.ZondCategory,
+		Category: flags.QRLCategory,
 	}
 	KeyStoreDirFlag = &flags.DirectoryFlag{
 		Name:     "keystore",
@@ -130,23 +130,23 @@ var (
 	NetworkIdFlag = &cli.Uint64Flag{
 		Name:     "networkid",
 		Usage:    "Explicitly set network id (integer)(For testnets: use --betanet instead)",
-		Value:    zondconfig.Defaults.NetworkId,
-		Category: flags.ZondCategory,
+		Value:    qrlconfig.Defaults.NetworkId,
+		Category: flags.QRLCategory,
 	}
 	MainnetFlag = &cli.BoolFlag{
 		Name:     "mainnet",
-		Usage:    "Zond mainnet",
-		Category: flags.ZondCategory,
+		Usage:    "QRL mainnet",
+		Category: flags.QRLCategory,
 	}
 	BetaNetFlag = &cli.BoolFlag{
 		Name:     "betanet",
 		Usage:    "BetaNet network: pre-configured proof-of-work test network",
-		Category: flags.ZondCategory,
+		Category: flags.QRLCategory,
 	}
 	TestnetFlag = &cli.BoolFlag{
 		Name:     "testnet",
 		Usage:    "Testnet network: pre-configured proof-of-stake test network",
-		Category: flags.ZondCategory,
+		Category: flags.QRLCategory,
 	}
 	// Dev mode
 	DeveloperFlag = &cli.BoolFlag{
@@ -180,7 +180,7 @@ var (
 	ExitWhenSyncedFlag = &cli.BoolFlag{
 		Name:     "exitwhensynced",
 		Usage:    "Exits after block synchronisation completes",
-		Category: flags.ZondCategory,
+		Category: flags.QRLCategory,
 	}
 
 	// Dump command options.
@@ -212,28 +212,28 @@ var (
 		Value: 0,
 	}
 
-	defaultSyncMode = zondconfig.Defaults.SyncMode
+	defaultSyncMode = qrlconfig.Defaults.SyncMode
 	SnapshotFlag    = &cli.BoolFlag{
 		Name:     "snapshot",
 		Usage:    `Enables snapshot-database mode (default = enable)`,
 		Value:    true,
-		Category: flags.ZondCategory,
+		Category: flags.QRLCategory,
 	}
 	LightKDFFlag = &cli.BoolFlag{
 		Name:     "lightkdf",
 		Usage:    "Reduce key-derivation RAM & CPU usage at some expense of KDF strength",
 		Category: flags.AccountCategory,
 	}
-	ZondRequiredBlocksFlag = &cli.StringFlag{
-		Name:     "zond.requiredblocks",
+	QRLRequiredBlocksFlag = &cli.StringFlag{
+		Name:     "qrl.requiredblocks",
 		Usage:    "Comma separated block number-to-hash mappings to require for peering (<number>=<hash>)",
-		Category: flags.ZondCategory,
+		Category: flags.QRLCategory,
 	}
 	BloomFilterSizeFlag = &cli.Uint64Flag{
 		Name:     "bloomfilter.size",
 		Usage:    "Megabytes of memory allocated to bloom-filter for pruning",
 		Value:    2048,
-		Category: flags.ZondCategory,
+		Category: flags.QRLCategory,
 	}
 	SyncModeFlag = &flags.TextMarshalerFlag{
 		Name:     "syncmode",
@@ -249,19 +249,19 @@ var (
 	}
 	StateSchemeFlag = &cli.StringFlag{
 		Name:     "state.scheme",
-		Usage:    "Scheme to use for storing zond state ('hash' or 'path')",
+		Usage:    "Scheme to use for storing qrl state ('hash' or 'path')",
 		Category: flags.StateCategory,
 	}
 	StateHistoryFlag = &cli.Uint64Flag{
 		Name:     "history.state",
 		Usage:    "Number of recent blocks to retain state history for (default = 90,000 blocks, 0 = entire chain)",
-		Value:    zondconfig.Defaults.StateHistory,
+		Value:    qrlconfig.Defaults.StateHistory,
 		Category: flags.StateCategory,
 	}
 	TransactionHistoryFlag = &cli.Uint64Flag{
 		Name:     "history.transactions",
 		Usage:    "Number of recent blocks to maintain transactions index for (default = about one year, 0 = entire chain)",
-		Value:    zondconfig.Defaults.TransactionHistory,
+		Value:    qrlconfig.Defaults.TransactionHistory,
 		Category: flags.StateCategory,
 	}
 	// Transaction pool settings
@@ -278,55 +278,55 @@ var (
 	TxPoolJournalFlag = &cli.StringFlag{
 		Name:     "txpool.journal",
 		Usage:    "Disk journal for local transaction to survive node restarts",
-		Value:    zondconfig.Defaults.TxPool.Journal,
+		Value:    qrlconfig.Defaults.TxPool.Journal,
 		Category: flags.TxPoolCategory,
 	}
 	TxPoolRejournalFlag = &cli.DurationFlag{
 		Name:     "txpool.rejournal",
 		Usage:    "Time interval to regenerate the local transaction journal",
-		Value:    zondconfig.Defaults.TxPool.Rejournal,
+		Value:    qrlconfig.Defaults.TxPool.Rejournal,
 		Category: flags.TxPoolCategory,
 	}
 	TxPoolPriceLimitFlag = &cli.Uint64Flag{
 		Name:     "txpool.pricelimit",
 		Usage:    "Minimum gas price tip to enforce for acceptance into the pool",
-		Value:    zondconfig.Defaults.TxPool.PriceLimit,
+		Value:    qrlconfig.Defaults.TxPool.PriceLimit,
 		Category: flags.TxPoolCategory,
 	}
 	TxPoolPriceBumpFlag = &cli.Uint64Flag{
 		Name:     "txpool.pricebump",
 		Usage:    "Price bump percentage to replace an already existing transaction",
-		Value:    zondconfig.Defaults.TxPool.PriceBump,
+		Value:    qrlconfig.Defaults.TxPool.PriceBump,
 		Category: flags.TxPoolCategory,
 	}
 	TxPoolAccountSlotsFlag = &cli.Uint64Flag{
 		Name:     "txpool.accountslots",
 		Usage:    "Minimum number of executable transaction slots guaranteed per account",
-		Value:    zondconfig.Defaults.TxPool.AccountSlots,
+		Value:    qrlconfig.Defaults.TxPool.AccountSlots,
 		Category: flags.TxPoolCategory,
 	}
 	TxPoolGlobalSlotsFlag = &cli.Uint64Flag{
 		Name:     "txpool.globalslots",
 		Usage:    "Maximum number of executable transaction slots for all accounts",
-		Value:    zondconfig.Defaults.TxPool.GlobalSlots,
+		Value:    qrlconfig.Defaults.TxPool.GlobalSlots,
 		Category: flags.TxPoolCategory,
 	}
 	TxPoolAccountQueueFlag = &cli.Uint64Flag{
 		Name:     "txpool.accountqueue",
 		Usage:    "Maximum number of non-executable transaction slots permitted per account",
-		Value:    zondconfig.Defaults.TxPool.AccountQueue,
+		Value:    qrlconfig.Defaults.TxPool.AccountQueue,
 		Category: flags.TxPoolCategory,
 	}
 	TxPoolGlobalQueueFlag = &cli.Uint64Flag{
 		Name:     "txpool.globalqueue",
 		Usage:    "Maximum number of non-executable transaction slots for all accounts",
-		Value:    zondconfig.Defaults.TxPool.GlobalQueue,
+		Value:    qrlconfig.Defaults.TxPool.GlobalQueue,
 		Category: flags.TxPoolCategory,
 	}
 	TxPoolLifetimeFlag = &cli.DurationFlag{
 		Name:     "txpool.lifetime",
 		Usage:    "Maximum amount of time non-executable transaction are queued",
-		Value:    zondconfig.Defaults.TxPool.Lifetime,
+		Value:    qrlconfig.Defaults.TxPool.Lifetime,
 		Category: flags.TxPoolCategory,
 	}
 	// Performance tuning settings
@@ -374,7 +374,7 @@ var (
 		Name:     "cache.blocklogs",
 		Usage:    "Size (in number of blocks) of the log cache for filtering",
 		Category: flags.PerfCategory,
-		Value:    zondconfig.Defaults.FilterLogCacheSize,
+		Value:    qrlconfig.Defaults.FilterLogCacheSize,
 	}
 	FDLimitFlag = &cli.IntFlag{
 		Name:     "fdlimit",
@@ -386,13 +386,13 @@ var (
 	MinerGasLimitFlag = &cli.Uint64Flag{
 		Name:     "miner.gaslimit",
 		Usage:    "Target gas ceiling for mined blocks",
-		Value:    zondconfig.Defaults.Miner.GasCeil,
+		Value:    qrlconfig.Defaults.Miner.GasCeil,
 		Category: flags.MinerCategory,
 	}
 	MinerGasPriceFlag = &flags.BigFlag{
 		Name:     "miner.gasprice",
 		Usage:    "Minimum gas price for mining a transaction",
-		Value:    zondconfig.Defaults.Miner.GasPrice,
+		Value:    qrlconfig.Defaults.Miner.GasPrice,
 		Category: flags.MinerCategory,
 	}
 	MinerExtraDataFlag = &cli.StringFlag{
@@ -403,12 +403,12 @@ var (
 	MinerRecommitIntervalFlag = &cli.DurationFlag{
 		Name:     "miner.recommit",
 		Usage:    "Time interval to recreate the block being mined",
-		Value:    zondconfig.Defaults.Miner.Recommit,
+		Value:    qrlconfig.Defaults.Miner.Recommit,
 		Category: flags.MinerCategory,
 	}
 	MinerPendingFeeRecipientFlag = &cli.StringFlag{
 		Name:     "miner.pending.feeRecipient",
-		Usage:    "Z prefixed public address for the pending block producer (not used for actual block production)",
+		Usage:    "Q prefixed public address for the pending block producer (not used for actual block production)",
 		Category: flags.MinerCategory,
 	}
 
@@ -437,7 +437,7 @@ var (
 		Category: flags.AccountCategory,
 	}
 
-	// ZVM settings
+	// QRVM settings
 	VMEnableDebugFlag = &cli.BoolFlag{
 		Name:     "vmdebug",
 		Usage:    "Record information useful for VM and contract debugging",
@@ -447,20 +447,20 @@ var (
 	// API options.
 	RPCGlobalGasCapFlag = &cli.Uint64Flag{
 		Name:     "rpc.gascap",
-		Usage:    "Sets a cap on gas that can be used in zond_call/estimateGas (0=infinite)",
-		Value:    zondconfig.Defaults.RPCGasCap,
+		Usage:    "Sets a cap on gas that can be used in qrl_call/estimateGas (0=infinite)",
+		Value:    qrlconfig.Defaults.RPCGasCap,
 		Category: flags.APICategory,
 	}
-	RPCGlobalZVMTimeoutFlag = &cli.DurationFlag{
-		Name:     "rpc.zvmtimeout",
-		Usage:    "Sets a timeout used for zond_call (0=infinite)",
-		Value:    zondconfig.Defaults.RPCZVMTimeout,
+	RPCGlobalQRVMTimeoutFlag = &cli.DurationFlag{
+		Name:     "rpc.qrvmtimeout",
+		Usage:    "Sets a timeout used for qrl_call (0=infinite)",
+		Value:    qrlconfig.Defaults.RPCQRVMTimeout,
 		Category: flags.APICategory,
 	}
 	RPCGlobalTxFeeCapFlag = &cli.Float64Flag{
 		Name:     "rpc.txfeecap",
-		Usage:    "Sets a cap on transaction fee (in zond) that can be sent via the RPC APIs (0 = no cap)",
-		Value:    zondconfig.Defaults.RPCTxFeeCap,
+		Usage:    "Sets a cap on transaction fee (in quanta) that can be sent via the RPC APIs (0 = no cap)",
+		Value:    qrlconfig.Defaults.RPCTxFeeCap,
 		Category: flags.APICategory,
 	}
 	// Authenticated RPC HTTP settings
@@ -489,9 +489,9 @@ var (
 	}
 
 	// Logging and debug settings
-	ZondStatsURLFlag = &cli.StringFlag{
-		Name:     "zondstats",
-		Usage:    "Reporting URL of a zondstats service (nodename:secret@host:port)",
+	QRLStatsURLFlag = &cli.StringFlag{
+		Name:     "qrlstats",
+		Usage:    "Reporting URL of a qrlstats service (nodename:secret@host:port)",
 		Category: flags.MetricsCategory,
 	}
 	NoCompactionFlag = &cli.BoolFlag{
@@ -656,7 +656,7 @@ var (
 	}
 	BootnodesFlag = &cli.StringFlag{
 		Name:     "bootnodes",
-		Usage:    "Comma separated enode URLs for P2P discovery bootstrap",
+		Usage:    "Comma separated qnode URLs for P2P discovery bootstrap",
 		Value:    "",
 		Category: flags.NetworkingCategory,
 	}
@@ -729,25 +729,25 @@ var (
 	GpoBlocksFlag = &cli.IntFlag{
 		Name:     "gpo.blocks",
 		Usage:    "Number of recent blocks to check for gas prices",
-		Value:    zondconfig.Defaults.GPO.Blocks,
+		Value:    qrlconfig.Defaults.GPO.Blocks,
 		Category: flags.GasPriceCategory,
 	}
 	GpoPercentileFlag = &cli.IntFlag{
 		Name:     "gpo.percentile",
 		Usage:    "Suggested gas price is the given percentile of a set of recent transaction gas prices",
-		Value:    zondconfig.Defaults.GPO.Percentile,
+		Value:    qrlconfig.Defaults.GPO.Percentile,
 		Category: flags.GasPriceCategory,
 	}
 	GpoMaxGasPriceFlag = &cli.Int64Flag{
 		Name:     "gpo.maxprice",
 		Usage:    "Maximum transaction priority fee (or gasprice before London fork) to be recommended by gpo",
-		Value:    zondconfig.Defaults.GPO.MaxPrice.Int64(),
+		Value:    qrlconfig.Defaults.GPO.MaxPrice.Int64(),
 		Category: flags.GasPriceCategory,
 	}
 	GpoIgnoreGasPriceFlag = &cli.Int64Flag{
 		Name:     "gpo.ignoreprice",
 		Usage:    "Gas price below which gpo will ignore transactions",
-		Value:    zondconfig.Defaults.GPO.IgnorePrice.Int64(),
+		Value:    qrlconfig.Defaults.GPO.IgnorePrice.Int64(),
 		Category: flags.GasPriceCategory,
 	}
 
@@ -938,12 +938,12 @@ func setBootstrapNodes(ctx *cli.Context, cfg *p2p.Config) {
 		return
 	}
 
-	cfg.BootstrapNodes = make([]*enode.Node, 0, len(urls))
+	cfg.BootstrapNodes = make([]*qnode.Node, 0, len(urls))
 	for _, url := range urls {
 		if url != "" {
-			node, err := enode.Parse(enode.ValidSchemes, url)
+			node, err := qnode.Parse(qnode.ValidSchemes, url)
 			if err != nil {
-				log.Crit("Bootstrap URL invalid", "enode", url, "err", err)
+				log.Crit("Bootstrap URL invalid", "qnode", url, "err", err)
 				continue
 			}
 			cfg.BootstrapNodes = append(cfg.BootstrapNodes, node)
@@ -962,12 +962,12 @@ func setBootstrapNodesV5(ctx *cli.Context, cfg *p2p.Config) {
 		return // already set, don't apply defaults.
 	}
 
-	cfg.BootstrapNodesV5 = make([]*enode.Node, 0, len(urls))
+	cfg.BootstrapNodesV5 = make([]*qnode.Node, 0, len(urls))
 	for _, url := range urls {
 		if url != "" {
-			node, err := enode.Parse(enode.ValidSchemes, url)
+			node, err := qnode.Parse(qnode.ValidSchemes, url)
 			if err != nil {
-				log.Error("Bootstrap URL invalid", "enode", url, "err", err)
+				log.Error("Bootstrap URL invalid", "qnode", url, "err", err)
 				continue
 			}
 			cfg.BootstrapNodesV5 = append(cfg.BootstrapNodesV5, node)
@@ -1162,7 +1162,7 @@ func MakeAddress(ks *keystore.KeyStore, account string) (accounts.Account, error
 }
 
 // setEtherbase retrieves the etherbase from the directly specified command line flags.
-func setEtherbase(ctx *cli.Context, cfg *zondconfig.Config) {
+func setEtherbase(ctx *cli.Context, cfg *qrlconfig.Config) {
 	if !ctx.IsSet(MinerPendingFeeRecipientFlag.Name) {
 		return
 	}
@@ -1203,8 +1203,8 @@ func SetP2PConfig(ctx *cli.Context, cfg *p2p.Config) {
 	if ctx.IsSet(MaxPeersFlag.Name) {
 		cfg.MaxPeers = ctx.Int(MaxPeersFlag.Name)
 	}
-	zondPeers := cfg.MaxPeers
-	log.Info("Maximum peer count", "ZOND", zondPeers, "total", cfg.MaxPeers)
+	qrlPeers := cfg.MaxPeers
+	log.Info("Maximum peer count", "QRL", qrlPeers, "total", cfg.MaxPeers)
 
 	if ctx.IsSet(MaxPendingPeersFlag.Name) {
 		cfg.MaxPendingPeers = ctx.Int(MaxPendingPeersFlag.Name)
@@ -1387,8 +1387,8 @@ func setMiner(ctx *cli.Context, cfg *miner.Config) {
 	}
 }
 
-func setRequiredBlocks(ctx *cli.Context, cfg *zondconfig.Config) {
-	requiredBlocks := ctx.String(ZondRequiredBlocksFlag.Name)
+func setRequiredBlocks(ctx *cli.Context, cfg *qrlconfig.Config) {
+	requiredBlocks := ctx.String(QRLRequiredBlocksFlag.Name)
 	if requiredBlocks == "" {
 		return
 	}
@@ -1451,8 +1451,8 @@ func CheckExclusive(ctx *cli.Context, args ...interface{}) {
 	}
 }
 
-// SetZondConfig applies zond-related command line flags to the config.
-func SetZondConfig(ctx *cli.Context, stack *node.Node, cfg *zondconfig.Config) {
+// SetQRLConfig applies qrl-related command line flags to the config.
+func SetQRLConfig(ctx *cli.Context, stack *node.Node, cfg *qrlconfig.Config) {
 	// Avoid conflicting network flags
 	CheckExclusive(ctx, MainnetFlag, DeveloperFlag, BetaNetFlag, TestnetFlag)
 	CheckExclusive(ctx, DeveloperFlag, ExternalSignerFlag) // Can't use both ephemeral unlocked and external signer
@@ -1569,20 +1569,20 @@ func SetZondConfig(ctx *cli.Context, stack *node.Node, cfg *zondconfig.Config) {
 	} else {
 		log.Info("Global gas cap disabled")
 	}
-	if ctx.IsSet(RPCGlobalZVMTimeoutFlag.Name) {
-		cfg.RPCZVMTimeout = ctx.Duration(RPCGlobalZVMTimeoutFlag.Name)
+	if ctx.IsSet(RPCGlobalQRVMTimeoutFlag.Name) {
+		cfg.RPCQRVMTimeout = ctx.Duration(RPCGlobalQRVMTimeoutFlag.Name)
 	}
 	if ctx.IsSet(RPCGlobalTxFeeCapFlag.Name) {
 		cfg.RPCTxFeeCap = ctx.Float64(RPCGlobalTxFeeCapFlag.Name)
 	}
 	if ctx.IsSet(NoDiscoverFlag.Name) {
-		cfg.ZondDiscoveryURLs, cfg.SnapDiscoveryURLs = []string{}, []string{}
+		cfg.QRLDiscoveryURLs, cfg.SnapDiscoveryURLs = []string{}, []string{}
 	} else if ctx.IsSet(DNSDiscoveryFlag.Name) {
 		urls := ctx.String(DNSDiscoveryFlag.Name)
 		if urls == "" {
-			cfg.ZondDiscoveryURLs = []string{}
+			cfg.QRLDiscoveryURLs = []string{}
 		} else {
-			cfg.ZondDiscoveryURLs = SplitAndTrim(urls)
+			cfg.QRLDiscoveryURLs = SplitAndTrim(urls)
 		}
 	}
 	// Override any default configs for hard coded networks.
@@ -1674,57 +1674,57 @@ func SetZondConfig(ctx *cli.Context, stack *node.Node, cfg *zondconfig.Config) {
 
 // SetDNSDiscoveryDefaults configures DNS discovery with the given URL if
 // no URLs are set.
-func SetDNSDiscoveryDefaults(cfg *zondconfig.Config, genesis common.Hash) {
-	if cfg.ZondDiscoveryURLs != nil {
+func SetDNSDiscoveryDefaults(cfg *qrlconfig.Config, genesis common.Hash) {
+	if cfg.QRLDiscoveryURLs != nil {
 		return // already set through flags/config
 	}
 	protocol := "all"
 	if url := params.KnownDNSNetwork(genesis, protocol); url != "" {
-		cfg.ZondDiscoveryURLs = []string{url}
-		cfg.SnapDiscoveryURLs = cfg.ZondDiscoveryURLs
+		cfg.QRLDiscoveryURLs = []string{url}
+		cfg.SnapDiscoveryURLs = cfg.QRLDiscoveryURLs
 	}
 }
 
-// RegisterZondService adds a Zond client to the stack.
-func RegisterZondService(stack *node.Node, cfg *zondconfig.Config) (zondapi.Backend, *zond.Zond) {
-	backend, err := zond.New(stack, cfg)
+// RegisterQRLService adds a QRL client to the stack.
+func RegisterQRLService(stack *node.Node, cfg *qrlconfig.Config) (qrlapi.Backend, *qrl.QRL) {
+	backend, err := qrl.New(stack, cfg)
 	if err != nil {
-		Fatalf("Failed to register the Zond service: %v", err)
+		Fatalf("Failed to register the QRL service: %v", err)
 	}
 	stack.RegisterAPIs(tracers.APIs(backend.APIBackend))
 	return backend.APIBackend, backend
 }
 
-// RegisterZondStatsService configures the Zond Stats daemon and adds it to the node.
-func RegisterZondStatsService(stack *node.Node, backend zondapi.Backend, url string) {
-	if err := zondstats.New(stack, backend, backend.Engine(), url); err != nil {
-		Fatalf("Failed to register the Zond Stats service: %v", err)
+// RegisterQRLStatsService configures the QRL Stats daemon and adds it to the node.
+func RegisterQRLStatsService(stack *node.Node, backend qrlapi.Backend, url string) {
+	if err := qrlstats.New(stack, backend, backend.Engine(), url); err != nil {
+		Fatalf("Failed to register the QRL Stats service: %v", err)
 	}
 }
 
 // RegisterGraphQLService adds the GraphQL API to the node.
-func RegisterGraphQLService(stack *node.Node, backend zondapi.Backend, filterSystem *filters.FilterSystem, cfg *node.Config) {
+func RegisterGraphQLService(stack *node.Node, backend qrlapi.Backend, filterSystem *filters.FilterSystem, cfg *node.Config) {
 	err := graphql.New(stack, backend, filterSystem, cfg.GraphQLCors, cfg.GraphQLVirtualHosts)
 	if err != nil {
 		Fatalf("Failed to register the GraphQL service: %v", err)
 	}
 }
 
-// RegisterFilterAPI adds the zond log filtering RPC API to the node.
-func RegisterFilterAPI(stack *node.Node, backend zondapi.Backend, zondcfg *zondconfig.Config) *filters.FilterSystem {
+// RegisterFilterAPI adds the qrl log filtering RPC API to the node.
+func RegisterFilterAPI(stack *node.Node, backend qrlapi.Backend, qrlcfg *qrlconfig.Config) *filters.FilterSystem {
 	filterSystem := filters.NewFilterSystem(backend, filters.Config{
-		LogCacheSize: zondcfg.FilterLogCacheSize,
+		LogCacheSize: qrlcfg.FilterLogCacheSize,
 	})
 	stack.RegisterAPIs([]rpc.API{{
-		Namespace: "zond",
+		Namespace: "qrl",
 		Service:   filters.NewFilterAPI(filterSystem),
 	}})
 	return filterSystem
 }
 
 // RegisterFullSyncTester adds the full-sync tester service into node.
-func RegisterFullSyncTester(stack *node.Node, zond *zond.Zond, target common.Hash) {
-	catalyst.RegisterFullSyncTester(stack, zond, target)
+func RegisterFullSyncTester(stack *node.Node, qrl *qrl.QRL, target common.Hash) {
+	catalyst.RegisterFullSyncTester(stack, qrl, target)
 	log.Info("Registered full-sync tester", "hash", target)
 }
 
@@ -1807,13 +1807,13 @@ func SplitTagsFlag(tagsFlag string) map[string]string {
 }
 
 // MakeChainDatabase open an LevelDB using the flags passed to the client and will hard crash if it fails.
-func MakeChainDatabase(ctx *cli.Context, stack *node.Node, readonly bool) zonddb.Database {
+func MakeChainDatabase(ctx *cli.Context, stack *node.Node, readonly bool) qrldb.Database {
 	var (
 		cache   = ctx.Int(CacheFlag.Name) * ctx.Int(CacheDatabaseFlag.Name) / 100
 		handles = MakeDatabaseHandles(ctx.Int(FDLimitFlag.Name))
 
 		err     error
-		chainDb zonddb.Database
+		chainDb qrldb.Database
 	)
 	switch {
 	case ctx.IsSet(RemoteDBFlag.Name):
@@ -1834,7 +1834,7 @@ func MakeChainDatabase(ctx *cli.Context, stack *node.Node, readonly bool) zonddb
 
 // tryMakeReadOnlyDatabase try to open the chain database in read-only mode,
 // or fallback to write mode if the database is not initialized.
-func tryMakeReadOnlyDatabase(ctx *cli.Context, stack *node.Node) zonddb.Database {
+func tryMakeReadOnlyDatabase(ctx *cli.Context, stack *node.Node) qrldb.Database {
 	// If the database doesn't exist we need to open it in write-mode to allow
 	// the engine to create files.
 	readonly := true
@@ -1894,12 +1894,12 @@ func MakeGenesis(ctx *cli.Context) *core.Genesis {
 }
 
 // MakeChain creates a chain manager from set command line flags.
-func MakeChain(ctx *cli.Context, stack *node.Node, readonly bool) (*core.BlockChain, zonddb.Database) {
+func MakeChain(ctx *cli.Context, stack *node.Node, readonly bool) (*core.BlockChain, qrldb.Database) {
 	var (
 		gspec   = MakeGenesis(ctx)
 		chainDb = MakeChainDatabase(ctx, stack, readonly)
 	)
-	engine := zondconfig.CreateConsensusEngine()
+	engine := qrlconfig.CreateConsensusEngine()
 	if gcmode := ctx.String(GCModeFlag.Name); gcmode != "full" && gcmode != "archive" {
 		Fatalf("--%s must be either 'full' or 'archive'", GCModeFlag.Name)
 	}
@@ -1908,12 +1908,12 @@ func MakeChain(ctx *cli.Context, stack *node.Node, readonly bool) (*core.BlockCh
 		Fatalf("%v", err)
 	}
 	cache := &core.CacheConfig{
-		TrieCleanLimit:      zondconfig.Defaults.TrieCleanCache,
+		TrieCleanLimit:      qrlconfig.Defaults.TrieCleanCache,
 		TrieCleanNoPrefetch: ctx.Bool(CacheNoPrefetchFlag.Name),
-		TrieDirtyLimit:      zondconfig.Defaults.TrieDirtyCache,
+		TrieDirtyLimit:      qrlconfig.Defaults.TrieDirtyCache,
 		TrieDirtyDisabled:   ctx.String(GCModeFlag.Name) == "archive",
-		TrieTimeLimit:       zondconfig.Defaults.TrieTimeout,
-		SnapshotLimit:       zondconfig.Defaults.SnapshotCache,
+		TrieTimeLimit:       qrlconfig.Defaults.TrieTimeout,
+		SnapshotLimit:       qrlconfig.Defaults.SnapshotCache,
 		Preimages:           ctx.Bool(CachePreimagesFlag.Name),
 		StateScheme:         scheme,
 		StateHistory:        ctx.Uint64(StateHistoryFlag.Name),
@@ -1972,7 +1972,7 @@ func MakeConsolePreloads(ctx *cli.Context) []string {
 //     persistent state scheme.
 //   - path: use path-based scheme or error out if not compatible with
 //     persistent state scheme.
-func ParseStateScheme(ctx *cli.Context, disk zonddb.Database) (string, error) {
+func ParseStateScheme(ctx *cli.Context, disk qrldb.Database) (string, error) {
 	// If state scheme is not specified, use the scheme consistent
 	// with persistent state, or fallback to hash mode if database
 	// is empty.
@@ -1998,7 +1998,7 @@ func ParseStateScheme(ctx *cli.Context, disk zonddb.Database) (string, error) {
 }
 
 // MakeTrieDatabase constructs a trie database based on the configured scheme.
-func MakeTrieDatabase(ctx *cli.Context, disk zonddb.Database, preimage bool, readOnly bool) *trie.Database {
+func MakeTrieDatabase(ctx *cli.Context, disk qrldb.Database, preimage bool, readOnly bool) *trie.Database {
 	config := &trie.Config{
 		Preimages: preimage,
 	}

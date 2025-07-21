@@ -50,10 +50,10 @@ var (
 		{referenceBig("-80a7f2c1bcc396c00"), "-0x80a7f2c1bcc396c00"},
 	}
 
-	encodeZTests = []marshalTest{
-		{[]byte{}, "Z"},
-		{[]byte{0}, "Z00"},
-		{[]byte{0, 0, 1, 2}, "Z00000102"},
+	encodeQTests = []marshalTest{
+		{[]byte{}, "Q"},
+		{[]byte{0}, "Q00"},
+		{[]byte{0, 0, 1, 2}, "Q00000102"},
 	}
 
 	encodeUint64Tests = []marshalTest{
@@ -123,20 +123,20 @@ var (
 		},
 	}
 
-	decodeZTests = []unmarshalTest{ // invalid
+	decodeQTests = []unmarshalTest{ // invalid
 		{input: ``, wantErr: ErrEmptyString},
-		{input: `0`, wantErr: ErrMissingPrefixZ},
-		{input: `z`, wantErr: ErrMissingPrefixZ},
-		{input: `Z0`, wantErr: ErrOddLength},
-		{input: `Z023`, wantErr: ErrOddLength},
-		{input: `Zzz`, wantErr: ErrSyntax},
-		{input: `Z01zz01`, wantErr: ErrSyntax},
+		{input: `0`, wantErr: ErrMissingPrefixQ},
+		{input: `q`, wantErr: ErrMissingPrefixQ},
+		{input: `Q0`, wantErr: ErrOddLength},
+		{input: `Q023`, wantErr: ErrOddLength},
+		{input: `Qqq`, wantErr: ErrSyntax},
+		{input: `Q01qq01`, wantErr: ErrSyntax},
 		// valid
-		{input: `Z`, want: []byte{}},
-		{input: `Z02`, want: []byte{0x02}},
-		{input: `Zffffffffff`, want: []byte{0xff, 0xff, 0xff, 0xff, 0xff}},
+		{input: `Q`, want: []byte{}},
+		{input: `Q02`, want: []byte{0x02}},
+		{input: `Qffffffffff`, want: []byte{0xff, 0xff, 0xff, 0xff, 0xff}},
 		{
-			input: `Zffffffffffffffffffffffffffffffffffff`,
+			input: `Qffffffffffffffffffffffffffffffffffff`,
 			want:  []byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
 		},
 	}
@@ -204,18 +204,18 @@ func TestDecodeBig(t *testing.T) {
 	}
 }
 
-func TestEncodeZ(t *testing.T) {
-	for _, test := range encodeZTests {
-		enc := EncodeZ(test.input.([]byte))
+func TestEncodeQ(t *testing.T) {
+	for _, test := range encodeQTests {
+		enc := EncodeQ(test.input.([]byte))
 		if enc != test.want {
 			t.Errorf("input %x: wrong encoding %s", test.input, enc)
 		}
 	}
 }
 
-func TestDecodeZ(t *testing.T) {
-	for _, test := range decodeZTests {
-		dec, err := DecodeZ(test.input)
+func TestDecodeQ(t *testing.T) {
+	for _, test := range decodeQTests {
+		dec, err := DecodeQ(test.input)
 		if !checkError(t, test.input, err, test.wantErr) {
 			continue
 		}

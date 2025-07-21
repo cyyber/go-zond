@@ -25,7 +25,7 @@ import (
 	"github.com/VictoriaMetrics/fastcache"
 	"github.com/theQRL/go-zond/common"
 	"github.com/theQRL/go-zond/crypto"
-	"github.com/theQRL/go-zond/zonddb/memorydb"
+	"github.com/theQRL/go-zond/qrldb/memorydb"
 )
 
 func copyDestructs(destructs map[common.Hash]struct{}) map[common.Hash]struct{} {

@@ -22,8 +22,8 @@ import (
 	"net"
 
 	"github.com/theQRL/go-zond/crypto"
-	"github.com/theQRL/go-zond/p2p/enode"
-	"github.com/theQRL/go-zond/p2p/enr"
+	"github.com/theQRL/go-zond/p2p/qnode"
+	"github.com/theQRL/go-zond/p2p/qnr"
 	"github.com/urfave/cli/v2"
 )
 
@@ -52,15 +52,15 @@ var (
 		Flags:     []cli.Flag{},
 	}
 	keyToNodeCommand = &cli.Command{
-		Name:      "to-enode",
-		Usage:     "Creates an enode URL from a node key file",
+		Name:      "to-qnode",
+		Usage:     "Creates a qnode URL from a node key file",
 		ArgsUsage: "keyfile",
 		Action:    keyToURL,
 		Flags:     []cli.Flag{hostFlag, tcpPortFlag, udpPortFlag},
 	}
 	keyToRecordCommand = &cli.Command{
-		Name:      "to-enr",
-		Usage:     "Creates an ENR from a node key file",
+		Name:      "to-qnr",
+		Usage:     "Creates a QNR from a node key file",
 		ArgsUsage: "keyfile",
 		Action:    keyToRecord,
 		Flags:     []cli.Flag{hostFlag, tcpPortFlag, udpPortFlag},
@@ -125,7 +125,7 @@ func keyToRecord(ctx *cli.Context) error {
 	return nil
 }
 
-func makeRecord(ctx *cli.Context) (*enode.Node, error) {
+func makeRecord(ctx *cli.Context) (*qnode.Node, error) {
 	if ctx.NArg() != 1 {
 		return nil, errors.New("need key file as argument")
 	}
@@ -141,23 +141,23 @@ func makeRecord(ctx *cli.Context) (*enode.Node, error) {
 		return nil, err
 	}
 
-	var r enr.Record
+	var r qnr.Record
 	if host != "" {
 		ip := net.ParseIP(host)
 		if ip == nil {
 			return nil, fmt.Errorf("invalid IP address %q", host)
 		}
-		r.Set(enr.IP(ip))
+		r.Set(qnr.IP(ip))
 	}
 	if udp != 0 {
-		r.Set(enr.UDP(udp))
+		r.Set(qnr.UDP(udp))
 	}
 	if tcp != 0 {
-		r.Set(enr.TCP(tcp))
+		r.Set(qnr.TCP(tcp))
 	}
 
-	if err := enode.SignV4(&r, key); err != nil {
+	if err := qnode.SignV4(&r, key); err != nil {
 		return nil, err
 	}
-	return enode.New(enode.ValidSchemes, &r)
+	return qnode.New(qnode.ValidSchemes, &r)
 }

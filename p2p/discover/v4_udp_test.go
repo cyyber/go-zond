@@ -34,8 +34,8 @@ import (
 	"github.com/theQRL/go-zond/internal/testlog"
 	"github.com/theQRL/go-zond/log"
 	"github.com/theQRL/go-zond/p2p/discover/v4wire"
-	"github.com/theQRL/go-zond/p2p/enode"
-	"github.com/theQRL/go-zond/p2p/enr"
+	"github.com/theQRL/go-zond/p2p/qnode"
+	"github.com/theQRL/go-zond/p2p/qnr"
 )
 
 // shared test variables
@@ -51,7 +51,7 @@ type udpTest struct {
 	t                   *testing.T
 	pipe                *dgramPipe
 	table               *Table
-	db                  *enode.DB
+	db                  *qnode.DB
 	udp                 *UDPv4
 	sent                [][]byte
 	localkey, remotekey *ecdsa.PrivateKey
@@ -67,8 +67,8 @@ func newUDPTest(t *testing.T) *udpTest {
 		remoteaddr: &net.UDPAddr{IP: net.IP{10, 0, 1, 99}, Port: 30303},
 	}
 
-	test.db, _ = enode.OpenDB("")
-	ln := enode.NewLocalNode(test.db, test.localkey)
+	test.db, _ = qnode.OpenDB("")
+	ln := qnode.NewLocalNode(test.db, test.localkey)
 	test.udp, _ = ListenV4(test.pipe, ln, Config{
 		PrivateKey: test.localkey,
 		Log:        testlog.Logger(t, log.LvlTrace),
@@ -149,7 +149,7 @@ func TestUDPv4_pingTimeout(t *testing.T) {
 
 	key := newkey()
 	toaddr := &net.UDPAddr{IP: net.ParseIP("1.2.3.4"), Port: 2222}
-	node := enode.NewV4(&key.PublicKey, toaddr.IP, 0, toaddr.Port)
+	node := qnode.NewV4(&key.PublicKey, toaddr.IP, 0, toaddr.Port)
 	if _, err := test.udp.ping(node); err != errTimeout {
 		t.Error("expected timeout error, got", err)
 	}
@@ -237,7 +237,7 @@ func TestUDPv4_findnodeTimeout(t *testing.T) {
 	defer test.close()
 
 	toaddr := &net.UDPAddr{IP: net.ParseIP("1.2.3.4"), Port: 2222}
-	toid := enode.ID{1, 2, 3, 4}
+	toid := qnode.ID{1, 2, 3, 4}
 	target := v4wire.Pubkey{4, 5, 6, 7}
 	result, err := test.udp.findnode(toid, toaddr, target)
 	if err != errTimeout {
@@ -256,12 +256,12 @@ func TestUDPv4_findnode(t *testing.T) {
 	// distribution shouldn't matter much, although we need to
 	// take care not to overflow any bucket.
 	nodes := &nodesByDistance{target: testTarget.ID()}
-	live := make(map[enode.ID]bool)
+	live := make(map[qnode.ID]bool)
 	numCandidates := 2 * bucketSize
 	for i := 0; i < numCandidates; i++ {
 		key := newkey()
 		ip := net.IP{10, 13, 0, byte(i)}
-		n := wrapNode(enode.NewV4(&key.PublicKey, ip, 0, 2000))
+		n := wrapNode(qnode.NewV4(&key.PublicKey, ip, 0, 2000))
 		// Ensure half of table content isn't verified live yet.
 		if i > numCandidates/2 {
 			n.livenessChecks = 1
@@ -308,7 +308,7 @@ func TestUDPv4_findnodeMultiReply(t *testing.T) {
 	test := newUDPTest(t)
 	defer test.close()
 
-	rid := enode.PubkeyToIDV4(&test.remotekey.PublicKey)
+	rid := qnode.PubkeyToIDV4(&test.remotekey.PublicKey)
 	test.table.db.UpdateLastPingReceived(rid, test.remoteaddr.IP, time.Now())
 
 	// queue a pending findnode request
@@ -333,10 +333,10 @@ func TestUDPv4_findnodeMultiReply(t *testing.T) {
 
 	// send the reply as two packets.
 	list := []*node{
-		wrapNode(enode.MustParse("enode://ba85011c70bcc5c04d8607d3a0ed29aa6179c092cbdda10d5d32684fb33ed01bd94f588ca8f91ac48318087dcb02eaf36773a7a453f0eedd6742af668097b29c@10.0.1.16:30303?discport=30304")),
-		wrapNode(enode.MustParse("enode://81fa361d25f157cd421c60dcc28d8dac5ef6a89476633339c5df30287474520caca09627da18543d9079b5b288698b542d56167aa5c09111e55acdbbdf2ef799@10.0.1.16:30303")),
-		wrapNode(enode.MustParse("enode://9bffefd833d53fac8e652415f4973bee289e8b1a5c6c4cbe70abf817ce8a64cee11b823b66a987f51aaa9fba0d6a91b3e6bf0d5a5d1042de8e9eeea057b217f8@10.0.1.36:30301?discport=17")),
-		wrapNode(enode.MustParse("enode://1b5b4aa662d7cb44a7221bfba67302590b643028197a7d5214790f3bac7aaa4a3241be9e83c09cf1f6c69d007c634faae3dc1b1221793e8446c0b3a09de65960@10.0.1.16:30303")),
+		wrapNode(qnode.MustParse("qnode://ba85011c70bcc5c04d8607d3a0ed29aa6179c092cbdda10d5d32684fb33ed01bd94f588ca8f91ac48318087dcb02eaf36773a7a453f0eedd6742af668097b29c@10.0.1.16:30303?discport=30304")),
+		wrapNode(qnode.MustParse("qnode://81fa361d25f157cd421c60dcc28d8dac5ef6a89476633339c5df30287474520caca09627da18543d9079b5b288698b542d56167aa5c09111e55acdbbdf2ef799@10.0.1.16:30303")),
+		wrapNode(qnode.MustParse("qnode://9bffefd833d53fac8e652415f4973bee289e8b1a5c6c4cbe70abf817ce8a64cee11b823b66a987f51aaa9fba0d6a91b3e6bf0d5a5d1042de8e9eeea057b217f8@10.0.1.36:30301?discport=17")),
+		wrapNode(qnode.MustParse("qnode://1b5b4aa662d7cb44a7221bfba67302590b643028197a7d5214790f3bac7aaa4a3241be9e83c09cf1f6c69d007c634faae3dc1b1221793e8446c0b3a09de65960@10.0.1.16:30303")),
 	}
 	rpclist := make([]v4wire.Node, len(list))
 	for i := range list {
@@ -461,35 +461,35 @@ func TestUDPv4_EIP868(t *testing.T) {
 	test := newUDPTest(t)
 	defer test.close()
 
-	test.udp.localNode.Set(enr.WithEntry("foo", "bar"))
+	test.udp.localNode.Set(qnr.WithEntry("foo", "bar"))
 	wantNode := test.udp.localNode.Node()
 
-	// ENR requests aren't allowed before endpoint proof.
-	test.packetIn(errUnknownNode, &v4wire.ENRRequest{Expiration: futureExp})
+	// QNR requests aren't allowed before endpoint proof.
+	test.packetIn(errUnknownNode, &v4wire.QNRRequest{Expiration: futureExp})
 
 	// Perform endpoint proof and check for sequence number in packet tail.
 	test.packetIn(nil, &v4wire.Ping{Expiration: futureExp})
 	test.waitPacketOut(func(p *v4wire.Pong, addr *net.UDPAddr, hash []byte) {
-		if p.ENRSeq != wantNode.Seq() {
-			t.Errorf("wrong sequence number in pong: %d, want %d", p.ENRSeq, wantNode.Seq())
+		if p.QNRSeq != wantNode.Seq() {
+			t.Errorf("wrong sequence number in pong: %d, want %d", p.QNRSeq, wantNode.Seq())
 		}
 	})
 	test.waitPacketOut(func(p *v4wire.Ping, addr *net.UDPAddr, hash []byte) {
-		if p.ENRSeq != wantNode.Seq() {
-			t.Errorf("wrong sequence number in ping: %d, want %d", p.ENRSeq, wantNode.Seq())
+		if p.QNRSeq != wantNode.Seq() {
+			t.Errorf("wrong sequence number in ping: %d, want %d", p.QNRSeq, wantNode.Seq())
 		}
 		test.packetIn(nil, &v4wire.Pong{Expiration: futureExp, ReplyTok: hash})
 	})
 
 	// Request should work now.
-	test.packetIn(nil, &v4wire.ENRRequest{Expiration: futureExp})
-	test.waitPacketOut(func(p *v4wire.ENRResponse, addr *net.UDPAddr, hash []byte) {
-		n, err := enode.New(enode.ValidSchemes, &p.Record)
+	test.packetIn(nil, &v4wire.QNRRequest{Expiration: futureExp})
+	test.waitPacketOut(func(p *v4wire.QNRResponse, addr *net.UDPAddr, hash []byte) {
+		n, err := qnode.New(qnode.ValidSchemes, &p.Record)
 		if err != nil {
 			t.Fatalf("invalid record: %v", err)
 		}
 		if !reflect.DeepEqual(n, wantNode) {
-			t.Fatalf("wrong node in ENRResponse: %v", n)
+			t.Fatalf("wrong node in QNRResponse: %v", n)
 		}
 	})
 }
@@ -504,7 +504,7 @@ func TestUDPv4_smallNetConvergence(t *testing.T) {
 		var cfg Config
 		if i > 0 {
 			bn := nodes[0].Self()
-			cfg.Bootnodes = []*enode.Node{bn}
+			cfg.Bootnodes = []*qnode.Node{bn}
 		}
 		nodes[i] = startLocalhostV4(t, cfg)
 		defer nodes[i].Close()
@@ -516,7 +516,7 @@ func TestUDPv4_smallNetConvergence(t *testing.T) {
 	for i := range nodes {
 		node := nodes[i]
 		go func() {
-			found := make(map[enode.ID]bool, len(nodes))
+			found := make(map[qnode.ID]bool, len(nodes))
 			it := node.RandomNodes()
 			for it.Next() {
 				found[it.Node().ID()] = true
@@ -552,8 +552,8 @@ func startLocalhostV4(t *testing.T, cfg Config) *UDPv4 {
 	t.Helper()
 
 	cfg.PrivateKey = newkey()
-	db, _ := enode.OpenDB("")
-	ln := enode.NewLocalNode(db, cfg.PrivateKey)
+	db, _ := qnode.OpenDB("")
+	ln := qnode.NewLocalNode(db, cfg.PrivateKey)
 
 	// Prefix logs with node ID.
 	lprefix := fmt.Sprintf("(%s)", ln.ID().TerminalString())

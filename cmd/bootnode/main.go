@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with go-ethereum. If not, see <http://www.gnu.org/licenses/>.
 
-// bootnode runs a bootstrap node for the Zond Discovery Protocol.
+// bootnode runs a bootstrap node for the QRL Discovery Protocol.
 package main
 
 import (
@@ -29,9 +29,9 @@ import (
 	"github.com/theQRL/go-zond/crypto"
 	"github.com/theQRL/go-zond/log"
 	"github.com/theQRL/go-zond/p2p/discover"
-	"github.com/theQRL/go-zond/p2p/enode"
 	"github.com/theQRL/go-zond/p2p/nat"
 	"github.com/theQRL/go-zond/p2p/netutil"
+	"github.com/theQRL/go-zond/p2p/qnode"
 )
 
 func main() {
@@ -111,8 +111,8 @@ func main() {
 	}
 	defer conn.Close()
 
-	db, _ := enode.OpenDB("")
-	ln := enode.NewLocalNode(db, nodeKey)
+	db, _ := qnode.OpenDB("")
+	ln := qnode.NewLocalNode(db, nodeKey)
 
 	listenerAddr := conn.LocalAddr().(*net.UDPAddr)
 	if natm != nil && !listenerAddr.IP.IsLoopback() {
@@ -144,13 +144,13 @@ func printNotice(nodeKey *ecdsa.PublicKey, addr net.UDPAddr) {
 	if addr.IP.IsUnspecified() {
 		addr.IP = net.IP{127, 0, 0, 1}
 	}
-	n := enode.NewV4(nodeKey, addr.IP, 0, addr.Port)
+	n := qnode.NewV4(nodeKey, addr.IP, 0, addr.Port)
 	fmt.Println(n.URLv4())
 	fmt.Println("Note: you're using cmd/bootnode, a developer tool.")
 	fmt.Println("We recommend using a regular node as bootstrap node for production deployments.")
 }
 
-func doPortMapping(natm nat.Interface, ln *enode.LocalNode, addr *net.UDPAddr) *net.UDPAddr {
+func doPortMapping(natm nat.Interface, ln *qnode.LocalNode, addr *net.UDPAddr) *net.UDPAddr {
 	const (
 		protocol = "udp"
 		name     = "ethereum discovery"
