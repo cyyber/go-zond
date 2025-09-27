@@ -158,8 +158,8 @@ func TestSignTxRequest(t *testing.T) {
 		console.log("transaction.to", r.transaction.to);
 		console.log("transaction.value", r.transaction.value);
 		console.log("transaction.nonce", r.transaction.nonce);
-		if(r.transaction.from.toLowerCase()=="q000000000000000000000000000000000000000000001337"){ return "Approve"}
-		if(r.transaction.from.toLowerCase()=="q00000000000000000000000000000000000000000000dead"){ return "Reject"}
+		if(r.transaction.from.toLowerCase()=="q0000000000000000000000000000000000001337"){ return "Approve"}
+		if(r.transaction.from.toLowerCase()=="q000000000000000000000000000000000000dead"){ return "Reject"}
 	}`
 
 	r, err := initRuleEngine(js)
@@ -167,12 +167,12 @@ func TestSignTxRequest(t *testing.T) {
 		t.Errorf("Couldn't create evaluator %v", err)
 		return
 	}
-	to, err := mixAddr("Q00000000000000000000000000000000000000000000dead")
+	to, err := mixAddr("Q000000000000000000000000000000000000dead")
 	if err != nil {
 		t.Error(err)
 		return
 	}
-	from, err := mixAddr("Q000000000000000000000000000000000000000000001337")
+	from, err := mixAddr("Q0000000000000000000000000000000000001337")
 
 	if err != nil {
 		t.Error(err)
@@ -418,8 +418,8 @@ const ExampleTxWindow = `
 `
 
 func dummyTx(value hexutil.Big) *core.SignTxRequest {
-	to, _ := mixAddr("Q00000000000000000000000000000000000000000000dead")
-	from, _ := mixAddr("Q00000000000000000000000000000000000000000000dead")
+	to, _ := mixAddr("Q000000000000000000000000000000000000dead")
+	from, _ := mixAddr("Q000000000000000000000000000000000000dead")
 	n := hexutil.Uint64(3)
 	gas := hexutil.Uint64(21000)
 	maxFeePerGas := hexutil.Big(*big.NewInt(2000000))
@@ -447,7 +447,7 @@ func dummyTxWithV(value uint64) *core.SignTxRequest {
 }
 
 func dummySigned(value *big.Int) *types.Transaction {
-	to, _ := common.NewAddressFromString("Q00000000000000000000000000000000000000000000dead")
+	to, _ := common.NewAddressFromString("Q000000000000000000000000000000000000dead")
 	gas := uint64(21000)
 	gasFeeCap := big.NewInt(2000000)
 	data := make([]byte, 0)
@@ -582,7 +582,7 @@ func TestSignData(t *testing.T) {
     return "Approve"
 }
 function ApproveSignData(r){
-    if( r.address.toLowerCase() == "q00000000694267f14675d7e1b9494fd8d72fefe1755710fa")
+    if( r.address.toLowerCase() == "q694267f14675d7e1b9494fd8d72fefe1755710fa")
     {
         if(r.messages[0].value.indexOf("bazonk") >= 0){
             return "Approve"
@@ -598,7 +598,7 @@ function ApproveSignData(r){
 	}
 	message := "baz bazonk foo"
 	hash, rawdata := accounts.TextAndHash([]byte(message))
-	addr, _ := mixAddr("Q00000000694267f14675d7e1b9494fd8d72fefe1755710fa")
+	addr, _ := mixAddr("Q694267f14675d7e1b9494fd8d72fefe1755710fa")
 
 	t.Logf("address %v %v\n", addr.String(), addr.Original())
 

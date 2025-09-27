@@ -143,6 +143,7 @@ const schema string = `
         logs: [Log!]
         publicKey: Bytes!
         signature: Bytes!
+        descriptor: Bytes!
         # Envelope transaction support
         type: Long
         accessList: [AccessTuple!]

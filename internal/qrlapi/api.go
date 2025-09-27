@@ -1014,6 +1014,7 @@ type RPCTransaction struct {
 	ChainID          *hexutil.Big      `json:"chainId,omitempty"`
 	PublicKey        hexutil.Bytes     `json:"publicKey"`
 	Signature        hexutil.Bytes     `json:"signature"`
+	Descriptor       hexutil.Bytes     `json:"descriptor"`
 }
 
 // newRPCTransaction returns a transaction that will serialize to the RPC
@@ -1023,18 +1024,20 @@ func newRPCTransaction(tx *types.Transaction, blockHash common.Hash, blockNumber
 	from, _ := types.Sender(signer, tx)
 	publicKey := tx.RawPublicKeyValue()
 	signature := tx.RawSignatureValue()
+	descriptor := tx.RawDescriptorValue()
 	result := &RPCTransaction{
-		Type:      hexutil.Uint64(tx.Type()),
-		From:      from,
-		Gas:       hexutil.Uint64(tx.Gas()),
-		GasPrice:  (*hexutil.Big)(tx.GasPrice()),
-		Hash:      tx.Hash(),
-		Input:     hexutil.Bytes(tx.Data()),
-		Nonce:     hexutil.Uint64(tx.Nonce()),
-		To:        tx.To(),
-		Value:     (*hexutil.Big)(tx.Value()),
-		PublicKey: hexutil.Bytes(publicKey),
-		Signature: hexutil.Bytes(signature),
+		Type:       hexutil.Uint64(tx.Type()),
+		From:       from,
+		Gas:        hexutil.Uint64(tx.Gas()),
+		GasPrice:   (*hexutil.Big)(tx.GasPrice()),
+		Hash:       tx.Hash(),
+		Input:      hexutil.Bytes(tx.Data()),
+		Nonce:      hexutil.Uint64(tx.Nonce()),
+		To:         tx.To(),
+		Value:      (*hexutil.Big)(tx.Value()),
+		PublicKey:  hexutil.Bytes(publicKey),
+		Signature:  hexutil.Bytes(signature),
+		Descriptor: hexutil.Bytes(descriptor),
 	}
 	if blockHash != (common.Hash{}) {
 		result.BlockHash = &blockHash

@@ -143,7 +143,7 @@ func TestGraphQLBlockSerialization(t *testing.T) {
 		},
 		// should return `status` as decimal
 		{
-			body: `{"query": "{block {number call (data : {from : \"Q00000000a94f5374fce5edbc8e2a8697c15331677e6ebf0b\", to: \"Q000000006295ee1b4f6dd65047762f924ecd367c17eabf8f\", data :\"0x12a7b914\"}){data status}}}"}`,
+			body: `{"query": "{block {number call (data : {from : \"Qa94f5374fce5edbc8e2a8697c15331677e6ebf0b\", to: \"Q6295ee1b4f6dd65047762f924ecd367c17eabf8f\", data :\"0x12a7b914\"}){data status}}}"}`,
 			want: `{"data":{"block":{"number":"0xa","call":{"data":"0x","status":"0x1"}}}}`,
 			code: 200,
 		},
@@ -172,7 +172,7 @@ func TestGraphQLBlockSerializationEIP2718(t *testing.T) {
 		key, _  = pqcrypto.HexToWallet("f29f58aff0b00de2844f7e20bd9eeaacc379150043beeb328335817512b29fbb7184da84a092f842b2a06d72a24a5d28")
 		address = key.GetAddress()
 		funds   = big.NewInt(1000000000000000)
-		dad, _  = common.NewAddressFromString("Q000000000000000000000000000000000000000000000dad")
+		dad, _  = common.NewAddressFromString("Q0000000000000000000000000000000000000dad")
 	)
 	stack := createNode(t)
 	defer stack.Close()
@@ -227,7 +227,7 @@ func TestGraphQLBlockSerializationEIP2718(t *testing.T) {
 	}{
 		{
 			body: `{"query": "{block {number transactions { from { address } to { address } value hash type accessList { address storageKeys } index}}}"}`,
-			want: `{"data":{"block":{"number":"0x1","transactions":[{"from":{"address":"Q46a16f6216b330c3cef65a832a656dfdc7387e607593fed0"},"to":{"address":"Q000000000000000000000000000000000000000000000dad"},"value":"0x64","hash":"0xe1a810093a9d3d69dc0478c0e7d4fb2dc6750ec7fdd1c3ef084412f992e696a0","type":"0x2","accessList":[],"index":"0x0"},{"from":{"address":"Q46a16f6216b330c3cef65a832a656dfdc7387e607593fed0"},"to":{"address":"Q000000000000000000000000000000000000000000000dad"},"value":"0x32","hash":"0x7d8fd8ae94b481e96ed4edf117ac7ec6dceec7c27437ef45a8b8d5e575993b76","type":"0x2","accessList":[{"address":"Q000000000000000000000000000000000000000000000dad","storageKeys":["0x0000000000000000000000000000000000000000000000000000000000000000"]}],"index":"0x1"}]}}}`,
+			want: `{"data":{"block":{"number":"0x1","transactions":[{"from":{"address":"Q16b330c3cef65a832a656dfdc7387e607593fed0"},"to":{"address":"Q0000000000000000000000000000000000000dad"},"value":"0x64","hash":"0x55fac5d94bb5add2b55f0d3e4c068c5003c2c517ec92a286b01928e107d6dae9","type":"0x2","accessList":[],"index":"0x0"},{"from":{"address":"Q16b330c3cef65a832a656dfdc7387e607593fed0"},"to":{"address":"Q0000000000000000000000000000000000000dad"},"value":"0x32","hash":"0x227bee400ea996770f3b91d00dcc88130b5a12634ad1d4492d25b72874f669ed","type":"0x2","accessList":[{"address":"Q0000000000000000000000000000000000000dad","storageKeys":["0x0000000000000000000000000000000000000000000000000000000000000000"]}],"index":"0x1"}]}}}`,
 			code: 200,
 		},
 	} {
@@ -270,7 +270,7 @@ func TestGraphQLConcurrentResolvers(t *testing.T) {
 	var (
 		key, _  = crypto.GenerateMLDSA87Key()
 		addr    = key.GetAddress()
-		dadStr  = "Q000000000000000000000000000000000000000000000dad"
+		dadStr  = "Q0000000000000000000000000000000000000dad"
 		dad, _  = common.NewAddressFromString(dadStr)
 		genesis = &core.Genesis{
 			Config:   params.AllBeaconProtocolChanges,
@@ -341,7 +341,7 @@ func TestGraphQLConcurrentResolvers(t *testing.T) {
 		},
 		// Test values for a non-existent account.
 		{
-			body: fmt.Sprintf(`{ block { account(address: "%s") { balance transactionCount code } } }`, "Q111111111111111111111111111111111111111111111111"),
+			body: fmt.Sprintf(`{ block { account(address: "%s") { balance transactionCount code } } }`, "Q1111111111111111111111111111111111111111"),
 			want: `{"block":{"account":{"balance":"0x0","transactionCount":"0x0","code":"0x"}}}`,
 		},
 	} {
@@ -400,7 +400,7 @@ func TestWithdrawals(t *testing.T) {
 		},
 		{
 			body: "{block(number: 1) { withdrawalsRoot withdrawals { validator amount } } }",
-			want: `{"block":{"withdrawalsRoot":"0x6357b0253367ad378122e56a43d3cbab15668d2bd8b047cb57f2d08659c8121a","withdrawals":[{"validator":"0x5","amount":"0xa"}]}}`,
+			want: `{"block":{"withdrawalsRoot":"0x8418fc1a48818928f6692f148e9b10e99a88edc093b095cb8ca97950284b553d","withdrawals":[{"validator":"0x5","amount":"0xa"}]}}`,
 		},
 	} {
 		res := handler.Schema.Exec(context.Background(), tt.body, "", map[string]interface{}{})
