@@ -11,6 +11,7 @@
     "value" : "0x186a0",
     "publicKey" : "0x",
     "signature" : "0x",
+    "descriptor" : "0x",
     "seed" : "0x41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff29862f24fba42fe6f97efaf641980eff298",
     "hash" : "0x72fadbef39cd251a437eea619cfeda752271a5faaaa2147df012e112159ffb81"
   }

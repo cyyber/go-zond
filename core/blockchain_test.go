@@ -3108,8 +3108,8 @@ func TestTxIndexer(t *testing.T) {
 
 func TestEIP3651(t *testing.T) {
 	var (
-		aa, _  = common.NewAddressFromString("Q00000000000000000000000000000000000000000000aaaa")
-		bb, _  = common.NewAddressFromString("Q00000000000000000000000000000000000000000000bbbb")
+		aa, _  = common.NewAddressFromString("Q000000000000000000000000000000000000aaaa")
+		bb, _  = common.NewAddressFromString("Q000000000000000000000000000000000000bbbb")
 		engine = beacon.NewFaker()
 
 		// A sender who makes transactions, has some funds

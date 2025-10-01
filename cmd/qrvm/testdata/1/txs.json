@@ -10,8 +10,9 @@
     "nonce": "0x0",
     "signature": "0x",
     "publicKey": "0x",
+    "descriptor": "0x",
     "seed" : "0x41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff29862f24fba42fe6f97efaf641980eff298",
-    "to": "Q20687Fa825ab4AD40A89C303F22F65FEf9778555",
+    "to": "Q1A3f3594c308d39bDCd04c943B075F7c36Bc0Df7",
     "value": "0x1"
   },
   {
@@ -25,8 +26,9 @@
     "nonce": "0x0",
     "signature": "0x",
     "publicKey": "0x",
+    "descriptor": "0x",
     "seed" : "0x41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff29862f24fba42fe6f97efaf641980eff298",
-    "to": "Q20687Fa825ab4AD40A89C303F22F65FEf9778555",
+    "to": "Q1A3f3594c308d39bDCd04c943B075F7c36Bc0Df7",
     "value": "0x1"
   }
 ]

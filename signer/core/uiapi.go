@@ -186,7 +186,7 @@ func (s *UIServerAPI) Export(ctx context.Context, addr common.Address) (json.Raw
 // in web3 keystore format. It will decrypt the keyJSON with the given passphrase and on successful
 // decryption it will encrypt the key with the given newPassphrase and store it in the keystore.
 // Example (the address in question has privkey `11...11`):
-// {"jsonrpc":"2.0","method":"clef_import","params":[{"address":"Q2068da65aa0167e1d55fd692786cf87117fcf3fc","crypto":{"cipher":"aes-256-gcm","ciphertext":"f833f12f6cb57f6961fb34bbf4ff5019c9fd70e1ab98bf0f1ba164f1b4bc773e853f973b708a4ec1b5e1148de96437ac5fc75da87c6b7293628e9d45b4bc2ab7","cipherparams":{"iv":"4c2275c4a14a5e984bfaec2b"},"kdf":"argon2id","kdfparams":{"dklen":32,"m":262144,"p":1,"salt":"2c2f566f38f5b79634d17267d95a0914ed47a44fe91f9cbb0b8765ebaa0b7ddd","r":8}},"id":"216c7eac-e8c1-49af-a215-fa0036f29141","version":1},"test","yaddayadda"], "id":4}
+// {"jsonrpc":"2.0","method":"clef_import","params":[{"address":"Q7dc77ecc04feebb45f6f9b878d2eed271d1a17a5","crypto":{"cipher":"aes-256-gcm","ciphertext":"f833f12f6cb57f6961fb34bbf4ff5019c9fd70e1ab98bf0f1ba164f1b4bc773e853f973b708a4ec1b5e1148de96437ac5fc75da87c6b7293628e9d45b4bc2ab7","cipherparams":{"iv":"4c2275c4a14a5e984bfaec2b"},"kdf":"argon2id","kdfparams":{"dklen":32,"m":262144,"p":1,"salt":"2c2f566f38f5b79634d17267d95a0914ed47a44fe91f9cbb0b8765ebaa0b7ddd","r":8}},"id":"216c7eac-e8c1-49af-a215-fa0036f29141","version":1},"test","yaddayadda"], "id":4}
 func (api *UIServerAPI) Import(ctx context.Context, keyJSON json.RawMessage, oldPassphrase, newPassphrase string) (accounts.Account, error) {
 	be := api.am.Backends(keystore.KeyStoreType)
 

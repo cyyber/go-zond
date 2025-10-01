@@ -210,7 +210,7 @@ func (h UnprefixedHash) MarshalText() ([]byte, error) {
 
 /////////// Address
 
-// Address represents the 24 byte address of a QRL account.
+// Address represents the 20 byte address of a QRL account.
 type Address [AddressLength]byte
 
 // BytesToAddress returns Address with value b.

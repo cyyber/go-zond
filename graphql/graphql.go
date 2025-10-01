@@ -544,6 +544,15 @@ func (t *Transaction) Signature(ctx context.Context) (hexutil.Bytes, error) {
 	}
 	return tx.RawSignatureValue(), nil
 }
+
+func (t *Transaction) Descriptor(ctx context.Context) (hexutil.Bytes, error) {
+	tx, err := t.resolve(ctx)
+	if err != nil || tx == nil {
+		return hexutil.Bytes{}, nil
+	}
+	return tx.RawDescriptorValue(), nil
+}
+
 func (t *Transaction) Raw(ctx context.Context) (hexutil.Bytes, error) {
 	tx, _ := t.resolve(ctx)
 	if tx == nil {
