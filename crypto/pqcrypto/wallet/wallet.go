@@ -50,6 +50,15 @@ func (w *MLDSA87Wallet) GetDescriptor() descriptor.Descriptor {
 	return w.Wallet.GetDescriptor().ToDescriptor()
 }
 
+func (w *MLDSA87Wallet) GetAddress() [common.AddressLength]uint8 {
+	// TODO: Update go-qrllib to generate 48-byte addresses natively.
+	// For now, right-align the 20-byte address from go-qrllib into a 48-byte address.
+	oldAddr := w.Wallet.GetAddress()
+	var addr [common.AddressLength]uint8
+	copy(addr[common.AddressLength-len(oldAddr):], oldAddr[:])
+	return addr
+}
+
 func (w *MLDSA87Wallet) GetSeed() (walletcommon.ExtendedSeed, error) {
 	return w.Wallet.GetExtendedSeed()
 }

@@ -40,7 +40,8 @@ func MakeTopics(query ...[]any) ([][]common.Hash, error) {
 			case common.Hash:
 				copy(topic[:], rule[:])
 			case common.Address:
-				copy(topic[common.HashLength-common.AddressLength:], rule[:])
+				// Address (48 bytes) is larger than Hash (32 bytes), so we hash it for the topic.
+				copy(topic[:], crypto.Keccak256(rule[:]))
 			case *big.Int:
 				copy(topic[:], math.U256Bytes(new(big.Int).Set(rule)))
 			case bool:

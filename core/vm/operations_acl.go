@@ -124,7 +124,7 @@ func gasExtCodeCopyEIP2929(qrvm *QRVM, contract *Contract, stack *Stack, mem *Me
 	if err != nil {
 		return 0, err
 	}
-	addr := common.Address(stack.peek().Bytes20())
+	addr := stackToAddress(stack.peek())
 	// Check slot presence in the access list
 	if !qrvm.StateDB.AddressInAccessList(addr) {
 		qrvm.StateDB.AddAddressToAccessList(addr)
@@ -146,7 +146,7 @@ func gasExtCodeCopyEIP2929(qrvm *QRVM, contract *Contract, stack *Stack, mem *Me
 // - extcodesize,
 // - (ext) balance
 func gasEip2929AccountCheck(qrvm *QRVM, contract *Contract, stack *Stack, mem *Memory, memorySize uint64) (uint64, error) {
-	addr := common.Address(stack.peek().Bytes20())
+	addr := stackToAddress(stack.peek())
 	// Check slot presence in the access list
 	if !qrvm.StateDB.AddressInAccessList(addr) {
 		// If the caller cannot afford the cost, this change will be rolled back
@@ -159,7 +159,7 @@ func gasEip2929AccountCheck(qrvm *QRVM, contract *Contract, stack *Stack, mem *M
 
 func makeCallVariantGasCallEIP2929(oldCalculator gasFunc) gasFunc {
 	return func(qrvm *QRVM, contract *Contract, stack *Stack, mem *Memory, memorySize uint64) (uint64, error) {
-		addr := common.Address(stack.Back(1).Bytes20())
+		addr := stackToAddress(stack.Back(1))
 		// Check slot presence in the access list
 		warmAccess := qrvm.StateDB.AddressInAccessList(addr)
 		// The WarmStorageReadCostEIP2929 (100) is already deducted in the form of a constant cost, so

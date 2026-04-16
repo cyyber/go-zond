@@ -37,7 +37,7 @@ const (
 	// HashLength is the expected length of the hash
 	HashLength = 32
 	// AddressLength is the expected length of the address
-	AddressLength = 20
+	AddressLength = 48
 )
 
 var (
@@ -45,7 +45,7 @@ var (
 	addressT = reflect.TypeFor[Address]()
 
 	// MaxAddress represents the maximum possible address value.
-	MaxAddress, _ = NewAddressFromString("Qffffffffffffffffffffffffffffffffffffffff")
+	MaxAddress, _ = NewAddressFromString("Qffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")
 
 	// MaxHash represents the maximum possible hash value.
 	MaxHash = HexToHash("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")

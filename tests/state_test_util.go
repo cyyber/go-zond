@@ -342,7 +342,9 @@ func (tx *stTransaction) toMessage(ps stPostState, baseFee *big.Int) (*core.Mess
 		if err != nil {
 			return nil, fmt.Errorf("invalid seed: %v", err)
 		}
-		from = key.GetAddress()
+		// TODO: Update go-qrllib to generate 48-byte addresses natively.
+		oldAddr := key.GetAddress()
+		copy(from[common.AddressLength-len(oldAddr):], oldAddr[:])
 	}
 	// Parse recipient if present.
 	var to *common.Address

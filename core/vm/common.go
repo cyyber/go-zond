@@ -69,3 +69,11 @@ func toWordSize(size uint64) uint64 {
 
 	return (size + 31) / 32
 }
+
+// stackToAddress extracts an address from a 256-bit stack value.
+// TODO: When VM migrates to 512-bit words, extract full 48 bytes.
+// Currently extracts rightmost 32 bytes and converts to Address (right-aligned).
+func stackToAddress(val *uint256.Int) common.Address {
+	b := val.Bytes32()
+	return common.BytesToAddress(b[:])
+}

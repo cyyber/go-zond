@@ -17,7 +17,6 @@
 package vm
 
 import (
-	"github.com/theQRL/go-qrl/common"
 	"github.com/theQRL/go-qrl/common/math"
 	"github.com/theQRL/go-qrl/params"
 )
@@ -204,7 +203,7 @@ func gasCall(qrvm *QRVM, contract *Contract, stack *Stack, mem *Memory, memorySi
 	var (
 		gas            uint64
 		transfersValue = !stack.Back(2).IsZero()
-		address        = common.Address(stack.Back(1).Bytes20())
+		address        = stackToAddress(stack.Back(1))
 	)
 	if transfersValue && qrvm.StateDB.Empty(address) {
 		gas += params.CallNewAccountGas
