@@ -5,7 +5,7 @@ package logger
 import (
 	"encoding/json"
 
-	"github.com/holiman/uint256"
+	"github.com/theQRL/go-qrl/common/uint512"
 	"github.com/theQRL/go-qrl/common"
 	"github.com/theQRL/go-qrl/common/hexutil"
 	"github.com/theQRL/go-qrl/common/math"
@@ -23,7 +23,7 @@ func (s StructLog) MarshalJSON() ([]byte, error) {
 		GasCost       math.HexOrDecimal64         `json:"gasCost"`
 		Memory        hexutil.Bytes               `json:"memory,omitempty"`
 		MemorySize    int                         `json:"memSize"`
-		Stack         []uint256.Int               `json:"stack"`
+		Stack         []uint512.Int               `json:"stack"`
 		ReturnData    hexutil.Bytes               `json:"returnData,omitempty"`
 		Storage       map[common.Hash]common.Hash `json:"-"`
 		Depth         int                         `json:"depth"`
@@ -59,7 +59,7 @@ func (s *StructLog) UnmarshalJSON(input []byte) error {
 		GasCost       *math.HexOrDecimal64        `json:"gasCost"`
 		Memory        *hexutil.Bytes              `json:"memory,omitempty"`
 		MemorySize    *int                        `json:"memSize"`
-		Stack         []uint256.Int               `json:"stack"`
+		Stack         []uint512.Int               `json:"stack"`
 		ReturnData    *hexutil.Bytes              `json:"returnData,omitempty"`
 		Storage       map[common.Hash]common.Hash `json:"-"`
 		Depth         *int                        `json:"depth"`

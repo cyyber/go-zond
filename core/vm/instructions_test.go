@@ -24,7 +24,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/holiman/uint256"
+	"github.com/theQRL/go-qrl/common/uint512"
 	"github.com/theQRL/go-qrl/common"
 	"github.com/theQRL/go-qrl/core/types"
 	"github.com/theQRL/go-qrl/crypto"
@@ -100,9 +100,9 @@ func testTwoOperandOp(t *testing.T, tests []TwoOperandTestcase, opFn executionFu
 	)
 
 	for i, test := range tests {
-		x := new(uint256.Int).SetBytes(common.Hex2Bytes(test.X))
-		y := new(uint256.Int).SetBytes(common.Hex2Bytes(test.Y))
-		expected := new(uint256.Int).SetBytes(common.Hex2Bytes(test.Expected))
+		x := new(uint512.Int).SetBytes(common.Hex2Bytes(test.X))
+		y := new(uint512.Int).SetBytes(common.Hex2Bytes(test.Y))
+		expected := new(uint512.Int).SetBytes(common.Hex2Bytes(test.Expected))
 		stack.push(x)
 		stack.push(y)
 		opFn(&pc, qrvmInterpreter, &ScopeContext{nil, stack, nil})
@@ -213,10 +213,10 @@ func TestAddMod(t *testing.T) {
 	// in 256 bit repr, fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffd
 
 	for i, test := range tests {
-		x := new(uint256.Int).SetBytes(common.Hex2Bytes(test.x))
-		y := new(uint256.Int).SetBytes(common.Hex2Bytes(test.y))
-		z := new(uint256.Int).SetBytes(common.Hex2Bytes(test.z))
-		expected := new(uint256.Int).SetBytes(common.Hex2Bytes(test.expected))
+		x := new(uint512.Int).SetBytes(common.Hex2Bytes(test.x))
+		y := new(uint512.Int).SetBytes(common.Hex2Bytes(test.y))
+		z := new(uint512.Int).SetBytes(common.Hex2Bytes(test.z))
+		expected := new(uint512.Int).SetBytes(common.Hex2Bytes(test.expected))
 		stack.push(z)
 		stack.push(y)
 		stack.push(x)
@@ -243,8 +243,8 @@ func TestWriteExpectedValues(t *testing.T) {
 		)
 		result := make([]TwoOperandTestcase, len(args))
 		for i, param := range args {
-			x := new(uint256.Int).SetBytes(common.Hex2Bytes(param.x))
-			y := new(uint256.Int).SetBytes(common.Hex2Bytes(param.y))
+			x := new(uint512.Int).SetBytes(common.Hex2Bytes(param.x))
+			y := new(uint512.Int).SetBytes(common.Hex2Bytes(param.y))
 			stack.push(x)
 			stack.push(y)
 			opFn(&pc, interpreter, &ScopeContext{nil, stack, nil})
@@ -289,9 +289,9 @@ func opBenchmark(bench *testing.B, op executionFunc, args ...string) {
 
 	env.interpreter = qrvmInterpreter
 	// convert args
-	intArgs := make([]*uint256.Int, len(args))
+	intArgs := make([]*uint512.Int, len(args))
 	for i, arg := range args {
-		intArgs[i] = new(uint256.Int).SetBytes(common.Hex2Bytes(arg))
+		intArgs[i] = new(uint512.Int).SetBytes(common.Hex2Bytes(arg))
 	}
 	pc := uint64(0)
 	for bench.Loop() {
@@ -303,7 +303,7 @@ func opBenchmark(bench *testing.B, op executionFunc, args ...string) {
 	}
 
 	for i, arg := range args {
-		want := new(uint256.Int).SetBytes(common.Hex2Bytes(arg))
+		want := new(uint512.Int).SetBytes(common.Hex2Bytes(arg))
 		if have := intArgs[i]; !want.Eq(have) {
 			bench.Fatalf("input #%d mutated, have %x want %x", i, have, want)
 		}
@@ -530,14 +530,14 @@ func TestOpMstore(t *testing.T) {
 	mem.Resize(64)
 	pc := uint64(0)
 	v := "abcdef00000000000000abba000000000deaf000000c0de00100000000133700"
-	stack.push(new(uint256.Int).SetBytes(common.Hex2Bytes(v)))
-	stack.push(new(uint256.Int))
+	stack.push(new(uint512.Int).SetBytes(common.Hex2Bytes(v)))
+	stack.push(new(uint512.Int))
 	opMstore(&pc, qrvmInterpreter, &ScopeContext{mem, stack, nil})
 	if got := common.Bytes2Hex(mem.GetCopy(0, 32)); got != v {
 		t.Fatalf("Mstore fail, got %v, expected %v", got, v)
 	}
-	stack.push(new(uint256.Int).SetUint64(0x1))
-	stack.push(new(uint256.Int))
+	stack.push(new(uint512.Int).SetUint64(0x1))
+	stack.push(new(uint512.Int))
 	opMstore(&pc, qrvmInterpreter, &ScopeContext{mem, stack, nil})
 	if common.Bytes2Hex(mem.GetCopy(0, 32)) != "0000000000000000000000000000000000000000000000000000000000000001" {
 		t.Fatalf("Mstore failed to overwrite previous value")
@@ -555,8 +555,8 @@ func BenchmarkOpMstore(bench *testing.B) {
 	env.interpreter = qrvmInterpreter
 	mem.Resize(64)
 	pc := uint64(0)
-	memStart := new(uint256.Int)
-	value := new(uint256.Int).SetUint64(0x1337)
+	memStart := new(uint512.Int)
+	value := new(uint512.Int).SetUint64(0x1337)
 
 	for bench.Loop() {
 		stack.push(value)
@@ -575,10 +575,10 @@ func BenchmarkOpKeccak256(bench *testing.B) {
 	env.interpreter = qrvmInterpreter
 	mem.Resize(32)
 	pc := uint64(0)
-	start := new(uint256.Int)
+	start := new(uint512.Int)
 
 	for bench.Loop() {
-		stack.push(uint256.NewInt(32))
+		stack.push(uint512.NewInt(32))
 		stack.push(start)
 		opKeccak256(&pc, qrvmInterpreter, &ScopeContext{mem, stack, nil})
 	}
@@ -680,7 +680,7 @@ func TestRandom(t *testing.T) {
 			t.Errorf("Expected one item on stack after %v, got %d: ", tt.name, len(stack.data))
 		}
 		actual := stack.pop()
-		expected, overflow := uint256.FromBig(new(big.Int).SetBytes(tt.random.Bytes()))
+		expected, overflow := uint512.FromBig(new(big.Int).SetBytes(tt.random.Bytes()))
 		if overflow {
 			t.Errorf("Testcase %v: invalid overflow", tt.name)
 		}

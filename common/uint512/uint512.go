@@ -9,6 +9,7 @@
 package uint512
 
 import (
+	"fmt"
 	"math/big"
 )
 
@@ -240,6 +241,16 @@ func (z *Int) Bytes32() [32]byte {
 	}
 	copy(out[32-len(b):], b)
 	return out
+}
+
+// Hex returns the hexadecimal representation of z prefixed with "0x".
+func (z *Int) Hex() string {
+	return "0x" + z.v.Text(16)
+}
+
+// Format implements fmt.Formatter. It supports the same verbs as big.Int.
+func (z Int) Format(s fmt.State, verb rune) {
+	z.v.Format(s, verb)
 }
 
 // Bytes64 returns the 64-byte big-endian representation of z.
