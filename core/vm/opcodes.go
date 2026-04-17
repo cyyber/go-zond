@@ -25,7 +25,7 @@ type OpCode byte
 
 // IsPush specifies if an opcode is a PUSH opcode.
 func (op OpCode) IsPush() bool {
-	return PUSH0 <= op && op <= PUSH32
+	return PUSH0 <= op && op <= PUSH64
 }
 
 // 0x0 range - arithmetic ops.
@@ -154,9 +154,45 @@ const (
 	PUSH32
 )
 
-// 0x80 range - dups.
+// 0x80 range - pushes (continued).
 const (
-	DUP1 = 0x80 + iota
+	PUSH33 OpCode = 0x80 + iota
+	PUSH34
+	PUSH35
+	PUSH36
+	PUSH37
+	PUSH38
+	PUSH39
+	PUSH40
+	PUSH41
+	PUSH42
+	PUSH43
+	PUSH44
+	PUSH45
+	PUSH46
+	PUSH47
+	PUSH48
+	PUSH49
+	PUSH50
+	PUSH51
+	PUSH52
+	PUSH53
+	PUSH54
+	PUSH55
+	PUSH56
+	PUSH57
+	PUSH58
+	PUSH59
+	PUSH60
+	PUSH61
+	PUSH62
+	PUSH63
+	PUSH64
+)
+
+// 0xa0 range - dups.
+const (
+	DUP1 = 0xa0 + iota
 	DUP2
 	DUP3
 	DUP4
@@ -174,9 +210,9 @@ const (
 	DUP16
 )
 
-// 0x90 range - swaps.
+// 0xb0 range - swaps.
 const (
-	SWAP1 = 0x90 + iota
+	SWAP1 = 0xb0 + iota
 	SWAP2
 	SWAP3
 	SWAP4
@@ -194,9 +230,9 @@ const (
 	SWAP16
 )
 
-// 0xa0 range - logging ops.
+// 0xc0 range - logging ops.
 const (
-	LOG0 OpCode = 0xa0 + iota
+	LOG0 OpCode = 0xc0 + iota
 	LOG1
 	LOG2
 	LOG3
@@ -329,7 +365,41 @@ var opCodeToString = map[OpCode]string{
 	PUSH31: "PUSH31",
 	PUSH32: "PUSH32",
 
-	// 0x80 - dups.
+	// 0x80 range - pushes (continued).
+	PUSH33: "PUSH33",
+	PUSH34: "PUSH34",
+	PUSH35: "PUSH35",
+	PUSH36: "PUSH36",
+	PUSH37: "PUSH37",
+	PUSH38: "PUSH38",
+	PUSH39: "PUSH39",
+	PUSH40: "PUSH40",
+	PUSH41: "PUSH41",
+	PUSH42: "PUSH42",
+	PUSH43: "PUSH43",
+	PUSH44: "PUSH44",
+	PUSH45: "PUSH45",
+	PUSH46: "PUSH46",
+	PUSH47: "PUSH47",
+	PUSH48: "PUSH48",
+	PUSH49: "PUSH49",
+	PUSH50: "PUSH50",
+	PUSH51: "PUSH51",
+	PUSH52: "PUSH52",
+	PUSH53: "PUSH53",
+	PUSH54: "PUSH54",
+	PUSH55: "PUSH55",
+	PUSH56: "PUSH56",
+	PUSH57: "PUSH57",
+	PUSH58: "PUSH58",
+	PUSH59: "PUSH59",
+	PUSH60: "PUSH60",
+	PUSH61: "PUSH61",
+	PUSH62: "PUSH62",
+	PUSH63: "PUSH63",
+	PUSH64: "PUSH64",
+
+	// 0xa0 range - dups.
 	DUP1:  "DUP1",
 	DUP2:  "DUP2",
 	DUP3:  "DUP3",
@@ -347,7 +417,7 @@ var opCodeToString = map[OpCode]string{
 	DUP15: "DUP15",
 	DUP16: "DUP16",
 
-	// 0x90 - swaps.
+	// 0xb0 range - swaps.
 	SWAP1:  "SWAP1",
 	SWAP2:  "SWAP2",
 	SWAP3:  "SWAP3",
@@ -365,7 +435,7 @@ var opCodeToString = map[OpCode]string{
 	SWAP15: "SWAP15",
 	SWAP16: "SWAP16",
 
-	// 0xa0 range - logging ops.
+	// 0xc0 range - logging ops.
 	LOG0: "LOG0",
 	LOG1: "LOG1",
 	LOG2: "LOG2",
@@ -492,6 +562,38 @@ var stringToOp = map[string]OpCode{
 	"PUSH30":         PUSH30,
 	"PUSH31":         PUSH31,
 	"PUSH32":         PUSH32,
+	"PUSH33":         PUSH33,
+	"PUSH34":         PUSH34,
+	"PUSH35":         PUSH35,
+	"PUSH36":         PUSH36,
+	"PUSH37":         PUSH37,
+	"PUSH38":         PUSH38,
+	"PUSH39":         PUSH39,
+	"PUSH40":         PUSH40,
+	"PUSH41":         PUSH41,
+	"PUSH42":         PUSH42,
+	"PUSH43":         PUSH43,
+	"PUSH44":         PUSH44,
+	"PUSH45":         PUSH45,
+	"PUSH46":         PUSH46,
+	"PUSH47":         PUSH47,
+	"PUSH48":         PUSH48,
+	"PUSH49":         PUSH49,
+	"PUSH50":         PUSH50,
+	"PUSH51":         PUSH51,
+	"PUSH52":         PUSH52,
+	"PUSH53":         PUSH53,
+	"PUSH54":         PUSH54,
+	"PUSH55":         PUSH55,
+	"PUSH56":         PUSH56,
+	"PUSH57":         PUSH57,
+	"PUSH58":         PUSH58,
+	"PUSH59":         PUSH59,
+	"PUSH60":         PUSH60,
+	"PUSH61":         PUSH61,
+	"PUSH62":         PUSH62,
+	"PUSH63":         PUSH63,
+	"PUSH64":         PUSH64,
 	"DUP1":           DUP1,
 	"DUP2":           DUP2,
 	"DUP3":           DUP3,
