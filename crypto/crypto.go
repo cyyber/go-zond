@@ -77,13 +77,21 @@ func HashData(kh KeccakState, data []byte) (h common.Hash) {
 // CreateAddress creates a qrl address given the bytes and the nonce
 func CreateAddress(b common.Address, nonce uint64) common.Address {
 	data, _ := rlp.EncodeToBytes([]any{b, nonce})
-	return common.BytesToAddress(Keccak256(data)[12:])
+	return keccakToAddress48(data)
 }
 
 // CreateAddress2 creates a qrl address given the address bytes, initial
 // contract code hash and a salt.
 func CreateAddress2(b common.Address, salt [32]byte, inithash []byte) common.Address {
-	return common.BytesToAddress(Keccak256([]byte{0xff}, b.Bytes(), salt[:], inithash)[12:])
+	return keccakToAddress48([]byte{0xff}, b.Bytes(), salt[:], inithash)
+}
+
+// keccakToAddress48 derives a 48-byte address by concatenating
+// Keccak256(data) with the first 16 bytes of Keccak256(Keccak256(data)).
+func keccakToAddress48(data ...[]byte) common.Address {
+	h1 := Keccak256(data...)
+	h2 := Keccak256(h1)
+	return common.BytesToAddress(append(h1, h2[:16]...))
 }
 
 // ToECDSA creates a private key with the given D value.
@@ -219,7 +227,7 @@ func ValidateSignatureValues(v byte, r, s *big.Int, homestead bool) bool {
 
 func PubkeyToAddress(p ecdsa.PublicKey) common.Address {
 	pubBytes := FromECDSAPub(&p)
-	return common.BytesToAddress(Keccak256(pubBytes[1:])[12:])
+	return keccakToAddress48(pubBytes[1:])
 }
 
 func zeroBytes(bytes []byte) {
