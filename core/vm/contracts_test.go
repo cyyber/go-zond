@@ -188,10 +188,10 @@ func BenchmarkPrecompiledIdentity(bench *testing.B) {
 
 // Tests the sample inputs from the ModExp.
 func TestPrecompiledModExp(t *testing.T) {
-	testJson("modexp", "Q0000000000000000000000000000000000000004", t)
+	testJson("modexp", "Q000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004", t)
 }
 func BenchmarkPrecompiledModExp(b *testing.B) {
-	benchJson("modexp", "Q0000000000000000000000000000000000000004", b)
+	benchJson("modexp", "Q000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004", b)
 }
 
 // Tests OOG
@@ -201,12 +201,12 @@ func TestPrecompiledModExpOOG(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, test := range modexpTests {
-		testPrecompiledOOG("Q0000000000000000000000000000000000000004", test, t)
+		testPrecompiledOOG("Q000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004", test, t)
 	}
 }
 
 func TestPrecompiledDepositroot(t *testing.T) {
-	testJson("depositroot", "Q0000000000000000000000000000000000000001", t)
+	testJson("depositroot", "Q000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001", t)
 }
 
 func testJson(name, addr string, t *testing.T) {
