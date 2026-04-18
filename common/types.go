@@ -272,8 +272,10 @@ func (a Address) String() string {
 func (a *Address) checksumHex() []byte {
 	buf := a.hex()
 
-	// compute checksum
-	sha := sha3.NewLegacyKeccak256()
+	// compute checksum. Keccak-512 is used so the 64-byte digest covers
+	// every one of the 2*AddressLength hex characters of a 48-byte address
+	// (Keccak-256's 32-byte output would underflow past index 31).
+	sha := sha3.NewLegacyKeccak512()
 	sha.Write(buf[1:])
 	hash := sha.Sum(nil)
 	for i := 1; i < len(buf); i++ {
