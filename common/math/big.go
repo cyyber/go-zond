@@ -27,6 +27,9 @@ var (
 	tt256     = BigPow(2, 256)
 	tt256m1   = new(big.Int).Sub(tt256, big.NewInt(1))
 	MaxBig256 = new(big.Int).Set(tt256m1)
+	tt512     = BigPow(2, 512)
+	tt512m1   = new(big.Int).Sub(tt512, big.NewInt(1))
+	MaxBig512 = new(big.Int).Set(tt512m1)
 )
 
 const (
@@ -192,4 +195,15 @@ func U256(x *big.Int) *big.Int {
 // This operation is destructive.
 func U256Bytes(n *big.Int) []byte {
 	return PaddedBigBytes(U256(n), 32)
+}
+
+// U512 encodes x as a 512 bit two's complement number. This operation is destructive.
+func U512(x *big.Int) *big.Int {
+	return x.And(x, tt512m1)
+}
+
+// U512Bytes converts a big Int into a 512bit QRVM number (64 bytes, big-endian).
+// This operation is destructive.
+func U512Bytes(n *big.Int) []byte {
+	return PaddedBigBytes(U512(n), 64)
 }

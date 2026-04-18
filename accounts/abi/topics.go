@@ -17,7 +17,6 @@
 package abi
 
 import (
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"math/big"
@@ -153,15 +152,22 @@ func parseTopicWithSetter(fields Arguments, topics []common.Hash, setter func(Ar
 			// whose bytes can be decoded to the actual value- so the best we can do is retrieve that hash
 			reconstr = topics[i]
 		case FunctionTy:
-			if garbage := binary.BigEndian.Uint64(topics[i][0:8]); garbage != 0 {
-				return fmt.Errorf("bind: got improperly encoded function type, got %v", topics[i].Bytes())
-			}
-			var tmp [24]byte
-			copy(tmp[:], topics[i][8:32])
+			// FunctionTy is AddressLength+4 bytes (52 with 48-byte addresses),
+			// which no longer fits in a 32-byte topic. The raw topic is
+			// returned zero-padded so reflect.Set does not panic; callers
+			// cannot recover the full function value from an indexed topic.
+			var tmp [common.AddressLength + 4]byte
+			copy(tmp[:], topics[i][:])
 			reconstr = tmp
 		default:
+			// The topic is 32 bytes but toGoType expects a 64-byte ABI slot.
+			// Left-pad the topic so value types (int, uint, bool, bytes<=32)
+			// decode correctly. Hashed types (address, string, bytes, ...) are
+			// handled by the cases above and never reach here.
+			padded := make([]byte, 64)
+			copy(padded[32:], topics[i].Bytes())
 			var err error
-			reconstr, err = toGoType(0, arg.Type, topics[i].Bytes())
+			reconstr, err = toGoType(0, arg.Type, padded)
 			if err != nil {
 				return err
 			}
