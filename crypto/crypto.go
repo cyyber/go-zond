@@ -86,12 +86,23 @@ func CreateAddress2(b common.Address, salt [32]byte, inithash []byte) common.Add
 	return keccakToAddress48([]byte{0xff}, b.Bytes(), salt[:], inithash)
 }
 
-// keccakToAddress48 derives a 48-byte address by concatenating
-// Keccak256(data) with the first 16 bytes of Keccak256(Keccak256(data)).
+// addressDomain is the QRL address domain separator (ADR-004).
+// Prefix-binding the Keccak-512 input to this tag prevents cross-protocol
+// collisions with any other Keccak-512 usage in the ecosystem.
+var addressDomain = []byte("QRL-ADDR-v1")
+
+// keccakToAddress48 derives a 48-byte address (ADR-004):
+//
+//	address = Keccak512(addressDomain || data...)[16:]
+//
+// The 64-byte digest is truncated to its last 48 bytes, yielding 2^192
+// collision resistance (the maximum available for a 384-bit identifier).
 func keccakToAddress48(data ...[]byte) common.Address {
-	h1 := Keccak256(data...)
-	h2 := Keccak256(h1)
-	return common.BytesToAddress(append(h1, h2[:16]...))
+	parts := make([][]byte, 0, len(data)+1)
+	parts = append(parts, addressDomain)
+	parts = append(parts, data...)
+	h := Keccak512(parts...)
+	return common.BytesToAddress(h[len(h)-common.AddressLength:])
 }
 
 // ToECDSA creates a private key with the given D value.
