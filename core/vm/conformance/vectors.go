@@ -7,7 +7,7 @@ package conformance
 // Convention used in this corpus:
 //   - Programs end with MSTORE + RETURN, writing a 64-byte word to memory
 //     offset 0 and returning those 64 bytes. The 64-byte word matches the
-//     QRVM memory word width (ADR-001/002/003 = 64 B).
+//     QRVM memory word width.
 //   - Expected return values are left-padded with zeros to 64 bytes (128 hex).
 //   - Programs that intentionally fail (out-of-gas, underflow, etc.) omit
 //     MSTORE/RETURN: ExpectedReturnHex is "" and ExpectedError is the class.

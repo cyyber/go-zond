@@ -80,23 +80,26 @@ func CreateAddress(b common.Address, nonce uint64) common.Address {
 	return keccakToAddress48(data)
 }
 
-// CreateAddress2 creates a qrl address given the address bytes, initial
-// contract code hash and a salt.
-func CreateAddress2(b common.Address, salt [32]byte, inithash []byte) common.Address {
+// CreateAddress2 creates a qrl address for a CREATE2 invocation given the
+// sender address, a 64-byte salt and the keccak256 hash of the init code.
+//
+// The salt is 512 bits wide to match the VM stack word. Callers that hold a
+// narrower value should left-pad to 64 bytes.
+func CreateAddress2(b common.Address, salt [64]byte, inithash []byte) common.Address {
 	return keccakToAddress48([]byte{0xff}, b.Bytes(), salt[:], inithash)
 }
 
-// addressDomain is the QRL address domain separator (ADR-004).
-// Prefix-binding the Keccak-512 input to this tag prevents cross-protocol
-// collisions with any other Keccak-512 usage in the ecosystem.
+// addressDomain prefixes every Keccak-512 input used to derive a QRL
+// address. It isolates address hashes from any other Keccak-512 use in the
+// ecosystem so collisions in one protocol can't be carried into another.
 var addressDomain = []byte("QRL-ADDR-v1")
 
-// keccakToAddress48 derives a 48-byte address (ADR-004):
+// keccakToAddress48 derives a 48-byte address as
 //
-//	address = Keccak512(addressDomain || data...)[16:]
+//	address = Keccak-512(addressDomain || data...)[16:]
 //
-// The 64-byte digest is truncated to its last 48 bytes, yielding 2^192
-// collision resistance (the maximum available for a 384-bit identifier).
+// Taking the last 48 bytes of the 64-byte digest yields 2^192 collision
+// resistance, the maximum available for a 384-bit identifier.
 func keccakToAddress48(data ...[]byte) common.Address {
 	parts := make([][]byte, 0, len(data)+1)
 	parts = append(parts, addressDomain)

@@ -175,7 +175,7 @@ func (t *prestateTracer) CaptureState(pc uint64, op vm.OpCode, gas, cost uint64,
 		}
 		inithash := crypto.Keccak256(init)
 		salt := stackData[stackLen-4]
-		addr := crypto.CreateAddress2(caller, salt.Bytes32(), inithash)
+		addr := crypto.CreateAddress2(caller, salt.Bytes64(), inithash)
 		t.lookupAccount(addr)
 		t.created[addr] = true
 	}

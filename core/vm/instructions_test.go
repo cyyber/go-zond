@@ -643,7 +643,14 @@ func TestCreate2Addresses(t *testing.T) {
 		},
 	} {
 		origin, _ := common.NewAddressFromString(tt.origin)
-		salt := common.BytesToHash(common.FromHex(tt.salt))
+		// Left-pad the (<=32-byte) salt from the fixture into the 64-byte
+		// CREATE2 salt word used by the VM.
+		saltBytes := common.FromHex(tt.salt)
+		var salt [64]byte
+		if len(saltBytes) > 64 {
+			saltBytes = saltBytes[len(saltBytes)-64:]
+		}
+		copy(salt[64-len(saltBytes):], saltBytes)
 		code := common.FromHex(tt.code)
 		codeHash := crypto.Keccak256(code)
 		address := crypto.CreateAddress2(origin, salt, codeHash)

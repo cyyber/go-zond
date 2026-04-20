@@ -2387,7 +2387,7 @@ func testInitThenFailCreateContract(t *testing.T, scheme string) {
 	}...)
 
 	initHash := crypto.Keccak256Hash(initCode)
-	aa := crypto.CreateAddress2(bb, [32]byte{}, initHash[:])
+	aa := crypto.CreateAddress2(bb, [64]byte{}, initHash[:])
 	t.Logf("Destination address: %x\n", aa)
 
 	gspec := &Genesis{
