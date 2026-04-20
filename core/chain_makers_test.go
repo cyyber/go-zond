@@ -51,11 +51,11 @@ func TestGenerateWithdrawalChain(t *testing.T) {
 	)
 
 	// init 0xaa with some storage elements
-	storage := make(map[common.Hash]common.Hash)
-	storage[common.Hash{0x00}] = common.Hash{0x00}
-	storage[common.Hash{0x01}] = common.Hash{0x01}
-	storage[common.Hash{0x02}] = common.Hash{0x02}
-	storage[common.Hash{0x03}] = common.HexToHash("0303")
+	storage := make(map[common.Hash]common.StorageValue)
+	storage[common.Hash{0x00}] = common.StorageValue{0x00}
+	storage[common.Hash{0x01}] = common.StorageValue{0x01}
+	storage[common.Hash{0x02}] = common.StorageValue{0x02}
+	storage[common.Hash{0x03}] = common.HexToStorageValue("0303")
 	gspec.Alloc[aa] = GenesisAccount{
 		Balance: common.Big1,
 		Nonce:   1,

@@ -335,21 +335,21 @@ func (s *StateDB) GetCodeHash(addr common.Address) common.Hash {
 }
 
 // GetState retrieves a value from the given account's storage trie.
-func (s *StateDB) GetState(addr common.Address, hash common.Hash) common.Hash {
+func (s *StateDB) GetState(addr common.Address, hash common.Hash) common.StorageValue {
 	stateObject := s.getStateObject(addr)
 	if stateObject != nil {
 		return stateObject.GetState(hash)
 	}
-	return common.Hash{}
+	return common.StorageValue{}
 }
 
 // GetCommittedState retrieves a value from the given account's committed storage trie.
-func (s *StateDB) GetCommittedState(addr common.Address, hash common.Hash) common.Hash {
+func (s *StateDB) GetCommittedState(addr common.Address, hash common.Hash) common.StorageValue {
 	stateObject := s.getStateObject(addr)
 	if stateObject != nil {
 		return stateObject.GetCommittedState(hash)
 	}
-	return common.Hash{}
+	return common.StorageValue{}
 }
 
 // Database retrieves the low level database supporting the lower level trie ops.
@@ -398,7 +398,7 @@ func (s *StateDB) SetCode(addr common.Address, code []byte) {
 	}
 }
 
-func (s *StateDB) SetState(addr common.Address, key, value common.Hash) {
+func (s *StateDB) SetState(addr common.Address, key common.Hash, value common.StorageValue) {
 	stateObject := s.GetOrNewStateObject(addr)
 	if stateObject != nil {
 		stateObject.SetState(key, value)
@@ -408,7 +408,7 @@ func (s *StateDB) SetState(addr common.Address, key, value common.Hash) {
 // SetStorage replaces the entire storage for the specified account with given
 // storage. This function should only be used for debugging and the mutations
 // must be discarded afterwards.
-func (s *StateDB) SetStorage(addr common.Address, storage map[common.Hash]common.Hash) {
+func (s *StateDB) SetStorage(addr common.Address, storage map[common.Hash]common.StorageValue) {
 	// SetStorage needs to wipe existing storage. We achieve this by pretending
 	// that the account self-destructed earlier in this block, by flagging
 	// it in stateObjectsDestruct. The effect of doing so is that storage lookups

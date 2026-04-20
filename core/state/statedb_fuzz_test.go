@@ -74,7 +74,8 @@ func newStateTestAction(addr common.Address, r *rand.Rand, index int) testAction
 		{
 			name: "SetState",
 			fn: func(a testAction, s *StateDB) {
-				var key, val common.Hash
+				var key common.Hash
+				var val common.StorageValue
 				binary.BigEndian.PutUint16(key[:], uint16(a.args[0]))
 				binary.BigEndian.PutUint16(val[:], uint16(a.args[1]))
 				s.SetState(addr, key, val)

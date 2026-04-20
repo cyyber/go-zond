@@ -36,7 +36,7 @@ import (
 )
 
 // Storage represents a contract's storage.
-type Storage map[common.Hash]common.Hash
+type Storage map[common.Hash]common.StorageValue
 
 // Copy duplicates the current storage.
 func (s Storage) Copy() Storage {
@@ -70,7 +70,7 @@ type StructLog struct {
 	MemorySize    int                         `json:"memSize"`
 	Stack         []uint512.Int               `json:"stack"`
 	ReturnData    []byte                      `json:"returnData,omitempty"`
-	Storage       map[common.Hash]common.Hash `json:"-"`
+	Storage       map[common.Hash]common.StorageValue `json:"-"`
 	Depth         int                         `json:"depth"`
 	RefundCounter uint64                      `json:"refund"`
 	Err           error                       `json:"-"`
@@ -194,7 +194,7 @@ func (l *StructLogger) CaptureState(pc uint64, op vm.OpCode, gas, cost uint64, s
 		} else if op == vm.SSTORE && stackLen >= 2 {
 			// capture SSTORE opcodes and record the written entry in the local storage.
 			var (
-				value   = common.Hash(stackData[stackLen-2].Bytes32())
+				value   = common.StorageValue(stackData[stackLen-2].Bytes64())
 				address = common.Hash(stackData[stackLen-1].Bytes32())
 			)
 			l.storage[contract.Address()][address] = value

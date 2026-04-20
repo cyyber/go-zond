@@ -347,11 +347,11 @@ func (g Alloc) OnAccount(addr *common.Address, dumpAccount state.DumpAccount) {
 		return
 	}
 	balance, _ := new(big.Int).SetString(dumpAccount.Balance, 10)
-	var storage map[common.Hash]common.Hash
+	var storage map[common.Hash]common.StorageValue
 	if dumpAccount.Storage != nil {
-		storage = make(map[common.Hash]common.Hash)
+		storage = make(map[common.Hash]common.StorageValue)
 		for k, v := range dumpAccount.Storage {
-			storage[k] = common.HexToHash(v)
+			storage[k] = common.HexToStorageValue(v)
 		}
 	}
 	genesisAccount := core.GenesisAccount{

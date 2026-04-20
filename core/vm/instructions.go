@@ -520,7 +520,7 @@ func opSstore(pc *uint64, interpreter *QRVMInterpreter, scope *ScopeContext) ([]
 	}
 	loc := scope.Stack.pop()
 	val := scope.Stack.pop()
-	interpreter.qrvm.StateDB.SetState(scope.Contract.Address(), loc.Bytes32(), val.Bytes32())
+	interpreter.qrvm.StateDB.SetState(scope.Contract.Address(), loc.Bytes32(), common.StorageValue(val.Bytes64()))
 	return nil, nil
 }
 

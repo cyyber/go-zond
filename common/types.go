@@ -38,6 +38,10 @@ const (
 	HashLength = 32
 	// AddressLength is the expected length of the address
 	AddressLength = 48
+	// StorageValueLength is the width of a persistent storage slot value, in
+	// bytes. It matches the VM stack word so that a 512-bit value pushed by a
+	// contract round-trips through SSTORE/SLOAD without truncation.
+	StorageValueLength = 64
 )
 
 var (
@@ -206,6 +210,76 @@ func (h *UnprefixedHash) UnmarshalText(input []byte) error {
 // MarshalText encodes the hash as hex.
 func (h UnprefixedHash) MarshalText() ([]byte, error) {
 	return []byte(hex.EncodeToString(h[:])), nil
+}
+
+/////////// StorageValue
+
+// StorageValue is the 64-byte value of a persistent storage slot. Slot keys
+// remain 32 bytes (they are Keccak-256 hashes produced by contracts) but a
+// value can hold a full 512-bit VM word — most importantly the 48-byte
+// address type, which does not fit in 32 bytes.
+type StorageValue [StorageValueLength]byte
+
+// BytesToStorageValue copies b into a StorageValue, right-aligned. If b is
+// longer than StorageValueLength it is cropped from the left.
+func BytesToStorageValue(b []byte) StorageValue {
+	var v StorageValue
+	v.SetBytes(b)
+	return v
+}
+
+// HexToStorageValue parses a hex string (with or without 0x prefix) into a
+// StorageValue.
+func HexToStorageValue(s string) StorageValue { return BytesToStorageValue(FromHex(s)) }
+
+// Bytes returns a copy of v's bytes.
+func (v StorageValue) Bytes() []byte { return v[:] }
+
+// Hex returns v as a 0x-prefixed lowercase hex string.
+func (v StorageValue) Hex() string { return hexutil.Encode(v[:]) }
+
+// Big returns v interpreted as a big-endian unsigned integer.
+func (v StorageValue) Big() *big.Int { return new(big.Int).SetBytes(v[:]) }
+
+// String implements fmt.Stringer.
+func (v StorageValue) String() string { return v.Hex() }
+
+// IsZero reports whether v is the zero value.
+func (v StorageValue) IsZero() bool {
+	for _, b := range v {
+		if b != 0 {
+			return false
+		}
+	}
+	return true
+}
+
+// SetBytes copies b into v, right-aligned. If b is longer than
+// StorageValueLength the most-significant bytes are dropped.
+func (v *StorageValue) SetBytes(b []byte) {
+	if len(b) > len(v) {
+		b = b[len(b)-StorageValueLength:]
+	}
+	// Zero first to avoid leaving stale bytes in the MSB region.
+	for i := range v {
+		v[i] = 0
+	}
+	copy(v[StorageValueLength-len(b):], b)
+}
+
+// MarshalText encodes v as a 0x-prefixed hex string.
+func (v StorageValue) MarshalText() ([]byte, error) {
+	return hexutil.Bytes(v[:]).MarshalText()
+}
+
+// UnmarshalText decodes v from a 0x-prefixed hex string.
+func (v *StorageValue) UnmarshalText(input []byte) error {
+	return hexutil.UnmarshalFixedText("StorageValue", input, v[:])
+}
+
+// UnmarshalJSON decodes v from a JSON-quoted hex string.
+func (v *StorageValue) UnmarshalJSON(input []byte) error {
+	return hexutil.UnmarshalFixedJSON(reflect.TypeFor[StorageValue](), input, v[:])
 }
 
 /////////// Address

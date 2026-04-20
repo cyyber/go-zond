@@ -558,8 +558,8 @@ type OverrideAccount struct {
 	Nonce     *hexutil.Uint64              `json:"nonce"`
 	Code      *hexutil.Bytes               `json:"code"`
 	Balance   **hexutil.Big                `json:"balance"`
-	State     *map[common.Hash]common.Hash `json:"state"`
-	StateDiff *map[common.Hash]common.Hash `json:"stateDiff"`
+	State     *map[common.Hash]common.StorageValue `json:"state"`
+	StateDiff *map[common.Hash]common.StorageValue `json:"stateDiff"`
 }
 
 // StateOverride is the collection of overridden accounts.

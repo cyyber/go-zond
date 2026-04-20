@@ -45,7 +45,7 @@ var (
 	testContract, _ = common.NewAddressFromString("Q000000000000000000000000000000000000beef")
 	testEmpty, _    = common.NewAddressFromString("Q000000000000000000000000000000000000eeee")
 	testSlot        = common.HexToHash("0xdeadbeef")
-	testValue       = crypto.Keccak256Hash(testSlot[:])
+	testValue       = common.BytesToStorageValue(crypto.Keccak256Hash(testSlot[:]).Bytes())
 	testBalance     = big.NewInt(2e18)
 )
 
@@ -83,7 +83,7 @@ func generateTestChain() (*core.Genesis, []*types.Block) {
 	genesis := &core.Genesis{
 		Config: params.AllBeaconProtocolChanges,
 		Alloc: core.GenesisAlloc{
-			testAddr:     {Balance: testBalance, Storage: map[common.Hash]common.Hash{testSlot: testValue}},
+			testAddr:     {Balance: testBalance, Storage: map[common.Hash]common.StorageValue{testSlot: testValue}},
 			testContract: {Nonce: 1, Code: []byte{0x13, 0x37}},
 			testEmpty:    {Balance: big.NewInt(1)},
 		},

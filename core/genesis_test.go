@@ -38,11 +38,11 @@ func TestSetupGenesis(t *testing.T) {
 
 func testSetupGenesis(t *testing.T, scheme string) {
 	var (
-		customghash = common.HexToHash("0xc0e6059049a4044d430f4075255f2cc0c5c37fa821fc57243f5f5cc36c9c43b0")
+		customghash = common.HexToHash("0xf7a1900c3b4e5ddd9267138c604f43fa38c40c5f9563fd71c3202386393bfb50")
 		customg     = Genesis{
 			Config: &params.ChainConfig{},
 			Alloc: GenesisAlloc{
-				{1}: {Balance: big.NewInt(1), Storage: map[common.Hash]common.Hash{{1}: {1}}},
+				{1}: {Balance: big.NewInt(1), Storage: map[common.Hash]common.StorageValue{{1}: {1}}},
 			},
 		}
 		oldcustomg = customg
@@ -247,8 +247,8 @@ func TestReadWriteGenesisAlloc(t *testing.T) {
 	var (
 		db    = rawdb.NewMemoryDatabase()
 		alloc = &GenesisAlloc{
-			{1}: {Balance: big.NewInt(1), Storage: map[common.Hash]common.Hash{{1}: {1}}},
-			{2}: {Balance: big.NewInt(2), Storage: map[common.Hash]common.Hash{{2}: {2}}},
+			{1}: {Balance: big.NewInt(1), Storage: map[common.Hash]common.StorageValue{{1}: {1}}},
+			{2}: {Balance: big.NewInt(2), Storage: map[common.Hash]common.StorageValue{{2}: {2}}},
 		}
 		hash, _ = alloc.deriveHash()
 	)

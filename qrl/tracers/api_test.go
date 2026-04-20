@@ -488,9 +488,9 @@ func TestTracingWithOverrides(t *testing.T) {
 			// An account with existing storage
 			storageAccount: {
 				Balance: new(big.Int),
-				Storage: map[common.Hash]common.Hash{
-					common.HexToHash("0x03"): common.HexToHash("0x33"),
-					common.HexToHash("0x04"): common.HexToHash("0x44"),
+				Storage: map[common.Hash]common.StorageValue{
+					common.HexToHash("0x03"): common.HexToStorageValue("0x33"),
+					common.HexToHash("0x04"): common.HexToStorageValue("0x44"),
 				},
 			},
 		},
@@ -770,8 +770,8 @@ func TestTracingWithOverrides(t *testing.T) {
 							byte(vm.PUSH1), 00,
 							byte(vm.RETURN),
 						}),
-						StateDiff: &map[common.Hash]common.Hash{
-							common.HexToHash("0x03"): common.HexToHash("0x11"),
+						StateDiff: &map[common.Hash]common.StorageValue{
+							common.HexToHash("0x03"): common.HexToStorageValue("0x11"),
 						},
 					},
 				},
@@ -834,13 +834,13 @@ func newRPCBytes(bytes []byte) *hexutil.Bytes {
 	return &rpcBytes
 }
 
-func newStates(keys []common.Hash, vals []common.Hash) *map[common.Hash]common.Hash {
+func newStates(keys []common.Hash, vals []common.Hash) *map[common.Hash]common.StorageValue {
 	if len(keys) != len(vals) {
 		panic("invalid input")
 	}
-	m := make(map[common.Hash]common.Hash)
+	m := make(map[common.Hash]common.StorageValue)
 	for i := range keys {
-		m[keys[i]] = vals[i]
+		m[keys[i]] = common.BytesToStorageValue(vals[i].Bytes())
 	}
 	return &m
 }
