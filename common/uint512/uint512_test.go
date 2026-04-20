@@ -55,16 +55,17 @@ func TestSubWraps(t *testing.T) {
 	a := NewInt(0)
 	b := NewInt(1)
 	z := new(Int).Sub(a, b)
-	want := new(big.Int).Sub(modulus, big.NewInt(1))
-	if z.ToBig().Cmp(want) != 0 {
+	// 0 - 1 (mod 2^512) = 2^512 - 1 = AllOne
+	want := new(Int).SetAllOne()
+	if !z.Eq(want) {
 		t.Fatalf("0-1 should be 2^512-1")
 	}
 }
 
 func TestMulWraps(t *testing.T) {
 	// (2^256) * (2^256) = 2^512 ≡ 0 (mod 2^512)
-	a := new(Int)
-	a.v.Lsh(big.NewInt(1), 256)
+	a := NewInt(1)
+	a.Lsh(a, 256)
 	z := new(Int).Mul(a, a)
 	if !z.IsZero() {
 		t.Fatalf("2^256 * 2^256 should be 0, got %x", z.ToBig())
@@ -72,8 +73,7 @@ func TestMulWraps(t *testing.T) {
 }
 
 func TestBytes64RoundTrip(t *testing.T) {
-	z := new(Int)
-	z.v.Set(maskAll) // 2^512 - 1
+	z := new(Int).SetAllOne() // 2^512 - 1
 	b := z.Bytes64()
 	for i, x := range b {
 		if x != 0xff {
@@ -99,8 +99,10 @@ func TestByte(t *testing.T) {
 func TestLshRsh(t *testing.T) {
 	z := NewInt(1)
 	z.Lsh(z, 511)
-	// Should equal signBit
-	if z.v.Cmp(signBit) != 0 {
+	// Should equal 2^511 — only the top bit of limb 7 set.
+	want := new(Int)
+	want[7] = 1 << 63
+	if !z.Eq(want) {
 		t.Fatal("Lsh to bit 511 mismatch")
 	}
 	z.Lsh(z, 1) // 2^512 masked to 0
