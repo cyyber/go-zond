@@ -28,13 +28,13 @@ import (
 	"github.com/theQRL/go-qrl/common/hexutil"
 	"github.com/theQRL/go-qrl/core/rawdb"
 	"github.com/theQRL/go-qrl/core/types"
-	"github.com/theQRL/go-qrl/crypto/pqcrypto/wallet"
+	"github.com/theQRL/go-qrl/internal/testutil"
 	"github.com/theQRL/go-qrl/rlp"
 	"github.com/theQRL/go-qrl/trie"
 )
 
 func TestDeriveSha(t *testing.T) {
-	txs, err := genTxs(0)
+	txs, err := genTxs(t, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -44,7 +44,7 @@ func TestDeriveSha(t *testing.T) {
 		if !bytes.Equal(got[:], exp[:]) {
 			t.Fatalf("%d txs: got %x exp %x", len(txs), got, exp)
 		}
-		newTxs, err := genTxs(uint64(len(txs) + 1))
+		newTxs, err := genTxs(t, uint64(len(txs)+1))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -77,7 +77,7 @@ func TestEIP2718DeriveSha(t *testing.T) {
 }
 
 func BenchmarkDeriveSha200(b *testing.B) {
-	txs, err := genTxs(200)
+	txs, err := genTxs(b, 200)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -142,12 +142,10 @@ func TestDerivableList(t *testing.T) {
 	}
 }
 
-func genTxs(num uint64) (types.Transactions, error) {
-	wallet, err := wallet.RestoreFromSeedHex("0x010000deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef00000000000000000000000000000000")
-	if err != nil {
-		return nil, err
-	}
-	var addr = common.Address(wallet.GetAddress())
+func genTxs(tb testing.TB, num uint64) (types.Transactions, error) {
+	acc := testutil.LoadAccount(tb, "alice")
+	wallet := acc.Wallet(tb)
+	addr := acc.AddressBytes(tb)
 	newTx := func(i uint64) (*types.Transaction, error) {
 		signer := types.NewZondSigner(big.NewInt(18))
 		utx := types.NewTx(&types.DynamicFeeTx{

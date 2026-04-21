@@ -64,6 +64,8 @@ func BenchmarkInsertChain_ring1000_diskdb(b *testing.B) {
 
 var (
 	// This is the content of the genesis block used by the benchmarks.
+	// NOTE: package-level initialization cannot use testutil.LoadAccount (needs *testing.T);
+	// keep the literal seed here until we have a MustLoadAccount variant.
 	benchRootWallet, _ = wallet.RestoreFromSeedHex("0x010000b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f29100000000000000000000000000000000")
 	benchRootAddr      = common.Address(benchRootWallet.GetAddress())
 	benchRootFunds     = math.BigPow(2, 200)

@@ -28,9 +28,9 @@ import (
 
 	"github.com/theQRL/go-qrl/common"
 	"github.com/theQRL/go-qrl/core/types"
-	"github.com/theQRL/go-qrl/crypto/pqcrypto/wallet"
 	"github.com/theQRL/go-qrl/params"
 	"github.com/theQRL/go-qrl/rlp"
+	"github.com/theQRL/go-qrl/internal/testutil"
 	"golang.org/x/crypto/sha3"
 )
 
@@ -580,7 +580,7 @@ func BenchmarkWriteAncientBlocks(b *testing.B) {
 	// individually for each block, just make one batch here and reuse it for all writes.
 	const batchSize = 128
 	const blockTxs = 20
-	allBlocks := makeTestBlocks(b.N, blockTxs)
+	allBlocks := makeTestBlocks(b, b.N, blockTxs)
 	batchReceipts := makeTestReceipts(batchSize, blockTxs)
 
 	// The benchmark loop writes batches of blocks, but note that the total block count is
@@ -607,8 +607,8 @@ func BenchmarkWriteAncientBlocks(b *testing.B) {
 }
 
 // makeTestBlocks creates fake blocks for the ancient write benchmark.
-func makeTestBlocks(nblock int, txsPerBlock int) []*types.Block {
-	wallet, _ := wallet.RestoreFromSeedHex("0x010000b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f29100000000000000000000000000000000")
+func makeTestBlocks(tb testing.TB, nblock int, txsPerBlock int) []*types.Block {
+	wallet := testutil.LoadAccount(tb, "alice").Wallet(tb)
 	signer := types.LatestSignerForChainID(big.NewInt(8))
 
 	// Create transactions.

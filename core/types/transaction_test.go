@@ -28,6 +28,7 @@ import (
 	"github.com/theQRL/go-qrl/common"
 	"github.com/theQRL/go-qrl/crypto/pqcrypto/wallet"
 	"github.com/theQRL/go-qrl/rlp"
+	"github.com/theQRL/go-qrl/internal/testutil"
 	walletmldsa87 "github.com/theQRL/go-qrllib/wallet/ml_dsa_87"
 )
 
@@ -436,7 +437,7 @@ func assertEqual(orig *Transaction, cpy *Transaction) error {
 
 func TestTransactionSizes(t *testing.T) {
 	signer := NewZondSigner(big.NewInt(123))
-	wallet, _ := wallet.RestoreFromSeedHex("0x010000b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f29100000000000000000000000000000000")
+	wallet := testutil.LoadAccount(t, "alice").Wallet(t)
 	to, _ := common.NewAddressFromString("Q0000000000000000000000000000000000000001")
 	for i, txdata := range []TxData{
 		&DynamicFeeTx{

@@ -140,6 +140,8 @@ func TestGenerateWithdrawalChain(t *testing.T) {
 }
 
 func ExampleGenerateChain() {
+	// Example functions have no testing.TB; keep literal seeds here until the
+	// generator exposes a MustLoadAccount variant suitable for package init.
 	var (
 		wallet1, _ = wallet.RestoreFromSeedHex("0x010000b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f29100000000000000000000000000000000")
 		wallet2, _ = wallet.RestoreFromSeedHex("0x0100008a1f9a8f95be41cd7ccb6168179afb4504aefe388d1e14474d32c45c72ce7b7a00000000000000000000000000000000")
