@@ -16,7 +16,7 @@ var _ = (*logMarshaling)(nil)
 func (l Log) MarshalJSON() ([]byte, error) {
 	type Log struct {
 		Address     common.Address `json:"address" gencodec:"required"`
-		Topics      []common.Hash  `json:"topics" gencodec:"required"`
+		Topics      []common.LogTopic `json:"topics" gencodec:"required"`
 		Data        hexutil.Bytes  `json:"data" gencodec:"required"`
 		BlockNumber hexutil.Uint64 `json:"blockNumber" rlp:"-"`
 		TxHash      common.Hash    `json:"transactionHash" gencodec:"required" rlp:"-"`
@@ -42,7 +42,7 @@ func (l Log) MarshalJSON() ([]byte, error) {
 func (l *Log) UnmarshalJSON(input []byte) error {
 	type Log struct {
 		Address     *common.Address `json:"address" gencodec:"required"`
-		Topics      []common.Hash   `json:"topics" gencodec:"required"`
+		Topics      []common.LogTopic `json:"topics" gencodec:"required"`
 		Data        *hexutil.Bytes  `json:"data" gencodec:"required"`
 		BlockNumber *hexutil.Uint64 `json:"blockNumber" rlp:"-"`
 		TxHash      *common.Hash    `json:"transactionHash" gencodec:"required" rlp:"-"`

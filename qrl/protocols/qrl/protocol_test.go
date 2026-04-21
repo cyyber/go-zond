@@ -171,7 +171,7 @@ func TestMessages(t *testing.T) {
 				Logs: []*types.Log{
 					{
 						Address: common.BytesToAddress([]byte{0x11}),
-						Topics:  []common.Hash{common.HexToHash("dead"), common.HexToHash("beef")},
+						Topics:  []common.LogTopic{common.HexToLogTopic("dead"), common.HexToLogTopic("beef")},
 						Data:    []byte{0x01, 0x00, 0xff},
 					},
 				},

@@ -38,6 +38,9 @@ const (
 	HashLength = 32
 	// AddressLength is the expected length of the address
 	AddressLength = 48
+	// LogTopicLength is the width of a log topic, in bytes.
+	LogTopicLength = 64
+
 	// StorageValueLength is the width of a persistent storage slot value, in
 	// bytes. It matches the VM stack word so that a 512-bit value pushed by a
 	// contract round-trips through SSTORE/SLOAD without truncation.
@@ -212,6 +215,83 @@ func (h UnprefixedHash) MarshalText() ([]byte, error) {
 	return []byte(hex.EncodeToString(h[:])), nil
 }
 
+/////////// LogTopic
+
+// LogTopic is the 64-byte topic of a contract event. Topics hold ABI-encoded
+// indexed event arguments; 48-byte addresses and 512-bit VM words need the
+// full width.
+type LogTopic [LogTopicLength]byte
+
+// BytesToLogTopic copies b into a LogTopic, right-aligned.
+func BytesToLogTopic(b []byte) LogTopic {
+	var t LogTopic
+	t.SetBytes(b)
+	return t
+}
+
+// HexToLogTopic parses a hex string into a LogTopic.
+func HexToLogTopic(s string) LogTopic { return BytesToLogTopic(FromHex(s)) }
+
+// Bytes returns a slice view of the topic.
+func (t LogTopic) Bytes() []byte { return t[:] }
+
+// Hex returns t as a 0x-prefixed lowercase hex string.
+func (t LogTopic) Hex() string { return hexutil.Encode(t[:]) }
+
+// Big returns t interpreted as a big-endian unsigned integer.
+func (t LogTopic) Big() *big.Int { return new(big.Int).SetBytes(t[:]) }
+
+// String implements fmt.Stringer.
+func (t LogTopic) String() string { return t.Hex() }
+
+// IsZero reports whether t is the zero topic.
+func (t LogTopic) IsZero() bool {
+	for _, b := range t {
+		if b != 0 {
+			return false
+		}
+	}
+	return true
+}
+
+// SetBytes copies b into t, right-aligned.
+func (t *LogTopic) SetBytes(b []byte) {
+	if len(b) > len(t) {
+		b = b[len(b)-LogTopicLength:]
+	}
+	for i := range t {
+		t[i] = 0
+	}
+	copy(t[LogTopicLength-len(b):], b)
+}
+
+// MarshalText encodes t as a 0x-prefixed hex string.
+func (t LogTopic) MarshalText() ([]byte, error) {
+	return hexutil.Bytes(t[:]).MarshalText()
+}
+
+// UnmarshalText decodes t from a 0x-prefixed hex string.
+func (t *LogTopic) UnmarshalText(input []byte) error {
+	return hexutil.UnmarshalFixedText("LogTopic", input, t[:])
+}
+
+// UnmarshalJSON decodes t from a JSON-quoted hex string.
+func (t *LogTopic) UnmarshalJSON(input []byte) error {
+	return hexutil.UnmarshalFixedJSON(reflect.TypeFor[LogTopic](), input, t[:])
+}
+
+// ImplementsGraphQLType reports whether LogTopic satisfies the Bytes64 scalar.
+func (LogTopic) ImplementsGraphQLType(name string) bool { return name == "Bytes64" }
+
+// UnmarshalGraphQL decodes t from a 0x-prefixed hex string supplied by a GraphQL query.
+func (t *LogTopic) UnmarshalGraphQL(input any) error {
+	s, ok := input.(string)
+	if !ok {
+		return fmt.Errorf("unexpected type %T for Bytes64", input)
+	}
+	return t.UnmarshalText([]byte(s))
+}
+
 /////////// StorageValue
 
 // StorageValue is the 64-byte value of a persistent storage slot. Slot keys
@@ -280,6 +360,18 @@ func (v *StorageValue) UnmarshalText(input []byte) error {
 // UnmarshalJSON decodes v from a JSON-quoted hex string.
 func (v *StorageValue) UnmarshalJSON(input []byte) error {
 	return hexutil.UnmarshalFixedJSON(reflect.TypeFor[StorageValue](), input, v[:])
+}
+
+// ImplementsGraphQLType reports whether StorageValue satisfies the Bytes64 scalar.
+func (StorageValue) ImplementsGraphQLType(name string) bool { return name == "Bytes64" }
+
+// UnmarshalGraphQL decodes v from a 0x-prefixed hex string supplied by a GraphQL query.
+func (v *StorageValue) UnmarshalGraphQL(input any) error {
+	s, ok := input.(string)
+	if !ok {
+		return fmt.Errorf("unexpected type %T for Bytes64", input)
+	}
+	return v.UnmarshalText([]byte(s))
 }
 
 /////////// Address

@@ -162,7 +162,7 @@ func (l *Log) Index(ctx context.Context) hexutil.Uint64 {
 	return hexutil.Uint64(l.log.Index)
 }
 
-func (l *Log) Topics(ctx context.Context) []common.Hash {
+func (l *Log) Topics(ctx context.Context) []common.LogTopic {
 	return l.log.Topics
 }
 
@@ -933,7 +933,7 @@ type BlockFilterCriteria struct {
 	// {{}, {B}}          matches any topic in first position, B in second position
 	// {{A}, {B}}         matches topic A in first position, B in second position
 	// {{A, B}}, {C, D}}  matches topic (A OR B) in first position, (C OR D) in second position
-	Topics *[][]common.Hash
+	Topics *[][]common.LogTopic
 }
 
 // runFilter accepts a filter and executes it, returning all its results as
@@ -959,7 +959,7 @@ func (b *Block) Logs(ctx context.Context, args struct{ Filter BlockFilterCriteri
 	if args.Filter.Addresses != nil {
 		addresses = *args.Filter.Addresses
 	}
-	var topics [][]common.Hash
+	var topics [][]common.LogTopic
 	if args.Filter.Topics != nil {
 		topics = *args.Filter.Topics
 	}
@@ -1228,7 +1228,7 @@ type FilterCriteria struct {
 	// {{}, {B}}          matches any topic in first position, B in second position
 	// {{A}, {B}}         matches topic A in first position, B in second position
 	// {{A, B}}, {C, D}}  matches topic (A OR B) in first position, (C OR D) in second position
-	Topics *[][]common.Hash
+	Topics *[][]common.LogTopic
 }
 
 func (r *Resolver) Logs(ctx context.Context, args struct{ Filter FilterCriteria }) ([]*Log, error) {
@@ -1248,7 +1248,7 @@ func (r *Resolver) Logs(ctx context.Context, args struct{ Filter FilterCriteria 
 	if args.Filter.Addresses != nil {
 		addresses = *args.Filter.Addresses
 	}
-	var topics [][]common.Hash
+	var topics [][]common.LogTopic
 	if args.Filter.Topics != nil {
 		topics = *args.Filter.Topics
 	}

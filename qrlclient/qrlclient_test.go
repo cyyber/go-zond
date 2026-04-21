@@ -75,7 +75,7 @@ func TestToFilterArg(t *testing.T) {
 				Addresses: addresses,
 				FromBlock: big.NewInt(1),
 				ToBlock:   big.NewInt(2),
-				Topics:    [][]common.Hash{},
+				Topics:    [][]common.LogTopic{},
 			},
 			map[string]any{
 				"address":   addresses,
@@ -89,7 +89,7 @@ func TestToFilterArg(t *testing.T) {
 			"with nil fromBlock and nil toBlock",
 			qrl.FilterQuery{
 				Addresses: addresses,
-				Topics:    [][]common.Hash{},
+				Topics:    [][]common.LogTopic{},
 			},
 			map[string]any{
 				"address":   addresses,
@@ -105,7 +105,7 @@ func TestToFilterArg(t *testing.T) {
 				Addresses: addresses,
 				FromBlock: big.NewInt(-1),
 				ToBlock:   big.NewInt(-1),
-				Topics:    [][]common.Hash{},
+				Topics:    [][]common.LogTopic{},
 			},
 			map[string]any{
 				"address":   addresses,
@@ -120,7 +120,7 @@ func TestToFilterArg(t *testing.T) {
 			qrl.FilterQuery{
 				Addresses: addresses,
 				BlockHash: &blockHash,
-				Topics:    [][]common.Hash{},
+				Topics:    [][]common.LogTopic{},
 			},
 			map[string]any{
 				"address":   addresses,
@@ -135,7 +135,7 @@ func TestToFilterArg(t *testing.T) {
 				Addresses: addresses,
 				BlockHash: &blockHash,
 				FromBlock: big.NewInt(1),
-				Topics:    [][]common.Hash{},
+				Topics:    [][]common.LogTopic{},
 			},
 			nil,
 			blockHashErr,
@@ -146,7 +146,7 @@ func TestToFilterArg(t *testing.T) {
 				Addresses: addresses,
 				BlockHash: &blockHash,
 				ToBlock:   big.NewInt(1),
-				Topics:    [][]common.Hash{},
+				Topics:    [][]common.LogTopic{},
 			},
 			nil,
 			blockHashErr,
@@ -158,7 +158,7 @@ func TestToFilterArg(t *testing.T) {
 				BlockHash: &blockHash,
 				FromBlock: big.NewInt(1),
 				ToBlock:   big.NewInt(2),
-				Topics:    [][]common.Hash{},
+				Topics:    [][]common.LogTopic{},
 			},
 			nil,
 			blockHashErr,

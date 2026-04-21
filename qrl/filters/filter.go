@@ -33,7 +33,7 @@ type Filter struct {
 	sys *FilterSystem
 
 	addresses []common.Address
-	topics    [][]common.Hash
+	topics [][]common.LogTopic
 
 	block      *common.Hash // Block hash if filtering a single block
 	begin, end int64        // Range interval if filtering multiple blocks
@@ -43,7 +43,7 @@ type Filter struct {
 
 // NewRangeFilter creates a new filter which uses a bloom filter on blocks to
 // figure out whether a particular block is interesting or not.
-func (sys *FilterSystem) NewRangeFilter(begin, end int64, addresses []common.Address, topics [][]common.Hash) *Filter {
+func (sys *FilterSystem) NewRangeFilter(begin, end int64, addresses []common.Address, topics [][]common.LogTopic) *Filter {
 	// Flatten the address and topic filter clauses into a single bloombits filter
 	// system. Since the bloombits are not positional, nil topics are permitted,
 	// which get flattened into a nil byte slice.
@@ -76,7 +76,7 @@ func (sys *FilterSystem) NewRangeFilter(begin, end int64, addresses []common.Add
 
 // NewBlockFilter creates a new filter which directly inspects the contents of
 // a block to figure out whether it is interesting or not.
-func (sys *FilterSystem) NewBlockFilter(block common.Hash, addresses []common.Address, topics [][]common.Hash) *Filter {
+func (sys *FilterSystem) NewBlockFilter(block common.Hash, addresses []common.Address, topics [][]common.LogTopic) *Filter {
 	// Create a generic filter and convert it into a block filter
 	filter := newFilter(sys, addresses, topics)
 	filter.block = &block
@@ -85,7 +85,7 @@ func (sys *FilterSystem) NewBlockFilter(block common.Hash, addresses []common.Ad
 
 // newFilter creates a generic filter that can either filter based on a block hash,
 // or based on range queries. The search criteria needs to be explicitly set.
-func newFilter(sys *FilterSystem, addresses []common.Address, topics [][]common.Hash) *Filter {
+func newFilter(sys *FilterSystem, addresses []common.Address, topics [][]common.LogTopic) *Filter {
 	return &Filter{
 		sys:       sys,
 		addresses: addresses,
@@ -314,7 +314,7 @@ func (f *Filter) checkMatches(ctx context.Context, header *types.Header) ([]*typ
 }
 
 // filterLogs creates a slice of logs matching the given criteria.
-func filterLogs(logs []*types.Log, fromBlock, toBlock *big.Int, addresses []common.Address, topics [][]common.Hash) []*types.Log {
+func filterLogs(logs []*types.Log, fromBlock, toBlock *big.Int, addresses []common.Address, topics [][]common.LogTopic) []*types.Log {
 	var check = func(log *types.Log) bool {
 		if fromBlock != nil && fromBlock.Int64() >= 0 && fromBlock.Uint64() > log.BlockNumber {
 			return false
@@ -348,7 +348,7 @@ func filterLogs(logs []*types.Log, fromBlock, toBlock *big.Int, addresses []comm
 	return ret
 }
 
-func bloomFilter(bloom types.Bloom, addresses []common.Address, topics [][]common.Hash) bool {
+func bloomFilter(bloom types.Bloom, addresses []common.Address, topics [][]common.LogTopic) bool {
 	if len(addresses) > 0 {
 		var included bool
 		for _, addr := range addresses {

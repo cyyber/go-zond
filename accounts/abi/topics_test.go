@@ -35,25 +35,25 @@ func TestMakeTopics(t *testing.T) {
 	tests := []struct {
 		name    string
 		args    args
-		want    [][]common.Hash
+		want    [][]common.LogTopic
 		wantErr bool
 	}{
 		{
 			"support fixed byte types, right padded to 32 bytes",
 			args{[][]any{{[5]byte{1, 2, 3, 4, 5}}}},
-			[][]common.Hash{{common.Hash{1, 2, 3, 4, 5}}},
+			[][]common.LogTopic{{common.LogTopic{1, 2, 3, 4, 5}}},
 			false,
 		},
 		{
 			"support common hash types in topics",
 			args{[][]any{{common.Hash{1, 2, 3, 4, 5}}}},
-			[][]common.Hash{{common.Hash{1, 2, 3, 4, 5}}},
+			[][]common.LogTopic{{common.LogTopic{1, 2, 3, 4, 5}}},
 			false,
 		},
 		{
 			"support address types in topics",
 			args{[][]any{{common.Address{1, 2, 3, 4, 5}}}},
-			[][]common.Hash{{common.Hash{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 4, 5}}},
+			[][]common.LogTopic{{common.LogTopic{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 4, 5}}},
 			false,
 		},
 		{
@@ -62,9 +62,9 @@ func TestMakeTopics(t *testing.T) {
 				{big.NewInt(1)},
 				{big.NewInt(1).Lsh(big.NewInt(2), 254)},
 			}},
-			[][]common.Hash{
-				{common.HexToHash("0000000000000000000000000000000000000000000000000000000000000001")},
-				{common.Hash{128}},
+			[][]common.LogTopic{
+				{common.HexToLogTopic("0000000000000000000000000000000000000000000000000000000000000001")},
+				{common.LogTopic{128}},
 			},
 			false,
 		},
@@ -74,9 +74,9 @@ func TestMakeTopics(t *testing.T) {
 				{big.NewInt(-1)},
 				{big.NewInt(math.MinInt64)},
 			}},
-			[][]common.Hash{
-				{common.MaxHash},
-				{common.HexToHash("ffffffffffffffffffffffffffffffffffffffffffffffff8000000000000000")},
+			[][]common.LogTopic{
+				{common.LogTopic{}},
+				{common.HexToLogTopic("ffffffffffffffffffffffffffffffffffffffffffffffff8000000000000000")},
 			},
 			false,
 		},
@@ -86,9 +86,9 @@ func TestMakeTopics(t *testing.T) {
 				{true},
 				{false},
 			}},
-			[][]common.Hash{
-				{common.Hash{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1}},
-				{common.Hash{0}},
+			[][]common.LogTopic{
+				{common.LogTopic{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1}},
+				{common.LogTopic{0}},
 			},
 			false,
 		},
@@ -108,32 +108,32 @@ func TestMakeTopics(t *testing.T) {
 				{uint32(65536)},
 				{uint64(4294967296)},
 			}},
-			[][]common.Hash{
-				{common.Hash{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 254}},
-				{common.Hash{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 253}},
-				{common.Hash{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 252}},
-				{common.Hash{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 251}},
-				{common.Hash{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1}},
-				{common.Hash{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0}},
-				{common.Hash{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0}},
-				{common.Hash{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0}},
-				{common.Hash{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1}},
-				{common.Hash{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0}},
-				{common.Hash{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0}},
-				{common.Hash{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0}},
+			[][]common.LogTopic{
+				{common.LogTopic{}},
+				{common.LogTopic{}},
+				{common.LogTopic{}},
+				{common.LogTopic{}},
+				{common.LogTopic{}},
+				{common.LogTopic{}},
+				{common.LogTopic{}},
+				{common.LogTopic{}},
+				{common.LogTopic{}},
+				{common.LogTopic{}},
+				{common.LogTopic{}},
+				{common.LogTopic{}},
 			},
 			false,
 		},
 		{
 			"support string types in topics",
 			args{[][]any{{"hello world"}}},
-			[][]common.Hash{{crypto.Keccak256Hash([]byte("hello world"))}},
+			[][]common.LogTopic{{common.BytesToLogTopic(crypto.Keccak256([]byte("hello world")))}},
 			false,
 		},
 		{
 			"support byte slice types in topics",
 			args{[][]any{{[]byte{1, 2, 3}}}},
-			[][]common.Hash{{crypto.Keccak256Hash([]byte{1, 2, 3})}},
+			[][]common.LogTopic{{common.BytesToLogTopic(crypto.Keccak256([]byte{1, 2, 3}))}},
 			false,
 		},
 	}
@@ -153,7 +153,7 @@ func TestMakeTopics(t *testing.T) {
 
 	t.Run("does not mutate big.Int", func(t *testing.T) {
 		t.Parallel()
-		want := [][]common.Hash{{common.HexToHash("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")}}
+		want := [][]common.LogTopic{{common.HexToLogTopic("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")}}
 
 		in := big.NewInt(-1)
 		got, err := MakeTopics([]any{in})
@@ -174,7 +174,7 @@ type args struct {
 	resultObj func() any
 	resultMap func() map[string]any
 	fields    Arguments
-	topics    []common.Hash
+	topics    []common.LogTopic
 }
 
 type bytesStruct struct {
@@ -223,7 +223,7 @@ func setupTopicsTests() []topicTest {
 					Type:    bytesType,
 					Indexed: true,
 				}},
-				topics: []common.Hash{
+				topics: []common.LogTopic{
 					{1, 2, 3, 4, 5},
 				},
 			},
@@ -242,7 +242,7 @@ func setupTopicsTests() []topicTest {
 					Type:    int8Type,
 					Indexed: true,
 				}},
-				topics: []common.Hash{
+				topics: []common.LogTopic{
 					{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
 						255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255},
 				},
@@ -262,7 +262,7 @@ func setupTopicsTests() []topicTest {
 					Type:    int256Type,
 					Indexed: true,
 				}},
-				topics: []common.Hash{
+				topics: []common.LogTopic{
 					{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
 						255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255},
 				},
@@ -282,8 +282,8 @@ func setupTopicsTests() []topicTest {
 					Type:    stringType,
 					Indexed: true,
 				}},
-				topics: []common.Hash{
-					crypto.Keccak256Hash([]byte("stringtopic")),
+				topics: []common.LogTopic{
+					common.BytesToLogTopic(crypto.Keccak256([]byte("stringtopic"))),
 				},
 			},
 			wantErr: false,
@@ -305,7 +305,7 @@ func setupTopicsTests() []topicTest {
 					Type:    funcType,
 					Indexed: true,
 				}},
-				topics: []common.Hash{
+				topics: []common.LogTopic{
 					{0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 255, 255, 255, 255,
 						255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255},
 				},
@@ -323,7 +323,7 @@ func setupTopicsTests() []topicTest {
 					Type:    tupleType,
 					Indexed: true,
 				}},
-				topics: []common.Hash{},
+				topics: []common.LogTopic{},
 			},
 			wantErr: true,
 		},
@@ -338,7 +338,7 @@ func setupTopicsTests() []topicTest {
 					Type:    int256Type,
 					Indexed: false,
 				}},
-				topics: []common.Hash{
+				topics: []common.LogTopic{
 					{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
 						255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255},
 				},
@@ -356,7 +356,7 @@ func setupTopicsTests() []topicTest {
 					Type:    tupleType,
 					Indexed: true,
 				}},
-				topics: []common.Hash{{0}},
+				topics: []common.LogTopic{{0}},
 			},
 			wantErr: true,
 		},
@@ -373,7 +373,7 @@ func setupTopicsTests() []topicTest {
 					Type:    funcType,
 					Indexed: true,
 				}},
-				topics: []common.Hash{
+				topics: []common.LogTopic{
 					{0, 0, 0, 0, 0, 0, 0, 128, 255, 255, 255, 255, 255, 255, 255, 255,
 						255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255},
 				},

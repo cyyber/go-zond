@@ -44,9 +44,9 @@ var unmarshalLogTests = map[string]struct {
 			Index:       2,
 			TxIndex:     3,
 			TxHash:      common.HexToHash("0x3b198bfd5d2907285af009e9ae84a0ecd63677110d89d7e030251acb87f6487e"),
-			Topics: []common.Hash{
-				common.HexToHash("0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"),
-				common.HexToHash("0x00000000000000000000000080b2c9d7cbbf30a1b0fc8983c647d754c6525615"),
+			Topics: []common.LogTopic{
+				common.HexToLogTopic("0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"),
+				common.HexToLogTopic("0x00000000000000000000000080b2c9d7cbbf30a1b0fc8983c647d754c6525615"),
 			},
 		},
 	},
@@ -60,9 +60,9 @@ var unmarshalLogTests = map[string]struct {
 			Index:       2,
 			TxIndex:     3,
 			TxHash:      common.HexToHash("0x3b198bfd5d2907285af009e9ae84a0ecd63677110d89d7e030251acb87f6487e"),
-			Topics: []common.Hash{
-				common.HexToHash("0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"),
-				common.HexToHash("0x00000000000000000000000080b2c9d7cbbf30a1b0fc8983c647d754c6525615"),
+			Topics: []common.LogTopic{
+				common.HexToLogTopic("0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"),
+				common.HexToLogTopic("0x00000000000000000000000080b2c9d7cbbf30a1b0fc8983c647d754c6525615"),
 			},
 		},
 	},
@@ -76,8 +76,8 @@ var unmarshalLogTests = map[string]struct {
 			Index:       0,
 			TxIndex:     3,
 			TxHash:      common.HexToHash("0x3b198bfd5d2907285af009e9ae84a0ecd63677110d89d7e030251acb87f6487e"),
-			Topics: []common.Hash{
-				common.HexToHash("0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"),
+			Topics: []common.LogTopic{
+				common.HexToLogTopic("0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"),
 			},
 		},
 	},
@@ -91,8 +91,8 @@ var unmarshalLogTests = map[string]struct {
 			Index:       2,
 			TxIndex:     3,
 			TxHash:      common.HexToHash("0x3b198bfd5d2907285af009e9ae84a0ecd63677110d89d7e030251acb87f6487e"),
-			Topics: []common.Hash{
-				common.HexToHash("0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"),
+			Topics: []common.LogTopic{
+				common.HexToLogTopic("0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"),
 			},
 			Removed: true,
 		},

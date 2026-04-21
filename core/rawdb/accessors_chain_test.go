@@ -659,7 +659,7 @@ func makeTestReceipts(n int, nPerBlock int) []types.Receipts {
 
 type fullLogRLP struct {
 	Address     common.Address
-	Topics      []common.Hash
+	Topics      []common.LogTopic
 	Data        []byte
 	BlockNumber uint64
 	TxHash      common.Hash

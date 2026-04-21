@@ -781,12 +781,12 @@ func makeLog(size int) executionFunc {
 		if interpreter.readOnly {
 			return nil, ErrWriteProtection
 		}
-		topics := make([]common.Hash, size)
+		topics := make([]common.LogTopic, size)
 		stack := scope.Stack
 		mStart, mSize := stack.pop(), stack.pop()
 		for i := range size {
 			addr := stack.pop()
-			topics[i] = addr.Bytes32()
+			topics[i] = common.LogTopic(addr.Bytes64())
 		}
 
 		d := scope.Memory.GetCopy(int64(mStart.Uint64()), int64(mSize.Uint64()))
