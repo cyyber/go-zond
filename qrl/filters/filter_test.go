@@ -31,10 +31,10 @@ import (
 	"github.com/theQRL/go-qrl/core/rawdb"
 	"github.com/theQRL/go-qrl/core/types"
 	"github.com/theQRL/go-qrl/core/vm"
-	"github.com/theQRL/go-qrl/crypto/pqcrypto/wallet"
 	"github.com/theQRL/go-qrl/params"
 	"github.com/theQRL/go-qrl/rpc"
 	"github.com/theQRL/go-qrl/trie"
+	"github.com/theQRL/go-qrl/internal/testutil"
 )
 
 func makeReceipt(addr common.Address) *types.Receipt {
@@ -55,7 +55,7 @@ func BenchmarkFilters(b *testing.B) {
 	var (
 		db, _      = rawdb.NewLevelDBDatabase(b.TempDir(), 0, 0, "", false)
 		_, sys     = newTestFilterSystem(b, db, Config{})
-		wallet1, _ = wallet.RestoreFromSeedHex("0x010000b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f29100000000000000000000000000000000")
+		wallet1 = testutil.MustLoadAccount("alice").MustWallet()
 		addr1      = wallet1.GetAddress()
 		addr2      = common.BytesToAddress([]byte("jeff"))
 		addr3      = common.BytesToAddress([]byte("ethereum"))
@@ -117,7 +117,7 @@ func TestFilters(t *testing.T) {
 		db           = rawdb.NewMemoryDatabase()
 		backend, sys = newTestFilterSystem(t, db, Config{})
 		// Sender account
-		wallet1, _ = wallet.RestoreFromSeedHex("0x010000b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f29100000000000000000000000000000000")
+		wallet1 = testutil.MustLoadAccount("alice").MustWallet()
 		addr       = wallet1.GetAddress()
 		signer     = types.NewZondSigner(big.NewInt(1))
 		// Logging contract

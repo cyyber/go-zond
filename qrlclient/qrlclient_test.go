@@ -30,12 +30,12 @@ import (
 	"github.com/theQRL/go-qrl/consensus/beacon"
 	"github.com/theQRL/go-qrl/core"
 	"github.com/theQRL/go-qrl/core/types"
-	"github.com/theQRL/go-qrl/crypto/pqcrypto/wallet"
 	"github.com/theQRL/go-qrl/node"
 	"github.com/theQRL/go-qrl/params"
 	qrlsvc "github.com/theQRL/go-qrl/qrl"
 	"github.com/theQRL/go-qrl/qrl/qrlconfig"
 	"github.com/theQRL/go-qrl/rpc"
+	"github.com/theQRL/go-qrl/internal/testutil"
 )
 
 // Verify that Client implements the qrl interfaces.
@@ -181,7 +181,7 @@ func TestToFilterArg(t *testing.T) {
 }
 
 var (
-	testWallet, _ = wallet.RestoreFromSeedHex("010000b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f29100000000000000000000000000000000")
+	testWallet = testutil.MustLoadAccount("alice").MustWallet()
 	testAddr      = testWallet.GetAddress()
 	testBalance   = big.NewInt(2e18)
 )

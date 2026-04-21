@@ -25,14 +25,14 @@ import (
 	"github.com/theQRL/go-qrl/core/rawdb"
 	"github.com/theQRL/go-qrl/core/types"
 	"github.com/theQRL/go-qrl/core/vm"
-	"github.com/theQRL/go-qrl/crypto/pqcrypto/wallet"
 	"github.com/theQRL/go-qrl/params"
 	"github.com/theQRL/go-qrl/qrl/tracers/logger"
 	"github.com/theQRL/go-qrl/tests"
+	"github.com/theQRL/go-qrl/internal/testutil"
 )
 
 func BenchmarkTransactionTrace(b *testing.B) {
-	wallet, _ := wallet.RestoreFromSeedHex("010000b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f29100000000000000000000000000000000")
+	wallet := testutil.LoadAccount(b, "alice").Wallet(b)
 	from := wallet.GetAddress()
 	gas := uint64(1000000) // 1M gas
 	to, _ := common.NewAddressFromString("Q00000000000000000000000000000000deadbeef")

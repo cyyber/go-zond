@@ -51,13 +51,14 @@ import (
 	"github.com/theQRL/go-qrl/params"
 	"github.com/theQRL/go-qrl/qrldb"
 	"github.com/theQRL/go-qrl/rpc"
+	"github.com/theQRL/go-qrl/internal/testutil"
 )
 
 func testTransactionMarshal(t *testing.T, tests []txData, config *params.ChainConfig) {
 	t.Parallel()
 	var (
 		signer    = types.LatestSigner(config)
-		wallet, _ = wallet.RestoreFromSeedHex("0x010000b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f29100000000000000000000000000000000")
+		wallet = testutil.MustLoadAccount("alice").MustWallet()
 	)
 
 	for i, tt := range tests {
@@ -981,8 +982,8 @@ func TestRPCGetBlockOrHeader(t *testing.T) {
 
 	// Initialize test accounts
 	var (
-		acc1Wallet, _                = wallet.RestoreFromSeedHex("0x0100008a1f9a8f95be41cd7ccb6168179afb4504aefe388d1e14474d32c45c72ce7b7a00000000000000000000000000000000")
-		acc2Wallet, _                = wallet.RestoreFromSeedHex("0x01000049a7b37aa6f6645917e7b807e9d1c00d4fa71f18343b0d4122a4d2df64dd6fee00000000000000000000000000000000")
+		acc1Wallet = testutil.MustLoadAccount("bob").MustWallet()
+		acc2Wallet = testutil.MustLoadAccount("carol").MustWallet()
 		acc1Addr                     = acc1Wallet.GetAddress()
 		acc2Addr      common.Address = acc2Wallet.GetAddress()
 		genesis                      = &core.Genesis{
@@ -1232,8 +1233,8 @@ func TestRPCGetBlockOrHeader(t *testing.T) {
 func setupReceiptBackend(t *testing.T, genBlocks int) (*testBackend, []common.Hash) {
 	config := *params.TestChainConfig
 	var (
-		acc1Wallet, _                = wallet.RestoreFromSeedHex("0x0100008a1f9a8f95be41cd7ccb6168179afb4504aefe388d1e14474d32c45c72ce7b7a00000000000000000000000000000000")
-		acc2Wallet, _                = wallet.RestoreFromSeedHex("0x01000049a7b37aa6f6645917e7b807e9d1c00d4fa71f18343b0d4122a4d2df64dd6fee00000000000000000000000000000000")
+		acc1Wallet = testutil.MustLoadAccount("bob").MustWallet()
+		acc2Wallet = testutil.MustLoadAccount("carol").MustWallet()
 		acc1Addr                     = acc1Wallet.GetAddress()
 		acc2Addr      common.Address = acc2Wallet.GetAddress()
 		contract, _                  = common.NewAddressFromString("Q0000000000000000000000000000000000031ec7")

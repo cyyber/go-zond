@@ -26,15 +26,15 @@ import (
 	"github.com/theQRL/go-qrl/core/rawdb"
 	"github.com/theQRL/go-qrl/core/types"
 	"github.com/theQRL/go-qrl/core/vm"
-	"github.com/theQRL/go-qrl/crypto/pqcrypto/wallet"
+	"github.com/theQRL/go-qrl/internal/testutil"
 	"github.com/theQRL/go-qrl/params"
 	"github.com/theQRL/go-qrl/trie"
 )
 
 func TestGenerateWithdrawalChain(t *testing.T) {
 	var (
-		wallet, _ = wallet.RestoreFromSeedHex("0x0100009c647b8b7c4e7c3490668fb6c11473619db80c93704c70893d3813af4090c39c00000000000000000000000000000000")
-		address   = wallet.GetAddress()
+		wallet  = testutil.LoadAccount(t, "alice").Wallet(t)
+		address = wallet.GetAddress()
 		aa        = common.Address{0xaa}
 		bb        = common.Address{0xbb}
 		funds     = big.NewInt(0).Mul(big.NewInt(1337), big.NewInt(params.Quanta))
@@ -140,12 +140,10 @@ func TestGenerateWithdrawalChain(t *testing.T) {
 }
 
 func ExampleGenerateChain() {
-	// Example functions have no testing.TB; keep literal seeds here until the
-	// generator exposes a MustLoadAccount variant suitable for package init.
 	var (
-		wallet1, _ = wallet.RestoreFromSeedHex("0x010000b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f29100000000000000000000000000000000")
-		wallet2, _ = wallet.RestoreFromSeedHex("0x0100008a1f9a8f95be41cd7ccb6168179afb4504aefe388d1e14474d32c45c72ce7b7a00000000000000000000000000000000")
-		wallet3, _ = wallet.RestoreFromSeedHex("0x01000049a7b37aa6f6645917e7b807e9d1c00d4fa71f18343b0d4122a4d2df64dd6fee00000000000000000000000000000000")
+		wallet1 = testutil.MustLoadAccount("alice").MustWallet()
+		wallet2 = testutil.MustLoadAccount("bob").MustWallet()
+		wallet3 = testutil.MustLoadAccount("carol").MustWallet()
 		addr1      = wallet1.GetAddress()
 		addr2      = wallet2.GetAddress()
 		addr3      = wallet3.GetAddress()

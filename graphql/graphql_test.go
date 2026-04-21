@@ -33,6 +33,7 @@ import (
 	"github.com/theQRL/go-qrl/core/types"
 	"github.com/theQRL/go-qrl/core/vm"
 	"github.com/theQRL/go-qrl/crypto/pqcrypto/wallet"
+	"github.com/theQRL/go-qrl/internal/testutil"
 	"github.com/theQRL/go-qrl/node"
 	"github.com/theQRL/go-qrl/params"
 	"github.com/theQRL/go-qrl/qrl"
@@ -169,8 +170,8 @@ func TestGraphQLBlockSerializationEIP2718(t *testing.T) {
 	t.Skip("TODO: GraphQL response fixtures need regeneration for 48-byte addresses / 64-byte ABI slots")
 	// Account for signing txes
 	var (
-		wallet, _ = wallet.RestoreFromSeedHex("0x010000f29f58aff0b00de2844f7e20bd9eeaacc379150043beeb328335817512b29fbb7184da84a092f842b2a06d72a24a5d28")
-		address   = wallet.GetAddress()
+		wallet  = testutil.LoadAccount(t, "dave").Wallet(t)
+		address = wallet.GetAddress()
 		funds     = big.NewInt(1000000000000000000)
 		dad, _    = common.NewAddressFromString("Q0000000000000000000000000000000000000dad")
 	)

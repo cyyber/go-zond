@@ -109,6 +109,42 @@ func LoadAccount(t testing.TB, label string) Account {
 	return acc
 }
 
+// MustLoadAccount is the package-init / example variant of LoadAccount. It
+// panics on missing fixtures or unknown labels, which is the only way to
+// surface failure outside a *testing.T context. Prefer LoadAccount inside
+// test bodies.
+func MustLoadAccount(label string) Account {
+	accs, err := loadAccounts()
+	if err != nil {
+		panic(fmt.Sprintf("testutil: %v (regenerate with 'go run ./hack/gen --target=addresses')", err))
+	}
+	acc, ok := accs[label]
+	if !ok {
+		panic(fmt.Sprintf("testutil: unknown account label %q (add it to hack/gen/addresses.go and regenerate)", label))
+	}
+	return acc
+}
+
+// MustWallet is the counterpart of Account.Wallet for callers without a
+// testing handle. Panics if the seed cannot be restored.
+func (a Account) MustWallet() wallet.Wallet {
+	w, err := wallet.RestoreFromSeedHex(a.Seed)
+	if err != nil {
+		panic(fmt.Sprintf("testutil: account %q: restore wallet from seed: %v", a.Label, err))
+	}
+	return w
+}
+
+// MustAddressBytes is the counterpart of Account.AddressBytes for callers
+// without a testing handle. Panics if the stored address string is invalid.
+func (a Account) MustAddressBytes() common.Address {
+	addr, err := common.NewAddressFromString(a.Address)
+	if err != nil {
+		panic(fmt.Sprintf("testutil: account %q has invalid address %q: %v", a.Label, a.Address, err))
+	}
+	return addr
+}
+
 // locateFixture walks up from the working directory until it finds a go.mod
 // and returns the absolute path to the requested fixture file. Works from any
 // test package in the module without hard-coding the repo layout.

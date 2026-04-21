@@ -30,6 +30,7 @@ import (
 	"github.com/theQRL/go-qrl/core/types"
 	"github.com/theQRL/go-qrl/core/vm"
 	"github.com/theQRL/go-qrl/crypto/pqcrypto/wallet"
+	"github.com/theQRL/go-qrl/internal/testutil"
 	"github.com/theQRL/go-qrl/params"
 	"github.com/theQRL/go-qrl/trie"
 	"golang.org/x/crypto/sha3"
@@ -45,9 +46,9 @@ func TestStateProcessorErrors(t *testing.T) {
 		config = &params.ChainConfig{
 			ChainID: big.NewInt(1),
 		}
-		signer     = types.LatestSigner(config)
-		wallet1, _ = wallet.RestoreFromSeedHex("0x010000f29f58aff0b00de2844f7e20bd9eeaacc379150043beeb328335817512b29fbb7184da84a092f842b2a06d72a24a5d28")
-		wallet2, _ = wallet.RestoreFromSeedHex("0x010000a7b1a3005d9e110009c48d45deb43f0a0e31846ed2c5aaefb6d4238040ad4c08794ffe65585c13eb6948c2faf6db90c2")
+		signer  = types.LatestSigner(config)
+		wallet1 = testutil.LoadAccount(t, "dave").Wallet(t)
+		wallet2 = testutil.LoadAccount(t, "eve").Wallet(t)
 	)
 
 	var mkDynamicTx = func(wallet wallet.Wallet, nonce uint64, to common.Address, value *big.Int, gasLimit uint64, gasTipCap, gasFeeCap *big.Int) *types.Transaction {
@@ -311,9 +312,9 @@ func TestStateProcessorRejectsNonEmptyExtraParams(t *testing.T) {
 		config = &params.ChainConfig{
 			ChainID: big.NewInt(1),
 		}
-		signer     = types.LatestSigner(config)
-		wallet1, _ = wallet.RestoreFromSeedHex("0x010000f29f58aff0b00de2844f7e20bd9eeaacc379150043beeb328335817512b29fbb7184da84a092f842b2a06d72a24a5d28")
-		from       = common.Address(wallet1.GetAddress())
+		signer  = types.LatestSigner(config)
+		wallet1 = testutil.LoadAccount(t, "dave").Wallet(t)
+		from    = common.Address(wallet1.GetAddress())
 		db         = rawdb.NewMemoryDatabase()
 		gspec      = &Genesis{
 			Config: config,

@@ -89,8 +89,8 @@ func TestEIP2718TransactionSigHash(t *testing.T) {
 func TestEIP2930Signer(t *testing.T) {
 	t.Skip("TODO: regenerate signer-derived address / hash fixtures for 48-byte addresses")
 	var (
-		wallet, _ = wallet.RestoreFromSeedHex("010000010000b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f29100000000000000000000000000")
-		keyAddr   = wallet.GetAddress()
+		wallet  = testutil.LoadAccount(t, "alice").Wallet(t)
+		keyAddr = wallet.GetAddress()
 		signer1   = NewZondSigner(big.NewInt(1))
 		signer2   = NewZondSigner(big.NewInt(2))
 		tx0       = NewTx(&DynamicFeeTx{Nonce: 1})
@@ -265,6 +265,9 @@ func decodeTx(data []byte) (*Transaction, error) {
 	return t, err
 }
 
+// defaultTestWallet restores the wallet whose public key produced the
+// pre-signed RLP blobs hard-coded in the tests below. The seed cannot be
+// swapped for a testutil fixture without invalidating those signatures.
 func defaultTestWallet() (wallet.Wallet, common.Address) {
 	wallet, _ := wallet.RestoreFromSeedHex("010000a7b1a3005d9e110009c48d45deb43f0a0e31846ed2c5aaefb6d4238040ad4c08794ffe65585c13eb6948c2faf6db90c2")
 	return wallet, wallet.GetAddress()
