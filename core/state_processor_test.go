@@ -41,7 +41,6 @@ import (
 // blockchain imports bad blocks, meaning blocks which have valid headers but
 // contain invalid transactions
 func TestStateProcessorErrors(t *testing.T) {
-	t.Skip("TODO: regenerate pre-funded address / tx hash expectations for 48-byte addresses")
 	var (
 		config = &params.ChainConfig{
 			ChainID: big.NewInt(1),
@@ -75,9 +74,13 @@ func TestStateProcessorErrors(t *testing.T) {
 	}
 
 	{ // Tests against a 'recent' chain definition
+		// Pre-funded genesis addresses must match the wallet that signs
+		// each test tx — otherwise the error strings produced by the state
+		// processor would reference the sender's derived address, not the
+		// allocator's.
 		var (
-			address0, _ = common.NewAddressFromString("QD5812F6cf4a0f645aA620CD57319a0Ed649Dd8f5")
-			address1, _ = common.NewAddressFromString("Qbe95a82D87a6Cb9c7fF4C64e0C15bB1dfF20b1d7")
+			address0    = wallet1.GetAddress()
+			address1    = wallet2.GetAddress()
 			db          = rawdb.NewMemoryDatabase()
 			gspec       = &Genesis{
 				Config: config,
@@ -110,37 +113,37 @@ func TestStateProcessorErrors(t *testing.T) {
 					mkDynamicTx(wallet1, 0, common.Address{}, big.NewInt(0), params.TxGas, big.NewInt(0), big.NewInt(params.InitialBaseFee)),
 					mkDynamicTx(wallet1, 0, common.Address{}, big.NewInt(0), params.TxGas, big.NewInt(0), big.NewInt(params.InitialBaseFee)),
 				},
-				want: "could not apply tx 1 [0x7b319a8ff2c49be8f0d875a021bb6c11bb39a3d4299c8e68b1bca311e62f20c8]: nonce too low: address QD5812F6cf4a0f645aA620CD57319a0Ed649Dd8f5, tx: 0 state: 1",
+				want: "could not apply tx 1 [0x61bcf567aa2d68adebf1b64dd0b35e76df6419657ea2fe356b1d6bfbeef35a36]: nonce too low: address QF9A3a022Dc15170Cc29178BE04D0d9C32b44bFBd9Fae130f70652DB58D87E2e306a7fB10f78CE7F9D34aeD7E9Ee5DDF3, tx: 0 state: 1",
 			},
 			{ // ErrNonceTooHigh
 				txs: []*types.Transaction{
 					mkDynamicTx(wallet1, 100, common.Address{}, big.NewInt(0), params.TxGas, big.NewInt(0), big.NewInt(params.InitialBaseFee)),
 				},
-				want: "could not apply tx 0 [0xe0e7248e22bc3f8bca872f2fa1679ab2eb7d854b9464ff0efe9960b57e1623ad]: nonce too high: address QD5812F6cf4a0f645aA620CD57319a0Ed649Dd8f5, tx: 100 state: 0",
+				want: "could not apply tx 0 [0x0c08ab2ae71a99a42e5cc2a75549184dea1d2000325ae13e642bde0239b9398a]: nonce too high: address QF9A3a022Dc15170Cc29178BE04D0d9C32b44bFBd9Fae130f70652DB58D87E2e306a7fB10f78CE7F9D34aeD7E9Ee5DDF3, tx: 100 state: 0",
 			},
 			{ // ErrNonceMax
 				txs: []*types.Transaction{
 					mkDynamicTx(wallet2, math.MaxUint64, common.Address{}, big.NewInt(0), params.TxGas, big.NewInt(0), big.NewInt(params.InitialBaseFee)),
 				},
-				want: "could not apply tx 0 [0x4c778b8f446749b6681204bd06acb12ebe36873d6bff47227279bbbf8706b0a7]: nonce has max value: address Qbe95a82D87a6Cb9c7fF4C64e0C15bB1dfF20b1d7, nonce: 18446744073709551615",
+				want: "could not apply tx 0 [0x8203eaf0bc033872d37c69189a1ff6f97bc6a762e5fc1dba6fd38396d9cfd144]: nonce has max value: address Q417C0D24FAfF2b9670Da54bfe5E89Fc2BD21FD73dCb5C2F902DB25454B10812119146aa6518c03145eb2997b85000847, nonce: 18446744073709551615",
 			},
 			{ // ErrGasLimitReached
 				txs: []*types.Transaction{
 					mkDynamicTx(wallet1, 0, common.Address{}, big.NewInt(0), 21000000, big.NewInt(0), big.NewInt(params.InitialBaseFee)),
 				},
-				want: "could not apply tx 0 [0x796461413d1c7707f7ecbd084cabdbd1d500bc26042e9cf46342dc1edd64cfae]: gas limit reached",
+				want: "could not apply tx 0 [0x1f4d6dbb2467d128ef1a430a4fc008415891a2480472ebfdd612f665c9abe52e]: gas limit reached",
 			},
 			{ // ErrInsufficientFundsForTransfer
 				txs: []*types.Transaction{
 					mkDynamicTx(wallet1, 0, common.Address{}, new(big.Int).Mul(big.NewInt(10), big.NewInt(params.Quanta)), params.TxGas, big.NewInt(0), big.NewInt(params.InitialBaseFee)),
 				},
-				want: "could not apply tx 0 [0x1dd05f2516f399ecf959c6844b73d7c4b19d640da5aa0046696c8689df09a006]: insufficient funds for gas * price + value: address QD5812F6cf4a0f645aA620CD57319a0Ed649Dd8f5 have 10000000000000000000 want 10002100000000000000",
+				want: "could not apply tx 0 [0x6f80169d722787a01029dc55d6089da9988e2f967d2ce7c81e423bb6c6d6eae3]: insufficient funds for gas * price + value: address QF9A3a022Dc15170Cc29178BE04D0d9C32b44bFBd9Fae130f70652DB58D87E2e306a7fB10f78CE7F9D34aeD7E9Ee5DDF3 have 10000000000000000000 want 10002100000000000000",
 			},
 			{ // ErrInsufficientFunds
 				txs: []*types.Transaction{
 					mkDynamicTx(wallet1, 0, common.Address{}, big.NewInt(0), params.TxGas, big.NewInt(0), big.NewInt(900000000000000000)),
 				},
-				want: "could not apply tx 0 [0x457f9547d4ba3295996e83151f7a1a0114811b82ba605bf37e817abad1458b65]: insufficient funds for gas * price + value: address QD5812F6cf4a0f645aA620CD57319a0Ed649Dd8f5 have 10000000000000000000 want 18900000000000000000000",
+				want: "could not apply tx 0 [0xb43eaa7ed87a7d96b4b10d0cb84aa829da84e7511431c2ea79f2b725a32dcf00]: insufficient funds for gas * price + value: address QF9A3a022Dc15170Cc29178BE04D0d9C32b44bFBd9Fae130f70652DB58D87E2e306a7fB10f78CE7F9D34aeD7E9Ee5DDF3 have 10000000000000000000 want 18900000000000000000000",
 			},
 			// ErrGasUintOverflow
 			// One missing 'core' error is ErrGasUintOverflow: "gas uint64 overflow",
@@ -150,37 +153,37 @@ func TestStateProcessorErrors(t *testing.T) {
 				txs: []*types.Transaction{
 					mkDynamicTx(wallet1, 0, common.Address{}, big.NewInt(0), params.TxGas-1000, big.NewInt(0), big.NewInt(params.InitialBaseFee)),
 				},
-				want: "could not apply tx 0 [0xd310eb77e6630b9b291b7add092e38d01a890f2ec84ed9172a0df79e6db7691b]: intrinsic gas too low: have 20000, want 21000",
+				want: "could not apply tx 0 [0xfb1b70335cf75076f7e49957bda273069a0614c8d1cad9c0965012ea1f557bb5]: intrinsic gas too low: have 20000, want 21000",
 			},
 			{ // ErrGasLimitReached
 				txs: []*types.Transaction{
 					mkDynamicTx(wallet1, 0, common.Address{}, big.NewInt(0), params.TxGas*1000, big.NewInt(0), big.NewInt(params.InitialBaseFee)),
 				},
-				want: "could not apply tx 0 [0x796461413d1c7707f7ecbd084cabdbd1d500bc26042e9cf46342dc1edd64cfae]: gas limit reached",
+				want: "could not apply tx 0 [0x1f4d6dbb2467d128ef1a430a4fc008415891a2480472ebfdd612f665c9abe52e]: gas limit reached",
 			},
 			{ // ErrFeeCapTooLow
 				txs: []*types.Transaction{
 					mkDynamicTx(wallet1, 0, common.Address{}, big.NewInt(0), params.TxGas, big.NewInt(0), big.NewInt(0)),
 				},
-				want: "could not apply tx 0 [0x34fbd144c9e22b576b0983da5479a42824db1db640e6e225850236673d5a6e90]: max fee per gas less than block base fee: address QD5812F6cf4a0f645aA620CD57319a0Ed649Dd8f5, maxFeePerGas: 0 baseFee: 87500000000",
+				want: "could not apply tx 0 [0xe29483efca9e733c6c7a75ff897d2747fe9ed0775c474e8161437155949058f7]: max fee per gas less than block base fee: address QF9A3a022Dc15170Cc29178BE04D0d9C32b44bFBd9Fae130f70652DB58D87E2e306a7fB10f78CE7F9D34aeD7E9Ee5DDF3, maxFeePerGas: 0 baseFee: 87500000000",
 			},
 			{ // ErrTipVeryHigh
 				txs: []*types.Transaction{
 					mkDynamicTx(wallet1, 0, common.Address{}, big.NewInt(0), params.TxGas, tooBigNumber, big.NewInt(1)),
 				},
-				want: "could not apply tx 0 [0xc0f8a35c2705ea1f30b60666cd3f821d4aab857da4e70b26ac1de3c865060ea2]: max priority fee per gas higher than 2^256-1: address QD5812F6cf4a0f645aA620CD57319a0Ed649Dd8f5, maxPriorityFeePerGas bit length: 257",
+				want: "could not apply tx 0 [0x3c7a64dc169cc761034d78fb7f5934384484d661e9b45fdb4db2aa40042d4d71]: max priority fee per gas higher than 2^256-1: address QF9A3a022Dc15170Cc29178BE04D0d9C32b44bFBd9Fae130f70652DB58D87E2e306a7fB10f78CE7F9D34aeD7E9Ee5DDF3, maxPriorityFeePerGas bit length: 257",
 			},
 			{ // ErrFeeCapVeryHigh
 				txs: []*types.Transaction{
 					mkDynamicTx(wallet1, 0, common.Address{}, big.NewInt(0), params.TxGas, big.NewInt(1), tooBigNumber),
 				},
-				want: "could not apply tx 0 [0x65390d22f4f60fb136cab34c268f005d1dcc38ce9eb60f523cc8a1cba6347a1e]: max fee per gas higher than 2^256-1: address QD5812F6cf4a0f645aA620CD57319a0Ed649Dd8f5, maxFeePerGas bit length: 257",
+				want: "could not apply tx 0 [0xa2923a4d3d902ffc7ccad7f33c0838eb3becf731a814bd26b44fcaa383d62655]: max fee per gas higher than 2^256-1: address QF9A3a022Dc15170Cc29178BE04D0d9C32b44bFBd9Fae130f70652DB58D87E2e306a7fB10f78CE7F9D34aeD7E9Ee5DDF3, maxFeePerGas bit length: 257",
 			},
 			{ // ErrTipAboveFeeCap
 				txs: []*types.Transaction{
 					mkDynamicTx(wallet1, 0, common.Address{}, big.NewInt(0), params.TxGas, big.NewInt(2), big.NewInt(1)),
 				},
-				want: "could not apply tx 0 [0xb49edcd0ce7f9fc47f82b1623699c8e92fc286786f473b0678c888cbacb88c9d]: max priority fee per gas higher than max fee per gas: address QD5812F6cf4a0f645aA620CD57319a0Ed649Dd8f5, maxPriorityFeePerGas: 2, maxFeePerGas: 1",
+				want: "could not apply tx 0 [0x7b9d01cc9435a87a0c11e9a0cdca540a2b04c0a71366d187e645b035fc466c0d]: max priority fee per gas higher than max fee per gas: address QF9A3a022Dc15170Cc29178BE04D0d9C32b44bFBd9Fae130f70652DB58D87E2e306a7fB10f78CE7F9D34aeD7E9Ee5DDF3, maxPriorityFeePerGas: 2, maxFeePerGas: 1",
 			},
 			{ // ErrInsufficientFunds
 				// Available balance:          10000000000000000000
@@ -191,25 +194,25 @@ func TestStateProcessorErrors(t *testing.T) {
 				txs: []*types.Transaction{
 					mkDynamicTx(wallet1, 0, common.Address{}, big.NewInt(0), params.TxGas, big.NewInt(1), big.NewInt(500000000000000)),
 				},
-				want: "could not apply tx 0 [0x11e4238b41a3da514fd06cd660a59db0156552e90b0f3579486c75652d49a52d]: insufficient funds for gas * price + value: address QD5812F6cf4a0f645aA620CD57319a0Ed649Dd8f5 have 10000000000000000000 want 10500000000000000000",
+				want: "could not apply tx 0 [0xb368b1ed89a8a186c4b5bc2c4d7a759fe978a7b831599a4e3ea893e15a29939d]: insufficient funds for gas * price + value: address QF9A3a022Dc15170Cc29178BE04D0d9C32b44bFBd9Fae130f70652DB58D87E2e306a7fB10f78CE7F9D34aeD7E9Ee5DDF3 have 10000000000000000000 want 10500000000000000000",
 			},
 			{ // Another ErrInsufficientFunds, this one to ensure that feecap/tip of max u256 is allowed
 				txs: []*types.Transaction{
 					mkDynamicTx(wallet1, 0, common.Address{}, big.NewInt(0), params.TxGas, bigNumber, bigNumber),
 				},
-				want: "could not apply tx 0 [0xaf9d46676cb50ce5f856b51f4b2dd194b045098a43e2c3c37567341b50d21138]: insufficient funds for gas * price + value: address QD5812F6cf4a0f645aA620CD57319a0Ed649Dd8f5 have 10000000000000000000 want 2431633873983640103894990685182446064918669677978451844828609264166175722438635000",
+				want: "could not apply tx 0 [0x7d538ed44583269baca109defb816eaf9bb3ab39d457534d6ffb8da0bcde01d8]: insufficient funds for gas * price + value: address QF9A3a022Dc15170Cc29178BE04D0d9C32b44bFBd9Fae130f70652DB58D87E2e306a7fB10f78CE7F9D34aeD7E9Ee5DDF3 have 10000000000000000000 want 2431633873983640103894990685182446064918669677978451844828609264166175722438635000",
 			},
 			{ // ErrMaxInitCodeSizeExceeded
 				txs: []*types.Transaction{
 					mkDynamicCreationTx(0, 500000, common.Big0, big.NewInt(params.InitialBaseFee), tooBigInitCode[:]),
 				},
-				want: "could not apply tx 0 [0x2129415cce57abd63ed9933974bec95027c87c8b2bb0b6a785cbd5a9b793d8ee]: max initcode size exceeded: code size 49153 limit 49152",
+				want: "could not apply tx 0 [0xf6d6c154181a855215cac79ca1779f3394b8179ebc6e81aa8e302b5f575e263a]: max initcode size exceeded: code size 49153 limit 49152",
 			},
 			{ // ErrIntrinsicGas: Not enough gas to cover init code
 				txs: []*types.Transaction{
 					mkDynamicCreationTx(0, 54299, common.Big0, big.NewInt(params.InitialBaseFee), make([]byte, 320)),
 				},
-				want: "could not apply tx 0 [0xd023b625e8303e7926971bf90e25d69591925188409877226d446e58917c187d]: intrinsic gas too low: have 54299, want 54300",
+				want: "could not apply tx 0 [0x6f456c8239577e0e062f1544ef64cd12dadac1b4fbfd4ea4791f25e94de563e0]: intrinsic gas too low: have 54299, want 54300",
 			},
 		} {
 			block := GenerateBadBlock(gspec.ToBlock(), beacon.New(), tt.txs, gspec.Config)
@@ -269,7 +272,7 @@ func TestStateProcessorErrors(t *testing.T) {
 	// ErrSenderNoEOA, for this we need the sender to have contract code
 	{
 		var (
-			address, _ = common.NewAddressFromString("QD5812F6cf4a0f645aA620CD57319a0Ed649Dd8f5")
+			address, _ = common.NewAddressFromString("QF9A3a022Dc15170Cc29178BE04D0d9C32b44bFBd9Fae130f70652DB58D87E2e306a7fB10f78CE7F9D34aeD7E9Ee5DDF3")
 			db         = rawdb.NewMemoryDatabase()
 			gspec      = &Genesis{
 				Config: config,
@@ -292,7 +295,7 @@ func TestStateProcessorErrors(t *testing.T) {
 				txs: []*types.Transaction{
 					mkDynamicTx(wallet1, 0, common.Address{}, big.NewInt(0), params.TxGas-1000, big.NewInt(params.InitialBaseFee), big.NewInt(params.InitialBaseFee)),
 				},
-				want: "could not apply tx 0 [0x30b474d1c9b6582d9ad18a274a319f67827d1220fd0a2e41b825f51e3d7bb4d7]: sender not an eoa: address QD5812F6cf4a0f645aA620CD57319a0Ed649Dd8f5, codehash: 0x9280914443471259d4570a8661015ae4a5b80186dbc619658fb494bebc3da3d1",
+				want: "could not apply tx 0 [0xb3f8541717aed31f7469c7dc75b16b6e9e5cdda05f3005cce576cdc6e75122fd]: sender not an eoa: address QF9A3a022Dc15170Cc29178BE04D0d9C32b44bFBd9Fae130f70652DB58D87E2e306a7fB10f78CE7F9D34aeD7E9Ee5DDF3, codehash: 0x9280914443471259d4570a8661015ae4a5b80186dbc619658fb494bebc3da3d1",
 			},
 		} {
 			block := GenerateBadBlock(gspec.ToBlock(), beacon.New(), tt.txs, gspec.Config)
