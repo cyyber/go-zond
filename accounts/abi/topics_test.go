@@ -187,12 +187,18 @@ type int256Struct struct {
 	Int256Value *big.Int
 }
 
+// hashStruct receives the indexed keccak256 hash of a dynamic type. Topics
+// are 64 bytes; the reconstructed value uses the full LogTopic slot (hash
+// right-aligned in the low 32 bytes).
 type hashStruct struct {
-	HashValue common.Hash
+	HashValue common.LogTopic
 }
 
+// funcStruct mirrors the Solidity `function` type, which is packed as the
+// 48-byte address followed by a 4-byte selector → 52 bytes total after the
+// 48-byte-address migration.
 type funcStruct struct {
-	FuncValue [24]byte
+	FuncValue [common.AddressLength + 4]byte
 }
 
 type topicTest struct {
@@ -200,6 +206,16 @@ type topicTest struct {
 	args    args
 	wantErr bool
 }
+
+// allOnesTopic is the 64-byte topic whose every byte is 0xff — the canonical
+// two's-complement encoding of -1 sign-extended across the whole slot.
+var allOnesTopic = func() common.LogTopic {
+	var t common.LogTopic
+	for i := range t {
+		t[i] = 0xff
+	}
+	return t
+}()
 
 func setupTopicsTests() []topicTest {
 	bytesType, _ := NewType("bytes5", "", nil)
@@ -242,10 +258,8 @@ func setupTopicsTests() []topicTest {
 					Type:    int8Type,
 					Indexed: true,
 				}},
-				topics: []common.LogTopic{
-					{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
-						255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255},
-				},
+				// Two's complement -1 sign-extended to the 64-byte ABI slot.
+				topics: []common.LogTopic{allOnesTopic},
 			},
 			wantErr: false,
 		},
@@ -262,10 +276,7 @@ func setupTopicsTests() []topicTest {
 					Type:    int256Type,
 					Indexed: true,
 				}},
-				topics: []common.LogTopic{
-					{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
-						255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255},
-				},
+				topics: []common.LogTopic{allOnesTopic},
 			},
 			wantErr: false,
 		},
@@ -273,9 +284,11 @@ func setupTopicsTests() []topicTest {
 			name: "hash type",
 			args: args{
 				createObj: func() any { return &hashStruct{} },
-				resultObj: func() any { return &hashStruct{crypto.Keccak256Hash([]byte("stringtopic"))} },
+				resultObj: func() any {
+					return &hashStruct{common.BytesToLogTopic(crypto.Keccak256([]byte("stringtopic")))}
+				},
 				resultMap: func() map[string]any {
-					return map[string]any{"hashValue": crypto.Keccak256Hash([]byte("stringtopic"))}
+					return map[string]any{"hashValue": common.BytesToLogTopic(crypto.Keccak256([]byte("stringtopic")))}
 				},
 				fields: Arguments{Argument{
 					Name:    "hashValue",
@@ -293,22 +306,33 @@ func setupTopicsTests() []topicTest {
 			args: args{
 				createObj: func() any { return &funcStruct{} },
 				resultObj: func() any {
-					return &funcStruct{[24]byte{255, 255, 255, 255, 255, 255, 255, 255,
-						255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255}}
+					var f [common.AddressLength + 4]byte
+					for i := range f {
+						f[i] = 0xff
+					}
+					return &funcStruct{f}
 				},
 				resultMap: func() map[string]any {
-					return map[string]any{"funcValue": [24]byte{255, 255, 255, 255, 255, 255, 255, 255,
-						255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255}}
+					var f [common.AddressLength + 4]byte
+					for i := range f {
+						f[i] = 0xff
+					}
+					return map[string]any{"funcValue": f}
 				},
 				fields: Arguments{Argument{
 					Name:    "funcValue",
 					Type:    funcType,
 					Indexed: true,
 				}},
-				topics: []common.LogTopic{
-					{0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 255, 255, 255, 255,
-						255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255},
-				},
+				// (AddressLength + 4)-byte function value right-aligned in the
+				// 64-byte topic — leading 12 bytes must be zero.
+				topics: []common.LogTopic{func() common.LogTopic {
+					var t common.LogTopic
+					for i := common.LogTopicLength - (common.AddressLength + 4); i < common.LogTopicLength; i++ {
+						t[i] = 0xff
+					}
+					return t
+				}()},
 			},
 			wantErr: false,
 		},
@@ -338,10 +362,7 @@ func setupTopicsTests() []topicTest {
 					Type:    int256Type,
 					Indexed: false,
 				}},
-				topics: []common.LogTopic{
-					{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
-						255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255},
-				},
+				topics: []common.LogTopic{allOnesTopic},
 			},
 			wantErr: true,
 		},
@@ -373,10 +394,16 @@ func setupTopicsTests() []topicTest {
 					Type:    funcType,
 					Indexed: true,
 				}},
-				topics: []common.LogTopic{
-					{0, 0, 0, 0, 0, 0, 0, 128, 255, 255, 255, 255, 255, 255, 255, 255,
-						255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255},
-				},
+				// Non-zero byte inside the 12-byte zero prefix flags the topic
+				// as an invalid function value.
+				topics: []common.LogTopic{func() common.LogTopic {
+					var t common.LogTopic
+					t[0] = 0x80
+					for i := common.LogTopicLength - (common.AddressLength + 4); i < common.LogTopicLength; i++ {
+						t[i] = 0xff
+					}
+					return t
+				}()},
 			},
 			wantErr: true,
 		},
@@ -386,7 +413,6 @@ func setupTopicsTests() []topicTest {
 }
 
 func TestParseTopics(t *testing.T) {
-	t.Skip("TODO: regenerate topic fixtures for 48-byte addresses / 64-byte ABI slot")
 	t.Parallel()
 	tests := setupTopicsTests()
 
@@ -406,7 +432,6 @@ func TestParseTopics(t *testing.T) {
 }
 
 func TestParseTopicsIntoMap(t *testing.T) {
-	t.Skip("TODO: regenerate topic fixtures for 48-byte addresses / 64-byte ABI slot")
 	t.Parallel()
 	tests := setupTopicsTests()
 

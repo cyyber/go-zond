@@ -156,9 +156,19 @@ func parseTopicWithSetter(fields Arguments, topics []common.LogTopic, setter fun
 			// Array types (including strings and bytes) have their keccak256 hashes stored in the topic — returned verbatim.
 			reconstr = topics[i]
 		case FunctionTy:
-			// Functions are AddressLength+4 bytes and fit right-aligned in the 64-byte topic.
-			var tmp [common.AddressLength + 4]byte
-			copy(tmp[:], topics[i][common.LogTopicLength-len(tmp):])
+			// Functions are AddressLength+4 bytes and fit right-aligned in the
+			// 64-byte topic. Reject topics with non-zero bytes in the leading
+			// padding — matches the go-ethereum invariant adapted to 48-byte
+			// addresses.
+			const fnLen = common.AddressLength + 4
+			prefix := topics[i][:common.LogTopicLength-fnLen]
+			for _, b := range prefix {
+				if b != 0 {
+					return fmt.Errorf("abi: improperly encoded function type, got %x", topics[i])
+				}
+			}
+			var tmp [fnLen]byte
+			copy(tmp[:], topics[i][common.LogTopicLength-fnLen:])
 			reconstr = tmp
 		default:
 			// Topic is already the width of an ABI slot (64 bytes); decode directly.
