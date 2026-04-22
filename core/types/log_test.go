@@ -27,7 +27,18 @@ import (
 	"github.com/theQRL/go-qrl/common/hexutil"
 )
 
-var address, _ = common.NewAddressFromString("Qecf8f87f810ecf450940c9f60066b4a7a501d6a7")
+// 48-byte fixture address used for all log unmarshal test cases.
+const logTestAddrHex = "Qecf8f87f810ecf450940c9f60066b4a7a501d6a7ecf8f87f810ecf450940c9f60066b4a7a501d6a71122334455667788"
+
+var address, _ = common.NewAddressFromString(logTestAddrHex)
+
+// 64-byte LogTopic hex strings: the classic 32-byte Ethereum topics left-
+// padded with 32 zero bytes to fit the 64-byte QRL slot width.
+const (
+	topicTransferSig = "0x0000000000000000000000000000000000000000000000000000000000000000ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
+	topicSender      = "0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000080b2c9d7cbbf30a1b0fc8983c647d754c6525615"
+	topicExtra       = "0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000f9dff387dcb5cc4cca5b91adb07a95f54e9f1bb6"
+)
 
 var unmarshalLogTests = map[string]struct {
 	input     string
@@ -35,7 +46,7 @@ var unmarshalLogTests = map[string]struct {
 	wantError error
 }{
 	"ok": {
-		input: `{"address":"Qecf8f87f810ecf450940c9f60066b4a7a501d6a7","blockHash":"0x656c34545f90a730a19008c0e7a7cd4fb3895064b48d6d69761bd5abad681056","blockNumber":"0x1ecfa4","data":"0x000000000000000000000000000000000000000000000001a055690d9db80000","logIndex":"0x2","topics":["0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef","0x00000000000000000000000080b2c9d7cbbf30a1b0fc8983c647d754c6525615"],"transactionHash":"0x3b198bfd5d2907285af009e9ae84a0ecd63677110d89d7e030251acb87f6487e","transactionIndex":"0x3"}`,
+		input: `{"address":"` + logTestAddrHex + `","blockHash":"0x656c34545f90a730a19008c0e7a7cd4fb3895064b48d6d69761bd5abad681056","blockNumber":"0x1ecfa4","data":"0x000000000000000000000000000000000000000000000001a055690d9db80000","logIndex":"0x2","topics":["` + topicTransferSig + `","` + topicSender + `"],"transactionHash":"0x3b198bfd5d2907285af009e9ae84a0ecd63677110d89d7e030251acb87f6487e","transactionIndex":"0x3"}`,
 		want: &Log{
 			Address:     address,
 			BlockHash:   common.HexToHash("0x656c34545f90a730a19008c0e7a7cd4fb3895064b48d6d69761bd5abad681056"),
@@ -45,13 +56,13 @@ var unmarshalLogTests = map[string]struct {
 			TxIndex:     3,
 			TxHash:      common.HexToHash("0x3b198bfd5d2907285af009e9ae84a0ecd63677110d89d7e030251acb87f6487e"),
 			Topics: []common.LogTopic{
-				common.HexToLogTopic("0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"),
-				common.HexToLogTopic("0x00000000000000000000000080b2c9d7cbbf30a1b0fc8983c647d754c6525615"),
+				common.HexToLogTopic(topicTransferSig),
+				common.HexToLogTopic(topicSender),
 			},
 		},
 	},
 	"empty data": {
-		input: `{"address":"Qecf8f87f810ecf450940c9f60066b4a7a501d6a7","blockHash":"0x656c34545f90a730a19008c0e7a7cd4fb3895064b48d6d69761bd5abad681056","blockNumber":"0x1ecfa4","data":"0x","logIndex":"0x2","topics":["0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef","0x00000000000000000000000080b2c9d7cbbf30a1b0fc8983c647d754c6525615"],"transactionHash":"0x3b198bfd5d2907285af009e9ae84a0ecd63677110d89d7e030251acb87f6487e","transactionIndex":"0x3"}`,
+		input: `{"address":"` + logTestAddrHex + `","blockHash":"0x656c34545f90a730a19008c0e7a7cd4fb3895064b48d6d69761bd5abad681056","blockNumber":"0x1ecfa4","data":"0x","logIndex":"0x2","topics":["` + topicTransferSig + `","` + topicSender + `"],"transactionHash":"0x3b198bfd5d2907285af009e9ae84a0ecd63677110d89d7e030251acb87f6487e","transactionIndex":"0x3"}`,
 		want: &Log{
 			Address:     address,
 			BlockHash:   common.HexToHash("0x656c34545f90a730a19008c0e7a7cd4fb3895064b48d6d69761bd5abad681056"),
@@ -61,13 +72,13 @@ var unmarshalLogTests = map[string]struct {
 			TxIndex:     3,
 			TxHash:      common.HexToHash("0x3b198bfd5d2907285af009e9ae84a0ecd63677110d89d7e030251acb87f6487e"),
 			Topics: []common.LogTopic{
-				common.HexToLogTopic("0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"),
-				common.HexToLogTopic("0x00000000000000000000000080b2c9d7cbbf30a1b0fc8983c647d754c6525615"),
+				common.HexToLogTopic(topicTransferSig),
+				common.HexToLogTopic(topicSender),
 			},
 		},
 	},
 	"missing block fields (pending logs)": {
-		input: `{"address":"Qecf8f87f810ecf450940c9f60066b4a7a501d6a7","data":"0x","logIndex":"0x0","topics":["0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"],"transactionHash":"0x3b198bfd5d2907285af009e9ae84a0ecd63677110d89d7e030251acb87f6487e","transactionIndex":"0x3"}`,
+		input: `{"address":"` + logTestAddrHex + `","data":"0x","logIndex":"0x0","topics":["` + topicTransferSig + `"],"transactionHash":"0x3b198bfd5d2907285af009e9ae84a0ecd63677110d89d7e030251acb87f6487e","transactionIndex":"0x3"}`,
 		want: &Log{
 			Address:     address,
 			BlockHash:   common.Hash{},
@@ -77,12 +88,12 @@ var unmarshalLogTests = map[string]struct {
 			TxIndex:     3,
 			TxHash:      common.HexToHash("0x3b198bfd5d2907285af009e9ae84a0ecd63677110d89d7e030251acb87f6487e"),
 			Topics: []common.LogTopic{
-				common.HexToLogTopic("0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"),
+				common.HexToLogTopic(topicTransferSig),
 			},
 		},
 	},
 	"Removed: true": {
-		input: `{"address":"Qecf8f87f810ecf450940c9f60066b4a7a501d6a7","blockHash":"0x656c34545f90a730a19008c0e7a7cd4fb3895064b48d6d69761bd5abad681056","blockNumber":"0x1ecfa4","data":"0x","logIndex":"0x2","topics":["0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"],"transactionHash":"0x3b198bfd5d2907285af009e9ae84a0ecd63677110d89d7e030251acb87f6487e","transactionIndex":"0x3","removed":true}`,
+		input: `{"address":"` + logTestAddrHex + `","blockHash":"0x656c34545f90a730a19008c0e7a7cd4fb3895064b48d6d69761bd5abad681056","blockNumber":"0x1ecfa4","data":"0x","logIndex":"0x2","topics":["` + topicTransferSig + `"],"transactionHash":"0x3b198bfd5d2907285af009e9ae84a0ecd63677110d89d7e030251acb87f6487e","transactionIndex":"0x3","removed":true}`,
 		want: &Log{
 			Address:     address,
 			BlockHash:   common.HexToHash("0x656c34545f90a730a19008c0e7a7cd4fb3895064b48d6d69761bd5abad681056"),
@@ -92,19 +103,18 @@ var unmarshalLogTests = map[string]struct {
 			TxIndex:     3,
 			TxHash:      common.HexToHash("0x3b198bfd5d2907285af009e9ae84a0ecd63677110d89d7e030251acb87f6487e"),
 			Topics: []common.LogTopic{
-				common.HexToLogTopic("0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"),
+				common.HexToLogTopic(topicTransferSig),
 			},
 			Removed: true,
 		},
 	},
 	"missing data": {
-		input:     `{"address":"Qecf8f87f810ecf450940c9f60066b4a7a501d6a7","blockHash":"0x656c34545f90a730a19008c0e7a7cd4fb3895064b48d6d69761bd5abad681056","blockNumber":"0x1ecfa4","logIndex":"0x2","topics":["0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef","0x00000000000000000000000080b2c9d7cbbf30a1b0fc8983c647d754c6525615","0x000000000000000000000000f9dff387dcb5cc4cca5b91adb07a95f54e9f1bb6"],"transactionHash":"0x3b198bfd5d2907285af009e9ae84a0ecd63677110d89d7e030251acb87f6487e","transactionIndex":"0x3"}`,
+		input:     `{"address":"` + logTestAddrHex + `","blockHash":"0x656c34545f90a730a19008c0e7a7cd4fb3895064b48d6d69761bd5abad681056","blockNumber":"0x1ecfa4","logIndex":"0x2","topics":["` + topicTransferSig + `","` + topicSender + `","` + topicExtra + `"],"transactionHash":"0x3b198bfd5d2907285af009e9ae84a0ecd63677110d89d7e030251acb87f6487e","transactionIndex":"0x3"}`,
 		wantError: errors.New("missing required field 'data' for Log"),
 	},
 }
 
 func TestUnmarshalLog(t *testing.T) {
-	t.Skip("TODO: regenerate log fixtures for 48-byte addresses")
 	dumper := spew.ConfigState{DisableMethods: true, Indent: "    "}
 	for name, test := range unmarshalLogTests {
 		var log *Log

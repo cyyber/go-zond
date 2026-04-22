@@ -54,14 +54,19 @@ func TestDeriveSha(t *testing.T) {
 
 // TestEIP2718DeriveSha tests that the input to the DeriveSha function is correct.
 func TestEIP2718DeriveSha(t *testing.T) {
-	t.Skip("TODO: regenerate EIP-2718 derive-sha RLP fixtures for 48-byte addresses")
+	// Fixture regenerated for 48-byte addresses: the `to` field switches from
+	// 20 bytes (0x94 prefix) to 48 bytes (0xb0 prefix), which in turn pushes
+	// the EIP-1559 access-list payload past 55 bytes and forces the RLP list
+	// header into long form (0xf8 0x4c). The outer string header widens from
+	// 0xb2 to 0xb8 0x4f accordingly.
+	const typedTx = "02f84c01010203825208b00102030405060708090a0b0c0d0e0f10111213140102030405060708090a0b0c0d0e0f1011121314112233445566778804820506c08301020383070809820a0b830c0d0e"
 	for _, tc := range []struct {
 		rlpData string
 		exp     string
 	}{
 		{
-			rlpData: "b202f001010203825208940102030405060708090a0b0c0d0e0f101112131404820506c08301020383070809820a0b830c0d0e",
-			exp:     "01 02f001010203825208940102030405060708090a0b0c0d0e0f101112131404820506c08301020383070809820a0b830c0d0e\n80 02f001010203825208940102030405060708090a0b0c0d0e0f101112131404820506c08301020383070809820a0b830c0d0e\n",
+			rlpData: "b84f" + typedTx,
+			exp:     "01 " + typedTx + "\n80 " + typedTx + "\n",
 		},
 	} {
 		d := &hashToHumanReadable{}
