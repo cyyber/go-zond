@@ -166,18 +166,19 @@ func TestCacheInitialReload(t *testing.T) {
 }
 
 func TestCacheAddDeleteOrder(t *testing.T) {
-	t.Skip("TODO: regenerate hardcoded 48-byte addresses used by the cache ordering test")
 	t.Parallel()
 	cache, _ := newAccountCache("testdata/no-such-dir")
 	cache.watcher.running = true // prevent unexpected reloads
 
-	address1, _ := common.NewAddressFromString("Q095e7baea6a6c7c4c2dfeb977efac326af552d87")
-	address2, _ := common.NewAddressFromString("Q2cac1adea150210703ba75ed097ddfe24e14f213")
-	address3, _ := common.NewAddressFromString("Q8bda78331c916a08481428e4b07c96d3e916d165")
-	address4, _ := common.NewAddressFromString("Qd49ff4eeb0b2686ed89c0fc0f2b6ea533ddbbd5e")
-	address5, _ := common.NewAddressFromString("Q7ef5a6135f1fd6a02593eedc869c6d41d934aef8")
-	address6, _ := common.NewAddressFromString("Qf466859ead1932d743d622cb74fc058882e8648a")
-	address7, _ := common.NewAddressFromString("Q289d485d9771714cce91d3393d764e1311907acc")
+	// 48-byte QRL addresses constructed from distinct byte patterns; the
+	// bytes themselves are only used for uniqueness / hasAddress lookups.
+	address1 := common.BytesToAddress(common.FromHex("095e7baea6a6c7c4c2dfeb977efac326af552d87095e7baea6a6c7c4c2dfeb977efac326af552d87a1b2c3d4e5f60102"))
+	address2 := common.BytesToAddress(common.FromHex("2cac1adea150210703ba75ed097ddfe24e14f2132cac1adea150210703ba75ed097ddfe24e14f213b2c3d4e5f6010203"))
+	address3 := common.BytesToAddress(common.FromHex("8bda78331c916a08481428e4b07c96d3e916d1658bda78331c916a08481428e4b07c96d3e916d165c3d4e5f601020304"))
+	address4 := common.BytesToAddress(common.FromHex("d49ff4eeb0b2686ed89c0fc0f2b6ea533ddbbd5ed49ff4eeb0b2686ed89c0fc0f2b6ea533ddbbd5ed4e5f60102030405"))
+	address5 := common.BytesToAddress(common.FromHex("7ef5a6135f1fd6a02593eedc869c6d41d934aef87ef5a6135f1fd6a02593eedc869c6d41d934aef8e5f6010203040506"))
+	address6 := common.BytesToAddress(common.FromHex("f466859ead1932d743d622cb74fc058882e8648af466859ead1932d743d622cb74fc058882e8648af60102030405060708"))
+	address7 := common.BytesToAddress(common.FromHex("289d485d9771714cce91d3393d764e1311907acc289d485d9771714cce91d3393d764e1311907acc0102030405060708ff"))
 	accs := []accounts.Account{
 		{
 			Address: address1,
@@ -228,7 +229,8 @@ func TestCacheAddDeleteOrder(t *testing.T) {
 			t.Errorf("expected hasAccount(%x) to return true", a.Address)
 		}
 	}
-	address, _ := common.NewAddressFromString("Qbb81a0496aa34a64f96c2bcd28793165e1e6c08a")
+	// A distinct 48-byte address not added to the cache above.
+	address := common.BytesToAddress(common.FromHex("bb81a0496aa34a64f96c2bcd28793165e1e6c08abb81a0496aa34a64f96c2bcd28793165e1e6c08aaabbccddee0102030405"))
 	if cache.hasAddress(address) {
 		t.Errorf("expected hasAccount(%x) to return false", address)
 	}
@@ -260,15 +262,14 @@ func TestCacheAddDeleteOrder(t *testing.T) {
 }
 
 func TestCacheFind(t *testing.T) {
-	t.Skip("TODO: regenerate hardcoded 48-byte addresses used by the cache find test")
 	t.Parallel()
 	dir := filepath.Join("testdata", "dir")
 	cache, _ := newAccountCache(dir)
 	cache.watcher.running = true // prevent unexpected reloads
 
-	address1, _ := common.NewAddressFromString("Q095e7baea6a6c7c4c2dfeb977efac326af552d87")
-	address2, _ := common.NewAddressFromString("Q2cac1adea150210703ba75ed097ddfe24e14f213")
-	address3, _ := common.NewAddressFromString("Qd49ff4eeb0b2686ed89c0fc0f2b6ea533ddbbd5e")
+	address1 := common.BytesToAddress(common.FromHex("095e7baea6a6c7c4c2dfeb977efac326af552d87095e7baea6a6c7c4c2dfeb977efac326af552d87a1b2c3d4e5f60102"))
+	address2 := common.BytesToAddress(common.FromHex("2cac1adea150210703ba75ed097ddfe24e14f2132cac1adea150210703ba75ed097ddfe24e14f213b2c3d4e5f6010203"))
+	address3 := common.BytesToAddress(common.FromHex("d49ff4eeb0b2686ed89c0fc0f2b6ea533ddbbd5ed49ff4eeb0b2686ed89c0fc0f2b6ea533ddbbd5ed4e5f60102030405"))
 	accs := []accounts.Account{
 		{
 			Address: address1,
@@ -291,7 +292,7 @@ func TestCacheFind(t *testing.T) {
 		cache.add(a)
 	}
 
-	address, _ := common.NewAddressFromString("Qf466859ead1932d743d622cb74fc058882e8648a")
+	address := common.BytesToAddress(common.FromHex("f466859ead1932d743d622cb74fc058882e8648af466859ead1932d743d622cb74fc058882e8648af60102030405060708"))
 	nomatchAccount := accounts.Account{
 		Address: address,
 		URL:     accounts.URL{Scheme: KeyStoreScheme, Path: filepath.Join(dir, "something")},

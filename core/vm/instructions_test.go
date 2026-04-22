@@ -118,34 +118,39 @@ func testTwoOperandOp(t *testing.T, tests []TwoOperandTestcase, opFn executionFu
 }
 
 func TestByteOp(t *testing.T) {
-	t.Skip("TODO: rewrite fixtures for 512-bit VM word (BYTE index is relative to 64-byte representation)")
+	// BYTE indexes are relative to the 64-byte VM word. The 32-byte input hex
+	// below is right-aligned by SetBytes, so the meaningful bytes sit at
+	// positions 0x20..0x3F; indexes 0x00..0x1F always yield zero and 0x40+
+	// saturates to zero.
 	tests := []TwoOperandTestcase{
-		{"ABCDEF0908070605040302010000000000000000000000000000000000000000", "00", "AB"},
-		{"ABCDEF0908070605040302010000000000000000000000000000000000000000", "01", "CD"},
-		{"00CDEF090807060504030201ffffffffffffffffffffffffffffffffffffffff", "00", "00"},
-		{"00CDEF090807060504030201ffffffffffffffffffffffffffffffffffffffff", "01", "CD"},
-		{"0000000000000000000000000000000000000000000000000000000000102030", "1F", "30"},
-		{"0000000000000000000000000000000000000000000000000000000000102030", "1E", "20"},
-		{"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", "20", "00"},
+		{"ABCDEF0908070605040302010000000000000000000000000000000000000000", "20", "AB"},
+		{"ABCDEF0908070605040302010000000000000000000000000000000000000000", "21", "CD"},
+		{"00CDEF090807060504030201ffffffffffffffffffffffffffffffffffffffff", "20", "00"},
+		{"00CDEF090807060504030201ffffffffffffffffffffffffffffffffffffffff", "21", "CD"},
+		{"0000000000000000000000000000000000000000000000000000000000102030", "3F", "30"},
+		{"0000000000000000000000000000000000000000000000000000000000102030", "3E", "20"},
+		{"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", "40", "00"},
 		{"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", "FFFFFFFFFFFFFFFF", "00"},
 	}
 	testTwoOperandOp(t, tests, opByte, "byte")
 }
 
 func TestSHL(t *testing.T) {
-	t.Skip("TODO: rewrite fixtures for 512-bit VM word (SHL shift limit is now 512)")
-	// Testcases from https://github.com/ethereum/EIPs/blob/master/EIPS/eip-145.md#shl-shift-left
+	// SHL on the 512-bit VM word: the shift limit is 512 and shifts that
+	// previously wrapped past the 256-bit boundary now settle in the upper
+	// half of the word, so the 64-byte expected values expose the full
+	// 512-bit result.
 	tests := []TwoOperandTestcase{
-		{"0000000000000000000000000000000000000000000000000000000000000001", "01", "0000000000000000000000000000000000000000000000000000000000000002"},
-		{"0000000000000000000000000000000000000000000000000000000000000001", "ff", "8000000000000000000000000000000000000000000000000000000000000000"},
-		{"0000000000000000000000000000000000000000000000000000000000000001", "0100", "0000000000000000000000000000000000000000000000000000000000000000"},
-		{"0000000000000000000000000000000000000000000000000000000000000001", "0101", "0000000000000000000000000000000000000000000000000000000000000000"},
-		{"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", "00", "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"},
-		{"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", "01", "fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe"},
-		{"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", "ff", "8000000000000000000000000000000000000000000000000000000000000000"},
-		{"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", "0100", "0000000000000000000000000000000000000000000000000000000000000000"},
-		{"0000000000000000000000000000000000000000000000000000000000000000", "01", "0000000000000000000000000000000000000000000000000000000000000000"},
-		{"7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", "01", "fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe"},
+		{"0000000000000000000000000000000000000000000000000000000000000001", "01", "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002"},
+		{"0000000000000000000000000000000000000000000000000000000000000001", "ff", "00000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000000"},
+		{"0000000000000000000000000000000000000000000000000000000000000001", "0100", "00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000000"},
+		{"0000000000000000000000000000000000000000000000000000000000000001", "0101", "00000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000"},
+		{"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", "00", "0000000000000000000000000000000000000000000000000000000000000000ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"},
+		{"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", "01", "0000000000000000000000000000000000000000000000000000000000000001fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe"},
+		{"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", "ff", "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff8000000000000000000000000000000000000000000000000000000000000000"},
+		{"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", "0100", "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0000000000000000000000000000000000000000000000000000000000000000"},
+		{"0000000000000000000000000000000000000000000000000000000000000000", "01", "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"},
+		{"7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", "01", "0000000000000000000000000000000000000000000000000000000000000000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe"},
 	}
 	testTwoOperandOp(t, tests, opSHL, "shl")
 }
@@ -169,19 +174,21 @@ func TestSHR(t *testing.T) {
 }
 
 func TestSAR(t *testing.T) {
-	t.Skip("TODO: rewrite fixtures for 512-bit VM word (SAR shift limit and sign bit position changed)")
-	// Testcases from https://github.com/ethereum/EIPs/blob/master/EIPS/eip-145.md#sar-arithmetic-shift-right
+	// SAR on the 512-bit VM word: the sign bit is at position 511, so the
+	// classic "negative" 32-byte fixtures (byte 0 high-bit set) actually
+	// represent positive numbers in the right-aligned 512-bit word, and the
+	// shift inputs that previously saturated to -1 now produce 0.
 	tests := []TwoOperandTestcase{
 		{"0000000000000000000000000000000000000000000000000000000000000001", "00", "0000000000000000000000000000000000000000000000000000000000000001"},
 		{"0000000000000000000000000000000000000000000000000000000000000001", "01", "0000000000000000000000000000000000000000000000000000000000000000"},
-		{"8000000000000000000000000000000000000000000000000000000000000000", "01", "c000000000000000000000000000000000000000000000000000000000000000"},
-		{"8000000000000000000000000000000000000000000000000000000000000000", "ff", "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"},
-		{"8000000000000000000000000000000000000000000000000000000000000000", "0100", "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"},
-		{"8000000000000000000000000000000000000000000000000000000000000000", "0101", "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"},
-		{"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", "00", "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"},
-		{"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", "01", "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"},
-		{"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", "ff", "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"},
-		{"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", "0100", "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"},
+		{"8000000000000000000000000000000000000000000000000000000000000000", "01", "00000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000"},
+		{"8000000000000000000000000000000000000000000000000000000000000000", "ff", "0000000000000000000000000000000000000000000000000000000000000001"},
+		{"8000000000000000000000000000000000000000000000000000000000000000", "0100", "0000000000000000000000000000000000000000000000000000000000000000"},
+		{"8000000000000000000000000000000000000000000000000000000000000000", "0101", "0000000000000000000000000000000000000000000000000000000000000000"},
+		{"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", "00", "0000000000000000000000000000000000000000000000000000000000000000ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"},
+		{"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", "01", "00000000000000000000000000000000000000000000000000000000000000007fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"},
+		{"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", "ff", "0000000000000000000000000000000000000000000000000000000000000001"},
+		{"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", "0100", "0000000000000000000000000000000000000000000000000000000000000000"},
 		{"0000000000000000000000000000000000000000000000000000000000000000", "01", "0000000000000000000000000000000000000000000000000000000000000000"},
 		{"4000000000000000000000000000000000000000000000000000000000000000", "fe", "0000000000000000000000000000000000000000000000000000000000000001"},
 		{"7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", "f8", "000000000000000000000000000000000000000000000000000000000000007f"},
@@ -234,7 +241,9 @@ func TestAddMod(t *testing.T) {
 // utility function to fill the json-file with testcases
 // Enable this test to generate the 'testcases_xx.json' files
 func TestWriteExpectedValues(t *testing.T) {
-	t.Skip("Enable this test to create json test cases.")
+	if os.Getenv("REGEN") == "" {
+		t.Skip("Enable this test to create json test cases.")
+	}
 
 	// getResult is a convenience function to generate the expected values
 	getResult := func(args []*twoOperandParams, opFn executionFunc) []TwoOperandTestcase {
@@ -252,7 +261,7 @@ func TestWriteExpectedValues(t *testing.T) {
 			stack.push(y)
 			opFn(&pc, interpreter, &ScopeContext{nil, stack, nil})
 			actual := stack.pop()
-			result[i] = TwoOperandTestcase{param.x, param.y, fmt.Sprintf("%064x", actual)}
+			result[i] = TwoOperandTestcase{param.x, param.y, fmt.Sprintf("%0128x", actual)}
 		}
 		return result
 	}
@@ -271,7 +280,6 @@ func TestWriteExpectedValues(t *testing.T) {
 
 // TestJsonTestcases runs through all the testcases defined as json-files
 func TestJsonTestcases(t *testing.T) {
-	t.Skip("TODO: regenerate testdata/testcases_*.json fixtures for 512-bit VM word")
 	for name := range twoOpMethods {
 		data, err := os.ReadFile(fmt.Sprintf("testdata/testcases_%v.json", name))
 		if err != nil {
@@ -523,7 +531,6 @@ func BenchmarkOpIsZero(b *testing.B) {
 }
 
 func TestOpMstore(t *testing.T) {
-	t.Skip("TODO: rewrite fixture for 64-byte MSTORE (expects 32-byte write)")
 	var (
 		env             = NewQRVM(BlockContext{}, TxContext{}, nil, params.TestChainConfig, Config{})
 		stack           = newstack()
@@ -534,18 +541,24 @@ func TestOpMstore(t *testing.T) {
 	env.interpreter = qrvmInterpreter
 	mem.Resize(64)
 	pc := uint64(0)
+	// MSTORE now writes a full 64-byte VM word. The 32-byte fixture is
+	// right-aligned by SetBytes, so the expected memory contents have a
+	// 32-byte zero prefix followed by the original hex.
 	v := "abcdef00000000000000abba000000000deaf000000c0de00100000000133700"
 	stack.push(new(uint512.Int).SetBytes(common.Hex2Bytes(v)))
 	stack.push(new(uint512.Int))
 	opMstore(&pc, qrvmInterpreter, &ScopeContext{mem, stack, nil})
-	if got := common.Bytes2Hex(mem.GetCopy(0, 32)); got != v {
-		t.Fatalf("Mstore fail, got %v, expected %v", got, v)
+	wantFirst := "0000000000000000000000000000000000000000000000000000000000000000" + v
+	if got := common.Bytes2Hex(mem.GetCopy(0, 64)); got != wantFirst {
+		t.Fatalf("Mstore fail, got %v, expected %v", got, wantFirst)
 	}
 	stack.push(new(uint512.Int).SetUint64(0x1))
 	stack.push(new(uint512.Int))
 	opMstore(&pc, qrvmInterpreter, &ScopeContext{mem, stack, nil})
-	if common.Bytes2Hex(mem.GetCopy(0, 32)) != "0000000000000000000000000000000000000000000000000000000000000001" {
-		t.Fatalf("Mstore failed to overwrite previous value")
+	wantOverwrite := "0000000000000000000000000000000000000000000000000000000000000000" +
+		"0000000000000000000000000000000000000000000000000000000000000001"
+	if got := common.Bytes2Hex(mem.GetCopy(0, 64)); got != wantOverwrite {
+		t.Fatalf("Mstore failed to overwrite previous value, got %v", got)
 	}
 }
 
@@ -590,9 +603,12 @@ func BenchmarkOpKeccak256(bench *testing.B) {
 }
 
 func TestCreate2Addresses(t *testing.T) {
-	t.Skip("TODO: regenerate expected addresses for 48-byte CREATE2 derivation")
+	// Expected addresses are the 48-byte CREATE2 derivation output for each
+	// fixture's (origin, salt, codeHash) triple. Origins are given in full
+	// 48-byte hex (without the Q prefix) so NewAddressFromString is no
+	// longer on the critical path.
 	type testcase struct {
-		origin   string
+		origin   string // 96-char hex, no Q prefix
 		salt     string
 		code     string
 		expected string
@@ -600,49 +616,49 @@ func TestCreate2Addresses(t *testing.T) {
 
 	for i, tt := range []testcase{
 		{
-			origin:   "Q0000000000000000000000000000000000000000",
+			origin:   "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
 			salt:     "0x0000000000000000000000000000000000000000",
 			code:     "0x00",
-			expected: "Q4d1a2e2bb4f88f0250f26ffff098b0b30b26bf38",
+			expected: "Qb5abA8c025aCd276157d8ebec9e65A2C3c9dF2688adF3D1749dA6Bd7ec862E7922ACd77a6593673817C75138D1f14C1B",
 		},
 		{
-			origin:   "Qdeadbeef00000000000000000000000000000000",
+			origin:   "deadbeef00000000000000000000000000000000deadbeef000000000000000000000000000000000000000000000000",
 			salt:     "0x0000000000000000000000000000000000000000",
 			code:     "0x00",
-			expected: "QB928f69Bb1D91Cd65274e3c79d8986362984fDA3",
+			expected: "Q7fCd59695Fa9B353e7BA2df5c99d9236Ab44B7dbc22845d9300182bd82852C9344C0041378987DD72dA5154Cd78daA89",
 		},
 		{
-			origin:   "Qdeadbeef00000000000000000000000000000000",
+			origin:   "deadbeef00000000000000000000000000000000deadbeef000000000000000000000000000000000000000000000000",
 			salt:     "0xfeed000000000000000000000000000000000000",
 			code:     "0x00",
-			expected: "QD04116cDd17beBE565EB2422F2497E06cC1C9833",
+			expected: "Q6989B7cE078b7a84bD95a5BB195A30702d5C5Bdb14cF276C5F1aEfcc8D9264B6EB16D8F4818ddD5512D7dD299c1F0006",
 		},
 		{
-			origin:   "Q0000000000000000000000000000000000000000",
+			origin:   "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
 			salt:     "0x0000000000000000000000000000000000000000",
 			code:     "0xdeadbeef",
-			expected: "Q70f2b2914A2a4b783FaEFb75f459A580616Fcb5e",
+			expected: "Q5dF1e519b8BaB6A5ec0fAD7974bacA26F96Dc68126a64673FCb439A8C0A77877844ac6A482FB66E7d5ee9781B2d031Bb",
 		},
 		{
-			origin:   "Q00000000000000000000000000000000deadbeef",
+			origin:   "00000000000000000000000000000000deadbeef00000000000000000000000000000000deadbeef0000000000000000",
 			salt:     "0xcafebabe",
 			code:     "0xdeadbeef",
-			expected: "Q60f3f640a8508fC6a86d45DF051962668E1e8AC7",
+			expected: "Q4c0d8c9b2F1fCC43841058E9934E1D349B867c74eC9c69b18C7F96d6F5dc5F3A56b6CE80092475425d7bAf7E02b92af0",
 		},
 		{
-			origin:   "Q00000000000000000000000000000000deadbeef",
+			origin:   "00000000000000000000000000000000deadbeef00000000000000000000000000000000deadbeef0000000000000000",
 			salt:     "0xcafebabe",
 			code:     "0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
-			expected: "Q1d8bfDC5D46DC4f61D6b6115972536eBE6A8854C",
+			expected: "QB7B780a6a151b5Cd84178Fb50cAFE00b4215C4BE50673587928c8d1277C2dB0F0e0a87f3b817E0176144e085cb45FB86",
 		},
 		{
-			origin:   "Q0000000000000000000000000000000000000000",
+			origin:   "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
 			salt:     "0x0000000000000000000000000000000000000000",
 			code:     "0x",
-			expected: "QE33C0C7F7df4809055C3ebA6c09CFe4BaF1BD9e0",
+			expected: "QeCb602d08F4fE0CC1b95DeAeA603A2C6b25959bDAFC3ABF9217a837DE26dd445fA9AD34244771F694D2b228218C34b86",
 		},
 	} {
-		origin, _ := common.NewAddressFromString(tt.origin)
+		origin := common.BytesToAddress(common.FromHex(tt.origin))
 		// Left-pad the (<=32-byte) salt from the fixture into the 64-byte
 		// CREATE2 salt word used by the VM.
 		saltBytes := common.FromHex(tt.salt)
