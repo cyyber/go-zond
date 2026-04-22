@@ -72,39 +72,46 @@ type txtestcase struct {
 }
 
 func TestTransactionValidation(t *testing.T) {
-	t.Skip("TODO: regenerate 20-byte test addresses to 48-byte QRL addresses")
 	t.Parallel()
 	var (
 		// use empty db, there are other tests for the abi-specific stuff
 		db = newEmpty()
 	)
+	// 48-byte QRL address variants of the classic "dead" test address.
+	// validDead has the EIP-55 mixed-case checksum, lowerDead is
+	// all-lowercase so it fails the checksum validator.
+	const (
+		lowerDead = "Q00000000000000000000000000000000dead000000000000000000000000000000000000000000000000000000000000"
+		validDead = "Q00000000000000000000000000000000DEad000000000000000000000000000000000000000000000000000000000000"
+		zeroAddr  = "Q000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+	)
 	testcases := []txtestcase{
 		// Invalid to checksum
-		{from: "Q000000000000000000000000000000000000dead", to: "Q000000000000000000000000000000000000dead",
+		{from: lowerDead, to: lowerDead,
 			n: "0x01", g: "0x20", mfpg: "0x40", mpfpg: "0x0", value: "0x01", numMessages: 1},
-		// valid Q000000000000000000000000000000000000dEaD
-		{from: "Q000000000000000000000000000000000000dead", to: "Q000000000000000000000000000000000000dEaD",
+		// valid checksum (mixed case)
+		{from: lowerDead, to: validDead,
 			n: "0x01", g: "0x20", mfpg: "0x40", mpfpg: "0x0", value: "0x01", numMessages: 0},
 		// conflicting input and data
-		{from: "Q000000000000000000000000000000000000dead", to: "Q000000000000000000000000000000000000dEaD",
+		{from: lowerDead, to: validDead,
 			n: "0x01", g: "0x20", mfpg: "0x40", mpfpg: "0x0", value: "0x01", d: "0x01", i: "0x02", expectErr: true},
 		// Data can't be parsed
-		{from: "Q000000000000000000000000000000000000dead", to: "Q000000000000000000000000000000000000dEaD",
+		{from: lowerDead, to: validDead,
 			n: "0x01", g: "0x20", mfpg: "0x40", mpfpg: "0x0", value: "0x01", d: "0x0102", numMessages: 1},
 		// Data (on Input) can't be parsed
-		{from: "Q000000000000000000000000000000000000dead", to: "Q000000000000000000000000000000000000dEaD",
+		{from: lowerDead, to: validDead,
 			n: "0x01", g: "0x20", mfpg: "0x40", mpfpg: "0x0", value: "0x01", i: "0x0102", numMessages: 1},
 		// Send to 0
-		{from: "Q000000000000000000000000000000000000dead", to: "Q0000000000000000000000000000000000000000",
+		{from: lowerDead, to: zeroAddr,
 			n: "0x01", g: "0x20", mfpg: "0x40", mpfpg: "0x0", value: "0x01", numMessages: 1},
 		// Create empty contract (no value)
-		{from: "Q000000000000000000000000000000000000dead", to: "",
+		{from: lowerDead, to: "",
 			n: "0x01", g: "0x20", mfpg: "0x40", mpfpg: "0x0", value: "0x00", numMessages: 1},
 		// Create empty contract (with value)
-		{from: "Q000000000000000000000000000000000000dead", to: "",
+		{from: lowerDead, to: "",
 			n: "0x01", g: "0x20", mfpg: "0x40", mpfpg: "0x0", value: "0x01", expectErr: true},
 		// Small payload for create
-		{from: "Q000000000000000000000000000000000000dead", to: "",
+		{from: lowerDead, to: "",
 			n: "0x01", g: "0x20", mfpg: "0x40", mpfpg: "0x0", value: "0x01", d: "0x01", numMessages: 1},
 	}
 	for i, test := range testcases {
