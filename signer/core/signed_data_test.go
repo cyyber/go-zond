@@ -134,17 +134,17 @@ var jsonTypedData = `
         "name": "Ether Mail",
         "version": "1",
         "chainId": "1",
-        "verifyingContract": "QCCCcccccCCCCcCCCCCCcCcCccCcCCCcCcccccccC"
+        "verifyingContract": "QCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCc"
       },
       "message": {
         "from": {
           "name": "Cow",
 		  "test": 3,
-          "wallet": "QcD2a3d9F938E13CD947Ec05AbC7FE734Df8DD826"
+          "wallet": "QcD2a3d9F938E13CD947Ec05AbC7FE734Df8DD826cD2a3d9F938E13CD947Ec05AbC7FE734Df8DD826aabbccddeeff0102"
         },
         "to": {
           "name": "Bob",
-          "wallet": "QbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB"
+          "wallet": "QbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbBbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbBaabbccddee010203"
         },
         "contents": "Hello, Bob!"
       }
@@ -153,22 +153,24 @@ var jsonTypedData = `
 
 const primaryType = "Mail"
 
+// 48-byte QRL addresses — any 96-char hex works; these extend the original
+// 20-byte fixtures to the full slot width.
 var domainStandard = apitypes.TypedDataDomain{
 	Name:              "Ether Mail",
 	Version:           "1",
 	ChainId:           math.NewHexOrDecimal256(1),
-	VerifyingContract: "QCcCCccccCCCCcCCCCCCcCcCccCcCCCcCcccccccC",
+	VerifyingContract: "QCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCc",
 	Salt:              "",
 }
 
 var messageStandard = map[string]any{
 	"from": map[string]any{
 		"name":   "Cow",
-		"wallet": "QCD2a3d9F938E13CD947Ec05AbC7FE734Df8DD826",
+		"wallet": "QCD2a3d9F938E13CD947Ec05AbC7FE734Df8DD826CD2a3d9F938E13CD947Ec05AbC7FE734Df8DD826aabbccddeeff0102",
 	},
 	"to": map[string]any{
 		"name":   "Bob",
-		"wallet": "QbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB",
+		"wallet": "QbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbBbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbBaabbccddee010203",
 	},
 	"contents": "Hello, Bob!",
 }
@@ -290,14 +292,13 @@ func TestDomainChainId(t *testing.T) {
 }
 
 func TestHashStruct(t *testing.T) {
-	t.Skip("TODO: EIP-712 typed data with 48-byte QRL addresses — fixture + encoding update needed")
 	t.Parallel()
 	hash, err := typedData.HashStruct(typedData.PrimaryType, typedData.Message)
 	if err != nil {
 		t.Fatal(err)
 	}
 	mainHash := fmt.Sprintf("0x%s", common.Bytes2Hex(hash))
-	if mainHash != "0xc52c0ee5d84264471806290a3f2c4cecfc5490626bf912d01f240d7a274b371e" {
+	if mainHash != "0x1c684ca0b5c5d23235a7740c06c82c141538be7cd007a68cb6031d01d45a859c" {
 		t.Errorf("Expected different hashStruct result (got %s)", mainHash)
 	}
 
@@ -306,7 +307,7 @@ func TestHashStruct(t *testing.T) {
 		t.Error(err)
 	}
 	domainHash := fmt.Sprintf("0x%s", common.Bytes2Hex(hash))
-	if domainHash != "0xf2cee375fa42b42143804025fc449deafd50cc031ca257e0b194a650a912090f" {
+	if domainHash != "0x201566a0604edd2c5fc45a557d6df10d9aa1d9399f5f47b7dcc1950f54e628d1" {
 		t.Errorf("Expected different domain hashStruct result (got %s)", domainHash)
 	}
 }
@@ -333,14 +334,13 @@ func TestTypeHash(t *testing.T) {
 }
 
 func TestEncodeData(t *testing.T) {
-	t.Skip("TODO: EIP-712 typed data with 48-byte QRL addresses — fixture + encoding update needed")
 	t.Parallel()
 	hash, err := typedData.EncodeData(typedData.PrimaryType, typedData.Message, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
 	dataEncoding := fmt.Sprintf("0x%s", common.Bytes2Hex(hash))
-	if dataEncoding != "0xa0cedeb2dc280ba39b857546d74f5549c3a1d7bdc2dd96bf881f76108e23dac2fc71e5fa27ff56c350aa531bc129ebdf613b772b6604664f5d8dbe21b85eb0c8cd54f074a4af31b4411ff6a60c9719dbd559c221c8ac3492d9d872b041d703d1b5aadf3154a261abdd9086fc627b61efca26ae5702701d05cd2305f7c52a2fc8" {
+	if dataEncoding != "0xa0cedeb2dc280ba39b857546d74f5549c3a1d7bdc2dd96bf881f76108e23dac22d3466f4c3838af711c7fe4ad8486c15efac7b1272d63bb48e2f76c5dccf119f8e07e68155d96f032b51240541dfd6f043bc110a46e81c962298079c53ffd282b5aadf3154a261abdd9086fc627b61efca26ae5702701d05cd2305f7c52a2fc8" {
 		t.Errorf("Expected different encodeData result (got %s)", dataEncoding)
 	}
 }
@@ -376,7 +376,6 @@ func sign(typedData apitypes.TypedData) ([]byte, []byte, error) {
 }
 
 func TestJsonFiles(t *testing.T) {
-	t.Skip("TODO: EIP-712 typed data with 48-byte QRL addresses — fixture + encoding update needed")
 	t.Parallel()
 	testfiles, err := os.ReadDir("testdata/")
 	if err != nil {
@@ -535,7 +534,7 @@ var complexTypedData = `
     "domain": {
         "chainId": "56",
         "name": "da.systems",
-        "verifyingContract": "Q0000000000000000000000000000000020210722",
+        "verifyingContract": "Q000000000000000000000000000000002021072200000000000000000000000000000000202107221122334455667788",
         "version": "1"
     },
     "message": {
@@ -578,7 +577,6 @@ var complexTypedData = `
 `
 
 func TestComplexTypedData(t *testing.T) {
-	t.Skip("TODO: EIP-712 typed data with 48-byte QRL addresses — fixture + encoding update needed")
 	t.Parallel()
 	var td apitypes.TypedData
 	err := json.Unmarshal([]byte(complexTypedData), &td)
@@ -589,7 +587,7 @@ func TestComplexTypedData(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	expSigHash := common.FromHex("0x42b1aca82bb6900ff75e90a136de550a58f1a220a071704088eabd5e6ce20446")
+	expSigHash := common.FromHex("0x5e60ccf5c782f45cd617e398b32e31d8a72a926be8696cf2d8052431952267ab")
 	if !bytes.Equal(expSigHash, sighash) {
 		t.Fatalf("Error, got %x, wanted %x", sighash, expSigHash)
 	}
@@ -687,7 +685,7 @@ var complexTypedDataLCRefType = `
     "domain": {
         "chainId": "56",
         "name": "da.systems",
-        "verifyingContract": "Q0000000000000000000000000000000020210722",
+        "verifyingContract": "Q000000000000000000000000000000002021072200000000000000000000000000000000202107221122334455667788",
         "version": "1"
     },
     "message": {
@@ -730,7 +728,6 @@ var complexTypedDataLCRefType = `
 `
 
 func TestComplexTypedDataWithLowercaseReftype(t *testing.T) {
-	t.Skip("TODO: EIP-712 typed data with 48-byte QRL addresses — fixture + encoding update needed")
 	t.Parallel()
 	var td apitypes.TypedData
 	err := json.Unmarshal([]byte(complexTypedDataLCRefType), &td)
@@ -741,7 +738,7 @@ func TestComplexTypedDataWithLowercaseReftype(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	expSigHash := common.FromHex("0x49191f910874f0148597204d9076af128d4694a7c4b714f1ccff330b87207bff")
+	expSigHash := common.FromHex("0x6758534d673ce216190195d499d10a6242cb7c6cfc571a5ce003d1b1bc2e8e5d")
 	if !bytes.Equal(expSigHash, sighash) {
 		t.Fatalf("Error, got %x, wanted %x", sighash, expSigHash)
 	}

@@ -283,7 +283,6 @@ type walletEvent struct {
 // Tests that wallet notifications and correctly fired when accounts are added
 // or deleted from the keystore.
 func TestWalletNotifications(t *testing.T) {
-	t.Skip("TODO: verify wallet notifier pipeline with 48-byte-address keystore events")
 	t.Parallel()
 	_, ks := tmpKeyStore(t)
 

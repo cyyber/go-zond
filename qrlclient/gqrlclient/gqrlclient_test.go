@@ -39,11 +39,11 @@ import (
 )
 
 var (
-	testWallet = testutil.MustLoadAccount("alice").MustWallet()
-	testAddr        = testWallet.GetAddress()
-	zeroAddr, _     = common.NewAddressFromString("Q0000000000000000000000000000000000000000")
-	testContract, _ = common.NewAddressFromString("Q000000000000000000000000000000000000beef")
-	testEmpty, _    = common.NewAddressFromString("Q000000000000000000000000000000000000eeee")
+	testWallet   = testutil.MustLoadAccount("alice").MustWallet()
+	testAddr     = testWallet.GetAddress()
+	zeroAddr     = common.Address{}
+	testContract = common.BytesToAddress(common.FromHex("000000000000000000000000000000000000beef000000000000000000000000000000000000beef11223344556677"))
+	testEmpty    = common.BytesToAddress(common.FromHex("000000000000000000000000000000000000eeee000000000000000000000000000000000000eeee11223344556677"))
 	testSlot        = common.HexToHash("0xdeadbeef")
 	testValue       = common.BytesToStorageValue(crypto.Keccak256Hash(testSlot[:]).Bytes())
 	testBalance     = big.NewInt(2e18)
@@ -100,7 +100,6 @@ func generateTestChain() (*core.Genesis, []*types.Block) {
 }
 
 func TestGqrlClient(t *testing.T) {
-	t.Skip("TODO: gqrlclient fixtures need regeneration for 48-byte addresses")
 	backend, _ := newTestBackend(t)
 	client := backend.Attach()
 	defer backend.Close()
@@ -469,7 +468,6 @@ func testCallContract(t *testing.T, client *rpc.Client) {
 }
 
 func TestOverrideAccountMarshal(t *testing.T) {
-	t.Skip("TODO: gqrlclient fixtures need regeneration for 48-byte addresses")
 	om := map[common.Address]OverrideAccount{
 		{0x11}: {
 			// Zero-valued nonce is not overridden, but simply dropped by the encoder.
@@ -498,15 +496,18 @@ func TestOverrideAccountMarshal(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
+	// 48-byte Address values render as a Q prefix plus 96 lowercase hex
+	// characters with the seed byte at position 0 and the remaining 47
+	// bytes zeroed.
 	expected := `{
-  "Q1100000000000000000000000000000000000000": {},
-  "Qaa00000000000000000000000000000000000000": {
+  "Q110000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000": {},
+  "Qaa0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000": {
     "nonce": "0x5"
   },
-  "Qbb00000000000000000000000000000000000000": {
+  "Qbb0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000": {
     "code": "0x01"
   },
-  "Qcc00000000000000000000000000000000000000": {
+  "Qcc0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000": {
     "code": "0x",
     "balance": "0x0",
     "state": {}
@@ -520,8 +521,7 @@ func TestOverrideAccountMarshal(t *testing.T) {
 }
 
 func TestBlockOverridesMarshal(t *testing.T) {
-	t.Skip("TODO: gqrlclient fixtures need regeneration for 48-byte addresses")
-	coinbase, _ := common.NewAddressFromString("Q1111111111111111111111111111111111111111")
+	coinbase := common.BytesToAddress(bytes.Repeat([]byte{0x11}, common.AddressLength))
 
 	for i, tt := range []struct {
 		bo   BlockOverrides
@@ -535,7 +535,7 @@ func TestBlockOverridesMarshal(t *testing.T) {
 			bo: BlockOverrides{
 				Coinbase: coinbase,
 			},
-			want: `{"coinbase":"Q1111111111111111111111111111111111111111"}`,
+			want: `{"coinbase":"Q111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111"}`,
 		},
 		{
 			bo: BlockOverrides{
@@ -566,9 +566,16 @@ func testCallContractWithBlockOverrides(t *testing.T, client *rpc.Client) {
 		GasFeeCap: big.NewInt(100000000000),
 		Value:     big.NewInt(1),
 	}
+	// Returns the coinbase address:
+	//   41       COINBASE           ; push 64-byte word, addr in [16:64]
+	//   a0       DUP1               ; DUP1 lives at 0xa0 after the opcode shift
+	//   60 00    PUSH1 0x00         ; memory offset
+	//   52       MSTORE             ; write 64 bytes to memory[0]
+	//   60 30    PUSH1 0x30         ; return length = 48 bytes
+	//   60 10    PUSH1 0x10         ; return offset = 16 (skip the zero-padding)
+	//   f3       RETURN
 	override := OverrideAccount{
-		// Returns coinbase address.
-		Code: common.FromHex("0x41806000526014600cf3"),
+		Code: common.FromHex("0x41a060005260306010f3"),
 	}
 	mapAcc := make(map[common.Address]OverrideAccount)
 	mapAcc[common.Address{}] = override
@@ -576,12 +583,12 @@ func testCallContractWithBlockOverrides(t *testing.T, client *rpc.Client) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if !bytes.Equal(res, common.FromHex("0x0000000000000000000000000000000000000000")) {
+	if !bytes.Equal(res, make([]byte, common.AddressLength)) {
 		t.Fatalf("unexpected result: %x", res)
 	}
 
 	// Now test with block overrides
-	coinbase, _ := common.NewAddressFromString("Q1111111111111111111111111111111111111111")
+	coinbase := common.BytesToAddress(bytes.Repeat([]byte{0x11}, common.AddressLength))
 	bo := BlockOverrides{
 		Coinbase: coinbase,
 	}
@@ -589,7 +596,7 @@ func testCallContractWithBlockOverrides(t *testing.T, client *rpc.Client) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if !bytes.Equal(res, common.FromHex("0x1111111111111111111111111111111111111111")) {
+	if !bytes.Equal(res, coinbase[:]) {
 		t.Fatalf("unexpected result: %x", res)
 	}
 }

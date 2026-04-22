@@ -88,32 +88,45 @@ func TestBytesPadding(t *testing.T) {
 }
 
 func TestParseAddress(t *testing.T) {
-	t.Skip("TODO: EIP-712 address encoding needs redesign for 48-byte QRL addresses; fixture length changes 32 → 64")
 	t.Parallel()
+	// EIP-712 primitive encoding widens to a 64-byte slot so the 48-byte
+	// QRL address fits right-aligned; successful outputs carry a 16-byte
+	// zero prefix ahead of the address bytes.
+	validAddr48 := [common.AddressLength]byte{
+		0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+		0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10,
+		0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18,
+		0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F, 0x20,
+		0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28,
+		0x29, 0x2A, 0x2B, 0x2C, 0x2D, 0x2E, 0x2F, 0x30,
+	}
+	okOutput := common.FromHex("0x00000000000000000000000000000000" +
+		"0102030405060708090A0B0C0D0E0F10" +
+		"1112131415161718191A1B1C1D1E1F20" +
+		"2122232425262728292A2B2C2D2E2F30")
 	tests := []struct {
 		Input  any
 		Output []byte // nil => error
 	}{
 		{
-			Input:  [20]byte{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10, 0x11, 0x12, 0x13, 0x14},
-			Output: common.FromHex("0x0000000000000000000000000102030405060708090A0B0C0D0E0F1011121314"),
+			Input:  validAddr48,
+			Output: okOutput,
 		},
 		{
-			Input:  "Q0102030405060708090A0B0C0D0E0F1011121314",
-			Output: common.FromHex("0x0000000000000000000000000102030405060708090A0B0C0D0E0F1011121314"),
+			Input:  "Q0102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F202122232425262728292A2B2C2D2E2F30",
+			Output: okOutput,
 		},
 		{
-			Input:  []byte{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10, 0x11, 0x12, 0x13, 0x14},
-			Output: common.FromHex("0x0000000000000000000000000102030405060708090A0B0C0D0E0F1011121314"),
+			Input:  validAddr48[:],
+			Output: okOutput,
 		},
 		// Various error-cases:
-		{Input: "Q000102030405060708090A0B0C0D0E0F1011121314"}, // too long string
 		{Input: "Q01"}, // too short string
 		{Input: ""},
-		{Input: [32]byte{}},       // too long fixed-size array
-		{Input: [21]byte{}},       // too long fixed-size array
-		{Input: make([]byte, 19)}, // too short slice
-		{Input: make([]byte, 21)}, // too long slice
+		{Input: [32]byte{}},        // wrong fixed-size array length
+		{Input: [20]byte{}},        // old 20-byte form no longer accepted
+		{Input: make([]byte, 47)},  // too short slice
+		{Input: make([]byte, 49)},  // too long slice
 		{Input: nil},
 	}
 
@@ -129,7 +142,7 @@ func TestParseAddress(t *testing.T) {
 		if err != nil {
 			t.Errorf("test %d: expected no error, got %v", i, err)
 		}
-		if have, want := len(val), 32; have != want {
+		if have, want := len(val), 64; have != want {
 			t.Errorf("test %d: have len %d, want %d", i, have, want)
 		}
 		if !bytes.Equal(val, test.Output) {
