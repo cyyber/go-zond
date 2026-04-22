@@ -32,7 +32,7 @@ import (
 
 // TestPack tests the general pack/unpack tests in packing_test.go
 func TestPack(t *testing.T) {
-	t.Skip("TODO: regenerate pack fixtures for 64-byte ABI slot")
+	
 	t.Parallel()
 	for i, test := range packUnpackTests {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
