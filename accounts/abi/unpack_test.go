@@ -356,23 +356,24 @@ type methodMultiOutput struct {
 }
 
 func methodMultiReturn(require *require.Assertions) (ABI, []byte, methodMultiOutput) {
-	const definition = `[
+	const outDef = `[
 	{ "name" : "multi", "type": "function", "outputs": [ { "name": "Int", "type": "uint256" }, { "name": "String", "type": "string" } ] }]`
-	var expected = methodMultiOutput{big.NewInt(1), "hello"}
+	const inDef = `[
+	{ "name" : "multi", "type": "function", "inputs":  [ { "name": "Int", "type": "uint256" }, { "name": "String", "type": "string" } ] }]`
+	expected := methodMultiOutput{big.NewInt(1), "hello"}
 
-	abi, err := JSON(strings.NewReader(definition))
+	outAbi, err := JSON(strings.NewReader(outDef))
 	require.NoError(err)
-	// using buff to make the code readable
-	buff := new(bytes.Buffer)
-	buff.Write(common.Hex2Bytes("0000000000000000000000000000000000000000000000000000000000000001"))
-	buff.Write(common.Hex2Bytes("0000000000000000000000000000000000000000000000000000000000000040"))
-	buff.Write(common.Hex2Bytes("0000000000000000000000000000000000000000000000000000000000000005"))
-	buff.Write(common.RightPadBytes([]byte(expected.String), 32))
-	return abi, buff.Bytes(), expected
+	inAbi, err := JSON(strings.NewReader(inDef))
+	require.NoError(err)
+	packed, err := inAbi.Pack("multi", expected.Int, expected.String)
+	require.NoError(err)
+	// Trim the 4-byte selector prepended by Pack; Unpack expects return data
+	// which starts directly at the first slot.
+	return outAbi, packed[4:], expected
 }
 
 func TestMethodMultiReturn(t *testing.T) {
-	t.Skip("TODO: regenerate encoded test data for 64-byte ABI slot")
 	t.Parallel()
 	type reversed struct {
 		String string
@@ -452,20 +453,28 @@ func TestMethodMultiReturn(t *testing.T) {
 }
 
 func TestMultiReturnWithArray(t *testing.T) {
-	t.Skip("TODO: regenerate encoded test data for 64-byte ABI slot")
 	t.Parallel()
-	const definition = `[{"name" : "multi", "type": "function", "outputs": [{"type": "uint64[3]"}, {"type": "uint64"}]}]`
-	abi, err := JSON(strings.NewReader(definition))
+	// Pack the expected values against an equivalent input method, then verify
+	// the output method unpacks them back. Avoids embedding a hand-rolled hex
+	// encoding that would need updating whenever the slot width changes.
+	const outDef = `[{"name" : "multi", "type": "function", "outputs": [{"type": "uint64[3]"}, {"type": "uint64"}]}]`
+	const inDef = `[{"name" : "multi", "type": "function", "inputs": [{"type": "uint64[3]"}, {"type": "uint64"}]}]`
+	outAbi, err := JSON(strings.NewReader(outDef))
 	if err != nil {
 		t.Fatal(err)
 	}
-	buff := new(bytes.Buffer)
-	buff.Write(common.Hex2Bytes("000000000000000000000000000000000000000000000000000000000000000900000000000000000000000000000000000000000000000000000000000000090000000000000000000000000000000000000000000000000000000000000009"))
-	buff.Write(common.Hex2Bytes("0000000000000000000000000000000000000000000000000000000000000008"))
-
-	ret1, ret1Exp := new([3]uint64), [3]uint64{9, 9, 9}
-	ret2, ret2Exp := new(uint64), uint64(8)
-	if err := abi.UnpackIntoInterface(&[]any{ret1, ret2}, "multi", buff.Bytes()); err != nil {
+	inAbi, err := JSON(strings.NewReader(inDef))
+	if err != nil {
+		t.Fatal(err)
+	}
+	ret1Exp := [3]uint64{9, 9, 9}
+	ret2Exp := uint64(8)
+	packed, err := inAbi.Pack("multi", ret1Exp, ret2Exp)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ret1, ret2 := new([3]uint64), new(uint64)
+	if err := outAbi.UnpackIntoInterface(&[]any{ret1, ret2}, "multi", packed[4:]); err != nil {
 		t.Fatal(err)
 	}
 	if !reflect.DeepEqual(*ret1, ret1Exp) {
@@ -477,22 +486,31 @@ func TestMultiReturnWithArray(t *testing.T) {
 }
 
 func TestMultiReturnWithStringArray(t *testing.T) {
-	t.Skip("TODO: regenerate encoded test data for 64-byte ABI slot")
 	t.Parallel()
-	const definition = `[{"name" : "multi", "type": "function", "outputs": [{"name": "","type": "uint256[3]"},{"name": "","type": "address"},{"name": "","type": "string[2]"},{"name": "","type": "bool"}]}]`
-	abi, err := JSON(strings.NewReader(definition))
+	const outDef = `[{"name" : "multi", "type": "function", "outputs": [{"name": "","type": "uint256[3]"},{"name": "","type": "address"},{"name": "","type": "string[2]"},{"name": "","type": "bool"}]}]`
+	const inDef = `[{"name" : "multi", "type": "function", "inputs": [{"name": "","type": "uint256[3]"},{"name": "","type": "address"},{"name": "","type": "string[2]"},{"name": "","type": "bool"}]}]`
+	outAbi, err := JSON(strings.NewReader(outDef))
 	if err != nil {
 		t.Fatal(err)
 	}
-	buff := new(bytes.Buffer)
-	buff.Write(common.Hex2Bytes("000000000000000000000000000000000000000000000000000000005c1b78ea0000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000001a055690d9db80000000000000000000000000000ab1257528b3782fb40d7ed5f72e624b744dffb2f00000000000000000000000000000000000000000000000000000000000000c00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000008457468657265756d000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001048656c6c6f2c20457468657265756d2100000000000000000000000000000000"))
+	inAbi, err := JSON(strings.NewReader(inDef))
+	if err != nil {
+		t.Fatal(err)
+	}
 	temp, _ := new(big.Int).SetString("30000000000000000000", 10)
-	ret1, ret1Exp := new([3]*big.Int), [3]*big.Int{big.NewInt(1545304298), big.NewInt(6), temp}
+	ret1Exp := [3]*big.Int{big.NewInt(1545304298), big.NewInt(6), temp}
+	ret2Exp, _ := common.NewAddressFromString("Q000000000000000000000000000000000000000000000000000000000ab1257528b3782fb40d7ed5f72e624b744dffb2f")
+	ret3Exp := [2]string{"Ethereum", "Hello, Ethereum!"}
+	ret4Exp := false
+	packed, err := inAbi.Pack("multi", ret1Exp, ret2Exp, ret3Exp, ret4Exp)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ret1 := new([3]*big.Int)
 	ret2 := new(common.Address)
-	ret2Exp, _ := common.NewAddressFromString("Qab1257528b3782fb40d7ed5f72e624b744dffb2f")
-	ret3, ret3Exp := new([2]string), [2]string{"Ethereum", "Hello, Ethereum!"}
-	ret4, ret4Exp := new(bool), false
-	if err := abi.UnpackIntoInterface(&[]any{ret1, ret2, ret3, ret4}, "multi", buff.Bytes()); err != nil {
+	ret3 := new([2]string)
+	ret4 := new(bool)
+	if err := outAbi.UnpackIntoInterface(&[]any{ret1, ret2, ret3, ret4}, "multi", packed[4:]); err != nil {
 		t.Fatal(err)
 	}
 	if !reflect.DeepEqual(*ret1, ret1Exp) {
@@ -510,29 +528,25 @@ func TestMultiReturnWithStringArray(t *testing.T) {
 }
 
 func TestMultiReturnWithStringSlice(t *testing.T) {
-	t.Skip("TODO: regenerate encoded test data for 64-byte ABI slot")
 	t.Parallel()
-	const definition = `[{"name" : "multi", "type": "function", "outputs": [{"name": "","type": "string[]"},{"name": "","type": "uint256[]"}]}]`
-	abi, err := JSON(strings.NewReader(definition))
+	const outDef = `[{"name" : "multi", "type": "function", "outputs": [{"name": "","type": "string[]"},{"name": "","type": "uint256[]"}]}]`
+	const inDef = `[{"name" : "multi", "type": "function", "inputs": [{"name": "","type": "string[]"},{"name": "","type": "uint256[]"}]}]`
+	outAbi, err := JSON(strings.NewReader(outDef))
 	if err != nil {
 		t.Fatal(err)
 	}
-	buff := new(bytes.Buffer)
-	buff.Write(common.Hex2Bytes("0000000000000000000000000000000000000000000000000000000000000040")) // output[0] offset
-	buff.Write(common.Hex2Bytes("0000000000000000000000000000000000000000000000000000000000000120")) // output[1] offset
-	buff.Write(common.Hex2Bytes("0000000000000000000000000000000000000000000000000000000000000002")) // output[0] length
-	buff.Write(common.Hex2Bytes("0000000000000000000000000000000000000000000000000000000000000040")) // output[0][0] offset
-	buff.Write(common.Hex2Bytes("0000000000000000000000000000000000000000000000000000000000000080")) // output[0][1] offset
-	buff.Write(common.Hex2Bytes("0000000000000000000000000000000000000000000000000000000000000008")) // output[0][0] length
-	buff.Write(common.Hex2Bytes("657468657265756d000000000000000000000000000000000000000000000000")) // output[0][0] value
-	buff.Write(common.Hex2Bytes("000000000000000000000000000000000000000000000000000000000000000b")) // output[0][1] length
-	buff.Write(common.Hex2Bytes("676f2d657468657265756d000000000000000000000000000000000000000000")) // output[0][1] value
-	buff.Write(common.Hex2Bytes("0000000000000000000000000000000000000000000000000000000000000002")) // output[1] length
-	buff.Write(common.Hex2Bytes("0000000000000000000000000000000000000000000000000000000000000064")) // output[1][0] value
-	buff.Write(common.Hex2Bytes("0000000000000000000000000000000000000000000000000000000000000065")) // output[1][1] value
-	ret1, ret1Exp := new([]string), []string{"ethereum", "go-ethereum"}
-	ret2, ret2Exp := new([]*big.Int), []*big.Int{big.NewInt(100), big.NewInt(101)}
-	if err := abi.UnpackIntoInterface(&[]any{ret1, ret2}, "multi", buff.Bytes()); err != nil {
+	inAbi, err := JSON(strings.NewReader(inDef))
+	if err != nil {
+		t.Fatal(err)
+	}
+	ret1Exp := []string{"ethereum", "go-ethereum"}
+	ret2Exp := []*big.Int{big.NewInt(100), big.NewInt(101)}
+	packed, err := inAbi.Pack("multi", ret1Exp, ret2Exp)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ret1, ret2 := new([]string), new([]*big.Int)
+	if err := outAbi.UnpackIntoInterface(&[]any{ret1, ret2}, "multi", packed[4:]); err != nil {
 		t.Fatal(err)
 	}
 	if !reflect.DeepEqual(*ret1, ret1Exp) {
@@ -544,37 +558,34 @@ func TestMultiReturnWithStringSlice(t *testing.T) {
 }
 
 func TestMultiReturnWithDeeplyNestedArray(t *testing.T) {
-	t.Skip("TODO: regenerate encoded test data for 64-byte ABI slot")
 	t.Parallel()
 	// Similar to TestMultiReturnWithArray, but with a special case in mind:
-	//  values of nested static arrays count towards the size as well, and any element following
-	//  after such nested array argument should be read with the correct offset,
-	//  so that it does not read content from the previous array argument.
-	const definition = `[{"name" : "multi", "type": "function", "outputs": [{"type": "uint64[3][2][4]"}, {"type": "uint64"}]}]`
-	abi, err := JSON(strings.NewReader(definition))
+	// values of nested static arrays count towards the size as well, and any
+	// element following such a nested array argument must be read with the
+	// correct offset so it doesn't pick up bytes from the previous array.
+	const outDef = `[{"name" : "multi", "type": "function", "outputs": [{"type": "uint64[3][2][4]"}, {"type": "uint64"}]}]`
+	const inDef = `[{"name" : "multi", "type": "function", "inputs": [{"type": "uint64[3][2][4]"}, {"type": "uint64"}]}]`
+	outAbi, err := JSON(strings.NewReader(outDef))
 	if err != nil {
 		t.Fatal(err)
 	}
-	buff := new(bytes.Buffer)
-	// construct the test array, each 3 char element is joined with 61 '0' chars,
-	// to from the ((3 + 61) * 0.5) = 32 byte elements in the array.
-	buff.Write(common.Hex2Bytes(strings.Join([]string{
-		"", //empty, to apply the 61-char separator to the first element as well.
-		"111", "112", "113", "121", "122", "123",
-		"211", "212", "213", "221", "222", "223",
-		"311", "312", "313", "321", "322", "323",
-		"411", "412", "413", "421", "422", "423",
-	}, "0000000000000000000000000000000000000000000000000000000000000")))
-	buff.Write(common.Hex2Bytes("0000000000000000000000000000000000000000000000000000000000009876"))
-
-	ret1, ret1Exp := new([4][2][3]uint64), [4][2][3]uint64{
+	inAbi, err := JSON(strings.NewReader(inDef))
+	if err != nil {
+		t.Fatal(err)
+	}
+	ret1Exp := [4][2][3]uint64{
 		{{0x111, 0x112, 0x113}, {0x121, 0x122, 0x123}},
 		{{0x211, 0x212, 0x213}, {0x221, 0x222, 0x223}},
 		{{0x311, 0x312, 0x313}, {0x321, 0x322, 0x323}},
 		{{0x411, 0x412, 0x413}, {0x421, 0x422, 0x423}},
 	}
-	ret2, ret2Exp := new(uint64), uint64(0x9876)
-	if err := abi.UnpackIntoInterface(&[]any{ret1, ret2}, "multi", buff.Bytes()); err != nil {
+	ret2Exp := uint64(0x9876)
+	packed, err := inAbi.Pack("multi", ret1Exp, ret2Exp)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ret1, ret2 := new([4][2][3]uint64), new(uint64)
+	if err := outAbi.UnpackIntoInterface(&[]any{ret1, ret2}, "multi", packed[4:]); err != nil {
 		t.Fatal(err)
 	}
 	if !reflect.DeepEqual(*ret1, ret1Exp) {

@@ -318,7 +318,6 @@ func TestCustomErrors(t *testing.T) {
 }
 
 func TestMultiPack(t *testing.T) {
-	t.Skip("TODO: regenerate encoded test data for 64-byte ABI slot")
 	t.Parallel()
 	abi, err := JSON(strings.NewReader(jsondata))
 	if err != nil {
@@ -326,9 +325,10 @@ func TestMultiPack(t *testing.T) {
 	}
 
 	sig := crypto.Keccak256([]byte("bar(uint32,uint16)"))[:4]
-	sig = append(sig, make([]byte, 64)...)
-	sig[35] = 10
-	sig[67] = 11
+	// Two 64-byte ABI slots after the 4-byte selector.
+	sig = append(sig, make([]byte, 128)...)
+	sig[4+63] = 10  // uint32(10) — low byte of first slot
+	sig[4+127] = 11 // uint16(11) — low byte of second slot
 
 	packed, err := abi.Pack("bar", uint32(10), uint16(11))
 	if err != nil {
