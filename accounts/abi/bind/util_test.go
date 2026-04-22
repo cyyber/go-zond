@@ -28,12 +28,21 @@ import (
 	"github.com/theQRL/go-qrl/common"
 	"github.com/theQRL/go-qrl/core"
 	"github.com/theQRL/go-qrl/core/types"
+	"github.com/theQRL/go-qrl/crypto"
 	"github.com/theQRL/go-qrl/internal/testutil"
 )
 
 var testWallet = testutil.MustLoadAccount("dave").MustWallet()
 
-var wantedAddr, _ = common.NewAddressFromString("QcF39819954C9b2937A802eCff89F4d7aA89b0769")
+// wantedAddr is CreateAddress(dave, nonce=0) — the address of the first
+// contract dave deploys. Recomputed at init time so it stays in sync with
+// whatever fixture dave uses.
+var wantedAddr = crypto.CreateAddress(testWallet.GetAddress(), 0)
+
+// The fixture bytecode is a minimal constructor that CODECOPYs a single
+// STOP (0x00) from the deploy code into memory and RETURNs it as runtime
+// code; every opcode used (PUSH1, CODECOPY, RETURN, STOP) is stable across
+// the 512-bit VM opcode shift.
 var waitDeployedTests = map[string]struct {
 	code        string
 	gas         uint64
@@ -41,7 +50,7 @@ var waitDeployedTests = map[string]struct {
 	wantErr     error
 }{
 	"successful deploy": {
-		code:        `6060604052600a8060106000396000f360606040526008565b00`,
+		code:        "6001600c60003960016000f300",
 		gas:         3000000,
 		wantAddress: wantedAddr,
 	},
@@ -54,7 +63,6 @@ var waitDeployedTests = map[string]struct {
 }
 
 func TestWaitDeployed(t *testing.T) {
-	t.Skip("TODO: deployment opcode bytecode needs 48-byte-address regen")
 	for name, test := range waitDeployedTests {
 		backend := backends.NewSimulatedBackend(
 			core.GenesisAlloc{

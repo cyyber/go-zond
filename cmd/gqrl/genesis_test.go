@@ -33,7 +33,7 @@ var customGenesisTests = []struct {
 	{
 		genesis: `{
 			"alloc"      : {},
-			"coinbase"   : "Q0000000000000000000000000000000000000000",
+			"coinbase"   : "Q000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
 			"extraData"  : "0x0000000000001338",
 			"gasLimit"   : "0x2fefd8",
 			"mixhash"    : "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -48,7 +48,7 @@ var customGenesisTests = []struct {
 	{
 		genesis: `{
 			"alloc"      : {},
-			"coinbase"   : "Q0000000000000000000000000000000000000000",
+			"coinbase"   : "Q000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
 			"extraData"  : "0x0000000000001339",
 			"gasLimit"   : "0x2fefd8",
 			"mixhash"    : "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -64,7 +64,6 @@ var customGenesisTests = []struct {
 // Tests that initializing Gqrl with a custom genesis block and chain definitions
 // work properly.
 func TestCustomGenesis(t *testing.T) {
-	t.Skip("TODO: genesis hash/address fixtures for 48-byte addresses")
 	t.Parallel()
 	for i, tt := range customGenesisTests {
 		// Create a temporary data directory to use and inspect later

@@ -183,7 +183,6 @@ var typedData = apitypes.TypedData{
 }
 
 func TestSignData(t *testing.T) {
-	t.Skip("TODO: EIP-712 typed data with 48-byte QRL addresses — fixture + encoding update needed")
 	t.Parallel()
 	api, control := setup(t)
 	//Create two accounts

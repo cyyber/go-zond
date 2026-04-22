@@ -150,7 +150,6 @@ func TestAssembleBlockWithAnotherBlocksTxs(t *testing.T) {
 }
 
 func TestPrepareAndGetPayload(t *testing.T) {
-	t.Skip("TODO: regenerate catalyst block/payload expectations for 48-byte addresses")
 	genesis, blocks := generateChain(10)
 	n, qrlservice := startQRLService(t, genesis, blocks[:9])
 	defer n.Close()
