@@ -373,7 +373,6 @@ func TestEventUnpackIndexed(t *testing.T) {
 
 // TestEventIndexedWithArrayUnpack verifies that decoder will not overflow when static array is indexed input.
 func TestEventIndexedWithArrayUnpack(t *testing.T) {
-	t.Skip("TODO: regenerate encoded test data for 64-byte ABI slot")
 	t.Parallel()
 	definition := `[{"name": "test", "type": "event", "inputs": [{"indexed": true, "name":"value1", "type":"uint8[2]"},{"indexed": false, "name":"value2", "type":"string"}]}]`
 	type testStruct struct {
@@ -382,15 +381,18 @@ func TestEventIndexedWithArrayUnpack(t *testing.T) {
 	}
 	abi, err := JSON(strings.NewReader(definition))
 	require.NoError(t, err)
-	var b bytes.Buffer
+
+	// Encode just the non-indexed payload (a single string). Indexed fields
+	// live in topics and are skipped by UnpackIntoInterface for events.
 	stringOut := "abc"
-	// number of fields that will be encoded * 32
-	b.Write(packNum(reflect.ValueOf(32)))
-	b.Write(packNum(reflect.ValueOf(len(stringOut))))
-	b.Write(common.RightPadBytes([]byte(stringOut), 32))
+	const inJSON = `[{"name":"test","type":"function","inputs":[{"name":"value2","type":"string"}]}]`
+	inAbi, err := JSON(strings.NewReader(inJSON))
+	require.NoError(t, err)
+	packed, err := inAbi.Pack("test", stringOut)
+	require.NoError(t, err)
 
 	var rst testStruct
-	require.NoError(t, abi.UnpackIntoInterface(&rst, "test", b.Bytes()))
+	require.NoError(t, abi.UnpackIntoInterface(&rst, "test", packed[4:]))
 	require.Equal(t, [2]uint8{0, 0}, rst.Value1)
 	require.Equal(t, stringOut, rst.Value2)
 }

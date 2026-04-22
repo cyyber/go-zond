@@ -19,7 +19,6 @@ package abi
 import (
 	"bytes"
 	"encoding/binary"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"math/big"
@@ -680,7 +679,6 @@ func TestBareEvents(t *testing.T) {
 //
 //	receipt{status=1 cgas=23949 bloom=00000000004000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000040200000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000080000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000 logs=[log: b6818c8064f645cd82d99b59a1a267d6d61117ef [75fd880d39c1daf53b6547ab6cb59451fc6452d27caa90e5b6649dd8293b9eed] 000000000000000000000000376c47978271565f56deb45495afa69e59c16ab200000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000060000000000000000000000000000000000000000000000000000000000000000158 9ae378b6d4409eada347a5dc0c180f186cb62dc68fcc0f043425eb917335aa28 0 95d429d309bb9d753954195fe2d69bd140b4ae731b9b5b605c34323de162cf00 0]}
 func TestUnpackEvent(t *testing.T) {
-	t.Skip("TODO: regenerate encoded test data for 64-byte ABI slot")
 	t.Parallel()
 	const abiJSON = `[{"constant":false,"inputs":[{"name":"memo","type":"bytes"}],"name":"receive","outputs":[],"payable":true,"stateMutability":"payable","type":"function"},{"anonymous":false,"inputs":[{"indexed":false,"name":"sender","type":"address"},{"indexed":false,"name":"amount","type":"uint256"},{"indexed":false,"name":"memo","type":"bytes"}],"name":"received","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"name":"sender","type":"address"}],"name":"receivedAddr","type":"event"}]`
 	abi, err := JSON(strings.NewReader(abiJSON))
@@ -688,14 +686,21 @@ func TestUnpackEvent(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	const hexdata = `000000000000000000000000376c47978271565f56deb45495afa69e59c16ab200000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000060000000000000000000000000000000000000000000000000000000000000000158`
-	data, err := hex.DecodeString(hexdata)
+	// Use a parallel input method with the same argument shape to produce the
+	// event data bytes deterministically against the current ABI slot width.
+	const inJSON = `[{"name":"received","type":"function","inputs":[{"name":"sender","type":"address"},{"name":"amount","type":"uint256"},{"name":"memo","type":"bytes"}]},{"name":"receivedAddr","type":"function","inputs":[{"name":"sender","type":"address"}]}]`
+	inAbi, err := JSON(strings.NewReader(inJSON))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(data)%32 == 0 {
-		t.Errorf("len(data) is %d, want a non-multiple of 32", len(data))
+	sender, _ := common.NewAddressFromString("Q000000000000000000000000000000000000000000000000000000000376c47978271565f56DEB45495afa69E59c16Ab2")
+	amount := big.NewInt(1)
+	memo := []byte{0x58}
+	packed, err := inAbi.Pack("received", sender, amount, memo)
+	if err != nil {
+		t.Fatal(err)
 	}
+	data := packed[4:]
 
 	type ReceivedEvent struct {
 		Sender common.Address
@@ -703,47 +708,62 @@ func TestUnpackEvent(t *testing.T) {
 		Memo   []byte
 	}
 	var ev ReceivedEvent
-
-	err = abi.UnpackIntoInterface(&ev, "received", data)
-	if err != nil {
+	if err := abi.UnpackIntoInterface(&ev, "received", data); err != nil {
 		t.Error(err)
 	}
+	if ev.Sender != sender {
+		t.Errorf("sender: got %v want %v", ev.Sender, sender)
+	}
+	if ev.Amount.Cmp(amount) != 0 {
+		t.Errorf("amount: got %s want %s", ev.Amount, amount)
+	}
+	if !bytes.Equal(ev.Memo, memo) {
+		t.Errorf("memo: got %x want %x", ev.Memo, memo)
+	}
 
+	packedAddr, err := inAbi.Pack("receivedAddr", sender)
+	if err != nil {
+		t.Fatal(err)
+	}
 	type ReceivedAddrEvent struct {
 		Sender common.Address
 	}
 	var receivedAddrEv ReceivedAddrEvent
-	err = abi.UnpackIntoInterface(&receivedAddrEv, "receivedAddr", data)
-	if err != nil {
+	if err := abi.UnpackIntoInterface(&receivedAddrEv, "receivedAddr", packedAddr[4:]); err != nil {
 		t.Error(err)
+	}
+	if receivedAddrEv.Sender != sender {
+		t.Errorf("receivedAddr sender: got %v want %v", receivedAddrEv.Sender, sender)
 	}
 }
 
 func TestUnpackEventIntoMap(t *testing.T) {
-	t.Skip("TODO: regenerate encoded test data for 64-byte ABI slot")
 	t.Parallel()
 	const abiJSON = `[{"constant":false,"inputs":[{"name":"memo","type":"bytes"}],"name":"receive","outputs":[],"payable":true,"stateMutability":"payable","type":"function"},{"anonymous":false,"inputs":[{"indexed":false,"name":"sender","type":"address"},{"indexed":false,"name":"amount","type":"uint256"},{"indexed":false,"name":"memo","type":"bytes"}],"name":"received","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"name":"sender","type":"address"}],"name":"receivedAddr","type":"event"}]`
 	abi, err := JSON(strings.NewReader(abiJSON))
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	const hexdata = `000000000000000000000000376c47978271565f56deb45495afa69e59c16ab200000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000060000000000000000000000000000000000000000000000000000000000000000158`
-	data, err := hex.DecodeString(hexdata)
+	const inJSON = `[{"name":"received","type":"function","inputs":[{"name":"sender","type":"address"},{"name":"amount","type":"uint256"},{"name":"memo","type":"bytes"}]},{"name":"receivedAddr","type":"function","inputs":[{"name":"sender","type":"address"}]}]`
+	inAbi, err := JSON(strings.NewReader(inJSON))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(data)%32 == 0 {
-		t.Errorf("len(data) is %d, want a non-multiple of 32", len(data))
+	sender, _ := common.NewAddressFromString("Q000000000000000000000000000000000000000000000000000000000376c47978271565f56DEB45495afa69E59c16Ab2")
+	amount := big.NewInt(1)
+	memo := []byte{0x58}
+	packed, err := inAbi.Pack("received", sender, amount, memo)
+	if err != nil {
+		t.Fatal(err)
 	}
+	data := packed[4:]
 
-	sender, _ := common.NewAddressFromString("Q376c47978271565f56DEB45495afa69E59c16Ab2")
-	receivedMap := map[string]any{}
 	expectedReceivedMap := map[string]any{
 		"sender": sender,
-		"amount": big.NewInt(1),
-		"memo":   []byte{88},
+		"amount": amount,
+		"memo":   memo,
 	}
+	receivedMap := map[string]any{}
 	if err := abi.UnpackIntoMap(receivedMap, "received", data); err != nil {
 		t.Error(err)
 	}
@@ -760,8 +780,12 @@ func TestUnpackEventIntoMap(t *testing.T) {
 		t.Error("unpacked `received` map does not match expected map")
 	}
 
+	packedAddr, err := inAbi.Pack("receivedAddr", sender)
+	if err != nil {
+		t.Fatal(err)
+	}
 	receivedAddrMap := map[string]any{}
-	if err = abi.UnpackIntoMap(receivedAddrMap, "receivedAddr", data); err != nil {
+	if err = abi.UnpackIntoMap(receivedAddrMap, "receivedAddr", packedAddr[4:]); err != nil {
 		t.Error(err)
 	}
 	if len(receivedAddrMap) != 1 {
@@ -773,23 +797,33 @@ func TestUnpackEventIntoMap(t *testing.T) {
 }
 
 func TestUnpackMethodIntoMap(t *testing.T) {
-	t.Skip("TODO: regenerate encoded test data for 64-byte ABI slot")
 	t.Parallel()
 	const abiJSON = `[{"constant":false,"inputs":[{"name":"memo","type":"bytes"}],"name":"receive","outputs":[],"payable":true,"stateMutability":"payable","type":"function"},{"constant":false,"inputs":[],"name":"send","outputs":[{"name":"amount","type":"uint256"}],"payable":true,"stateMutability":"payable","type":"function"},{"constant":false,"inputs":[{"name":"addr","type":"address"}],"name":"get","outputs":[{"name":"hash","type":"bytes"}],"payable":true,"stateMutability":"payable","type":"function"}]`
 	abi, err := JSON(strings.NewReader(abiJSON))
 	if err != nil {
 		t.Fatal(err)
 	}
-	const hexdata = `00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000060000000000000000000000000000000000000000000000000000000000000015800000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000000000000000158000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000001580000000000000000000000000000000000000000000000000000000000000060000000000000000000000000000000000000000000000000000000000000015800000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000000000000000158`
-	data, err := hex.DecodeString(hexdata)
+
+	// The source data is a concatenation of return payloads for three separate
+	// calls (`send`, `get` etc.). Produce each payload via the packer to keep
+	// the expected values and slot width consistent.
+	const inJSON = `[{"name":"send","type":"function","inputs":[{"name":"amount","type":"uint256"}]},{"name":"get","type":"function","inputs":[{"name":"hash","type":"bytes"}]}]`
+	inAbi, err := JSON(strings.NewReader(inJSON))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(data)%32 != 0 {
-		t.Errorf("len(data) is %d, want a multiple of 32", len(data))
+	sendPacked, err := inAbi.Pack("send", big.NewInt(1))
+	if err != nil {
+		t.Fatal(err)
 	}
+	hashVal := []byte{0x58}
+	getPacked, err := inAbi.Pack("get", hashVal)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Tests a method with no outputs; the concrete data bytes don't matter.
+	data := append(append([]byte{}, sendPacked[4:]...), getPacked[4:]...)
 
-	// Tests a method with no outputs
 	receiveMap := map[string]any{}
 	if err = abi.UnpackIntoMap(receiveMap, "receive", data); err != nil {
 		t.Error(err)
@@ -798,9 +832,9 @@ func TestUnpackMethodIntoMap(t *testing.T) {
 		t.Error("unpacked `receive` map expected to have length 0")
 	}
 
-	// Tests a method with only outputs
+	// Tests a method with only outputs — feed just the send return payload.
 	sendMap := map[string]any{}
-	if err = abi.UnpackIntoMap(sendMap, "send", data); err != nil {
+	if err = abi.UnpackIntoMap(sendMap, "send", sendPacked[4:]); err != nil {
 		t.Error(err)
 	}
 	if len(sendMap) != 1 {
@@ -810,90 +844,86 @@ func TestUnpackMethodIntoMap(t *testing.T) {
 		t.Error("unpacked `send` map expected `amount` value of 1")
 	}
 
-	// Tests a method with outputs and inputs
+	// Tests a method with outputs and inputs — `get` return payload is a single
+	// bytes output.
 	getMap := map[string]any{}
-	if err = abi.UnpackIntoMap(getMap, "get", data); err != nil {
+	if err = abi.UnpackIntoMap(getMap, "get", getPacked[4:]); err != nil {
 		t.Error(err)
 	}
 	if len(getMap) != 1 {
 		t.Error("unpacked `get` map expected to have length 1")
 	}
-	expectedBytes := []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 96, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 88, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 96, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 88, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 96, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 88, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 96, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 88, 0}
-	if !bytes.Equal(getMap["hash"].([]byte), expectedBytes) {
-		t.Errorf("unpacked `get` map expected `hash` value of %v", expectedBytes)
+	if !bytes.Equal(getMap["hash"].([]byte), hashVal) {
+		t.Errorf("unpacked `get` map expected `hash` value of %x, got %x", hashVal, getMap["hash"])
 	}
 }
 
 func TestUnpackIntoMapNamingConflict(t *testing.T) {
-	t.Skip("TODO: regenerate encoded test data for 64-byte ABI slot")
 	t.Parallel()
-	// Two methods have the same name
+
+	// A shared (sender,amount,memo) payload for cases that care about the
+	// concrete bytes — regenerated against the live slot width.
+	const inJSON = `[{"name":"payload","type":"function","inputs":[{"name":"sender","type":"address"},{"name":"amount","type":"uint256"},{"name":"memo","type":"bytes"}]}]`
+	inAbi, err := JSON(strings.NewReader(inJSON))
+	if err != nil {
+		t.Fatal(err)
+	}
+	sender, _ := common.NewAddressFromString("Q000000000000000000000000000000000000000000000000000000000376c47978271565f56DEB45495afa69E59c16Ab2")
+	memo := []byte{0x58}
+	packed, err := inAbi.Pack("payload", sender, big.NewInt(1), memo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	payload := packed[4:]
+	expectedReceivedMap := map[string]any{
+		"sender": sender,
+		"amount": big.NewInt(1),
+		"memo":   memo,
+	}
+
+	// Short payload used by cases that expect a non-nil error: the length
+	// has to pass the name lookup but fail the slot-multiple check.
+	malformed := make([]byte, 96)
+
+	// Two methods have the same name → lookup must fail.
 	var abiJSON = `[{"constant":false,"inputs":[{"name":"memo","type":"bytes"}],"name":"get","outputs":[],"payable":true,"stateMutability":"payable","type":"function"},{"constant":false,"inputs":[],"name":"send","outputs":[{"name":"amount","type":"uint256"}],"payable":true,"stateMutability":"payable","type":"function"},{"constant":false,"inputs":[{"name":"addr","type":"address"}],"name":"get","outputs":[{"name":"hash","type":"bytes"}],"payable":true,"stateMutability":"payable","type":"function"}]`
 	abi, err := JSON(strings.NewReader(abiJSON))
 	if err != nil {
 		t.Fatal(err)
 	}
-	var hexdata = `00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000060000000000000000000000000000000000000000000000000000000000000000158`
-	data, err := hex.DecodeString(hexdata)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(data)%32 == 0 {
-		t.Errorf("len(data) is %d, want a non-multiple of 32", len(data))
-	}
 	getMap := map[string]any{}
-	if err = abi.UnpackIntoMap(getMap, "get", data); err == nil {
+	if err = abi.UnpackIntoMap(getMap, "get", malformed); err == nil {
 		t.Error("naming conflict between two methods; error expected")
 	}
 
-	// Two events have the same name
+	// Two events have the same name → first one wins, unpack OK.
 	abiJSON = `[{"constant":false,"inputs":[{"name":"memo","type":"bytes"}],"name":"receive","outputs":[],"payable":true,"stateMutability":"payable","type":"function"},{"anonymous":false,"inputs":[{"indexed":false,"name":"sender","type":"address"},{"indexed":false,"name":"amount","type":"uint256"},{"indexed":false,"name":"memo","type":"bytes"}],"name":"received","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"name":"sender","type":"address"}],"name":"received","type":"event"}]`
 	abi, err = JSON(strings.NewReader(abiJSON))
 	if err != nil {
 		t.Fatal(err)
 	}
-	hexdata = `000000000000000000000000376c47978271565f56deb45495afa69e59c16ab200000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000060000000000000000000000000000000000000000000000000000000000000000158`
-	data, err = hex.DecodeString(hexdata)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(data)%32 == 0 {
-		t.Errorf("len(data) is %d, want a non-multiple of 32", len(data))
-	}
 	receivedMap := map[string]any{}
-	if err = abi.UnpackIntoMap(receivedMap, "received", data); err != nil {
+	if err = abi.UnpackIntoMap(receivedMap, "received", payload); err != nil {
 		t.Error("naming conflict between two events; no error expected")
 	}
 
-	// Method and event have the same name
+	// Method and event have the same name → lookup must fail.
 	abiJSON = `[{"constant":false,"inputs":[{"name":"memo","type":"bytes"}],"name":"received","outputs":[],"payable":true,"stateMutability":"payable","type":"function"},{"anonymous":false,"inputs":[{"indexed":false,"name":"sender","type":"address"},{"indexed":false,"name":"amount","type":"uint256"},{"indexed":false,"name":"memo","type":"bytes"}],"name":"received","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"name":"sender","type":"address"}],"name":"receivedAddr","type":"event"}]`
 	abi, err = JSON(strings.NewReader(abiJSON))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(data)%32 == 0 {
-		t.Errorf("len(data) is %d, want a non-multiple of 32", len(data))
-	}
-	if err = abi.UnpackIntoMap(receivedMap, "received", data); err == nil {
+	if err = abi.UnpackIntoMap(receivedMap, "received", malformed); err == nil {
 		t.Error("naming conflict between an event and a method; error expected")
 	}
 
-	// Conflict is case sensitive
+	// Case-sensitive — `Received` is a distinct event; unpack succeeds.
 	abiJSON = `[{"constant":false,"inputs":[{"name":"memo","type":"bytes"}],"name":"received","outputs":[],"payable":true,"stateMutability":"payable","type":"function"},{"anonymous":false,"inputs":[{"indexed":false,"name":"sender","type":"address"},{"indexed":false,"name":"amount","type":"uint256"},{"indexed":false,"name":"memo","type":"bytes"}],"name":"Received","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"name":"sender","type":"address"}],"name":"receivedAddr","type":"event"}]`
 	abi, err = JSON(strings.NewReader(abiJSON))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(data)%32 == 0 {
-		t.Errorf("len(data) is %d, want a non-multiple of 32", len(data))
-	}
-	sender, _ := common.NewAddressFromString("Q376c47978271565f56DEB45495afa69E59c16Ab2")
-	expectedReceivedMap := map[string]any{
-		"sender": sender,
-		"amount": big.NewInt(1),
-		"memo":   []byte{88},
-	}
-	if err = abi.UnpackIntoMap(receivedMap, "Received", data); err != nil {
+	if err = abi.UnpackIntoMap(receivedMap, "Received", payload); err != nil {
 		t.Error(err)
 	}
 	if len(receivedMap) != 3 {
@@ -1120,24 +1150,49 @@ func TestUnnamedEventParam(t *testing.T) {
 }
 
 func TestUnpackRevert(t *testing.T) {
-	t.Skip("TODO: regenerate encoded test data for 64-byte ABI slot")
 	t.Parallel()
 
+	// Helper: encode revert payload for Error(string reason).
+	revert := func(reason string) []byte {
+		stringTy, err := NewType("string", "", nil)
+		if err != nil {
+			t.Fatalf("build string type: %v", err)
+		}
+		body, err := (Arguments{{Type: stringTy}}).Pack(reason)
+		if err != nil {
+			t.Fatalf("pack revert reason: %v", err)
+		}
+		return append(append([]byte{}, revertSelector...), body...)
+	}
+	// Helper: encode revert payload for Panic(uint256 code).
+	panicPayload := func(code *big.Int) []byte {
+		uintTy, err := NewType("uint256", "", nil)
+		if err != nil {
+			t.Fatalf("build uint256 type: %v", err)
+		}
+		body, err := (Arguments{{Type: uintTy}}).Pack(code)
+		if err != nil {
+			t.Fatalf("pack panic code: %v", err)
+		}
+		return append(append([]byte{}, panicSelector...), body...)
+	}
+
 	var cases = []struct {
-		input     string
+		input     []byte
 		expect    string
 		expectErr error
 	}{
-		{"", "", errors.New("invalid data for unpacking")},
-		{"08c379a1", "", errors.New("invalid data for unpacking")},
-		{"08c379a00000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000d72657665727420726561736f6e00000000000000000000000000000000000000", "revert reason", nil},
-		{"4e487b710000000000000000000000000000000000000000000000000000000000000000", "generic panic", nil},
-		{"4e487b7100000000000000000000000000000000000000000000000000000000000000ff", "unknown panic code: 0xff", nil},
+		{nil, "", errors.New("invalid data for unpacking")},
+		// Valid selector but empty body.
+		{common.Hex2Bytes("08c379a1"), "", errors.New("invalid data for unpacking")},
+		{revert("revert reason"), "revert reason", nil},
+		{panicPayload(big.NewInt(0)), "generic panic", nil},
+		{panicPayload(big.NewInt(0xff)), "unknown panic code: 0xff", nil},
 	}
 	for index, c := range cases {
 		t.Run(fmt.Sprintf("case %d", index), func(t *testing.T) {
 			t.Parallel()
-			got, err := UnpackRevert(common.Hex2Bytes(c.input))
+			got, err := UnpackRevert(c.input)
 			if c.expectErr != nil {
 				if err == nil {
 					t.Fatalf("Expected non-nil error")
