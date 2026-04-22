@@ -18,6 +18,7 @@ package abi
 
 import (
 	"bytes"
+	"encoding/binary"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -27,7 +28,6 @@ import (
 	"testing"
 
 	"github.com/theQRL/go-qrl/common"
-	"github.com/theQRL/go-qrl/common/math"
 	"github.com/theQRL/go-qrl/crypto"
 )
 
@@ -357,8 +357,32 @@ func ExampleJSON() {
 	// 1f2c409200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001
 }
 
+// abiSlotSize is the width of a single ABI slot after the 48-byte-address /
+// 512-bit VM migration.
+const abiSlotSize = 64
+
+// abiSlot returns a zero-padded big-endian encoding of v in a single ABI slot.
+func abiSlot(v uint64) []byte {
+	var b [abiSlotSize]byte
+	binary.BigEndian.PutUint64(b[abiSlotSize-8:], v)
+	return b[:]
+}
+
+// abiStringData returns the encoded tail for a dynamic string/bytes value:
+// a length slot followed by the bytes right-padded to a multiple of the slot
+// size.
+func abiStringData(data []byte) []byte {
+	out := abiSlot(uint64(len(data)))
+	padded := len(data)
+	if rem := padded % abiSlotSize; rem != 0 {
+		padded += abiSlotSize - rem
+	}
+	tail := make([]byte, padded)
+	copy(tail, data)
+	return append(out, tail...)
+}
+
 func TestInputVariableInputLength(t *testing.T) {
-	t.Skip("TODO: regenerate encoded test data for 64-byte ABI slot")
 	t.Parallel()
 	const definition = `[
 	{ "type" : "function", "name" : "strOne", "constant" : true, "inputs" : [ { "name" : "str", "type" : "string" } ] },
@@ -377,15 +401,9 @@ func TestInputVariableInputLength(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-
-	offset := make([]byte, 32)
-	offset[31] = 32
-	length := make([]byte, 32)
-	length[31] = byte(len(strin))
-	value := common.RightPadBytes([]byte(strin), 32)
-	exp := append(offset, append(length, value...)...)
-
-	// ignore first 4 bytes of the output. This is the function identifier
+	// Offset to data = 1 head slot.
+	exp := abiSlot(abiSlotSize)
+	exp = append(exp, abiStringData([]byte(strin))...)
 	strpack = strpack[4:]
 	if !bytes.Equal(strpack, exp) {
 		t.Errorf("expected %x, got %x\n", exp, strpack)
@@ -396,104 +414,69 @@ func TestInputVariableInputLength(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	// ignore first 4 bytes of the output. This is the function identifier
 	btspack = btspack[4:]
 	if !bytes.Equal(btspack, exp) {
 		t.Errorf("expected %x, got %x\n", exp, btspack)
 	}
 
-	//  test two strings
+	// test two strings (both fit in one slot's worth of data).
 	str1 := "hello"
 	str2 := "world"
 	str2pack, err := abi.Pack("strTwo", str1, str2)
 	if err != nil {
 		t.Error(err)
 	}
-
-	offset1 := make([]byte, 32)
-	offset1[31] = 64
-	length1 := make([]byte, 32)
-	length1[31] = byte(len(str1))
-	value1 := common.RightPadBytes([]byte(str1), 32)
-
-	offset2 := make([]byte, 32)
-	offset2[31] = 128
-	length2 := make([]byte, 32)
-	length2[31] = byte(len(str2))
-	value2 := common.RightPadBytes([]byte(str2), 32)
-
-	exp2 := append(offset1, offset2...)
-	exp2 = append(exp2, append(length1, value1...)...)
-	exp2 = append(exp2, append(length2, value2...)...)
-
-	// ignore first 4 bytes of the output. This is the function identifier
+	// Head is 2 offset slots = 2*64. Str1's tail is 2 slots (length + 1 data).
+	exp2 := abiSlot(2 * abiSlotSize)                      // offset1
+	exp2 = append(exp2, abiSlot(4*abiSlotSize)...)         // offset2 = head(2) + tail1(2)
+	exp2 = append(exp2, abiStringData([]byte(str1))...)
+	exp2 = append(exp2, abiStringData([]byte(str2))...)
 	str2pack = str2pack[4:]
 	if !bytes.Equal(str2pack, exp2) {
-		t.Errorf("expected %x, got %x\n", exp, str2pack)
+		t.Errorf("expected %x, got %x\n", exp2, str2pack)
 	}
 
-	// test two strings, first > 32, second < 32
-	str1 = strings.Repeat("a", 33)
+	// test two strings, first > slot size, second < slot size
+	str1 = strings.Repeat("a", abiSlotSize+1)
 	str2pack, err = abi.Pack("strTwo", str1, str2)
 	if err != nil {
 		t.Error(err)
 	}
-
-	offset1 = make([]byte, 32)
-	offset1[31] = 64
-	length1 = make([]byte, 32)
-	length1[31] = byte(len(str1))
-	value1 = common.RightPadBytes([]byte(str1), 64)
-	offset2[31] = 160
-
-	exp2 = append(offset1, offset2...)
-	exp2 = append(exp2, append(length1, value1...)...)
-	exp2 = append(exp2, append(length2, value2...)...)
-
-	// ignore first 4 bytes of the output. This is the function identifier
+	// Str1 tail = 1 length + ceil((64+1)/64)=2 data slots = 3 slots.
+	exp2 = abiSlot(2 * abiSlotSize)
+	exp2 = append(exp2, abiSlot(5*abiSlotSize)...) // head(2) + tail1(3)
+	exp2 = append(exp2, abiStringData([]byte(str1))...)
+	exp2 = append(exp2, abiStringData([]byte(str2))...)
 	str2pack = str2pack[4:]
 	if !bytes.Equal(str2pack, exp2) {
-		t.Errorf("expected %x, got %x\n", exp, str2pack)
+		t.Errorf("expected %x, got %x\n", exp2, str2pack)
 	}
 
-	// test two strings, first > 32, second >32
-	str1 = strings.Repeat("a", 33)
-	str2 = strings.Repeat("a", 33)
+	// test two strings, both > slot size
+	str1 = strings.Repeat("a", abiSlotSize+1)
+	str2 = strings.Repeat("a", abiSlotSize+1)
 	str2pack, err = abi.Pack("strTwo", str1, str2)
 	if err != nil {
 		t.Error(err)
 	}
-
-	offset1 = make([]byte, 32)
-	offset1[31] = 64
-	length1 = make([]byte, 32)
-	length1[31] = byte(len(str1))
-	value1 = common.RightPadBytes([]byte(str1), 64)
-
-	offset2 = make([]byte, 32)
-	offset2[31] = 160
-	length2 = make([]byte, 32)
-	length2[31] = byte(len(str2))
-	value2 = common.RightPadBytes([]byte(str2), 64)
-
-	exp2 = append(offset1, offset2...)
-	exp2 = append(exp2, append(length1, value1...)...)
-	exp2 = append(exp2, append(length2, value2...)...)
-
-	// ignore first 4 bytes of the output. This is the function identifier
+	exp2 = abiSlot(2 * abiSlotSize)
+	exp2 = append(exp2, abiSlot(5*abiSlotSize)...)
+	exp2 = append(exp2, abiStringData([]byte(str1))...)
+	exp2 = append(exp2, abiStringData([]byte(str2))...)
 	str2pack = str2pack[4:]
 	if !bytes.Equal(str2pack, exp2) {
-		t.Errorf("expected %x, got %x\n", exp, str2pack)
+		t.Errorf("expected %x, got %x\n", exp2, str2pack)
 	}
 }
 
 func TestInputFixedArrayAndVariableInputLength(t *testing.T) {
-	t.Skip("TODO: regenerate encoded test data for 64-byte ABI slot")
 	t.Parallel()
 	abi, err := JSON(strings.NewReader(jsondata))
 	if err != nil {
 		t.Error(err)
 	}
+
+	leftPad := func(v *big.Int) []byte { return common.LeftPadBytes(v.Bytes(), abiSlotSize) }
 
 	// test string, fixed array uint256[2]
 	strin := "hello world"
@@ -502,46 +485,24 @@ func TestInputFixedArrayAndVariableInputLength(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-
-	// generate expected output
-	offset := make([]byte, 32)
-	offset[31] = 96
-	length := make([]byte, 32)
-	length[31] = byte(len(strin))
-	strvalue := common.RightPadBytes([]byte(strin), 32)
-	arrinvalue1 := common.LeftPadBytes(arrin[0].Bytes(), 32)
-	arrinvalue2 := common.LeftPadBytes(arrin[1].Bytes(), 32)
-	exp := append(offset, arrinvalue1...)
-	exp = append(exp, arrinvalue2...)
-	exp = append(exp, append(length, strvalue...)...)
-
-	// ignore first 4 bytes of the output. This is the function identifier
+	// Head: string offset (slot 0) + arr[0] + arr[1]. String lives after 3 head
+	// slots at byte 3*64 = 192.
+	exp := abiSlot(3 * abiSlotSize)
+	exp = append(exp, leftPad(arrin[0])...)
+	exp = append(exp, leftPad(arrin[1])...)
+	exp = append(exp, abiStringData([]byte(strin))...)
 	fixedArrStrPack = fixedArrStrPack[4:]
 	if !bytes.Equal(fixedArrStrPack, exp) {
 		t.Errorf("expected %x, got %x\n", exp, fixedArrStrPack)
 	}
 
-	// test byte array, fixed array uint256[2]
+	// test byte array, fixed array uint256[2] — same encoding shape.
 	bytesin := []byte(strin)
 	arrin = [2]*big.Int{big.NewInt(1), big.NewInt(2)}
 	fixedArrBytesPack, err := abi.Pack("fixedArrBytes", bytesin, arrin)
 	if err != nil {
 		t.Error(err)
 	}
-
-	// generate expected output
-	offset = make([]byte, 32)
-	offset[31] = 96
-	length = make([]byte, 32)
-	length[31] = byte(len(strin))
-	strvalue = common.RightPadBytes([]byte(strin), 32)
-	arrinvalue1 = common.LeftPadBytes(arrin[0].Bytes(), 32)
-	arrinvalue2 = common.LeftPadBytes(arrin[1].Bytes(), 32)
-	exp = append(offset, arrinvalue1...)
-	exp = append(exp, arrinvalue2...)
-	exp = append(exp, append(length, strvalue...)...)
-
-	// ignore first 4 bytes of the output. This is the function identifier
 	fixedArrBytesPack = fixedArrBytesPack[4:]
 	if !bytes.Equal(fixedArrBytesPack, exp) {
 		t.Errorf("expected %x, got %x\n", exp, fixedArrBytesPack)
@@ -555,32 +516,20 @@ func TestInputFixedArrayAndVariableInputLength(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-
-	// generate expected output
-	stroffset := make([]byte, 32)
-	stroffset[31] = 128
-	strlength := make([]byte, 32)
-	strlength[31] = byte(len(strin))
-	strvalue = common.RightPadBytes([]byte(strin), 32)
-	fixedarrinvalue1 := common.LeftPadBytes(fixedarrin[0].Bytes(), 32)
-	fixedarrinvalue2 := common.LeftPadBytes(fixedarrin[1].Bytes(), 32)
-	dynarroffset := make([]byte, 32)
-	dynarroffset[31] = byte(160 + ((len(strin)/32)+1)*32)
-	dynarrlength := make([]byte, 32)
-	dynarrlength[31] = byte(len(dynarrin))
-	dynarrinvalue1 := common.LeftPadBytes(dynarrin[0].Bytes(), 32)
-	dynarrinvalue2 := common.LeftPadBytes(dynarrin[1].Bytes(), 32)
-	dynarrinvalue3 := common.LeftPadBytes(dynarrin[2].Bytes(), 32)
-	exp = append(stroffset, fixedarrinvalue1...)
-	exp = append(exp, fixedarrinvalue2...)
-	exp = append(exp, dynarroffset...)
-	exp = append(exp, append(strlength, strvalue...)...)
-	dynarrarg := append(dynarrlength, dynarrinvalue1...)
-	dynarrarg = append(dynarrarg, dynarrinvalue2...)
-	dynarrarg = append(dynarrarg, dynarrinvalue3...)
-	exp = append(exp, dynarrarg...)
-
-	// ignore first 4 bytes of the output. This is the function identifier
+	// Head: 1 str offset + 2 fixed arr + 1 dyn offset = 4 slots.
+	headSlots := uint64(4)
+	strTailSlots := uint64(1 + (len(strin)+abiSlotSize-1)/abiSlotSize) // length + data
+	stroffset := abiSlot(headSlots * abiSlotSize)
+	dynoffset := abiSlot((headSlots + strTailSlots) * abiSlotSize)
+	exp = append([]byte{}, stroffset...)
+	exp = append(exp, leftPad(fixedarrin[0])...)
+	exp = append(exp, leftPad(fixedarrin[1])...)
+	exp = append(exp, dynoffset...)
+	exp = append(exp, abiStringData([]byte(strin))...)
+	exp = append(exp, abiSlot(uint64(len(dynarrin)))...)
+	for _, v := range dynarrin {
+		exp = append(exp, leftPad(v)...)
+	}
 	mixedArrStrPack = mixedArrStrPack[4:]
 	if !bytes.Equal(mixedArrStrPack, exp) {
 		t.Errorf("expected %x, got %x\n", exp, mixedArrStrPack)
@@ -594,26 +543,14 @@ func TestInputFixedArrayAndVariableInputLength(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-
-	// generate expected output
-	stroffset = make([]byte, 32)
-	stroffset[31] = 192
-	strlength = make([]byte, 32)
-	strlength[31] = byte(len(strin))
-	strvalue = common.RightPadBytes([]byte(strin), 32)
-	fixedarrin1value1 := common.LeftPadBytes(fixedarrin1[0].Bytes(), 32)
-	fixedarrin1value2 := common.LeftPadBytes(fixedarrin1[1].Bytes(), 32)
-	fixedarrin2value1 := common.LeftPadBytes(fixedarrin2[0].Bytes(), 32)
-	fixedarrin2value2 := common.LeftPadBytes(fixedarrin2[1].Bytes(), 32)
-	fixedarrin2value3 := common.LeftPadBytes(fixedarrin2[2].Bytes(), 32)
-	exp = append(stroffset, fixedarrin1value1...)
-	exp = append(exp, fixedarrin1value2...)
-	exp = append(exp, fixedarrin2value1...)
-	exp = append(exp, fixedarrin2value2...)
-	exp = append(exp, fixedarrin2value3...)
-	exp = append(exp, append(strlength, strvalue...)...)
-
-	// ignore first 4 bytes of the output. This is the function identifier
+	// Head: 1 str offset + 2 fixed arr1 + 3 fixed arr2 = 6 slots.
+	exp = abiSlot(6 * abiSlotSize)
+	exp = append(exp, leftPad(fixedarrin1[0])...)
+	exp = append(exp, leftPad(fixedarrin1[1])...)
+	exp = append(exp, leftPad(fixedarrin2[0])...)
+	exp = append(exp, leftPad(fixedarrin2[1])...)
+	exp = append(exp, leftPad(fixedarrin2[2])...)
+	exp = append(exp, abiStringData([]byte(strin))...)
 	doubleFixedArrStrPack = doubleFixedArrStrPack[4:]
 	if !bytes.Equal(doubleFixedArrStrPack, exp) {
 		t.Errorf("expected %x, got %x\n", exp, doubleFixedArrStrPack)
@@ -628,35 +565,23 @@ func TestInputFixedArrayAndVariableInputLength(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-
-	// generate expected output
-	stroffset = make([]byte, 32)
-	stroffset[31] = 224
-	strlength = make([]byte, 32)
-	strlength[31] = byte(len(strin))
-	strvalue = common.RightPadBytes([]byte(strin), 32)
-	fixedarrin1value1 = common.LeftPadBytes(fixedarrin1[0].Bytes(), 32)
-	fixedarrin1value2 = common.LeftPadBytes(fixedarrin1[1].Bytes(), 32)
-	dynarroffset = math.U256Bytes(big.NewInt(int64(256 + ((len(strin)/32)+1)*32)))
-	dynarrlength = make([]byte, 32)
-	dynarrlength[31] = byte(len(dynarrin))
-	dynarrinvalue1 = common.LeftPadBytes(dynarrin[0].Bytes(), 32)
-	dynarrinvalue2 = common.LeftPadBytes(dynarrin[1].Bytes(), 32)
-	fixedarrin2value1 = common.LeftPadBytes(fixedarrin2[0].Bytes(), 32)
-	fixedarrin2value2 = common.LeftPadBytes(fixedarrin2[1].Bytes(), 32)
-	fixedarrin2value3 = common.LeftPadBytes(fixedarrin2[2].Bytes(), 32)
-	exp = append(stroffset, fixedarrin1value1...)
-	exp = append(exp, fixedarrin1value2...)
-	exp = append(exp, dynarroffset...)
-	exp = append(exp, fixedarrin2value1...)
-	exp = append(exp, fixedarrin2value2...)
-	exp = append(exp, fixedarrin2value3...)
-	exp = append(exp, append(strlength, strvalue...)...)
-	dynarrarg = append(dynarrlength, dynarrinvalue1...)
-	dynarrarg = append(dynarrarg, dynarrinvalue2...)
-	exp = append(exp, dynarrarg...)
-
-	// ignore first 4 bytes of the output. This is the function identifier
+	// Head: 1 str offset + 2 fixed arr1 + 1 dyn offset + 3 fixed arr2 = 7 slots.
+	headSlots = 7
+	strTailSlots = uint64(1 + (len(strin)+abiSlotSize-1)/abiSlotSize)
+	stroffset = abiSlot(headSlots * abiSlotSize)
+	dynoffset = abiSlot((headSlots + strTailSlots) * abiSlotSize)
+	exp = append([]byte{}, stroffset...)
+	exp = append(exp, leftPad(fixedarrin1[0])...)
+	exp = append(exp, leftPad(fixedarrin1[1])...)
+	exp = append(exp, dynoffset...)
+	exp = append(exp, leftPad(fixedarrin2[0])...)
+	exp = append(exp, leftPad(fixedarrin2[1])...)
+	exp = append(exp, leftPad(fixedarrin2[2])...)
+	exp = append(exp, abiStringData([]byte(strin))...)
+	exp = append(exp, abiSlot(uint64(len(dynarrin)))...)
+	for _, v := range dynarrin {
+		exp = append(exp, leftPad(v)...)
+	}
 	multipleMixedArrStrPack = multipleMixedArrStrPack[4:]
 	if !bytes.Equal(multipleMixedArrStrPack, exp) {
 		t.Errorf("expected %x, got %x\n", exp, multipleMixedArrStrPack)

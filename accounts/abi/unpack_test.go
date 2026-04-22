@@ -300,16 +300,40 @@ func TestLocalUnpackTests(t *testing.T) {
 }
 
 func TestUnpackIntoInterfaceSetDynamicArrayOutput(t *testing.T) {
-	t.Skip("TODO: regenerate encoded test data for 64-byte ABI slot")
 	t.Parallel()
-	abi, err := JSON(strings.NewReader(`[{"constant":true,"inputs":[],"name":"testDynamicFixedBytes15","outputs":[{"name":"","type":"bytes15[]"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"testDynamicFixedBytes32","outputs":[{"name":"","type":"bytes32[]"}],"payable":false,"stateMutability":"view","type":"function"}]`))
+	const outSpec = `[{"constant":true,"inputs":[],"name":"testDynamicFixedBytes15","outputs":[{"name":"","type":"bytes15[]"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"testDynamicFixedBytes32","outputs":[{"name":"","type":"bytes32[]"}],"payable":false,"stateMutability":"view","type":"function"}]`
+	const inSpec = `[{"inputs":[{"name":"","type":"bytes15[]"}],"name":"testDynamicFixedBytes15","type":"function"},{"inputs":[{"name":"","type":"bytes32[]"}],"name":"testDynamicFixedBytes32","type":"function"}]`
+	abi, err := JSON(strings.NewReader(outSpec))
 	if err != nil {
 		t.Fatal(err)
 	}
-
+	inAbi, err := JSON(strings.NewReader(inSpec))
+	if err != nil {
+		t.Fatal(err)
+	}
+	pad32 := func(s string) [32]byte {
+		var b [32]byte
+		copy(b[:], s)
+		return b
+	}
+	pad15 := func(s string) [15]byte {
+		var b [15]byte
+		copy(b[:], s)
+		return b
+	}
+	in32 := [][32]byte{pad32("0x1234567890"), pad32("0x0987654321")}
+	in15 := [][15]byte{pad15("0x012345"), pad15("0x987654")}
+	packed32, err := inAbi.Pack("testDynamicFixedBytes32", in32)
+	if err != nil {
+		t.Fatal(err)
+	}
+	packed15, err := inAbi.Pack("testDynamicFixedBytes15", in15)
+	if err != nil {
+		t.Fatal(err)
+	}
 	var (
-		marshalledReturn32 = common.Hex2Bytes("0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000230783132333435363738393000000000000000000000000000000000000000003078303938373635343332310000000000000000000000000000000000000000")
-		marshalledReturn15 = common.Hex2Bytes("0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000230783031323334350000000000000000000000000000000000000000000000003078393837363534000000000000000000000000000000000000000000000000")
+		marshalledReturn32 = packed32[4:]
+		marshalledReturn15 = packed15[4:]
 
 		out32 [][32]byte
 		out15 [][15]byte
@@ -320,33 +344,27 @@ func TestUnpackIntoInterfaceSetDynamicArrayOutput(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(out32) != 2 {
-		t.Fatalf("expected array with 2 values, got %d", len(out32))
+	if len(out32) != len(in32) {
+		t.Fatalf("expected array with %d values, got %d", len(in32), len(out32))
 	}
-	expected := common.Hex2Bytes("3078313233343536373839300000000000000000000000000000000000000000")
-	if !bytes.Equal(out32[0][:], expected) {
-		t.Errorf("expected %x, got %x\n", expected, out32[0])
-	}
-	expected = common.Hex2Bytes("3078303938373635343332310000000000000000000000000000000000000000")
-	if !bytes.Equal(out32[1][:], expected) {
-		t.Errorf("expected %x, got %x\n", expected, out32[1])
+	for i, want := range in32 {
+		if !bytes.Equal(out32[i][:], want[:]) {
+			t.Errorf("out32[%d]: expected %x, got %x", i, want, out32[i])
+		}
 	}
 
 	// test 15
-	err = abi.UnpackIntoInterface(&out15, "testDynamicFixedBytes32", marshalledReturn15)
+	err = abi.UnpackIntoInterface(&out15, "testDynamicFixedBytes15", marshalledReturn15)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(out15) != 2 {
-		t.Fatalf("expected array with 2 values, got %d", len(out15))
+	if len(out15) != len(in15) {
+		t.Fatalf("expected array with %d values, got %d", len(in15), len(out15))
 	}
-	expected = common.Hex2Bytes("307830313233343500000000000000")
-	if !bytes.Equal(out15[0][:], expected) {
-		t.Errorf("expected %x, got %x\n", expected, out15[0])
-	}
-	expected = common.Hex2Bytes("307839383736353400000000000000")
-	if !bytes.Equal(out15[1][:], expected) {
-		t.Errorf("expected %x, got %x\n", expected, out15[1])
+	for i, want := range in15 {
+		if !bytes.Equal(out15[i][:], want[:]) {
+			t.Errorf("out15[%d]: expected %x, got %x", i, want, out15[i])
+		}
 	}
 }
 
@@ -848,19 +866,19 @@ func TestUnmarshal(t *testing.T) {
 }
 
 func TestUnpackTuple(t *testing.T) {
-	t.Skip("TODO: regenerate encoded test data for 64-byte ABI slot")
 	t.Parallel()
-	const simpleTuple = `[{"name":"tuple","type":"function","outputs":[{"type":"tuple","name":"ret","components":[{"type":"int256","name":"a"},{"type":"int256","name":"b"}]}]}]`
-	abi, err := JSON(strings.NewReader(simpleTuple))
+
+	// --- Simple single-tuple output.
+	const simpleOut = `[{"name":"tuple","type":"function","outputs":[{"type":"tuple","name":"ret","components":[{"type":"int256","name":"a"},{"type":"int256","name":"b"}]}]}]`
+	const simpleIn = `[{"name":"tuple","type":"function","inputs":[{"type":"tuple","name":"ret","components":[{"type":"int256","name":"a"},{"type":"int256","name":"b"}]}]}]`
+	abi, err := JSON(strings.NewReader(simpleOut))
 	if err != nil {
 		t.Fatal(err)
 	}
-	buff := new(bytes.Buffer)
-
-	buff.Write(common.Hex2Bytes("0000000000000000000000000000000000000000000000000000000000000001")) // ret[a] = 1
-	buff.Write(common.Hex2Bytes("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")) // ret[b] = -1
-
-	// If the result is single tuple, use struct as return value container directly.
+	simpleInAbi, err := JSON(strings.NewReader(simpleIn))
+	if err != nil {
+		t.Fatal(err)
+	}
 	type v struct {
 		A *big.Int
 		B *big.Int
@@ -868,66 +886,87 @@ func TestUnpackTuple(t *testing.T) {
 	type r struct {
 		Result v
 	}
-	var ret0 = new(r)
-	err = abi.UnpackIntoInterface(ret0, "tuple", buff.Bytes())
-
+	simpleArg := struct {
+		A *big.Int
+		B *big.Int
+	}{big.NewInt(1), big.NewInt(-1)}
+	simplePacked, err := simpleInAbi.Pack("tuple", simpleArg)
 	if err != nil {
+		t.Fatal(err)
+	}
+	ret0 := new(r)
+	if err := abi.UnpackIntoInterface(ret0, "tuple", simplePacked[4:]); err != nil {
 		t.Error(err)
 	} else {
 		if ret0.Result.A.Cmp(big.NewInt(1)) != 0 {
-			t.Errorf("unexpected value unpacked: want %x, got %x", 1, ret0.Result.A)
+			t.Errorf("unexpected value unpacked: want %d, got %s", 1, ret0.Result.A)
 		}
 		if ret0.Result.B.Cmp(big.NewInt(-1)) != 0 {
-			t.Errorf("unexpected value unpacked: want %x, got %x", -1, ret0.Result.B)
+			t.Errorf("unexpected value unpacked: want %d, got %s", -1, ret0.Result.B)
 		}
 	}
 
-	// Test nested tuple
-	const nestedTuple = `[{"name":"tuple","type":"function","outputs":[
+	// --- Nested tuple output.
+	const nestedOut = `[{"name":"tuple","type":"function","outputs":[
+		{"type":"tuple","name":"s","components":[{"type":"uint256","name":"a"},{"type":"uint256[]","name":"b"},{"type":"tuple[]","name":"c","components":[{"name":"x", "type":"uint256"},{"name":"y","type":"uint256"}]}]},
+		{"type":"tuple","name":"t","components":[{"name":"x", "type":"uint256"},{"name":"y","type":"uint256"}]},
+		{"type":"uint256","name":"a"}
+	]}]`
+	const nestedIn = `[{"name":"tuple","type":"function","inputs":[
 		{"type":"tuple","name":"s","components":[{"type":"uint256","name":"a"},{"type":"uint256[]","name":"b"},{"type":"tuple[]","name":"c","components":[{"name":"x", "type":"uint256"},{"name":"y","type":"uint256"}]}]},
 		{"type":"tuple","name":"t","components":[{"name":"x", "type":"uint256"},{"name":"y","type":"uint256"}]},
 		{"type":"uint256","name":"a"}
 	]}]`
 
-	abi, err = JSON(strings.NewReader(nestedTuple))
-	if err != nil {
-		t.Fatal(err)
-	}
-	buff.Reset()
-	buff.Write(common.Hex2Bytes("0000000000000000000000000000000000000000000000000000000000000080")) // s offset
-	buff.Write(common.Hex2Bytes("0000000000000000000000000000000000000000000000000000000000000000")) // t.X = 0
-	buff.Write(common.Hex2Bytes("0000000000000000000000000000000000000000000000000000000000000001")) // t.Y = 1
-	buff.Write(common.Hex2Bytes("0000000000000000000000000000000000000000000000000000000000000001")) // a = 1
-	buff.Write(common.Hex2Bytes("0000000000000000000000000000000000000000000000000000000000000001")) // s.A = 1
-	buff.Write(common.Hex2Bytes("0000000000000000000000000000000000000000000000000000000000000060")) // s.B offset
-	buff.Write(common.Hex2Bytes("00000000000000000000000000000000000000000000000000000000000000c0")) // s.C offset
-	buff.Write(common.Hex2Bytes("0000000000000000000000000000000000000000000000000000000000000002")) // s.B length
-	buff.Write(common.Hex2Bytes("0000000000000000000000000000000000000000000000000000000000000001")) // s.B[0] = 1
-	buff.Write(common.Hex2Bytes("0000000000000000000000000000000000000000000000000000000000000002")) // s.B[0] = 2
-	buff.Write(common.Hex2Bytes("0000000000000000000000000000000000000000000000000000000000000002")) // s.C length
-	buff.Write(common.Hex2Bytes("0000000000000000000000000000000000000000000000000000000000000001")) // s.C[0].X
-	buff.Write(common.Hex2Bytes("0000000000000000000000000000000000000000000000000000000000000002")) // s.C[0].Y
-	buff.Write(common.Hex2Bytes("0000000000000000000000000000000000000000000000000000000000000002")) // s.C[1].X
-	buff.Write(common.Hex2Bytes("0000000000000000000000000000000000000000000000000000000000000001")) // s.C[1].Y
-
 	type T struct {
 		X *big.Int `abi:"x"`
 		Z *big.Int `abi:"y"` // Test whether the abi tag works.
 	}
-
 	type S struct {
 		A *big.Int
 		B []*big.Int
 		C []T
 	}
-
 	type Ret struct {
 		FieldS S `abi:"s"`
 		FieldT T `abi:"t"`
 		A      *big.Int
 	}
-	var ret Ret
-	var expected = Ret{
+
+	// Go struct for the input side has to match field names exactly (no abi
+	// tag remapping on pack), so use a parallel shape where X/Y line up with
+	// the component names.
+	type compXY struct {
+		X *big.Int
+		Y *big.Int
+	}
+	type compS struct {
+		A *big.Int
+		B []*big.Int
+		C []compXY
+	}
+	inS := compS{
+		A: big.NewInt(1),
+		B: []*big.Int{big.NewInt(1), big.NewInt(2)},
+		C: []compXY{{big.NewInt(1), big.NewInt(2)}, {big.NewInt(2), big.NewInt(1)}},
+	}
+	inT := compXY{X: big.NewInt(0), Y: big.NewInt(1)}
+	inA := big.NewInt(1)
+
+	abi, err = JSON(strings.NewReader(nestedOut))
+	if err != nil {
+		t.Fatal(err)
+	}
+	nestedInAbi, err := JSON(strings.NewReader(nestedIn))
+	if err != nil {
+		t.Fatal(err)
+	}
+	nestedPacked, err := nestedInAbi.Pack("tuple", inS, inT, inA)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expected := Ret{
 		FieldS: S{
 			A: big.NewInt(1),
 			B: []*big.Int{big.NewInt(1), big.NewInt(2)},
@@ -936,18 +975,40 @@ func TestUnpackTuple(t *testing.T) {
 				{big.NewInt(2), big.NewInt(1)},
 			},
 		},
-		FieldT: T{
-			big.NewInt(0), big.NewInt(1),
-		},
-		A: big.NewInt(1),
+		FieldT: T{X: big.NewInt(0), Z: big.NewInt(1)},
+		A:      big.NewInt(1),
 	}
-
-	err = abi.UnpackIntoInterface(&ret, "tuple", buff.Bytes())
-	if err != nil {
+	var ret Ret
+	if err := abi.UnpackIntoInterface(&ret, "tuple", nestedPacked[4:]); err != nil {
 		t.Error(err)
 	}
-	if reflect.DeepEqual(ret, expected) {
-		t.Error("unexpected unpack value")
+	// big.Int values can compare unequal under reflect.DeepEqual when their
+	// internal `neg`/`nat` slices differ for the same mathematical number;
+	// compare the fields individually.
+	if ret.A.Cmp(expected.A) != 0 {
+		t.Errorf("A mismatch: got %s want %s", ret.A, expected.A)
+	}
+	if ret.FieldS.A.Cmp(expected.FieldS.A) != 0 {
+		t.Errorf("S.A mismatch: got %s want %s", ret.FieldS.A, expected.FieldS.A)
+	}
+	if len(ret.FieldS.B) != len(expected.FieldS.B) {
+		t.Fatalf("S.B length mismatch: got %d want %d", len(ret.FieldS.B), len(expected.FieldS.B))
+	}
+	for i, want := range expected.FieldS.B {
+		if ret.FieldS.B[i].Cmp(want) != 0 {
+			t.Errorf("S.B[%d]: got %s want %s", i, ret.FieldS.B[i], want)
+		}
+	}
+	if len(ret.FieldS.C) != len(expected.FieldS.C) {
+		t.Fatalf("S.C length mismatch: got %d want %d", len(ret.FieldS.C), len(expected.FieldS.C))
+	}
+	for i, want := range expected.FieldS.C {
+		if ret.FieldS.C[i].X.Cmp(want.X) != 0 || ret.FieldS.C[i].Z.Cmp(want.Z) != 0 {
+			t.Errorf("S.C[%d]: got %+v want %+v", i, ret.FieldS.C[i], want)
+		}
+	}
+	if ret.FieldT.X.Cmp(expected.FieldT.X) != 0 || ret.FieldT.Z.Cmp(expected.FieldT.Z) != 0 {
+		t.Errorf("T: got %+v want %+v", ret.FieldT, expected.FieldT)
 	}
 }
 
