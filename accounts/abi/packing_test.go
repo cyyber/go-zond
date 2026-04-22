@@ -387,7 +387,7 @@ var packUnpackTests = []packUnpackTest{
 	{
 		def:      `[{"type": "function"}]`,
 		packed:   "01000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
-		unpacked: [24]byte{1},
+		unpacked: [common.AddressLength + 4]byte{1},
 	},
 	// Slice and Array
 	{

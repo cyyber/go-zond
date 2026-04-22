@@ -71,17 +71,9 @@ func BenchmarkUnpack(b *testing.B) {
 
 // TestUnpack tests the general pack/unpack tests in packing_test.go
 func TestUnpack(t *testing.T) {
-	
 	t.Parallel()
 	for i, test := range packUnpackTests {
 		t.Run(strconv.Itoa(i)+" "+test.def, func(t *testing.T) {
-			// ConvertType cannot set a [24]byte function value extracted from
-			// a 64-byte slot; the FunctionTy path in reflect.go needs a
-			// separate fix. Skip the one offending fixture so the rest of the
-			// round-trip table runs.
-			if strings.Contains(test.def, `"function"`) {
-				t.Skip("TODO: ConvertType FunctionTy path for 64-byte ABI slot")
-			}
 			//Unpack
 			def := fmt.Sprintf(`[{ "name" : "method", "type": "function", "outputs": %s}]`, test.def)
 			abi, err := JSON(strings.NewReader(def))
@@ -124,59 +116,73 @@ func (test unpackTest) checkError(err error) error {
 	return nil
 }
 
+// z32 is a 32-byte (64 hex chars) zero prefix used to left-pad the legacy
+// 32-byte slot hex fixtures below to the 64-byte slot width.
+const z32 = "0000000000000000000000000000000000000000000000000000000000000000"
+
 var unpackTests = []unpackTest{
 	// Bools
 	{
 		def:  `[{ "type": "bool" }]`,
-		enc:  "0000000000000000000000000000000000000000000000000001000000000001",
+		enc:  z32 + "0000000000000000000000000000000000000000000000000001000000000001",
 		want: false,
 		err:  "abi: improperly encoded boolean value",
 	},
 	{
 		def:  `[{ "type": "bool" }]`,
-		enc:  "0000000000000000000000000000000000000000000000000000000000000003",
+		enc:  z32 + "0000000000000000000000000000000000000000000000000000000000000003",
 		want: false,
 		err:  "abi: improperly encoded boolean value",
 	},
 	// Integers
 	{
 		def:  `[{"type": "uint32"}]`,
-		enc:  "0000000000000000000000000000000000000000000000000000000000000001",
+		enc:  z32 + "0000000000000000000000000000000000000000000000000000000000000001",
 		want: uint16(0),
 		err:  "abi: cannot unmarshal uint32 in to uint16",
 	},
 	{
 		def:  `[{"type": "uint17"}]`,
-		enc:  "0000000000000000000000000000000000000000000000000000000000000001",
+		enc:  z32 + "0000000000000000000000000000000000000000000000000000000000000001",
 		want: uint16(0),
 		err:  "abi: cannot unmarshal *big.Int in to uint16",
 	},
 	{
 		def:  `[{"type": "int32"}]`,
-		enc:  "0000000000000000000000000000000000000000000000000000000000000001",
+		enc:  z32 + "0000000000000000000000000000000000000000000000000000000000000001",
 		want: int16(0),
 		err:  "abi: cannot unmarshal int32 in to int16",
 	},
 	{
 		def:  `[{"type": "int17"}]`,
-		enc:  "0000000000000000000000000000000000000000000000000000000000000001",
+		enc:  z32 + "0000000000000000000000000000000000000000000000000000000000000001",
 		want: int16(0),
 		err:  "abi: cannot unmarshal *big.Int in to int16",
 	},
 	{
-		def:  `[{"type": "bytes"}]`,
-		enc:  "000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000200100000000000000000000000000000000000000000000000000000000000000",
+		// Dynamic bytes: offset (0x40, past the single-head slot),
+		// length (0x20 = 32), then 32 bytes of data right-padded to the
+		// 64-byte boundary.
+		def: `[{"type": "bytes"}]`,
+		enc: z32 + "0000000000000000000000000000000000000000000000000000000000000040" +
+			z32 + "0000000000000000000000000000000000000000000000000000000000000020" +
+			"0100000000000000000000000000000000000000000000000000000000000000" + z32,
 		want: [32]byte{1},
 	},
 	{
-		def:  `[{"type": "bytes32"}]`,
-		enc:  "000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000200100000000000000000000000000000000000000000000000000000000000000",
+		// bytes32 is static, but destination is []byte — expects a type
+		// mismatch error. Only the leading 64-byte slot is consumed for
+		// static decoding; keep the rest as benign padding.
+		def: `[{"type": "bytes32"}]`,
+		enc: "0100000000000000000000000000000000000000000000000000000000000000" + z32 +
+			z32 + z32,
 		want: []byte(nil),
 		err:  "abi: cannot unmarshal [32]uint8 in to []uint8",
 	},
 	{
 		def: `[{"name":"___","type":"int256"}]`,
-		enc: "00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000002",
+		enc: z32 + "0000000000000000000000000000000000000000000000000000000000000001" +
+			z32 + "0000000000000000000000000000000000000000000000000000000000000002",
 		want: struct {
 			IntOne *big.Int
 			Intone *big.Int
@@ -184,7 +190,8 @@ var unpackTests = []unpackTest{
 	},
 	{
 		def: `[{"name":"int_one","type":"int256"},{"name":"IntOne","type":"int256"}]`,
-		enc: "00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000002",
+		enc: z32 + "0000000000000000000000000000000000000000000000000000000000000001" +
+			z32 + "0000000000000000000000000000000000000000000000000000000000000002",
 		want: struct {
 			Int1 *big.Int
 			Int2 *big.Int
@@ -193,7 +200,8 @@ var unpackTests = []unpackTest{
 	},
 	{
 		def: `[{"name":"int","type":"int256"},{"name":"Int","type":"int256"}]`,
-		enc: "00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000002",
+		enc: z32 + "0000000000000000000000000000000000000000000000000000000000000001" +
+			z32 + "0000000000000000000000000000000000000000000000000000000000000002",
 		want: struct {
 			Int1 *big.Int
 			Int2 *big.Int
@@ -202,7 +210,8 @@ var unpackTests = []unpackTest{
 	},
 	{
 		def: `[{"name":"int","type":"int256"},{"name":"_int","type":"int256"}]`,
-		enc: "00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000002",
+		enc: z32 + "0000000000000000000000000000000000000000000000000000000000000001" +
+			z32 + "0000000000000000000000000000000000000000000000000000000000000002",
 		want: struct {
 			Int1 *big.Int
 			Int2 *big.Int
@@ -211,7 +220,8 @@ var unpackTests = []unpackTest{
 	},
 	{
 		def: `[{"name":"Int","type":"int256"},{"name":"_int","type":"int256"}]`,
-		enc: "00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000002",
+		enc: z32 + "0000000000000000000000000000000000000000000000000000000000000001" +
+			z32 + "0000000000000000000000000000000000000000000000000000000000000002",
 		want: struct {
 			Int1 *big.Int
 			Int2 *big.Int
@@ -220,7 +230,8 @@ var unpackTests = []unpackTest{
 	},
 	{
 		def: `[{"name":"Int","type":"int256"},{"name":"_","type":"int256"}]`,
-		enc: "00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000002",
+		enc: z32 + "0000000000000000000000000000000000000000000000000000000000000001" +
+			z32 + "0000000000000000000000000000000000000000000000000000000000000002",
 		want: struct {
 			Int1 *big.Int
 			Int2 *big.Int
@@ -230,21 +241,24 @@ var unpackTests = []unpackTest{
 	// Make sure only the first argument is consumed
 	{
 		def: `[{"name":"int_one","type":"int256"}]`,
-		enc: "00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000002",
+		enc: z32 + "0000000000000000000000000000000000000000000000000000000000000001" +
+			z32 + "0000000000000000000000000000000000000000000000000000000000000002",
 		want: struct {
 			IntOne *big.Int
 		}{big.NewInt(1)},
 	},
 	{
 		def: `[{"name":"int__one","type":"int256"}]`,
-		enc: "00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000002",
+		enc: z32 + "0000000000000000000000000000000000000000000000000000000000000001" +
+			z32 + "0000000000000000000000000000000000000000000000000000000000000002",
 		want: struct {
 			IntOne *big.Int
 		}{big.NewInt(1)},
 	},
 	{
 		def: `[{"name":"int_one_","type":"int256"}]`,
-		enc: "00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000002",
+		enc: z32 + "0000000000000000000000000000000000000000000000000000000000000001" +
+			z32 + "0000000000000000000000000000000000000000000000000000000000000002",
 		want: struct {
 			IntOne *big.Int
 		}{big.NewInt(1)},
@@ -271,7 +285,6 @@ var unpackTests = []unpackTest{
 // TestLocalUnpackTests runs test specially designed only for unpacking.
 // All test cases that can be used to test packing and unpacking should move to packing_test.go
 func TestLocalUnpackTests(t *testing.T) {
-	t.Skip("TODO: regenerate unpack fixtures for 64-byte ABI slot (local table distinct from packUnpackTests)")
 	t.Parallel()
 	for i, test := range unpackTests {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
@@ -615,9 +628,8 @@ func TestMultiReturnWithDeeplyNestedArray(t *testing.T) {
 }
 
 func TestUnmarshal(t *testing.T) {
-	t.Skip("TODO: regenerate encoded test data for 64-byte ABI slot")
 	t.Parallel()
-	const definition = `[
+	const outDef = `[
 	{ "name" : "int", "type": "function", "outputs": [ { "type": "uint256" } ] },
 	{ "name" : "bool", "type": "function", "outputs": [ { "type": "bool" } ] },
 	{ "name" : "bytes", "type": "function", "outputs": [ { "type": "bytes" } ] },
@@ -627,24 +639,38 @@ func TestUnmarshal(t *testing.T) {
 	{ "name" : "addressSliceSingle", "type": "function", "outputs": [ { "type": "address[]" } ] },
 	{ "name" : "addressSliceDouble", "type": "function", "outputs": [ { "name": "a", "type": "address[]" }, { "name": "b", "type": "address[]" } ] },
 	{ "name" : "mixedBytes", "type": "function", "stateMutability" : "view", "outputs": [ { "name": "a", "type": "bytes" }, { "name": "b", "type": "bytes32" } ] }]`
+	const inDef = `[
+	{ "name" : "int", "type": "function", "inputs": [ { "type": "uint256" } ] },
+	{ "name" : "bool", "type": "function", "inputs": [ { "type": "bool" } ] },
+	{ "name" : "bytes", "type": "function", "inputs": [ { "type": "bytes" } ] },
+	{ "name" : "fixed", "type": "function", "inputs": [ { "type": "bytes32" } ] },
+	{ "name" : "multi", "type": "function", "inputs": [ { "type": "bytes" }, { "type": "bytes" } ] },
+	{ "name" : "intArraySingle", "type": "function", "inputs": [ { "type": "uint256[3]" } ] },
+	{ "name" : "addressSliceSingle", "type": "function", "inputs": [ { "type": "address[]" } ] },
+	{ "name" : "addressSliceDouble", "type": "function", "inputs": [ { "name": "a", "type": "address[]" }, { "name": "b", "type": "address[]" } ] },
+	{ "name" : "mixedBytes", "type": "function", "inputs": [ { "name": "a", "type": "bytes" }, { "name": "b", "type": "bytes32" } ] }]`
 
-	abi, err := JSON(strings.NewReader(definition))
+	abi, err := JSON(strings.NewReader(outDef))
 	if err != nil {
 		t.Fatal(err)
 	}
-	buff := new(bytes.Buffer)
+	inAbi, err := JSON(strings.NewReader(inDef))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// marshall mixed bytes (mixedBytes)
-	p0, p0Exp := []byte{}, common.Hex2Bytes("01020000000000000000")
-	p1, p1Exp := [32]byte{}, common.Hex2Bytes("0000000000000000000000000000000000000000000000000000000000ddeeff")
+	p0Exp := common.Hex2Bytes("01020000000000000000")
+	var p1Exp [32]byte
+	copy(p1Exp[29:], []byte{0xdd, 0xee, 0xff})
+	p0, p1 := []byte{}, [32]byte{}
 	mixedBytes := []any{&p0, &p1}
 
-	buff.Write(common.Hex2Bytes("0000000000000000000000000000000000000000000000000000000000000040"))
-	buff.Write(common.Hex2Bytes("0000000000000000000000000000000000000000000000000000000000ddeeff"))
-	buff.Write(common.Hex2Bytes("000000000000000000000000000000000000000000000000000000000000000a"))
-	buff.Write(common.Hex2Bytes("0102000000000000000000000000000000000000000000000000000000000000"))
-
-	err = abi.UnpackIntoInterface(&mixedBytes, "mixedBytes", buff.Bytes())
+	packed, err := inAbi.Pack("mixedBytes", p0Exp, p1Exp)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = abi.UnpackIntoInterface(&mixedBytes, "mixedBytes", packed[4:])
 	if err != nil {
 		t.Error(err)
 	} else {
@@ -652,14 +678,18 @@ func TestUnmarshal(t *testing.T) {
 			t.Errorf("unexpected value unpacked: want %x, got %x", p0Exp, p0)
 		}
 
-		if !bytes.Equal(p1[:], p1Exp) {
+		if !bytes.Equal(p1[:], p1Exp[:]) {
 			t.Errorf("unexpected value unpacked: want %x, got %x", p1Exp, p1)
 		}
 	}
 
 	// marshal int
 	var Int *big.Int
-	err = abi.UnpackIntoInterface(&Int, "int", common.Hex2Bytes("0000000000000000000000000000000000000000000000000000000000000001"))
+	packed, err = inAbi.Pack("int", big.NewInt(1))
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = abi.UnpackIntoInterface(&Int, "int", packed[4:])
 	if err != nil {
 		t.Error(err)
 	}
@@ -670,7 +700,11 @@ func TestUnmarshal(t *testing.T) {
 
 	// marshal bool
 	var Bool bool
-	err = abi.UnpackIntoInterface(&Bool, "bool", common.Hex2Bytes("0000000000000000000000000000000000000000000000000000000000000001"))
+	packed, err = inAbi.Pack("bool", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = abi.UnpackIntoInterface(&Bool, "bool", packed[4:])
 	if err != nil {
 		t.Error(err)
 	}
@@ -679,15 +713,14 @@ func TestUnmarshal(t *testing.T) {
 		t.Error("expected Bool to be true")
 	}
 
-	// marshal dynamic bytes max length 32
-	buff.Reset()
-	buff.Write(common.Hex2Bytes("0000000000000000000000000000000000000000000000000000000000000020"))
-	buff.Write(common.Hex2Bytes("0000000000000000000000000000000000000000000000000000000000000020"))
+	// marshal dynamic bytes, length equal to one slot (32 bytes)
 	bytesOut := common.RightPadBytes([]byte("hello"), 32)
-	buff.Write(bytesOut)
-
+	packed, err = inAbi.Pack("bytes", bytesOut)
+	if err != nil {
+		t.Fatal(err)
+	}
 	var Bytes []byte
-	err = abi.UnpackIntoInterface(&Bytes, "bytes", buff.Bytes())
+	err = abi.UnpackIntoInterface(&Bytes, "bytes", packed[4:])
 	if err != nil {
 		t.Error(err)
 	}
@@ -696,14 +729,13 @@ func TestUnmarshal(t *testing.T) {
 		t.Errorf("expected %x got %x", bytesOut, Bytes)
 	}
 
-	// marshall dynamic bytes max length 64
-	buff.Reset()
-	buff.Write(common.Hex2Bytes("0000000000000000000000000000000000000000000000000000000000000020"))
-	buff.Write(common.Hex2Bytes("0000000000000000000000000000000000000000000000000000000000000040"))
+	// marshall dynamic bytes, length equal to one 64-byte slot
 	bytesOut = common.RightPadBytes([]byte("hello"), 64)
-	buff.Write(bytesOut)
-
-	err = abi.UnpackIntoInterface(&Bytes, "bytes", buff.Bytes())
+	packed, err = inAbi.Pack("bytes", bytesOut)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = abi.UnpackIntoInterface(&Bytes, "bytes", packed[4:])
 	if err != nil {
 		t.Error(err)
 	}
@@ -712,20 +744,19 @@ func TestUnmarshal(t *testing.T) {
 		t.Errorf("expected %x got %x", bytesOut, Bytes)
 	}
 
-	// marshall dynamic bytes max length 64
-	buff.Reset()
-	buff.Write(common.Hex2Bytes("0000000000000000000000000000000000000000000000000000000000000020"))
-	buff.Write(common.Hex2Bytes("000000000000000000000000000000000000000000000000000000000000003f"))
-	bytesOut = common.RightPadBytes([]byte("hello"), 64)
-	buff.Write(bytesOut)
-
-	err = abi.UnpackIntoInterface(&Bytes, "bytes", buff.Bytes())
+	// marshall dynamic bytes, length one byte short of a full slot (63)
+	bytesOut = common.RightPadBytes([]byte("hello"), 63)
+	packed, err = inAbi.Pack("bytes", bytesOut)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = abi.UnpackIntoInterface(&Bytes, "bytes", packed[4:])
 	if err != nil {
 		t.Error(err)
 	}
 
-	if !bytes.Equal(Bytes, bytesOut[:len(bytesOut)-1]) {
-		t.Errorf("expected %x got %x", bytesOut[:len(bytesOut)-1], Bytes)
+	if !bytes.Equal(Bytes, bytesOut) {
+		t.Errorf("expected %x got %x", bytesOut, Bytes)
 	}
 
 	// marshal dynamic bytes output empty
@@ -735,26 +766,28 @@ func TestUnmarshal(t *testing.T) {
 	}
 
 	// marshal dynamic bytes length 5
-	buff.Reset()
-	buff.Write(common.Hex2Bytes("0000000000000000000000000000000000000000000000000000000000000020"))
-	buff.Write(common.Hex2Bytes("0000000000000000000000000000000000000000000000000000000000000005"))
-	buff.Write(common.RightPadBytes([]byte("hello"), 32))
-
-	err = abi.UnpackIntoInterface(&Bytes, "bytes", buff.Bytes())
+	packed, err = inAbi.Pack("bytes", []byte("hello"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = abi.UnpackIntoInterface(&Bytes, "bytes", packed[4:])
 	if err != nil {
 		t.Error(err)
 	}
 
 	if !bytes.Equal(Bytes, []byte("hello")) {
-		t.Errorf("expected %x got %x", bytesOut, Bytes)
+		t.Errorf("expected %x got %x", []byte("hello"), Bytes)
 	}
 
-	// marshal dynamic bytes length 5
-	buff.Reset()
-	buff.Write(common.RightPadBytes([]byte("hello"), 32))
-
+	// marshal fixed bytes32 "hello"
+	var fixedIn [32]byte
+	copy(fixedIn[:], common.RightPadBytes([]byte("hello"), 32))
+	packed, err = inAbi.Pack("fixed", fixedIn)
+	if err != nil {
+		t.Fatal(err)
+	}
 	var hash common.Hash
-	err = abi.UnpackIntoInterface(&hash, "fixed", buff.Bytes())
+	err = abi.UnpackIntoInterface(&hash, "fixed", packed[4:])
 	if err != nil {
 		t.Error(err)
 	}
@@ -764,47 +797,45 @@ func TestUnmarshal(t *testing.T) {
 		t.Errorf("Expected %x to equal %x", hash, helloHash)
 	}
 
-	// marshal error
-	buff.Reset()
-	buff.Write(common.Hex2Bytes("0000000000000000000000000000000000000000000000000000000000000020"))
+	// marshal error: dynamic bytes with valid offset but no length/data.
+	buff := new(bytes.Buffer)
+	buff.Write(common.Hex2Bytes(z32 + "0000000000000000000000000000000000000000000000000000000000000040"))
 	err = abi.UnpackIntoInterface(&Bytes, "bytes", buff.Bytes())
 	if err == nil {
 		t.Error("expected error")
 	}
 
-	err = abi.UnpackIntoInterface(&Bytes, "multi", make([]byte, 64))
+	// multi expects two offsets, so two empty 64-byte slots fail the length sanity check.
+	err = abi.UnpackIntoInterface(&Bytes, "multi", make([]byte, 128))
 	if err == nil {
 		t.Error("expected error")
 	}
 
-	buff.Reset()
-	buff.Write(common.Hex2Bytes("0000000000000000000000000000000000000000000000000000000000000001"))
-	buff.Write(common.Hex2Bytes("0000000000000000000000000000000000000000000000000000000000000002"))
-	buff.Write(common.Hex2Bytes("0000000000000000000000000000000000000000000000000000000000000003"))
 	// marshal int array
+	intArrayIn := [3]*big.Int{big.NewInt(1), big.NewInt(2), big.NewInt(3)}
+	packed, err = inAbi.Pack("intArraySingle", intArrayIn)
+	if err != nil {
+		t.Fatal(err)
+	}
 	var intArray [3]*big.Int
-	err = abi.UnpackIntoInterface(&intArray, "intArraySingle", buff.Bytes())
+	err = abi.UnpackIntoInterface(&intArray, "intArraySingle", packed[4:])
 	if err != nil {
 		t.Error(err)
 	}
-	var testAgainstIntArray [3]*big.Int
-	testAgainstIntArray[0] = big.NewInt(1)
-	testAgainstIntArray[1] = big.NewInt(2)
-	testAgainstIntArray[2] = big.NewInt(3)
-
-	for i, Int := range intArray {
-		if Int.Cmp(testAgainstIntArray[i]) != 0 {
-			t.Errorf("expected %v, got %v", testAgainstIntArray[i], Int)
+	for i, want := range intArrayIn {
+		if intArray[i].Cmp(want) != 0 {
+			t.Errorf("expected %v, got %v", want, intArray[i])
 		}
 	}
-	// marshal address slice
-	buff.Reset()
-	buff.Write(common.Hex2Bytes("0000000000000000000000000000000000000000000000000000000000000020")) // offset
-	buff.Write(common.Hex2Bytes("0000000000000000000000000000000000000000000000000000000000000001")) // size
-	buff.Write(common.Hex2Bytes("0000000000000000000000000100000000000000000000000000000000000000"))
 
+	// marshal address slice
+	addrA := common.Address{1}
+	packed, err = inAbi.Pack("addressSliceSingle", []common.Address{addrA})
+	if err != nil {
+		t.Fatal(err)
+	}
 	var outAddr []common.Address
-	err = abi.UnpackIntoInterface(&outAddr, "addressSliceSingle", buff.Bytes())
+	err = abi.UnpackIntoInterface(&outAddr, "addressSliceSingle", packed[4:])
 	if err != nil {
 		t.Fatal("didn't expect error:", err)
 	}
@@ -813,25 +844,23 @@ func TestUnmarshal(t *testing.T) {
 		t.Fatal("expected 1 item, got", len(outAddr))
 	}
 
-	if outAddr[0] != (common.Address{1}) {
-		t.Errorf("expected %x, got %x", common.Address{1}, outAddr[0])
+	if outAddr[0] != addrA {
+		t.Errorf("expected %x, got %x", addrA, outAddr[0])
 	}
 
-	// marshal multiple address slice
-	buff.Reset()
-	buff.Write(common.Hex2Bytes("0000000000000000000000000000000000000000000000000000000000000040")) // offset
-	buff.Write(common.Hex2Bytes("0000000000000000000000000000000000000000000000000000000000000080")) // offset
-	buff.Write(common.Hex2Bytes("0000000000000000000000000000000000000000000000000000000000000001")) // size
-	buff.Write(common.Hex2Bytes("0000000000000000000000000100000000000000000000000000000000000000"))
-	buff.Write(common.Hex2Bytes("0000000000000000000000000000000000000000000000000000000000000002")) // size
-	buff.Write(common.Hex2Bytes("0000000000000000000000000200000000000000000000000000000000000000"))
-	buff.Write(common.Hex2Bytes("0000000000000000000000000300000000000000000000000000000000000000"))
+	// marshal multiple address slices
+	addrB1 := common.Address{2}
+	addrB2 := common.Address{3}
+	packed, err = inAbi.Pack("addressSliceDouble", []common.Address{addrA}, []common.Address{addrB1, addrB2})
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	var outAddrStruct struct {
 		A []common.Address
 		B []common.Address
 	}
-	err = abi.UnpackIntoInterface(&outAddrStruct, "addressSliceDouble", buff.Bytes())
+	err = abi.UnpackIntoInterface(&outAddrStruct, "addressSliceDouble", packed[4:])
 	if err != nil {
 		t.Fatal("didn't expect error:", err)
 	}
@@ -840,25 +869,24 @@ func TestUnmarshal(t *testing.T) {
 		t.Fatal("expected 1 item, got", len(outAddrStruct.A))
 	}
 
-	if outAddrStruct.A[0] != (common.Address{1}) {
-		t.Errorf("expected %x, got %x", common.Address{1}, outAddrStruct.A[0])
+	if outAddrStruct.A[0] != addrA {
+		t.Errorf("expected %x, got %x", addrA, outAddrStruct.A[0])
 	}
 
 	if len(outAddrStruct.B) != 2 {
 		t.Fatal("expected 1 item, got", len(outAddrStruct.B))
 	}
 
-	if outAddrStruct.B[0] != (common.Address{2}) {
-		t.Errorf("expected %x, got %x", common.Address{2}, outAddrStruct.B[0])
+	if outAddrStruct.B[0] != addrB1 {
+		t.Errorf("expected %x, got %x", addrB1, outAddrStruct.B[0])
 	}
-	if outAddrStruct.B[1] != (common.Address{3}) {
-		t.Errorf("expected %x, got %x", common.Address{3}, outAddrStruct.B[1])
+	if outAddrStruct.B[1] != addrB2 {
+		t.Errorf("expected %x, got %x", addrB2, outAddrStruct.B[1])
 	}
 
-	// marshal invalid address slice
+	// marshal invalid address slice: offset points past available data.
 	buff.Reset()
-	buff.Write(common.Hex2Bytes("0000000000000000000000000000000000000000000000000000000000000100"))
-
+	buff.Write(common.Hex2Bytes(z32 + "0000000000000000000000000000000000000000000000000000000000000200"))
 	err = abi.UnpackIntoInterface(&outAddr, "addressSliceSingle", buff.Bytes())
 	if err == nil {
 		t.Fatal("expected error:", err)
