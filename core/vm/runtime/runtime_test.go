@@ -635,7 +635,6 @@ func TestColdAccountAccessCost(t *testing.T) {
 }
 
 func TestRuntimeJSTracer(t *testing.T) {
-	t.Skip("TODO: regenerate initcode offsets (PUSH5 lands in bytes [59:64] of a 64-byte word) and gas expectations after 512-bit VM word")
 	jsTracers := []string{
 		`{enters: 0, exits: 0, enterGas: 0, gasUsed: 0, steps:0,
 	step: function() { this.steps++},
@@ -679,7 +678,7 @@ func TestRuntimeJSTracer(t *testing.T) {
 				byte(vm.PUSH1), 0,
 				byte(vm.MSTORE),
 				// length, offset, value
-				byte(vm.PUSH1), 5, byte(vm.PUSH1), 27, byte(vm.PUSH1), 0,
+				byte(vm.PUSH1), 5, byte(vm.PUSH1), 59, byte(vm.PUSH1), 0,
 				byte(vm.CREATE),
 				byte(vm.POP),
 			},
@@ -695,7 +694,7 @@ func TestRuntimeJSTracer(t *testing.T) {
 				byte(vm.PUSH1), 0,
 				byte(vm.MSTORE),
 				// salt, length, offset, value
-				byte(vm.PUSH1), 1, byte(vm.PUSH1), 5, byte(vm.PUSH1), 27, byte(vm.PUSH1), 0,
+				byte(vm.PUSH1), 1, byte(vm.PUSH1), 5, byte(vm.PUSH1), 59, byte(vm.PUSH1), 0,
 				byte(vm.CREATE2),
 				byte(vm.POP),
 			},
@@ -744,11 +743,14 @@ func TestRuntimeJSTracer(t *testing.T) {
 		byte(vm.PUSH1), 0,
 		byte(vm.RETURN),
 	}
-	main, _ := common.NewAddressFromString("Q00000000000000000000000000000000000000aa")
-	address0, _ := common.NewAddressFromString("Q00000000000000000000000000000000000000bb")
-	address1, _ := common.NewAddressFromString("Q00000000000000000000000000000000000000cc")
-	address2, _ := common.NewAddressFromString("Q00000000000000000000000000000000000000dd")
-	address3, _ := common.NewAddressFromString("Q00000000000000000000000000000000000000ee")
+	// The runtime CALL / STATICCALL / DELEGATECALL opcodes pop the target
+	// address from the low 48 bytes of a 64-byte stack word, so each
+	// fixture hex ends with the classic single-byte marker at the very end.
+	main := common.BytesToAddress([]byte{0xaa})
+	address0 := common.BytesToAddress([]byte{0xbb})
+	address1 := common.BytesToAddress([]byte{0xcc})
+	address2 := common.BytesToAddress([]byte{0xdd})
+	address3 := common.BytesToAddress([]byte{0xee})
 	for i, jsTracer := range jsTracers {
 		for j, tc := range tests {
 			statedb, _ := state.New(types.EmptyRootHash, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)

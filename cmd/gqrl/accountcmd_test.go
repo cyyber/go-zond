@@ -76,7 +76,6 @@ Account #2: {Q2d9b972ef8219246c73363fd7c048cef81456f9d} keystore://{{.Datadir}}\
 }
 
 func TestAccountNew(t *testing.T) {
-	t.Skip("TODO: 48-byte-address keystore fixtures / regex need regeneration")
 	t.Parallel()
 	gqrl := runGqrl(t, "account", "new", "--lightkdf")
 	defer gqrl.ExpectExit()
@@ -88,9 +87,10 @@ Repeat password: {{.InputLine "foobar"}}
 
 Your new key was generated
 `)
+	// QRL addresses are 48 bytes → 96 hex characters after the Q prefix.
 	gqrl.ExpectRegexp(`
-Public address of the key:   Q[0-9a-fA-F]{40}
-Path of the secret key file: .*UTC--.+--Q[0-9a-f]{40}
+Public address of the key:   Q[0-9a-fA-F]{96}
+Path of the secret key file: .*UTC--.+--Q[0-9a-f]{96}
 
 - You can share your public address with anyone. Others need it to interact with you.
 - You must NEVER share the secret key with anyone! The key controls access to your funds!
@@ -100,13 +100,12 @@ Path of the secret key file: .*UTC--.+--Q[0-9a-f]{40}
 }
 
 func TestAccountImport(t *testing.T) {
-	t.Skip("TODO: 48-byte-address keystore fixtures / regex need regeneration")
 	t.Parallel()
 	tests := []struct{ name, seed, output string }{
 		{
 			name:   "correct account",
 			seed:   "0100000123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdeffcad0b19bb29d4674531d6f115237e16",
-			output: "Address: {Q958d36976b91586a10341cf20c7dfbcb122a1065}\n",
+			output: "Address: {Q65ffa7322bbe6582272d200d7714537b5ff6794712cc36e98bf43344c3068a56faa409cb2d240bb8b16b2354c48c6eb1}\n",
 		},
 		{
 			name:   "invalid character",

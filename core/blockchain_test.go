@@ -3107,10 +3107,13 @@ func TestTxIndexer(t *testing.T) {
 }
 
 func TestEIP3651(t *testing.T) {
-	t.Skip("TODO: recompute expected gas for 64-byte VM word")
 	var (
-		aa, _  = common.NewAddressFromString("Q000000000000000000000000000000000000aaaa")
-		bb, _  = common.NewAddressFromString("Q000000000000000000000000000000000000bbbb")
+		// The target of the inner DELEGATECALL is encoded by the PUSH2
+		// 0xaaaa opcode sequence below; 0xaaaa sits in the lowest two
+		// bytes of the 48-byte address, so we pick the 48-byte-address
+		// form of "all zeros except the last two bytes".
+		aa     = common.BytesToAddress([]byte{0xaa, 0xaa})
+		bb     = common.BytesToAddress([]byte{0xbb, 0xbb})
 		engine = beacon.NewFaker()
 
 		// A sender who makes transactions, has some funds
