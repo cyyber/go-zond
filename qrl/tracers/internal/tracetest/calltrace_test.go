@@ -347,6 +347,200 @@ func TestInternals(t *testing.T) {
 			tracer: mkTracer("prestateTracer", nil),
 			want:   `{"Q000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000":{"balance":"0x0"},"Q07efc3f57c2aa10b6dd826aed4eba6d7fa26cd2af04a7ddcc24ea305aa78bf3059756e61dcb00eaf4dbbe95a253eff37":{"balance":"0x0"},"Qdeadbeef00000000000000000000000000000000deadbeef000000000000000000000000000000000000000000000000":{"balance":"0x0","code":"0x6001600052600160ff60016000f560ff6000c0"},"Qfeed000000000000000000000000000000000000feed0000000000000000000000000000000000000000000000000000":{"balance":"0x1c6bf52647880"}}`,
 		},
+		{
+			// callTracer: contract reverts with an Error(string) payload; the
+			// tracer surfaces the raw output plus the decoded revertReason.
+			name: "Revert with reason",
+			code: []byte{
+				// Build Error("nope") payload and REVERT it.
+				byte(vm.PUSH4), 0x08, 0xc3, 0x79, 0xa0, // selector
+				byte(vm.PUSH2), 0x01, 0xe0, // 480
+				byte(vm.SHL),
+				byte(vm.PUSH1), 0x00,
+				byte(vm.MSTORE), // memory[0:64] = selector<<480
+				byte(vm.PUSH1), 0x40,
+				byte(vm.PUSH1), 0x04,
+				byte(vm.MSTORE), // memory[4:68] = offset 0x40
+				byte(vm.PUSH1), 0x04,
+				byte(vm.PUSH1), 0x44,
+				byte(vm.MSTORE), // memory[68:132] = length 4
+				byte(vm.PUSH4), 0x6e, 0x6f, 0x70, 0x65, // "nope"
+				byte(vm.PUSH2), 0x01, 0xe0, // 480 = (64-4)*8
+				byte(vm.SHL),
+				byte(vm.PUSH1), 0x84,
+				byte(vm.MSTORE), // memory[132:196] = "nope"<<480
+				byte(vm.PUSH1), 0xc4,
+				byte(vm.PUSH1), 0x00,
+				byte(vm.REVERT),
+			},
+			tracer: mkTracer("callTracer", nil),
+			want:   `{"from":"Qfeed000000000000000000000000000000000000feed0000000000000000000000000000000000000000000000000000","gas":"0x13880","gasUsed":"0x524a","to":"Qdeadbeef00000000000000000000000000000000deadbeef000000000000000000000000000000000000000000000000","input":"0x","output":"0x08c379a000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000046e6f7065000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","error":"execution reverted","revertReason":"nope","value":"0x0","type":"CALL"}`,
+		},
+		{
+			// flatCallTracer: a top-level CALL to a STOP contract produces a
+			// single Parity-style "call"-type entry; the outer block/tx hash
+			// are null since this runs outside of chain context.
+			name:   "FlatCallTracer - top-level CALL",
+			code:   []byte{byte(vm.STOP)},
+			tracer: mkTracer("flatCallTracer", nil),
+			want:   `[{"action":{"callType":"call","from":"Qfeed000000000000000000000000000000000000feed0000000000000000000000000000000000000000000000000000","gas":"0x13880","input":"0x","to":"Qdeadbeef00000000000000000000000000000000deadbeef000000000000000000000000000000000000000000000000","value":"0x0"},"blockHash":null,"blockNumber":0,"result":{"gasUsed":"0x5208","output":"0x"},"subtraces":0,"traceAddress":[],"transactionHash":null,"transactionPosition":0,"type":"call"}]`,
+		},
+		{
+			// prestateTracer diffMode: SSTORE into a fresh slot produces a
+			// `post` entry for the touched storage and an updated sender
+			// balance; `pre` records the original empty storage and the
+			// sender's original balance. The 64-byte StorageValue encoding
+			// left-pads the stored scalar to the full slot width.
+			name: "Prestate-tracer diffMode - SSTORE",
+			code: []byte{
+				byte(vm.PUSH1), 0x2a, // value 42
+				byte(vm.PUSH1), 0x01, // slot 1
+				byte(vm.SSTORE),
+			},
+			tracer: mkTracer("prestateTracer", json.RawMessage(`{"diffMode":true}`)),
+			want:   `{"post":{"Qdeadbeef00000000000000000000000000000000deadbeef000000000000000000000000000000000000000000000000":{"storage":{"0x0000000000000000000000000000000000000000000000000000000000000001":"0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002a"}},"Qfeed000000000000000000000000000000000000feed0000000000000000000000000000000000000000000000000000":{"balance":"0x1c6bf52634000","nonce":1}},"pre":{"Qdeadbeef00000000000000000000000000000000deadbeef000000000000000000000000000000000000000000000000":{"balance":"0x0","code":"0x602a600155"},"Qfeed000000000000000000000000000000000000feed0000000000000000000000000000000000000000000000000000":{"balance":"0x1c6bf52647880"}}}`,
+		},
+		{
+			// callTracer: a CALL that reverts without any output. The tracer
+			// should emit the outer `error:"execution reverted"` without a
+			// revertReason, and the `output` field is omitted.
+			name: "CallTracer - plain revert",
+			code: []byte{
+				byte(vm.PUSH1), 0x00,
+				byte(vm.PUSH1), 0x00,
+				byte(vm.REVERT),
+			},
+			tracer: mkTracer("callTracer", nil),
+			want:   `{"from":"Qfeed000000000000000000000000000000000000feed0000000000000000000000000000000000000000000000000000","gas":"0x13880","gasUsed":"0x520e","to":"Qdeadbeef00000000000000000000000000000000deadbeef000000000000000000000000000000000000000000000000","input":"0x","error":"execution reverted","value":"0x0","type":"CALL"}`,
+		},
+		{
+			// 4byteTracer: the tracer key is `selector-<callData-len>` and
+			// value is the hit count. An outer call with no calldata yields
+			// no hit, so result is an empty object.
+			name:   "FourByteTracer - empty calldata",
+			code:   []byte{byte(vm.STOP)},
+			tracer: mkTracer("4byteTracer", nil),
+			want:   `{}`,
+		},
+		{
+			// callTracer: a STATICCALL to a non-existent address. The outer
+			// CALL succeeds with status 0 on the inner (cold) account, and
+			// the tracer records the inner entry as a STATICCALL with an
+			// empty input and zero gasUsed.
+			name: "CallTracer - STATICCALL to empty account",
+			code: []byte{
+				byte(vm.PUSH1), 0x00, // retSize
+				byte(vm.PUSH1), 0x00, // retOffset
+				byte(vm.PUSH1), 0x00, // argSize
+				byte(vm.PUSH1), 0x00, // argOffset
+				byte(vm.PUSH1), 0xbb, // address 0xbb
+				byte(vm.GAS),
+				byte(vm.STATICCALL),
+			},
+			tracer: mkTracer("callTracer", nil),
+			want:   `{"from":"Qfeed000000000000000000000000000000000000feed0000000000000000000000000000000000000000000000000000","gas":"0x13880","gasUsed":"0x5c41","to":"Qdeadbeef00000000000000000000000000000000deadbeef000000000000000000000000000000000000000000000000","input":"0x","calls":[{"from":"Qdeadbeef00000000000000000000000000000000deadbeef000000000000000000000000000000000000000000000000","gas":"0xd8cf","gasUsed":"0x0","to":"Q0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000bb","input":"0x","type":"STATICCALL"}],"value":"0x0","type":"CALL"}`,
+		},
+		{
+			// prestateTracer non-diff: a CALL to a code-bearing contract
+			// surfaces the contract's code in the prestate together with the
+			// sender's balance and the (implicit) coinbase account.
+			name:   "Prestate-tracer - code capture on STOP",
+			code:   []byte{byte(vm.STOP)},
+			tracer: mkTracer("prestateTracer", nil),
+			want:   `{"Q000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000":{"balance":"0x0"},"Qdeadbeef00000000000000000000000000000000deadbeef000000000000000000000000000000000000000000000000":{"balance":"0x0","code":"0x00"},"Qfeed000000000000000000000000000000000000feed0000000000000000000000000000000000000000000000000000":{"balance":"0x1c6bf52647880"}}`,
+		},
+		{
+			// callTracer: a DELEGATECALL forwards the outer context to the
+			// inner call. The tracer emits a nested DELEGATECALL entry with
+			// the inner `from` equal to the outer callee (not the original
+			// caller), confirming the delegate-call semantics.
+			name: "CallTracer - DELEGATECALL",
+			code: []byte{
+				byte(vm.PUSH1), 0x00, // retSize
+				byte(vm.PUSH1), 0x00, // retOffset
+				byte(vm.PUSH1), 0x00, // argSize
+				byte(vm.PUSH1), 0x00, // argOffset
+				byte(vm.PUSH1), 0xcc, // target 0xcc
+				byte(vm.GAS),
+				byte(vm.DELEGATECALL),
+			},
+			tracer: mkTracer("callTracer", nil),
+			want:   `{"from":"Qfeed000000000000000000000000000000000000feed0000000000000000000000000000000000000000000000000000","gas":"0x13880","gasUsed":"0x5c41","to":"Qdeadbeef00000000000000000000000000000000deadbeef000000000000000000000000000000000000000000000000","input":"0x","calls":[{"from":"Qdeadbeef00000000000000000000000000000000deadbeef000000000000000000000000000000000000000000000000","gas":"0xd8cf","gasUsed":"0x0","to":"Q0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000cc","input":"0x","value":"0x0","type":"DELEGATECALL"}],"value":"0x0","type":"CALL"}`,
+		},
+		{
+			// flatCallTracer + INVALID: hitting the INVALID opcode surfaces
+			// an "invalid opcode: INVALID" error on the flat-trace entry and
+			// drops the `result` object in favour of `error`.
+			name:   "FlatCallTracer - invalid opcode error",
+			code:   []byte{byte(vm.INVALID)},
+			tracer: mkTracer("flatCallTracer", nil),
+			want:   `[{"action":{"callType":"call","from":"Qfeed000000000000000000000000000000000000feed0000000000000000000000000000000000000000000000000000","gas":"0x13880","input":"0x","to":"Qdeadbeef00000000000000000000000000000000deadbeef000000000000000000000000000000000000000000000000","value":"0x0"},"blockHash":null,"blockNumber":0,"error":"invalid opcode: INVALID","subtraces":0,"traceAddress":[],"transactionHash":null,"transactionPosition":0,"type":"call"}]`,
+		},
+		{
+			// callTracer withLog: a LOG1 with a single topic should appear in
+			// the tracer's `logs` array with matching address, topic and
+			// zero-length data.
+			name: "CallTracer withLog - LOG1",
+			code: []byte{
+				byte(vm.PUSH1), 0x42, // topic = 0x42
+				byte(vm.PUSH1), 0x00, // length = 0
+				byte(vm.PUSH1), 0x00, // offset = 0
+				byte(vm.LOG1),
+			},
+			tracer: mkTracer("callTracer", json.RawMessage(`{"withLog":true}`)),
+			want:   `{"from":"Qfeed000000000000000000000000000000000000feed0000000000000000000000000000000000000000000000000000","gas":"0x13880","gasUsed":"0x54ff","to":"Qdeadbeef00000000000000000000000000000000deadbeef000000000000000000000000000000000000000000000000","input":"0x","logs":[{"address":"Qdeadbeef00000000000000000000000000000000deadbeef000000000000000000000000000000000000000000000000","topics":["0x0000000000000000000000000000000000000000000000000000000000000042"],"data":"0x"}],"value":"0x0","type":"CALL"}`,
+		},
+		{
+			// 4byteTracer with inner CALL: the outer call has empty calldata
+			// so it contributes nothing; the inner CALL uses 36 bytes of
+			// (mostly zero) memory as args, so the tracer keys off the
+			// first four memory bytes and the 32-byte tail length.
+			name: "FourByteTracer - inner CALL",
+			code: []byte{
+				// MSTORE8 writes the low byte of val at mem[0]. Writing
+				// 0xef here gives the inner call a selector of 0xef000000.
+				byte(vm.PUSH1), 0xef,
+				byte(vm.PUSH1), 0x00,
+				byte(vm.MSTORE8),
+				byte(vm.PUSH1), 0x00, // retSize
+				byte(vm.PUSH1), 0x00, // retOffset
+				byte(vm.PUSH1), 0x24, // argSize = 36
+				byte(vm.PUSH1), 0x00, // argOffset
+				byte(vm.PUSH1), 0x00, // value = 0
+				byte(vm.PUSH1), 0xcc, // address 0xcc
+				byte(vm.GAS),
+				byte(vm.CALL),
+			},
+			tracer: mkTracer("4byteTracer", nil),
+			want:   `{"0xef000000-32":1}`,
+		},
+		{
+			// callTracer withLog: LOG2 with two topics and non-empty data.
+			// Writes 0x12345678 at memory[0] via MSTORE (low-4 bytes land at
+			// memory[60:64]) and emits a 64-byte data window + two topics.
+			name: "CallTracer withLog - LOG2 with data",
+			code: []byte{
+				byte(vm.PUSH4), 0x12, 0x34, 0x56, 0x78,
+				byte(vm.PUSH1), 0x00,
+				byte(vm.MSTORE), // memory[0:64] with value in low 4 bytes
+				byte(vm.PUSH1), 0xcc, // topic2
+				byte(vm.PUSH1), 0xbb, // topic1
+				byte(vm.PUSH1), 0x40, // length = 64
+				byte(vm.PUSH1), 0x00, // offset = 0
+				byte(vm.LOG2),
+			},
+			tracer: mkTracer("callTracer", json.RawMessage(`{"withLog":true}`)),
+			want:   `{"from":"Qfeed000000000000000000000000000000000000feed0000000000000000000000000000000000000000000000000000","gas":"0x13880","gasUsed":"0x5885","to":"Qdeadbeef00000000000000000000000000000000deadbeef000000000000000000000000000000000000000000000000","input":"0x","logs":[{"address":"Qdeadbeef00000000000000000000000000000000deadbeef000000000000000000000000000000000000000000000000","topics":["0x00000000000000000000000000000000000000000000000000000000000000bb","0x00000000000000000000000000000000000000000000000000000000000000cc"],"data":"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000012345678"}],"value":"0x0","type":"CALL"}`,
+		},
+		{
+			// muxTracer: fan-out wrapper running multiple tracers at once.
+			// With callTracer + 4byteTracer against a plain STOP, the mux
+			// result is a JSON object keyed by tracer name.
+			name:   "MuxTracer - callTracer + 4byteTracer",
+			code:   []byte{byte(vm.STOP)},
+			tracer: mkTracer("muxTracer", json.RawMessage(`{"callTracer":null,"4byteTracer":null}`)),
+			want:   `{"4byteTracer":{},"callTracer":{"from":"Qfeed000000000000000000000000000000000000feed0000000000000000000000000000000000000000000000000000","gas":"0x13880","gasUsed":"0x5208","to":"Qdeadbeef00000000000000000000000000000000deadbeef000000000000000000000000000000000000000000000000","input":"0x","value":"0x0","type":"CALL"}}`,
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			triedb, _, statedb := tests.MakePreState(rawdb.NewMemoryDatabase(),

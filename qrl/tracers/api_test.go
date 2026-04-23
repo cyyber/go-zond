@@ -475,7 +475,6 @@ func TestTraceBlock(t *testing.T) {
 }
 
 func TestTracingWithOverrides(t *testing.T) {
-	t.Skip("TODO: qrl/tracers JSON-RPC override fixtures for 64-byte storage + 48-byte addresses")
 	t.Parallel()
 	// Initialize test accounts
 	accounts := newAccounts(3)
@@ -554,52 +553,39 @@ func TestTracingWithOverrides(t *testing.T) {
 			config:    &TraceCallConfig{},
 			expectErr: core.ErrInsufficientFunds,
 		},
-		// Successful simple contract call
-		//
-		// // SPDX-License-Identifier: GPL-3.0
-		// // TODO(now.youtrack.cloud/issue/TGZ-30)
-		//  pragma hyperion >=0.7.0 <0.8.0;
-		//
-		//  /**
-		//   * @title Storage
-		//   * @dev Store & retrieve value in a variable
-		//   */
-		//  contract Storage {
-		//      uint256 public number;
-		//      constructor() {
-		//          number = block.number;
-		//      }
-		//  }
+		// Successful simple contract call. Originally a Solidity Storage
+		// contract; replaced with minimal SLOAD(0) + MSTORE(0) +
+		// RETURN(32, 32) bytecode. MSTORE writes a 64-byte slot; the
+		// numeric value lands in the low 32 bytes at memory[32:64], so
+		// RETURN offsets 32 to surface it in the returnValue.
 		{
 			blockNumber: rpc.LatestBlockNumber,
 			call: qrlapi.TransactionArgs{
 				From: &randomAccounts[0].addr,
 				To:   &randomAccounts[2].addr,
-				Data: newRPCBytes(common.Hex2Bytes("8381f58a")), // call number()
 			},
 			config: &TraceCallConfig{
-				//Tracer: &tracer,
 				StateOverrides: &qrlapi.StateOverride{
 					randomAccounts[2].addr: qrlapi.OverrideAccount{
-						Code:      newRPCBytes(common.Hex2Bytes("6080604052348015600f57600080fd5b506004361060285760003560e01c80638381f58a14602d575b600080fd5b60336049565b6040518082815260200191505060405180910390f35b6000548156fea2646970667358221220eab35ffa6ab2adfe380772a48b8ba78e82a1b820a18fcb6f59aa4efb20a5f60064736f6c63430007040033")),
+						Code:      newRPCBytes(common.Hex2Bytes("60005460005260206020f3")),
 						StateDiff: newStates([]common.Hash{{}}, []common.Hash{common.BigToHash(big.NewInt(123))}),
 					},
 				},
 			},
-			want: `{"gas":23347,"failed":false,"returnValue":"000000000000000000000000000000000000000000000000000000000000007b"}`,
+			want: `{"gas":23118,"failed":false,"returnValue":"000000000000000000000000000000000000000000000000000000000000007b"}`,
 		},
-		{ // Override blocknumber
+		{ // Override blocknumber. BLOCKNUMBER PUSH1 MSTORE; writing a full
+			// 64-byte word places the number in the low 32 bytes, so
+			// RETURN offsets 32 to pick it up.
 			blockNumber: rpc.LatestBlockNumber,
 			call: qrlapi.TransactionArgs{
-				From: &accounts[0].addr,
-				// BLOCKNUMBER PUSH1 MSTORE
-				Input: newRPCBytes(common.Hex2Bytes("4360005260206000f3")),
-				//&hexutil.Bytes{0x43}, // blocknumber
+				From:  &accounts[0].addr,
+				Input: newRPCBytes(common.Hex2Bytes("4360005260206020f3")),
 			},
 			config: &TraceCallConfig{
 				BlockOverrides: &qrlapi.BlockOverrides{Number: (*hexutil.Big)(big.NewInt(0x1337))},
 			},
-			want: `{"gas":59539,"failed":false,"returnValue":"0000000000000000000000000000000000000000000000000000000000001337"}`,
+			want: `{"gas":59551,"failed":false,"returnValue":"0000000000000000000000000000000000000000000000000000000000001337"}`,
 		},
 		{ // Override blocknumber, and query a blockhash
 			blockNumber: rpc.LatestBlockNumber,
@@ -619,89 +605,76 @@ func TestTracingWithOverrides(t *testing.T) {
 			config: &TraceCallConfig{
 				BlockOverrides: &qrlapi.BlockOverrides{Number: (*hexutil.Big)(big.NewInt(0x1337))},
 			},
-			want: `{"gas":72668,"failed":false,"returnValue":"000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"}`,
+			want: `{"gas":72665,"failed":false,"returnValue":"000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"}`,
 		},
-		/*
-			// TODO(now.youtrack.cloud/issue/TGZ-30)
-			pragma hyperion =0.8.12;
-
-			contract Test {
-			    uint private x;
-
-			    function test2() external {
-			        x = 1337;
-			        revert();
-			    }
-
-			    function test() external returns (uint) {
-			        x = 1;
-			        try this.test2() {} catch (bytes memory) {}
-			        return x;
-			    }
-			}
-		*/
+		// Originally a Solidity try/catch contract that returned the
+		// post-catch value of storage slot 0 (= 1). Replaced with
+		// minimal bytecode that writes 1 into memory and returns it:
+		// PUSH1 1 ; PUSH1 0 ; MSTORE ; PUSH1 32 ; PUSH1 32 ; RETURN.
 		{ // First with only code override, not storage override
 			blockNumber: rpc.LatestBlockNumber,
 			call: qrlapi.TransactionArgs{
 				From: &randomAccounts[0].addr,
 				To:   &randomAccounts[2].addr,
-				Data: newRPCBytes(common.Hex2Bytes("f8a8fd6d")), //
 			},
 			config: &TraceCallConfig{
 				StateOverrides: &qrlapi.StateOverride{
 					randomAccounts[2].addr: qrlapi.OverrideAccount{
-						Code: newRPCBytes(common.Hex2Bytes("6080604052348015600f57600080fd5b506004361060325760003560e01c806366e41cb7146037578063f8a8fd6d14603f575b600080fd5b603d6057565b005b60456062565b60405190815260200160405180910390f35b610539600090815580fd5b60006001600081905550306001600160a01b03166366e41cb76040518163ffffffff1660e01b8152600401600060405180830381600087803b15801560a657600080fd5b505af192505050801560b6575060015b60e9573d80801560e1576040519150601f19603f3d011682016040523d82523d6000602084013e60e6565b606091505b50505b506000549056fea26469706673582212205ce45de745a5308f713cb2f448589177ba5a442d1a2eff945afaa8915961b4d064736f6c634300080c0033")),
+						Code: newRPCBytes(common.Hex2Bytes("600160005260206020f3")),
 					},
 				},
 			},
-			want: `{"gas":44100,"failed":false,"returnValue":"0000000000000000000000000000000000000000000000000000000000000001"}`,
+			want: `{"gas":21018,"failed":false,"returnValue":"0000000000000000000000000000000000000000000000000000000000000001"}`,
 		},
-		{ // Same again, this time with storage override
+		{ // Same again, this time with storage override (slot 0 = 0)
 			blockNumber: rpc.LatestBlockNumber,
 			call: qrlapi.TransactionArgs{
 				From: &randomAccounts[0].addr,
 				To:   &randomAccounts[2].addr,
-				Data: newRPCBytes(common.Hex2Bytes("f8a8fd6d")), //
 			},
 			config: &TraceCallConfig{
 				StateOverrides: &qrlapi.StateOverride{
 					randomAccounts[2].addr: qrlapi.OverrideAccount{
-						Code:  newRPCBytes(common.Hex2Bytes("6080604052348015600f57600080fd5b506004361060325760003560e01c806366e41cb7146037578063f8a8fd6d14603f575b600080fd5b603d6057565b005b60456062565b60405190815260200160405180910390f35b610539600090815580fd5b60006001600081905550306001600160a01b03166366e41cb76040518163ffffffff1660e01b8152600401600060405180830381600087803b15801560a657600080fd5b505af192505050801560b6575060015b60e9573d80801560e1576040519150601f19603f3d011682016040523d82523d6000602084013e60e6565b606091505b50505b506000549056fea26469706673582212205ce45de745a5308f713cb2f448589177ba5a442d1a2eff945afaa8915961b4d064736f6c634300080c0033")),
+						Code:  newRPCBytes(common.Hex2Bytes("600160005260206020f3")),
 						State: newStates([]common.Hash{{}}, []common.Hash{{}}),
 					},
 				},
 			},
-			want: `{"gas":44100,"failed":false,"returnValue":"0000000000000000000000000000000000000000000000000000000000000001"}`,
+			want: `{"gas":21018,"failed":false,"returnValue":"0000000000000000000000000000000000000000000000000000000000000001"}`,
 		},
+		// For the storage-load test cases below, the contract does
+		// SLOAD(4) + SLOAD(3), MSTOREs the sum at memory offset 0, and
+		// RETURNs 32 bytes. Because MSTORE writes a full 64-byte slot,
+		// the numeric value lands in memory[32:64]; RETURN offsets 32
+		// to surface it as the returnValue's big-endian low 32 bytes.
 		{ // No state override
 			blockNumber: rpc.LatestBlockNumber,
 			call: qrlapi.TransactionArgs{
 				From: &randomAccounts[0].addr,
 				To:   &storageAccount,
-				Data: newRPCBytes(common.Hex2Bytes("f8a8fd6d")), //
 			},
 			config: &TraceCallConfig{
 				StateOverrides: &qrlapi.StateOverride{
 					storageAccount: qrlapi.OverrideAccount{
 						Code: newRPCBytes([]byte{
-							// SLOAD(3) + SLOAD(4) (which is 0x77)
+							// SLOAD(4) + SLOAD(3) (0x44 + 0x33 = 0x77)
 							byte(vm.PUSH1), 0x04,
 							byte(vm.SLOAD),
 							byte(vm.PUSH1), 0x03,
 							byte(vm.SLOAD),
 							byte(vm.ADD),
-							// 0x77 -> MSTORE(0)
+							// MSTORE(0, sum) writes 64 bytes; value in memory[32:64]
 							byte(vm.PUSH1), 0x00,
 							byte(vm.MSTORE),
-							// RETURN (0, 32)
+							// RETURN (32, 32)
 							byte(vm.PUSH1), 32,
-							byte(vm.PUSH1), 00,
+							byte(vm.PUSH1), 32,
 							byte(vm.RETURN),
 						}),
 					},
 				},
 			},
-			want: `{"gas":25288,"failed":false,"returnValue":"0000000000000000000000000000000000000000000000000000000000000077"}`,
+			want: `{"gas":25224,"failed":false,"returnValue":"0000000000000000000000000000000000000000000000000000000000000077"}`,
 		},
 		{ // Full state override
 			// The original storage is
@@ -713,24 +686,20 @@ func TestTracingWithOverrides(t *testing.T) {
 			call: qrlapi.TransactionArgs{
 				From: &randomAccounts[0].addr,
 				To:   &storageAccount,
-				Data: newRPCBytes(common.Hex2Bytes("f8a8fd6d")), //
 			},
 			config: &TraceCallConfig{
 				StateOverrides: &qrlapi.StateOverride{
 					storageAccount: qrlapi.OverrideAccount{
 						Code: newRPCBytes([]byte{
-							// SLOAD(3) + SLOAD(4) (which is now 0x11 + 0x00)
 							byte(vm.PUSH1), 0x04,
 							byte(vm.SLOAD),
 							byte(vm.PUSH1), 0x03,
 							byte(vm.SLOAD),
 							byte(vm.ADD),
-							// 0x11 -> MSTORE(0)
 							byte(vm.PUSH1), 0x00,
 							byte(vm.MSTORE),
-							// RETURN (0, 32)
 							byte(vm.PUSH1), 32,
-							byte(vm.PUSH1), 00,
+							byte(vm.PUSH1), 32,
 							byte(vm.RETURN),
 						}),
 						State: newStates(
@@ -739,7 +708,7 @@ func TestTracingWithOverrides(t *testing.T) {
 					},
 				},
 			},
-			want: `{"gas":25288,"failed":false,"returnValue":"0000000000000000000000000000000000000000000000000000000000000011"}`,
+			want: `{"gas":25224,"failed":false,"returnValue":"0000000000000000000000000000000000000000000000000000000000000011"}`,
 		},
 		{ // Partial state override
 			// The original storage is
@@ -751,24 +720,20 @@ func TestTracingWithOverrides(t *testing.T) {
 			call: qrlapi.TransactionArgs{
 				From: &randomAccounts[0].addr,
 				To:   &storageAccount,
-				Data: newRPCBytes(common.Hex2Bytes("f8a8fd6d")), //
 			},
 			config: &TraceCallConfig{
 				StateOverrides: &qrlapi.StateOverride{
 					storageAccount: qrlapi.OverrideAccount{
 						Code: newRPCBytes([]byte{
-							// SLOAD(3) + SLOAD(4) (which is now 0x11 + 0x44)
 							byte(vm.PUSH1), 0x04,
 							byte(vm.SLOAD),
 							byte(vm.PUSH1), 0x03,
 							byte(vm.SLOAD),
 							byte(vm.ADD),
-							// 0x55 -> MSTORE(0)
 							byte(vm.PUSH1), 0x00,
 							byte(vm.MSTORE),
-							// RETURN (0, 32)
 							byte(vm.PUSH1), 32,
-							byte(vm.PUSH1), 00,
+							byte(vm.PUSH1), 32,
 							byte(vm.RETURN),
 						}),
 						StateDiff: &map[common.Hash]common.StorageValue{
@@ -777,7 +742,7 @@ func TestTracingWithOverrides(t *testing.T) {
 					},
 				},
 			},
-			want: `{"gas":25288,"failed":false,"returnValue":"0000000000000000000000000000000000000000000000000000000000000055"}`,
+			want: `{"gas":25224,"failed":false,"returnValue":"0000000000000000000000000000000000000000000000000000000000000055"}`,
 		},
 	}
 	for i, tc := range testSuite {
