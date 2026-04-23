@@ -1307,7 +1307,17 @@ Example contract to test event emission:
 */
 const callableAbi = "[{\"anonymous\":false,\"inputs\":[],\"name\":\"Called\",\"type\":\"event\"},{\"inputs\":[],\"name\":\"Call\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]"
 
-const callableBin = "6080604052348015600f57600080fd5b5060998061001e6000396000f3fe6080604052348015600f57600080fd5b506004361060285760003560e01c806334e2292114602d575b600080fd5b60336035565b005b7f81fab7a4a0aa961db47eefc81f143a5220e8c8495260dd65b1356f1d19d3c7b860405160405180910390a156fea2646970667358221220029436d24f3ac598ceca41d4d712e13ced6d70727f4cdc580667de66d2f51d8b64736f6c63430008010033"
+// Hand-rolled replacement for the Solidity fixture above. The original
+// bytecode depended on LOG/DUP/SWAP opcodes that shifted when the VM
+// widened to 512-bit words. 12-byte init copies a 58-byte runtime that
+//   - reads calldata[0:4] (shifted in from the 64-byte CALLDATALOAD word),
+//   - dispatches on selector 0x34e22921 (keccak256("Call()")[:4]),
+//   - and, on match, emits LOG1 with topic0 = keccak256("Called()"),
+//     so contract.WatchLogs(nil, "Called") still resolves the event.
+const callableBin = "603a600c600039603a6000f36000356101e01c63" +
+	"34e22921146100125700" +
+	"5b7f81fab7a4a0aa961db47eefc81f143a5220e8c8495260dd65b1356f1d19d3c7b8" +
+	"60006000c100"
 
 // TestForkLogsReborn check that the simulated reorgs
 // correctly remove and reborn logs.
@@ -1323,7 +1333,6 @@ const callableBin = "6080604052348015600f57600080fd5b5060998061001e6000396000f3f
 //  9. Re-send the transaction and mine a block.
 //  10. Check that the event was reborn.
 func TestForkLogsReborn(t *testing.T) {
-	t.Skip("TODO: Solidity contract bytecode must be recompiled after DUP/SWAP/LOG opcode shift")
 	testAddr := testWallet.GetAddress()
 	sim := simTestBackend(testAddr)
 	defer sim.Close()
