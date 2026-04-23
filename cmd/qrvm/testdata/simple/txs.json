@@ -1,0 +1,18 @@
+[
+  {
+    "chainID": "0x1",
+    "descriptor": "0x",
+    "extraParams": "0x",
+    "gas": "0x5208",
+    "input": "0x",
+    "maxFeePerGas": "0x1",
+    "maxPriorityFeePerGas": "0x0",
+    "nonce": "0x0",
+    "publicKey": "0x",
+    "seed": "0x010000f10ad8e6c24b2fb46fa3b17d32cfc6070d6aa44b30f13e3388c76f32fc21846f563d0fba8af4ef96e4d165a878c984f7",
+    "signature": "0x",
+    "to": "Qc0decafec0decafec0decafec0decafec0decafec0decafec0decafec0decafec0decafec0decafec0decafec0decafe",
+    "type": "0x2",
+    "value": "0x1"
+  }
+]
