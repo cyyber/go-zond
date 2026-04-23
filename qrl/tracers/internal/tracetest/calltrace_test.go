@@ -78,14 +78,18 @@ type callTracerTest struct {
 	Result       *callTrace      `json:"result"`
 }
 
+// TestCallTracerNative scans testdata/call_tracer/*.json and runs the
+// callTracer against each. The legacy fixtures were retired during the
+// 48-byte-address / 512-bit-VM migration; the directory now keeps only a
+// .gitkeep placeholder so this test passes vacuously. Real programmatic
+// coverage for the callTracer lives in TestInternals.
 func TestCallTracerNative(t *testing.T) {
-	t.Skip("TODO: tracetest JSON fixtures need regeneration for 48-byte addresses / opcode shift")
 	testCallTracer("callTracer", "call_tracer", t)
 }
 
 // TODO(now.youtrack.cloud/issue/TGZ-13)
+// Same story as TestCallTracerNative; fixtures retired.
 func TestCallTracerNativeWithLog(t *testing.T) {
-	t.Skip("TODO: tracetest JSON fixtures need regeneration for 48-byte addresses / opcode shift")
 	testCallTracer("callTracer", "call_tracer_withLog", t)
 }
 

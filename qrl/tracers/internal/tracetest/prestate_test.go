@@ -42,14 +42,17 @@ type testcase struct {
 	Result       any             `json:"result"`
 }
 
+// Legacy fixtures under testdata/prestate_tracer[_with_diff_mode]/ were
+// retired during the 48-byte-address / 512-bit-VM migration. The
+// directories now contain only a .gitkeep placeholder, so these tests
+// pass vacuously; programmatic coverage for prestateTracer (both plain
+// and diffMode) lives in TestInternals.
 func TestPrestateTracer(t *testing.T) {
-	t.Skip("TODO: tracetest prestate fixtures need regeneration for 48-byte addresses")
 	testPrestateDiffTracer("prestateTracer", "prestate_tracer", t)
 }
 
 // TODO(now.youtrack.cloud/issue/TGZ-13)
 func TestPrestateWithDiffModeTracer(t *testing.T) {
-	t.Skip("TODO: tracetest prestate fixtures need regeneration for 48-byte addresses")
 	testPrestateDiffTracer("prestateTracer", "prestate_tracer_with_diff_mode", t)
 }
 
