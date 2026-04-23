@@ -17,28 +17,52 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
 	"testing"
 
-	"github.com/cespare/cp"
+	"github.com/theQRL/go-qrl/accounts/keystore"
+	"github.com/theQRL/go-qrl/common"
 )
 
 // These tests are 'smoke tests' for the account related
 // subcommands and flags.
 //
-// For most tests, the test files from package accounts
-// are copied into a temporary keystore directory.
+// Freshly-generated ML-DSA-87 keystore accounts are written into the
+// temporary datadir at runtime (using live keygen) so the on-disk
+// testdata tree doesn't need to carry 48-byte-address specific blobs.
 
-func tmpDatadirWithKeystore(t *testing.T) string {
-	datadir := t.TempDir()
-	keystore := filepath.Join(datadir, "keystore")
-	source := filepath.Join("..", "..", "accounts", "keystore", "testdata", "keystore")
-	if err := cp.CopyAll(keystore, source); err != nil {
-		t.Fatal(err)
+// tmpDatadirWithKeystore creates a datadir containing three freshly-generated
+// keystore accounts with filenames "UTC--...--<addr>", "aaa", and "zzz". The
+// returned addresses are in the order the keystore sorts them (by byte-wise
+// filename comparison: 'U' < 'a' < 'z').
+func tmpDatadirWithKeystore(t *testing.T) (datadir string, addrs [3]common.Address, utcFilename string) {
+	t.Helper()
+	datadir = t.TempDir()
+	keydir := filepath.Join(datadir, "keystore")
+	if err := os.MkdirAll(keydir, 0700); err != nil {
+		t.Fatalf("mkdir keystore: %v", err)
 	}
-	return datadir
+	ks := keystore.NewKeyStore(keydir, keystore.LightArgon2idT, keystore.LightArgon2idM, keystore.LightArgon2idP)
+	mk := func(basename string) (accountURL string, addr common.Address) {
+		acc, err := ks.NewAccount("foobar")
+		if err != nil {
+			t.Fatalf("NewAccount(%q): %v", basename, err)
+		}
+		target := filepath.Join(keydir, basename)
+		if err := os.Rename(acc.URL.Path, target); err != nil {
+			t.Fatalf("rename %q → %q: %v", acc.URL.Path, target, err)
+		}
+		return target, acc.Address
+	}
+	utcBase := "UTC--2025-11-06T07-34-54.273240000Z--keystore-test-0"
+	_, addrs[0] = mk(utcBase)
+	_, addrs[1] = mk("aaa")
+	_, addrs[2] = mk("zzz")
+	utcFilename = utcBase
+	return
 }
 
 func TestAccountListEmpty(t *testing.T) {
@@ -48,21 +72,25 @@ func TestAccountListEmpty(t *testing.T) {
 }
 
 func TestAccountList(t *testing.T) {
-	t.Skip("TODO: 48-byte-address keystore fixtures / regex need regeneration")
 	t.Parallel()
-	datadir := tmpDatadirWithKeystore(t)
-	var want = `
-Account #0: {Q31fec69ece96b8cdac5814ff9dd92759e7c6018b} keystore://{{.Datadir}}/keystore/UTC--2025-11-06T07-34-54.273240000Z--Q31fec69ece96b8cdac5814ff9dd92759e7c6018b
-Account #1: {Q4cce0507b955d0c7e6b79269b66ed498c670bb0a} keystore://{{.Datadir}}/keystore/aaa
-Account #2: {Q2d9b972ef8219246c73363fd7c048cef81456f9d} keystore://{{.Datadir}}/keystore/zzz
-`
+	datadir, addrs, utcFilename := tmpDatadirWithKeystore(t)
+	sep := "/"
 	if runtime.GOOS == "windows" {
-		want = `
-Account #0: {Q31fec69ece96b8cdac5814ff9dd92759e7c6018b} keystore://{{.Datadir}}\keystore\UTC--2025-11-06T07-34-54.273240000Z--Q31fec69ece96b8cdac5814ff9dd92759e7c6018b
-Account #1: {Q4cce0507b955d0c7e6b79269b66ed498c670bb0a} keystore://{{.Datadir}}\keystore\aaa
-Account #2: {Q2d9b972ef8219246c73363fd7c048cef81456f9d} keystore://{{.Datadir}}\keystore\zzz
-`
+		sep = `\`
 	}
+	// Address list output uses the lower-case hex form; construct the
+	// expected string dynamically from the addresses we just generated.
+	lowerHex := func(a common.Address) string {
+		return fmt.Sprintf("%#x", a)
+	}
+	want := fmt.Sprintf("\n"+
+		"Account #0: {%s} keystore://{{.Datadir}}%skeystore%s%s\n"+
+		"Account #1: {%s} keystore://{{.Datadir}}%skeystore%saaa\n"+
+		"Account #2: {%s} keystore://{{.Datadir}}%skeystore%szzz\n",
+		lowerHex(addrs[0]), sep, sep, utcFilename,
+		lowerHex(addrs[1]), sep, sep,
+		lowerHex(addrs[2]), sep, sep,
+	)
 	{
 		gqrl := runGqrl(t, "account", "list", "--datadir", datadir)
 		gqrl.Expect(want)
@@ -165,19 +193,22 @@ Fatal: Passwords do not match
 }
 
 func TestAccountUpdate(t *testing.T) {
-	t.Skip("TODO: 48-byte-address keystore fixtures / regex need regeneration")
 	t.Parallel()
-	datadir := tmpDatadirWithKeystore(t)
+	datadir, addrs, _ := tmpDatadirWithKeystore(t)
+	// Target the account backed by the "zzz" file. The CLI accepts the
+	// lower-case hex form; the OLD-password prompt echoes the EIP-55
+	// checksummed form of the same address.
+	zzzAddr := addrs[2]
 	gqrl := runGqrl(t, "account", "update",
 		"--datadir", datadir, "--lightkdf",
-		"Q2d9b972ef8219246c73363fd7c048cef81456f9d")
+		fmt.Sprintf("%#x", zzzAddr))
 	defer gqrl.ExpectExit()
-	gqrl.Expect(`
+	gqrl.Expect(fmt.Sprintf(`
 Please give a NEW password. Do not forget this password.
 !! Unsupported terminal, password will be echoed.
+Password: {{.InputLine "foobar_new"}}
+Repeat password: {{.InputLine "foobar_new"}}
+Please provide the OLD password for account %s | Attempt 1/3
 Password: {{.InputLine "foobar"}}
-Repeat password: {{.InputLine "foobar"}}
-Please provide the OLD password for account Q2d9B972ef8219246C73363fD7c048ceF81456F9d | Attempt 1/3
-Password: {{.InputLine "1234567890"}}
-`)
+`, zzzAddr.String()))
 }
