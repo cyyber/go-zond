@@ -235,7 +235,6 @@ func (d *dummyChain) GetHeader(h common.Hash, n uint64) *types.Header {
 // TestBlockhash tests the blockhash operation. It's a bit special, since it internally
 // requires access to a chain reader.
 func TestBlockhash(t *testing.T) {
-	t.Skip("TODO: regenerate Solidity-compiled bytecode after DUP/SWAP/LOG opcode shift (0x80/0x90/0xa0 → 0xa0/0xb0/0xc0)")
 	// Current head
 	n := uint64(1000)
 	parentHash := common.Hash{}
@@ -243,42 +242,23 @@ func TestBlockhash(t *testing.T) {
 	copy(parentHash[:], s)
 	header := fakeHeader(n, parentHash)
 
-	// This is the contract we're using. It requests the blockhash for current num (should be all zeroes),
-	// then iteratively fetches all blockhashes back to n-260.
-	// It returns
-	// 1. the first (should be zero)
-	// 2. the second (should be the parent hash)
-	// 3. the last non-zero hash
-	// By making the chain reader return hashes which correlate to the number, we can
-	// verify that it obtained the right hashes where it should
-
-	/*
-		// TODO(now.youtrack.cloud/issue/TGZ-30)
-		pragma hyperion ^0.5.3;
-		contract Hasher{
-
-			function test() public view returns (bytes32, bytes32, bytes32){
-				uint256 x = block.number;
-				bytes32 first;
-				bytes32 last;
-				bytes32 zero;
-				zero = blockhash(x); // Should be zeroes
-				first = blockhash(x-1);
-				for(uint256 i = 2 ; i < 260; i++){
-					bytes32 hash = blockhash(x - i);
-					if (uint256(hash) != 0){
-						last = hash;
-					}
-				}
-				return (zero, first, last);
-			}
-		}
-
-	*/
-	// The contract above
-	data := common.Hex2Bytes("6080604052348015600f57600080fd5b50600436106045576000357c010000000000000000000000000000000000000000000000000000000090048063f8a8fd6d14604a575b600080fd5b60506074565b60405180848152602001838152602001828152602001935050505060405180910390f35b600080600080439050600080600083409050600184034092506000600290505b61010481101560c35760008186034090506000816001900414151560b6578093505b5080806001019150506094565b508083839650965096505050505090919256fea165627a7a72305820462d71b510c1725ff35946c20b415b0d50b468ea157c8c77dff9466c9cb85f560029")
-	// The method call to 'test()'
-	input := common.Hex2Bytes("f8a8fd6d")
+	// Hand-rolled bytecode (replaces the prior Solidity fixture which depended
+	// on DUP/SWAP/LOG opcodes that shifted after the 512-bit VM migration).
+	//
+	// Emits three 32-byte return values packed into 96 bytes:
+	//   [0:32]  = blockhash(1000)  → zero       (request at head)
+	//   [32:64] = blockhash(999)   → parent     (served from cache, no GetHeader)
+	//   [64:96] = blockhash(744)   → oldest in-range hash (exactly 255 GetHeader calls)
+	//
+	// For each slot, BLOCKHASH pushes the 32-byte hash in the low half of the
+	// 512-bit stack word; SHL by 256 moves it into the high half so MSTORE's
+	// 64-byte write lands the hash in the top 32 bytes at the requested offset.
+	data := common.Hex2Bytes(
+		"6103e8406101001b600052" + // BLOCKHASH(1000); (h<<256); MSTORE(0)
+			"6103e7406101001b602052" + // BLOCKHASH(999);  (h<<256); MSTORE(32)
+			"6102e8406101001b604052" + // BLOCKHASH(744);  (h<<256); MSTORE(64)
+			"60606000f3") //               RETURN(0, 96)
+	input := []byte(nil)
 	chain := &dummyChain{}
 	ret, _, err := Execute(data, input, &Config{
 		GetHashFn:   core.GetHashFn(header, chain),

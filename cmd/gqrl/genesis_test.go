@@ -88,15 +88,17 @@ func TestCustomGenesis(t *testing.T) {
 
 // TestCustomBackend that the backend selection and detection (leveldb vs pebble) works properly.
 func TestCustomBackend(t *testing.T) {
-	t.Skip("TODO: genesis hash/address fixtures for 48-byte addresses")
 	t.Parallel()
 	// Test pebble, but only on 64-bit platforms
 	if strconv.IntSize != 64 {
 		t.Skip("Custom backends are only available on 64-bit platform")
 	}
+	// coinbase widens to 96 hex chars so the 48-byte IsAddress check accepts
+	// it; the genesis nonce expected from an invalid-backend init below
+	// then matches the default-mainnet genesis block hash.
 	genesis := `{
 		"alloc"      : {},
-		"coinbase"   : "Q0000000000000000000000000000000000000000",
+		"coinbase"   : "Q000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
 		"extraData"  : "0x0000000000001338",
 		"gasLimit"   : "0x2fefd8",
 		"mixhash"    : "0x0000000000000000000000000000000000000000000000000000000000000000",
