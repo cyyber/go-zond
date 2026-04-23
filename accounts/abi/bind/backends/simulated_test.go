@@ -112,18 +112,33 @@ var testWallet = testutil.MustLoadAccount("alice").MustWallet()
 //	 	}
 //	 }
 const abiJSON = `[ { "constant": false, "inputs": [ { "name": "memo", "type": "bytes" } ], "name": "receive", "outputs": [ { "name": "res", "type": "string" } ], "payable": true, "stateMutability": "payable", "type": "function" }, { "anonymous": false, "inputs": [ { "indexed": false, "name": "sender", "type": "address" }, { "indexed": false, "name": "amount", "type": "uint256" }, { "indexed": false, "name": "memo", "type": "bytes" } ], "name": "received", "type": "event" }, { "anonymous": false, "inputs": [ { "indexed": false, "name": "sender", "type": "address" } ], "name": "receivedAddr", "type": "event" } ]`
-// abiBin is a minimal constructor that CODECOPYs a single STOP (0x00) from
-// the deploy code into memory and RETURNs it as runtime code. Every opcode
-// used (PUSH1, CODECOPY, RETURN, STOP) is stable across the 512-bit opcode
-// shift, so the simulator tests can exercise deploy/read semantics without
-// depending on a Solidity recompile.
-const abiBin = `0x6001600c60003960016000f300`
 
-// deployedCode is the runtime — one STOP byte.
-const deployedCode = `00`
+// abiBin is a hand-rolled replacement for the Solidity receive() fixture.
+// The 12-byte init CODECOPYs a 34-byte runtime that, regardless of the
+// incoming selector, lays out an ABI-encoded string "hello world" under
+// the 64-byte slot layout:
+//
+//   [0:64]    offset = 0x40
+//   [64:128]  length = 11
+//   [128:192] "hello world" left-aligned, 53 zero-byte tail
+//
+// and RETURNs those 192 bytes. All opcodes used (PUSH1/2/11, MSTORE, SHL,
+// CODECOPY, RETURN) are stable across the 512-bit opcode shift.
+const abiBin = `0x6022600c60003960226000f3` +
+	`6040600052600b6040526a68656c6c6f20776f726c646101a81b60805260c06000f3`
 
-// expected return value contains "hello world"
-var expectedReturn = []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 11, 104, 101, 108, 108, 111, 32, 119, 111, 114, 108, 100, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+// deployedCode is the 34-byte runtime returned by the abiBin init code.
+const deployedCode = `6040600052600b6040526a68656c6c6f20776f726c646101a81b60805260c06000f3`
+
+// expectedReturn is the ABI-encoded "hello world" string under the 64-byte
+// slot layout; matches exactly what the abiBin runtime above RETURNs.
+var expectedReturn = func() []byte {
+	b := make([]byte, 192)
+	b[63] = 0x40 // offset slot: points 64 bytes past itself to the length slot
+	b[127] = 11  // length slot: 11 bytes of string data
+	copy(b[128:], []byte("hello world"))
+	return b
+}()
 
 func simTestBackend(testAddr common.Address) *SimulatedBackend {
 	return NewSimulatedBackend(
@@ -468,20 +483,38 @@ func TestTransactionByHash(t *testing.T) {
 }
 
 func TestEstimateGas(t *testing.T) {
-	t.Skip("TODO: Solidity contract bytecode must be recompiled after DUP/SWAP/LOG opcode shift")
-	/*
-		// TODO(now.youtrack.cloud/issue/TGZ-30)
-		pragma hyperion ^0.6.4;
-		contract GasEstimation {
-			function PureRevert() public { revert(); }
-			function Revert() public { revert("revert reason");}
-			function OOG() public { for (uint i = 0; ; i++) {}}
-			function Assert() public { assert(false);}
-			function Valid() public {}
-		}
-	*/
 	const contractAbi = "[{\"inputs\":[],\"name\":\"Assert\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"OOG\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"PureRevert\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"Revert\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"Valid\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]"
-	const contractBin = "0x60806040523480156100115760006000fd5b50610017565b61016e806100266000396000f3fe60806040523480156100115760006000fd5b506004361061005c5760003560e01c806350f6fe3414610062578063aa8b1d301461006c578063b9b046f914610076578063d8b9839114610080578063e09fface1461008a5761005c565b60006000fd5b61006a610094565b005b6100746100ad565b005b61007e6100b5565b005b6100886100c2565b005b610092610135565b005b6000600090505b5b808060010191505061009b565b505b565b60006000fd5b565b600015156100bf57fe5b5b565b6040517f08c379a000000000000000000000000000000000000000000000000000000000815260040180806020018281038252600d8152602001807f72657665727420726561736f6e0000000000000000000000000000000000000081526020015060200191505060405180910390fd5b565b5b56fea2646970667358221220345bbcbb1a5ecf22b53a78eaebf95f8ee0eceff6d10d4b9643495084d2ec934a64736f6c63430006040033"
+	// Hand-rolled GasEstimation replacement. 12-byte init copies a 131-byte
+	// runtime that dispatches on the top 4 bytes of CALLDATALOAD(0) (SHR
+	// 480) and branches to:
+	//   Valid()      (0xe09fface) → STOP
+	//   Revert()     (0xd8b98391) → REVERT Error("revert reason") in 64-byte
+	//                                slot layout (196 bytes payload)
+	//   PureRevert() (0xaa8b1d30) → REVERT(0,0)
+	//   OOG()        (0x50f6fe34) → tight JUMP loop → OOG
+	//   Assert()     (0xb9b046f9) → INVALID (consumes all gas)
+	// Unknown selectors (including a plain-value transfer with empty
+	// calldata) fall through to a bare REVERT(0,0), matching the Solidity
+	// original's behaviour when no receive/fallback matches.
+	const contractBin = "0x6083600c60003960836000f3" +
+		"6000356101e01c" + // selector = CALLDATALOAD(0) >> 480
+		"a063e09fface1461004357" + // DUP1 == Valid?     → 0x43
+		"a063d8b983911461004557" + // DUP1 == Revert?    → 0x45
+		"a063aa8b1d301461007657" + // DUP1 == PureRevert?→ 0x76
+		"a06350f6fe341461007c57" + // DUP1 == OOG?       → 0x7c
+		"a063b9b046f91461008157" + // DUP1 == Assert?    → 0x81
+		"60006000fd" + // fallback REVERT(0,0)
+		"5b00" + // 0x43 Valid: STOP
+		"5b6308c379a06101e01b600052" + // 0x45 Revert: MSTORE selector<<480 at 0
+		"6040600452" + // offset=0x40 at memory[4:68]
+		"600d604452" + // length=13 at memory[68:132]
+		"6c72657665727420726561736f6e" + // PUSH13 "revert reason"
+		"6101981b" + // SHL by 408 (=(64-13)*8) → high 13 bytes
+		"608452" + // MSTORE at 132
+		"60c46000fd" + // REVERT(0, 196)
+		"5b60006000fd" + // 0x76 PureRevert: REVERT(0,0)
+		"5b61007c56" + // 0x7c OOG: JUMPDEST; PUSH2 0x7c; JUMP
+		"5bfe" //       0x81 Assert: INVALID
 
 	wallet, _ := wallet.Generate(wallet.ML_DSA_87)
 	var addr common.Address = wallet.GetAddress()
@@ -526,7 +559,13 @@ func TestEstimateGas(t *testing.T) {
 			GasFeeCap: big.NewInt(0),
 			Value:     nil,
 			Data:      common.Hex2Bytes("d8b98391"),
-		}, 0, errors.New("execution reverted: revert reason"), "0x08c379a00000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000d72657665727420726561736f6e00000000000000000000000000000000000000"},
+		}, 0, errors.New("execution reverted: revert reason"),
+			// 64-byte slot ABI-encoded Error("revert reason"):
+			//   selector(4) | offset=0x40(64) | length=13(64) | "revert reason" + 51 zero pad(64)
+			"0x08c379a0" +
+				"00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000040" +
+				"0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000d" +
+				"72657665727420726561736f6e000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"},
 
 		{"PureRevert", qrl.CallMsg{
 			From:      addr,
@@ -562,7 +601,9 @@ func TestEstimateGas(t *testing.T) {
 			GasFeeCap: big.NewInt(0),
 			Value:     nil,
 			Data:      common.Hex2Bytes("e09fface"),
-		}, 21275, nil, nil},
+			// Intrinsic 21064 + 35 dispatcher gas (PUSH/CALLDATALOAD/SHR +
+			// one matched DUP1/PUSH4/EQ/JUMPI + JUMPDEST/STOP) = 21099.
+		}, 21099, nil, nil},
 	}
 	for _, c := range cases {
 		got, err := sim.EstimateGas(t.Context(), c.message)
@@ -1088,7 +1129,6 @@ func TestCodeAt(t *testing.T) {
 //
 //	receipt{status=1 cgas=23949 bloom=00000000004000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000040200000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000080000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000 logs=[log: b6818c8064f645cd82d99b59a1a267d6d61117ef [75fd880d39c1daf53b6547ab6cb59451fc6452d27caa90e5b6649dd8293b9eed] 000000000000000000000000376c47978271565f56deb45495afa69e59c16ab200000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000060000000000000000000000000000000000000000000000000000000000000000158 9ae378b6d4409eada347a5dc0c180f186cb62dc68fcc0f043425eb917335aa28 0 95d429d309bb9d753954195fe2d69bd140b4ae731b9b5b605c34323de162cf00 0]}
 func TestPendingAndCallContract(t *testing.T) {
-	t.Skip("TODO: Solidity contract bytecode must be recompiled after DUP/SWAP/LOG opcode shift")
 	testAddr := testWallet.GetAddress()
 	sim := simTestBackend(testAddr)
 	defer sim.Close()
