@@ -1039,7 +1039,6 @@ func testChainTxReorgs(t *testing.T, scheme string) {
 }
 
 func TestLogReorgs(t *testing.T) {
-	t.Skip("TODO: regenerate pre-funded address / block expectations for 48-byte addresses")
 	testLogReorgs(t, rawdb.HashScheme)
 	testLogReorgs(t, rawdb.PathScheme)
 }
@@ -1050,7 +1049,7 @@ func testLogReorgs(t *testing.T, scheme string) {
 		addr1      = wallet1.GetAddress()
 
 		// this code generates a log
-		code   = common.Hex2Bytes("60606040525b7f24ec1d3ff24c2f6ff210738839dbc339cd45a5294d85c79361016243157aae7b60405180905060405180910390a15b600a8060416000396000f360606040526008565b00")
+		code   = common.Hex2Bytes("60006000c06001601160003960016000f300")
 		gspec  = &Genesis{Config: params.TestChainConfig, Alloc: GenesisAlloc{addr1: {Balance: big.NewInt(1000000000000000000)}}}
 		signer = types.LatestSigner(gspec.Config)
 	)
@@ -1102,12 +1101,11 @@ func testLogReorgs(t *testing.T, scheme string) {
 }
 
 // This QRVM code generates a log when the contract is created.
-var logCode = common.Hex2Bytes("60606040525b7f24ec1d3ff24c2f6ff210738839dbc339cd45a5294d85c79361016243157aae7b60405180905060405180910390a15b600a8060416000396000f360606040526008565b00")
+var logCode = common.Hex2Bytes("60006000c06001601160003960016000f300")
 
 // This test checks that log events and RemovedLogsEvent are sent
 // when the chain reorganizes.
 func TestLogRebirth(t *testing.T) {
-	t.Skip("TODO: regenerate pre-funded address / block expectations for 48-byte addresses")
 	testLogRebirth(t, rawdb.HashScheme)
 	testLogRebirth(t, rawdb.PathScheme)
 }

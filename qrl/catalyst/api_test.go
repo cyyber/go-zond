@@ -258,7 +258,6 @@ func TestInvalidPayloadTimestamp(t *testing.T) {
 }
 
 func TestNewBlock(t *testing.T) {
-	t.Skip("TODO: regenerate catalyst block/payload expectations for 48-byte addresses")
 	genesis, blocks := generateChain(10)
 	n, qrlservice := startQRLService(t, genesis, blocks)
 	defer n.Close()
@@ -267,8 +266,11 @@ func TestNewBlock(t *testing.T) {
 		api    = NewConsensusAPI(qrlservice)
 		parent = blocks[len(blocks)-1]
 
-		// This QRVM code generates a log when the contract is created.
-		logCode = common.Hex2Bytes("60606040525b7f24ec1d3ff24c2f6ff210738839dbc339cd45a5294d85c79361016243157aae7b60405180905060405180910390a15b600a8060416000396000f360606040526008565b00")
+		// Minimal constructor that emits a LOG0 event and deploys a 1-byte
+		// STOP runtime. Every opcode (PUSH1, LOG0=0xc0, CODECOPY, RETURN,
+		// STOP) is stable across the 512-bit opcode shift, so the test
+		// does not depend on a Solidity recompile.
+		logCode = common.Hex2Bytes("60006000c06001601160003960016000f300")
 	)
 	// The event channels.
 	newLogCh := make(chan []*types.Log, 10)

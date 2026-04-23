@@ -26,7 +26,6 @@ import (
 
 // TestImportRaw tests clef --importraw
 func TestImportRaw(t *testing.T) {
-	t.Skip("TODO: hardcoded 48-byte seed → address fixtures need regeneration (expected Q... constants differ)")
 	t.Parallel()
 	keyPath := filepath.Join(t.TempDir(), fmt.Sprintf("%v-tempkey.test", t.Name()))
 	os.WriteFile(keyPath, []byte("0100003bf5fbadaa64ce2974d2464dc17fdac669557f05bd5329c35aa84e85636d0565f5cb4d3427d6033ccabf0b6c3f157bb5"), 0777)
@@ -36,8 +35,9 @@ func TestImportRaw(t *testing.T) {
 		// Run clef importraw
 		clef := runClef(t, "--suppress-bootwarn", "--lightkdf", "importraw", keyPath)
 		clef.input("myverylongpassword").input("myverylongpassword")
+		// 48-byte QRL address derived from the test seed above.
 		if out := string(clef.Output()); !strings.Contains(out,
-			"Key imported:\n  Address QBb81a0496aa34a64F96C2BCd28793165E1E6c08a") {
+			"Key imported:\n  Address Q39008a7a80B0aC2d927082EF48AE503a5479b06A5c78Eb168d034E216c84a9402AbC44ed5558963AfBd110a37a5695E6") {
 			t.Logf("Output\n%v", out)
 			t.Error("Failure")
 		}
@@ -67,7 +67,6 @@ func TestImportRaw(t *testing.T) {
 
 // TestListAccounts tests clef --list-accounts
 func TestListAccounts(t *testing.T) {
-	t.Skip("TODO: hardcoded 48-byte seed → address fixtures need regeneration (expected Q... constants differ)")
 	t.Parallel()
 	keyPath := filepath.Join(t.TempDir(), fmt.Sprintf("%v-tempkey.test", t.Name()))
 	os.WriteFile(keyPath, []byte("0100003bf5fbadaa64ce2974d2464dc17fdac669557f05bd5329c35aa84e85636d0565f5cb4d3427d6033ccabf0b6c3f157bb5"), 0777)
@@ -87,7 +86,7 @@ func TestListAccounts(t *testing.T) {
 		clef.input("myverylongpassword").input("myverylongpassword").WaitExit()
 		// Secondly, do a listing, using the same datadir
 		clef = runWithKeystore(t, clef.Datadir, "--suppress-bootwarn", "--lightkdf", "list-accounts")
-		if out := string(clef.Output()); !strings.Contains(out, "QBb81a0496aa34a64F96C2BCd28793165E1E6c08a (keystore:") {
+		if out := string(clef.Output()); !strings.Contains(out, "Q39008a7a80B0aC2d927082EF48AE503a5479b06A5c78Eb168d034E216c84a9402AbC44ed5558963AfBd110a37a5695E6 (keystore:") {
 			t.Logf("Output\n%v", out)
 			t.Error("Failure")
 		}
@@ -96,7 +95,6 @@ func TestListAccounts(t *testing.T) {
 
 // TestListWallets tests clef --list-wallets
 func TestListWallets(t *testing.T) {
-	t.Skip("TODO: hardcoded 48-byte seed → address fixtures need regeneration (expected Q... constants differ)")
 	t.Parallel()
 	keyPath := filepath.Join(t.TempDir(), fmt.Sprintf("%v-tempkey.test", t.Name()))
 	os.WriteFile(keyPath, []byte("0100003bf5fbadaa64ce2974d2464dc17fdac669557f05bd5329c35aa84e85636d0565f5cb4d3427d6033ccabf0b6c3f157bb5"), 0777)
@@ -116,7 +114,7 @@ func TestListWallets(t *testing.T) {
 		clef.input("myverylongpassword").input("myverylongpassword").WaitExit()
 		// Secondly, do a listing, using the same datadir
 		clef = runWithKeystore(t, clef.Datadir, "--suppress-bootwarn", "--lightkdf", "list-wallets")
-		if out := string(clef.Output()); !strings.Contains(out, "Account 0: QBb81a0496aa34a64F96C2BCd28793165E1E6c08a") {
+		if out := string(clef.Output()); !strings.Contains(out, "Account 0: Q39008a7a80B0aC2d927082EF48AE503a5479b06A5c78Eb168d034E216c84a9402AbC44ed5558963AfBd110a37a5695E6") {
 			t.Logf("Output\n%v", out)
 			t.Error("Failure")
 		}
