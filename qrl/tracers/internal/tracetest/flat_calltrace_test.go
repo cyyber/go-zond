@@ -16,7 +16,6 @@ import (
 	"github.com/theQRL/go-qrl/core/rawdb"
 	"github.com/theQRL/go-qrl/core/types"
 	"github.com/theQRL/go-qrl/core/vm"
-	"github.com/theQRL/go-qrl/rlp"
 	"github.com/theQRL/go-qrl/tests"
 
 	// Force-load the native, to trigger registration
@@ -81,7 +80,7 @@ func flatCallTracerTestRunner(tracerName string, filename string, dirPath string
 	}
 	// Configure a blockchain with the given prestate
 	tx := new(types.Transaction)
-	if err := rlp.DecodeBytes(common.FromHex(test.Input), tx); err != nil {
+	if err := tx.UnmarshalBinary(common.FromHex(test.Input)); err != nil {
 		return fmt.Errorf("failed to parse testcase input: %v", err)
 	}
 	signer := types.MakeSigner(test.Genesis.Config)
