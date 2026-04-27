@@ -222,7 +222,14 @@ func (h UnprefixedHash) MarshalText() ([]byte, error) {
 // full width.
 type LogTopic [LogTopicLength]byte
 
-// BytesToLogTopic copies b into a LogTopic, right-aligned.
+// BytesToLogTopic copies b into a LogTopic, left-aligned.
+//
+// Log topics emitted by the QRVM (LOG{0..4} opcodes) push a uint512 stack
+// word out of which `Bytes64()` returns the value in big-endian, big-bit-first
+// order. A 32-byte event signature hash pushed via PUSH32 lives in the upper
+// 32 bytes of that word, so when LOG1 stores the topic the hash is written to
+// `topic[0:32]`. Mirroring that layout here is what lets log subscribers
+// compare a freshly Keccak-256-derived signature against the on-chain topic.
 func BytesToLogTopic(b []byte) LogTopic {
 	var t LogTopic
 	t.SetBytes(b)
@@ -254,15 +261,20 @@ func (t LogTopic) IsZero() bool {
 	return true
 }
 
-// SetBytes copies b into t, right-aligned.
+// SetBytes copies b into t, left-aligned.
+//
+// See BytesToLogTopic for the rationale: QRVM LOG opcodes serialize the
+// 512-bit stack word in big-endian order, so a 32-byte event-signature hash
+// pushed via PUSH32 lands in topic[0:32] and the trailing bytes are zero
+// padding. SetBytes mirrors that layout for inputs shorter than 64 bytes.
 func (t *LogTopic) SetBytes(b []byte) {
 	if len(b) > len(t) {
-		b = b[len(b)-LogTopicLength:]
+		b = b[:LogTopicLength]
 	}
 	for i := range t {
 		t[i] = 0
 	}
-	copy(t[LogTopicLength-len(b):], b)
+	copy(t[:], b)
 }
 
 // MarshalText encodes t as a 0x-prefixed hex string.
