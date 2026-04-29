@@ -222,14 +222,13 @@ func (h UnprefixedHash) MarshalText() ([]byte, error) {
 // full width.
 type LogTopic [LogTopicLength]byte
 
-// BytesToLogTopic copies b into a LogTopic, left-aligned.
+// BytesToLogTopic copies b into a LogTopic, right-aligned.
 //
-// Log topics emitted by the QRVM (LOG{0..4} opcodes) push a uint512 stack
-// word out of which `Bytes64()` returns the value in big-endian, big-bit-first
-// order. A 32-byte event signature hash pushed via PUSH32 lives in the upper
-// 32 bytes of that word, so when LOG1 stores the topic the hash is written to
-// `topic[0:32]`. Mirroring that layout here is what lets log subscribers
-// compare a freshly Keccak-256-derived signature against the on-chain topic.
+// QRVM LOG{0..4} opcodes push a uint512 stack word and serialize it big-endian
+// via Bytes64(). A value of N bytes (e.g. a 32-byte event signature hash from
+// PUSH32) sits in the LOW N bytes of that big-endian encoding — the high
+// (LogTopicLength-N) bytes are zero padding. Mirroring that layout here keeps
+// freshly Keccak-derived signatures comparable to the on-chain topic.
 func BytesToLogTopic(b []byte) LogTopic {
 	var t LogTopic
 	t.SetBytes(b)
@@ -261,20 +260,20 @@ func (t LogTopic) IsZero() bool {
 	return true
 }
 
-// SetBytes copies b into t, left-aligned.
+// SetBytes copies b into t, right-aligned.
 //
-// See BytesToLogTopic for the rationale: QRVM LOG opcodes serialize the
-// 512-bit stack word in big-endian order, so a 32-byte event-signature hash
-// pushed via PUSH32 lands in topic[0:32] and the trailing bytes are zero
-// padding. SetBytes mirrors that layout for inputs shorter than 64 bytes.
+// See BytesToLogTopic for the rationale: QRVM LOG opcodes serialize the 512-bit
+// stack word in big-endian order, so a value of N bytes (e.g. a 32-byte event
+// signature hash) lands in topic[LogTopicLength-N:] and the leading bytes are
+// zero padding. SetBytes mirrors that layout for inputs shorter than 64 bytes.
 func (t *LogTopic) SetBytes(b []byte) {
 	if len(b) > len(t) {
-		b = b[:LogTopicLength]
+		b = b[len(b)-LogTopicLength:]
 	}
 	for i := range t {
 		t[i] = 0
 	}
-	copy(t[:], b)
+	copy(t[LogTopicLength-len(b):], b)
 }
 
 // MarshalText encodes t as a 0x-prefixed hex string.
