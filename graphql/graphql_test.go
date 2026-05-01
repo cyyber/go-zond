@@ -142,7 +142,7 @@ func TestGraphQLBlockSerialization(t *testing.T) {
 		},
 		// should return `status` as decimal
 		{
-			body: `{"query": "{block {number call (data : {from : \"Qa94f5374fce5edbc8e2a8697c15331677e6ebf0ba94f5374fce5edbc8e2a8697c15331677e6ebf0b11223344556677aa\", to: \"Q6295ee1b4f6dd65047762f924ecd367c17eabf8f6295ee1b4f6dd65047762f924ecd367c17eabf8f1122334455667788\", data :\"0x12a7b914\"}){data status}}}"}`,
+			body: `{"query": "{block {number call (data : {from : \"Qbe6c1fd78f40b86a24dc2d7d633e2912d71e5d166f8be2c850d5727f0adcc170c7741b784295eae0c4f28291d0928dc7a94f5374fce5edbc8e2a8697c15331677e6ebf0b11223344556677aa\", to: \"Q6295ee1b4f6dd65047762f924ecd367c17eabf8f6295ee1b4f6dd65047762f924ecd367c17eabf8f1122334455667788\", data :\"0x12a7b914\"}){data status}}}"}`,
 			want: `{"data":{"block":{"number":"0xa","call":{"data":"0x","status":"0x1"}}}}`,
 			code: 200,
 		},
