@@ -28,14 +28,12 @@ func BytesToDescriptor(b []byte) (descriptor.Descriptor, error) {
 }
 
 func PublicKeyAndDescriptorToAddress(pk []byte, d descriptor.Descriptor) (common.Address, error) {
-	// TODO: Update go-qrllib to generate 48-byte addresses natively.
-	// For now, right-align the 20-byte address into a 48-byte address.
-	oldAddr, err := libwallet.GetAddressFromPKAndDescriptor(pk, d)
+	addrBytes, err := libwallet.GetAddressFromPKAndDescriptor(pk, d)
 	if err != nil {
 		return common.Address{}, err
 	}
 	var addr common.Address
-	copy(addr[common.AddressLength-len(oldAddr):], oldAddr[:])
+	copy(addr[:], addrBytes[:])
 	return addr, nil
 }
 
