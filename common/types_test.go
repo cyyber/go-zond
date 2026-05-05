@@ -128,18 +128,17 @@ func TestAddressUnmarshalJSON(t *testing.T) {
 	}
 }
 
-func TestAddressHexChecksum(t *testing.T) {
-	// Inputs below are the original EIP-55 20-byte test cases left-padded to
-	// 48 bytes (56 leading zero nibbles). The expected mixed-case output is
-	// derived from our Keccak-512-based checksum.
+func TestAddressHexCanonicalLowercase(t *testing.T) {
+	// QRL addresses are canonicalized as Q + 96 lowercase hex characters.
+	// Mixed-case input remains accepted by parsers but is not emitted.
 	var tests = []struct {
 		Input  string
 		Output string
 	}{
-		{"Q000000000000000000000000000000000000000000000000000000005aaeb6053f3e94c9b9a09f33669435e7ef1beaed", "Q000000000000000000000000000000000000000000000000000000005aaeb6053F3e94c9b9A09f33669435e7ef1beaeD"},
-		{"Q00000000000000000000000000000000000000000000000000000000fb6916095ca1df60bb79ce92ce3ea74c37c5d359", "Q00000000000000000000000000000000000000000000000000000000fb6916095CA1dF60bB79CE92ce3eA74c37c5d359"},
-		{"Q00000000000000000000000000000000000000000000000000000000dbf03b407c01e7cd3cbea99509d93f8dddc8c6fb", "Q00000000000000000000000000000000000000000000000000000000DBf03B407C01e7CD3cBEa99509D93F8ddDc8C6FB"},
-		{"Q00000000000000000000000000000000000000000000000000000000d1220a0cf47c7b9be7a2e6ba89f429762e7b9adb", "Q00000000000000000000000000000000000000000000000000000000D1220a0cf47c7B9bE7a2e6bA89F429762E7b9ADb"},
+		{"Q000000000000000000000000000000000000000000000000000000005AAEB6053F3E94C9B9A09F33669435E7EF1BEAED", "Q000000000000000000000000000000000000000000000000000000005aaeb6053f3e94c9b9a09f33669435e7ef1beaed"},
+		{"Q00000000000000000000000000000000000000000000000000000000fb6916095CA1dF60bB79CE92ce3eA74c37c5d359", "Q00000000000000000000000000000000000000000000000000000000fb6916095ca1df60bb79ce92ce3ea74c37c5d359"},
+		{"Q00000000000000000000000000000000000000000000000000000000DBf03B407C01e7CD3cBEa99509D93F8ddDc8C6FB", "Q00000000000000000000000000000000000000000000000000000000dbf03b407c01e7cd3cbea99509d93f8dddc8c6fb"},
+		{"Q00000000000000000000000000000000000000000000000000000000D1220a0cf47c7B9bE7a2e6bA89F429762E7b9ADb", "Q00000000000000000000000000000000000000000000000000000000d1220a0cf47c7b9be7a2e6ba89f429762e7b9adb"},
 	}
 	for i, test := range tests {
 		addr, _ := NewAddressFromString(test.Input)
@@ -151,7 +150,7 @@ func TestAddressHexChecksum(t *testing.T) {
 }
 
 func BenchmarkAddressHex(b *testing.B) {
-	testAddr, _ := NewAddressFromString("Q5aaeb6053f3e94c9b9a09f33669435e7ef1beaed")
+	testAddr, _ := NewAddressFromString("Q000000000000000000000000000000000000000000000000000000005aaeb6053f3e94c9b9a09f33669435e7ef1beaed")
 	for b.Loop() {
 		testAddr.Hex()
 	}
@@ -187,33 +186,29 @@ func TestMixedcaseAccount_Address(t *testing.T) {
 		A     MixedcaseAddress
 		Valid bool
 	}
-	// For 48-byte addresses, SetBytes right-aligns 20-byte input into the
-	// address slot, so the canonical Hex() form holds the original 20-byte
-	// suffix and a 28-byte leading zero prefix. The EIP-55 mixed case over
-	// the full 96 hex chars is recomputed accordingly.
 	if err := json.Unmarshal([]byte(`[
-		{"A" : "Q00000000000000000000000000000000000000000000000000000000ae967917c465db8578ca9024c205720b1a3651a9", "Valid": false},
-		{"A" : "Q00000000000000000000000000000000000000000000000000000000AE967917C465dB8578CA9024C205720b1A3651A9", "Valid": true},
-		{"A" : "Q000000000000000000000000000000000000000000000000000000001111111111111111111112222222222223333323", "Valid": true}
+			{"A" : "Q00000000000000000000000000000000000000000000000000000000ae967917c465db8578ca9024c205720b1a3651a9", "Valid": true},
+			{"A" : "Q00000000000000000000000000000000000000000000000000000000AE967917C465dB8578CA9024C205720b1A3651A9", "Valid": true},
+			{"A" : "Q000000000000000000000000000000000000000000000000000000001111111111111111111112222222222223333323", "Valid": true}
 		]`), &res); err != nil {
 		t.Fatal(err)
 	}
 
 	for _, r := range res {
 		if got := r.A.ValidChecksum(); got != r.Valid {
-			t.Errorf("Expected checksum %v, got checksum %v, input %v", r.Valid, got, r.A.String())
+			t.Errorf("Expected valid address %v, got %v, input %v", r.Valid, got, r.A.String())
 		}
 	}
 
 	// These should throw exceptions:
 	var r2 []MixedcaseAddress
 	for _, r := range []string{
-		`["Q11111111111111111111122222222222233333"]`,     // Too short
-		`["Q111111111111111111111222222222222333332"]`,    // Too short
-		`["Q11111111111111111111122222222222233333234"]`,  // Too short (40 chars is the old address length)
-		`["Q111111111111111111111222222222222333332344"]`, // Too short
-		`["1111111111111111111112222222222223333323"]`,    // Missing Q
-		`["q1111111111111111111112222222222223333323"]`,   // Lower case Q
+		`["Q11111111111111111111122222222222233333"]`,                                                           // Too short
+		`["Q111111111111111111111222222222222333332"]`,                                                          // Too short
+		`["Q11111111111111111111122222222222233333234"]`,                                                        // Too short (40 chars is the old address length)
+		`["Q111111111111111111111222222222222333332344"]`,                                                       // Too short
+		`["1111111111111111111112222222222223333323"]`,                                                          // Missing Q
+		`["q1111111111111111111112222222222223333323"]`,                                                         // Lower case Q
 		`["QG00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"]`, // Non-hex
 	} {
 		if err := json.Unmarshal([]byte(r), &r2); err == nil {
@@ -419,7 +414,6 @@ func TestAddress_Format(t *testing.T) {
 	const (
 		suffixLow  = "b26f2b342aab24bcf63ea218c6a9274d30ab9a15"
 		suffixUp   = "B26F2B342AAB24BCF63EA218C6A9274D30AB9A15"
-		suffixMix  = "b26F2B342AaB24bcf63EA218c6A9274D30ab9a15" // EIP-55 over the full 48-byte address
 		zeroPrefix = "00000000000000000000000000000000000000000000000000000000"
 	)
 
@@ -431,12 +425,12 @@ func TestAddress_Format(t *testing.T) {
 		{
 			name: "println",
 			out:  fmt.Sprintln(addr),
-			want: "Q" + zeroPrefix + suffixMix + "\n",
+			want: "Q" + zeroPrefix + suffixLow + "\n",
 		},
 		{
 			name: "print",
 			out:  fmt.Sprint(addr),
-			want: "Q" + zeroPrefix + suffixMix,
+			want: "Q" + zeroPrefix + suffixLow,
 		},
 		{
 			name: "printf-s",
@@ -445,12 +439,12 @@ func TestAddress_Format(t *testing.T) {
 				fmt.Fprintf(buf, "%s", addr)
 				return buf.String()
 			}(),
-			want: "Q" + zeroPrefix + suffixMix,
+			want: "Q" + zeroPrefix + suffixLow,
 		},
 		{
 			name: "printf-q",
 			out:  fmt.Sprintf("%q", addr),
-			want: `"Q` + zeroPrefix + suffixMix + `"`,
+			want: `"Q` + zeroPrefix + suffixLow + `"`,
 		},
 		{
 			name: "printf-x",
@@ -470,7 +464,7 @@ func TestAddress_Format(t *testing.T) {
 		{
 			name: "printf-v",
 			out:  fmt.Sprintf("%v", addr),
-			want: "Q" + zeroPrefix + suffixMix,
+			want: "Q" + zeroPrefix + suffixLow,
 		},
 		// The original default formatter for byte slice
 		{

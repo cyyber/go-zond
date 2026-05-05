@@ -2222,7 +2222,7 @@ var toTwosComplement = function (number) {
  * @return {Boolean}
 */
 var isStrictAddress = function (address) {
-    return /^Q[0-9a-f]{40}$/i.test(address);
+    return /^Q[0-9a-f]{96}$/i.test(address);
 };
 
 /**
@@ -2233,42 +2233,24 @@ var isStrictAddress = function (address) {
  * @return {Boolean}
 */
 var isAddress = function (address) {
-    if (!/^Q[0-9a-f]{40}$/i.test(address)) {
-        // check if it has the basic requirements of an address
-        return false;
-    } else if (/^Q[0-9a-f]{40}$/.test(address)) {
-        return true;
-    } else {
-        // Otherwise check each case
-        return isChecksumAddress(address);
-    }
+    return /^Q[0-9a-f]{96}$/i.test(address);
 };
 
 /**
- * Checks if the given string is a checksummed address
+ * Checks if the given string is a structurally valid QRL address
  *
  * @method isChecksumAddress
  * @param {String} address the given HEX address
  * @return {Boolean}
 */
 var isChecksumAddress = function (address) {
-    // Check each case
-    address = address.replace('Q','');
-    var addressHash = sha3(address.toLowerCase());
-
-    for (var i = 0; i < 40; i++ ) {
-        // the nth letter should be uppercase if the nth digit of casemap is 1
-        if ((parseInt(addressHash[i], 16) > 7 && address[i].toUpperCase() !== address[i]) || (parseInt(addressHash[i], 16) <= 7 && address[i].toLowerCase() !== address[i])) {
-            return false;
-        }
-    }
-    return true;
+    return isAddress(address);
 };
 
 
 
 /**
- * Makes a checksum address
+ * Makes a canonical lowercase QRL address
  *
  * @method toChecksumAddress
  * @param {String} address the given HEX address
@@ -2277,23 +2259,11 @@ var isChecksumAddress = function (address) {
 var toChecksumAddress = function (address) {
     if (typeof address === 'undefined') return '';
 
-    address = address.toLowerCase().replace('Q','');
-    var addressHash = sha3(address);
-    var checksumAddress = 'Q';
-
-    for (var i = 0; i < address.length; i++ ) {
-        // If ith character is 9 to f then make it uppercase
-        if (parseInt(addressHash[i], 16) > 7) {
-          checksumAddress += address[i].toUpperCase();
-        } else {
-            checksumAddress += address[i];
-        }
-    }
-    return checksumAddress;
+    return 'Q' + address.toLowerCase().replace(/^q/,'');
 };
 
 /**
- * Transforms given string to valid 20 bytes-length address with Q prefix
+ * Transforms given string to valid 48 bytes-length address with Q prefix
  *
  * @method toAddress
  * @param {String} address
@@ -2304,11 +2274,11 @@ var toAddress = function (address) {
         return address;
     }
 
-    if (/^[0-9a-f]{40}$/.test(address)) {
-        return 'Q' + address;
+    if (/^[0-9a-f]{96}$/i.test(address)) {
+        return 'Q' + address.toLowerCase();
     }
 
-    return 'Q' + padLeft(toHex(address).substr(2), 40);
+    return 'Q' + padLeft(toHex(address).substr(2), 96);
 };
 
 /**
@@ -13128,4 +13098,3 @@ if (typeof window !== 'undefined' && typeof window.Web3 === 'undefined') {
 module.exports = Web3;
 
 },{"./lib/web3":22}]},{},["web3"])
-
