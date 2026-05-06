@@ -27,15 +27,15 @@ import (
 
 	"github.com/theQRL/go-qrl/common"
 	"github.com/theQRL/go-qrl/crypto/pqcrypto/wallet"
-	"github.com/theQRL/go-qrl/rlp"
 	"github.com/theQRL/go-qrl/internal/testutil"
+	"github.com/theQRL/go-qrl/rlp"
 	walletmldsa87 "github.com/theQRL/go-qrllib/wallet/ml_dsa_87"
 )
 
 // The values in those tests are from the Transaction Tests
 // at github.com/ethereum/tests.
 var (
-	testAddr, _ = common.NewAddressFromString("Qb94f5374fce5edbc8e2a8697c15331677e6ebf0b")
+	testAddr, _ = common.NewAddressFromString("Q00000000000000000000000000000000000000000000000000000000b94f5374fce5edbc8e2a8697c15331677e6ebf0b")
 
 	emptyEip2718Tx = NewTx(&DynamicFeeTx{
 		ChainID:   big.NewInt(1),
@@ -76,10 +76,10 @@ func TestEIP2718TransactionSigHash(t *testing.T) {
 		t.Fatal(err)
 	}
 	descBytes := w.ToDescriptor().ToBytes()
-	if hash := s.Hash(emptyEip2718Tx, descBytes, extraParams); hash != common.HexToHash("357f55219d4d394bfd9a8a3b385e8bd7a1cfbf0619b3dd299a2411536b23b4da") {
+	if hash := s.Hash(emptyEip2718Tx, descBytes, extraParams); hash != common.HexToHash("a60a947a843e9494fb99b6ed2f230641ac5bd146c10fa11319a54f92c71cb415") {
 		t.Errorf("empty EIP-2718 transaction hash mismatch, got %x", hash)
 	}
-	if hash := s.Hash(signedEip2718Tx, signedEip2718Tx.Descriptor(), extraParams); hash != common.HexToHash("357f55219d4d394bfd9a8a3b385e8bd7a1cfbf0619b3dd299a2411536b23b4da") {
+	if hash := s.Hash(signedEip2718Tx, signedEip2718Tx.Descriptor(), extraParams); hash != common.HexToHash("a60a947a843e9494fb99b6ed2f230641ac5bd146c10fa11319a54f92c71cb415") {
 		t.Errorf("signed EIP-2718 transaction hash mismatch, got %x", hash)
 	}
 }
@@ -95,7 +95,7 @@ func TestEIP2930Signer(t *testing.T) {
 		tx1     = NewTx(&DynamicFeeTx{ChainID: big.NewInt(1), Nonce: 1})
 		tx2, _  = SignNewTx(wallet, signer2, &DynamicFeeTx{ChainID: big.NewInt(2), Nonce: 1})
 		to      = common.BytesToAddress(bytes.Repeat([]byte{0xcc}, common.AddressLength))
-		tx3, _    = SignNewTx(wallet, signer1, &DynamicFeeTx{
+		tx3, _  = SignNewTx(wallet, signer1, &DynamicFeeTx{
 			Data:      common.Hex2Bytes("00"),
 			Value:     big.NewInt(0),
 			ChainID:   big.NewInt(1),
@@ -114,7 +114,7 @@ func TestEIP2930Signer(t *testing.T) {
 				},
 			},
 		})
-		to2 = common.BytesToAddress(common.FromHex("c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2c02aaa39b223fe8d0a0e5c4f27ead9083c756cc211223344556677aa"))
+		to2    = common.BytesToAddress(common.FromHex("c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2c02aaa39b223fe8d0a0e5c4f27ead9083c756cc211223344556677aa"))
 		tx4, _ = SignNewTx(wallet, signer1, &DynamicFeeTx{
 			Data:       common.Hex2Bytes("095ea7b30000000000000000000000001111111254eeb25477b68fb85ed929f73a960582ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"),
 			Value:      big.NewInt(0),
@@ -126,7 +126,7 @@ func TestEIP2930Signer(t *testing.T) {
 			To:         &to2,
 			AccessList: []AccessTuple{},
 		})
-		to3 = common.BytesToAddress(common.FromHex("535b918f3724001fd6fb52fcc6cbc220592990a3535b918f3724001fd6fb52fcc6cbc220592990a3aabbccddee01020304"))
+		to3    = common.BytesToAddress(common.FromHex("535b918f3724001fd6fb52fcc6cbc220592990a3535b918f3724001fd6fb52fcc6cbc220592990a3aabbccddee01020304"))
 		tx5, _ = SignNewTx(wallet, signer1, &DynamicFeeTx{
 			Data:       []byte{},
 			Value:      big.NewInt(73360267083380739),
@@ -335,8 +335,8 @@ func TestTransactionCoding(t *testing.T) {
 	}
 	var (
 		signer       = NewZondSigner(common.Big1)
-		addr, _      = common.NewAddressFromString("Q0000000000000000000000000000000000000001")
-		recipient, _ = common.NewAddressFromString("Q095e7baea6a6c7c4c2dfeb977efac326af552d87")
+		addr, _      = common.NewAddressFromString("Q000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001")
+		recipient, _ = common.NewAddressFromString("Q00000000000000000000000000000000000000000000000000000000095e7baea6a6c7c4c2dfeb977efac326af552d87")
 		accesses     = AccessList{{Address: addr, StorageKeys: []common.Hash{{0}}}}
 	)
 	for i := range uint64(500) {
@@ -461,7 +461,7 @@ func assertEqual(orig *Transaction, cpy *Transaction) error {
 func TestTransactionSizes(t *testing.T) {
 	signer := NewZondSigner(big.NewInt(123))
 	wallet := testutil.LoadAccount(t, "alice").Wallet(t)
-	to, _ := common.NewAddressFromString("Q0000000000000000000000000000000000000001")
+	to, _ := common.NewAddressFromString("Q000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001")
 	for i, txdata := range []TxData{
 		&DynamicFeeTx{
 			ChainID:   big.NewInt(123),

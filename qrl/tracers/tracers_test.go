@@ -25,17 +25,17 @@ import (
 	"github.com/theQRL/go-qrl/core/rawdb"
 	"github.com/theQRL/go-qrl/core/types"
 	"github.com/theQRL/go-qrl/core/vm"
+	"github.com/theQRL/go-qrl/internal/testutil"
 	"github.com/theQRL/go-qrl/params"
 	"github.com/theQRL/go-qrl/qrl/tracers/logger"
 	"github.com/theQRL/go-qrl/tests"
-	"github.com/theQRL/go-qrl/internal/testutil"
 )
 
 func BenchmarkTransactionTrace(b *testing.B) {
 	wallet := testutil.LoadAccount(b, "alice").Wallet(b)
 	from := wallet.GetAddress()
 	gas := uint64(1000000) // 1M gas
-	to, _ := common.NewAddressFromString("Q00000000000000000000000000000000deadbeef")
+	to, _ := common.NewAddressFromString("Q0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000deadbeef")
 	signer := types.LatestSignerForChainID(big.NewInt(1337))
 	tx, err := types.SignNewTx(wallet, signer,
 		&types.DynamicFeeTx{
@@ -68,7 +68,7 @@ func BenchmarkTransactionTrace(b *testing.B) {
 		byte(vm.PUSH1), 0, // jumpdestination
 		byte(vm.JUMP),
 	}
-	address, _ := common.NewAddressFromString("Q00000000000000000000000000000000deadbeef")
+	address, _ := common.NewAddressFromString("Q0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000deadbeef")
 	alloc[address] = core.GenesisAccount{
 		Nonce:   1,
 		Code:    loop,

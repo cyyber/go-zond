@@ -28,6 +28,7 @@ import (
 	"github.com/theQRL/go-qrl/core"
 	"github.com/theQRL/go-qrl/core/types"
 	"github.com/theQRL/go-qrl/crypto"
+	"github.com/theQRL/go-qrl/internal/testutil"
 	"github.com/theQRL/go-qrl/node"
 	"github.com/theQRL/go-qrl/params"
 	qrlsvc "github.com/theQRL/go-qrl/qrl"
@@ -35,7 +36,6 @@ import (
 	"github.com/theQRL/go-qrl/qrl/qrlconfig"
 	"github.com/theQRL/go-qrl/qrlclient"
 	"github.com/theQRL/go-qrl/rpc"
-	"github.com/theQRL/go-qrl/internal/testutil"
 )
 
 var (
@@ -44,9 +44,9 @@ var (
 	zeroAddr     = common.Address{}
 	testContract = common.BytesToAddress(common.FromHex("000000000000000000000000000000000000beef000000000000000000000000000000000000beef11223344556677"))
 	testEmpty    = common.BytesToAddress(common.FromHex("000000000000000000000000000000000000eeee000000000000000000000000000000000000eeee11223344556677"))
-	testSlot        = common.HexToHash("0xdeadbeef")
-	testValue       = common.BytesToStorageValue(crypto.Keccak256Hash(testSlot[:]).Bytes())
-	testBalance     = big.NewInt(2e18)
+	testSlot     = common.HexToHash("0xdeadbeef")
+	testValue    = common.BytesToStorageValue(crypto.Keccak256Hash(testSlot[:]).Bytes())
+	testBalance  = big.NewInt(2e18)
 )
 
 func newTestBackend(t *testing.T) (*node.Node, []*types.Block) {
@@ -299,7 +299,7 @@ func testGetProofCanonicalizeKeys(t *testing.T, client *rpc.Client) {
 }
 
 func testGetProofNonExistent(t *testing.T, client *rpc.Client) {
-	addr, _ := common.NewAddressFromString("Q0000000000000000000000000000000000000001")
+	addr, _ := common.NewAddressFromString("Q000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001")
 	ec := New(client)
 	result, err := ec.GetProof(t.Context(), addr, nil, nil)
 	if err != nil {

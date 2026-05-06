@@ -30,12 +30,12 @@ import (
 	"github.com/theQRL/go-qrl/consensus/beacon"
 	"github.com/theQRL/go-qrl/core"
 	"github.com/theQRL/go-qrl/core/types"
+	"github.com/theQRL/go-qrl/internal/testutil"
 	"github.com/theQRL/go-qrl/node"
 	"github.com/theQRL/go-qrl/params"
 	qrlsvc "github.com/theQRL/go-qrl/qrl"
 	"github.com/theQRL/go-qrl/qrl/qrlconfig"
 	"github.com/theQRL/go-qrl/rpc"
-	"github.com/theQRL/go-qrl/internal/testutil"
 )
 
 // Verify that Client implements the qrl interfaces.
@@ -55,7 +55,7 @@ var (
 
 func TestToFilterArg(t *testing.T) {
 	blockHashErr := errors.New("cannot specify both BlockHash and FromBlock/ToBlock")
-	address, _ := common.NewAddressFromString("QD36722ADeC3EdCB29c8e7b5a47f352D701393462")
+	address, _ := common.NewAddressFromString("Q00000000000000000000000000000000000000000000000000000000D36722ADeC3EdCB29c8e7b5a47f352D701393462")
 	addresses := []common.Address{
 		address,
 	}
@@ -181,9 +181,9 @@ func TestToFilterArg(t *testing.T) {
 }
 
 var (
-	testWallet = testutil.MustLoadAccount("alice").MustWallet()
-	testAddr      = testWallet.GetAddress()
-	testBalance   = big.NewInt(2e18)
+	testWallet  = testutil.MustLoadAccount("alice").MustWallet()
+	testAddr    = testWallet.GetAddress()
+	testBalance = big.NewInt(2e18)
 )
 
 var genesis = &core.Genesis{

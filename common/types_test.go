@@ -52,7 +52,7 @@ func TestIsAddress(t *testing.T) {
 		// Invalid: missing Q prefix
 		{"5aaeb6053f3e94c9b9a09f33669435e7ef1beaed5aaeb6053f3e94c9b9a09f33669435e7ef1beaed5aaeb6053f3e94c9", false},
 		// Invalid: old 20-byte length
-		{"Q5aaeb6053f3e94c9b9a09f33669435e7ef1beaed", false},
+		{"Q" + strings.Repeat("0", 40), false},
 		// Invalid: off-by-one lengths (95 / 97 hex chars)
 		{"Q5aaeb6053f3e94c9b9a09f33669435e7ef1beaed5aaeb6053f3e94c9b9a09f33669435e7ef1beaed5aaeb6053f3e94c", false},
 		{"Q5aaeb6053f3e94c9b9a09f33669435e7ef1beaed5aaeb6053f3e94c9b9a09f33669435e7ef1beaed5aaeb6053f3e94c9a", false},

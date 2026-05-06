@@ -33,8 +33,8 @@ import (
 	"github.com/theQRL/go-qrl/core"
 	"github.com/theQRL/go-qrl/core/types"
 	"github.com/theQRL/go-qrl/crypto/pqcrypto/wallet"
-	"github.com/theQRL/go-qrl/params"
 	"github.com/theQRL/go-qrl/internal/testutil"
+	"github.com/theQRL/go-qrl/params"
 )
 
 func TestSimulatedBackend(t *testing.T) {
@@ -118,9 +118,9 @@ const abiJSON = `[ { "constant": false, "inputs": [ { "name": "memo", "type": "b
 // incoming selector, lays out an ABI-encoded string "hello world" under
 // the 64-byte slot layout:
 //
-//   [0:64]    offset = 0x40
-//   [64:128]  length = 11
-//   [128:192] "hello world" left-aligned, 53 zero-byte tail
+//	[0:64]    offset = 0x40
+//	[64:128]  length = 11
+//	[128:192] "hello world" left-aligned, 53 zero-byte tail
 //
 // and RETURNs those 192 bytes. All opcodes used (PUSH1/2/11, MSTORE, SHL,
 // CODECOPY, RETURN) are stable across the 512-bit opcode shift.
@@ -636,7 +636,7 @@ func TestEstimateGasWithPrice(t *testing.T) {
 	sim := NewSimulatedBackend(core.GenesisAlloc{addr: {Balance: big.NewInt(params.Quanta*2 + 2e17)}}, 10000000)
 	defer sim.Close()
 
-	recipient, _ := common.NewAddressFromString("Q00000000000000000000000000000000deadbeef")
+	recipient, _ := common.NewAddressFromString("Q0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000deadbeef")
 	var cases = []struct {
 		name        string
 		message     qrl.CallMsg

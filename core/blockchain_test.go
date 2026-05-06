@@ -677,10 +677,10 @@ func TestFastVsFullChains(t *testing.T) {
 func testFastVsFullChains(t *testing.T, scheme string) {
 	// Configure and generate a sample block chain
 	var (
-		wallet = testutil.LoadAccount(t, "alice").Wallet(t)
-		address   = wallet.GetAddress()
-		funds     = big.NewInt(1000000000000000000)
-		gspec     = &Genesis{
+		wallet  = testutil.LoadAccount(t, "alice").Wallet(t)
+		address = wallet.GetAddress()
+		funds   = big.NewInt(1000000000000000000)
+		gspec   = &Genesis{
 			Config:  params.TestChainConfig,
 			Alloc:   GenesisAlloc{address: {Balance: funds}},
 			BaseFee: big.NewInt(params.InitialBaseFee),
@@ -806,10 +806,10 @@ func TestLightVsFastVsFullChainHeads(t *testing.T) {
 func testLightVsFastVsFullChainHeads(t *testing.T, scheme string) {
 	// Configure and generate a sample block chain
 	var (
-		wallet = testutil.LoadAccount(t, "alice").Wallet(t)
-		address   = wallet.GetAddress()
-		funds     = big.NewInt(1000000000000000000)
-		gspec     = &Genesis{
+		wallet  = testutil.LoadAccount(t, "alice").Wallet(t)
+		address = wallet.GetAddress()
+		funds   = big.NewInt(1000000000000000000)
+		gspec   = &Genesis{
 			Config:  params.TestChainConfig,
 			Alloc:   GenesisAlloc{address: {Balance: funds}},
 			BaseFee: big.NewInt(params.InitialBaseFee),
@@ -925,10 +925,10 @@ func testChainTxReorgs(t *testing.T, scheme string) {
 		wallet1 = testutil.LoadAccount(t, "alice").Wallet(t)
 		wallet2 = testutil.LoadAccount(t, "bob").Wallet(t)
 		wallet3 = testutil.LoadAccount(t, "carol").Wallet(t)
-		addr1      = wallet1.GetAddress()
-		addr2      = wallet2.GetAddress()
-		addr3      = wallet3.GetAddress()
-		gspec      = &Genesis{
+		addr1   = wallet1.GetAddress()
+		addr2   = wallet2.GetAddress()
+		addr3   = wallet3.GetAddress()
+		gspec   = &Genesis{
 			Config:   params.TestChainConfig,
 			GasLimit: 3141592,
 			Alloc: GenesisAlloc{
@@ -1046,7 +1046,7 @@ func TestLogReorgs(t *testing.T) {
 func testLogReorgs(t *testing.T, scheme string) {
 	var (
 		wallet1 = testutil.LoadAccount(t, "alice").Wallet(t)
-		addr1      = wallet1.GetAddress()
+		addr1   = wallet1.GetAddress()
 
 		// this code generates a log
 		code   = common.Hex2Bytes("60006000c06001601160003960016000f300")
@@ -1112,7 +1112,7 @@ func TestLogRebirth(t *testing.T) {
 
 func testLogRebirth(t *testing.T, scheme string) {
 	var (
-		wallet1 = testutil.LoadAccount(t, "alice").Wallet(t)
+		wallet1       = testutil.LoadAccount(t, "alice").Wallet(t)
 		addr1         = wallet1.GetAddress()
 		gspec         = &Genesis{Config: params.TestChainConfig, Alloc: GenesisAlloc{addr1: {Balance: big.NewInt(1000000000000000000)}}}
 		signer        = types.LatestSigner(gspec.Config)
@@ -1235,8 +1235,8 @@ func TestReorgSideEvent(t *testing.T) {
 func testReorgSideEvent(t *testing.T, scheme string) {
 	var (
 		wallet1 = testutil.LoadAccount(t, "alice").Wallet(t)
-		addr1      = wallet1.GetAddress()
-		gspec      = &Genesis{
+		addr1   = wallet1.GetAddress()
+		gspec   = &Genesis{
 			Config: params.TestChainConfig,
 			Alloc:  GenesisAlloc{addr1: {Balance: big.NewInt(1000000000000000000)}},
 		}
@@ -1373,11 +1373,11 @@ func TestEIP161AccountRemoval(t *testing.T) {
 func testEIP161AccountRemoval(t *testing.T, scheme string) {
 	// Configure and generate a sample block chain
 	var (
-		wallet = testutil.LoadAccount(t, "alice").Wallet(t)
-		address   = wallet.GetAddress()
-		funds     = big.NewInt(1000000000000000000)
-		theAddr   = common.Address{1}
-		gspec     = &Genesis{
+		wallet  = testutil.LoadAccount(t, "alice").Wallet(t)
+		address = wallet.GetAddress()
+		funds   = big.NewInt(1000000000000000000)
+		theAddr = common.Address{1}
+		gspec   = &Genesis{
 			Config: &params.ChainConfig{
 				ChainID: big.NewInt(1),
 			},
@@ -1620,10 +1620,10 @@ func TestBlockchainRecovery(t *testing.T) {
 func testBlockchainRecovery(t *testing.T, scheme string) {
 	// Configure and generate a sample block chain
 	var (
-		wallet = testutil.LoadAccount(t, "alice").Wallet(t)
-		address   = wallet.GetAddress()
-		funds     = big.NewInt(1000000000000000000)
-		gspec     = &Genesis{Config: params.TestChainConfig, Alloc: GenesisAlloc{address: {Balance: funds}}}
+		wallet  = testutil.LoadAccount(t, "alice").Wallet(t)
+		address = wallet.GetAddress()
+		funds   = big.NewInt(1000000000000000000)
+		gspec   = &Genesis{Config: params.TestChainConfig, Alloc: GenesisAlloc{address: {Balance: funds}}}
 	)
 	height := uint64(1024)
 	_, blocks, receipts := GenerateChainWithGenesis(gspec, beacon.NewFaker(), int(height), nil)
@@ -2020,10 +2020,10 @@ func testReorgToShorterRemovesCanonMappingHeaderChain(t *testing.T, scheme strin
 func TestTransactionIndices(t *testing.T) {
 	// Configure and generate a sample block chain
 	var (
-		wallet = testutil.LoadAccount(t, "alice").Wallet(t)
-		address   = wallet.GetAddress()
-		funds     = big.NewInt(1000000000000000000)
-		gspec     = &Genesis{
+		wallet  = testutil.LoadAccount(t, "alice").Wallet(t)
+		address = wallet.GetAddress()
+		funds   = big.NewInt(1000000000000000000)
+		gspec   = &Genesis{
 			Config:  params.TestChainConfig,
 			Alloc:   GenesisAlloc{address: {Balance: funds}},
 			BaseFee: big.NewInt(params.InitialBaseFee),
@@ -2131,11 +2131,11 @@ func TestSkipStaleTxIndicesInSnapSync(t *testing.T) {
 func testSkipStaleTxIndicesInSnapSync(t *testing.T, scheme string) {
 	// Configure and generate a sample block chain
 	var (
-		wallet = testutil.LoadAccount(t, "alice").Wallet(t)
-		address   = wallet.GetAddress()
-		funds     = big.NewInt(1000000000000000000)
-		gspec     = &Genesis{Config: params.TestChainConfig, Alloc: GenesisAlloc{address: {Balance: funds}}}
-		signer    = types.LatestSigner(gspec.Config)
+		wallet  = testutil.LoadAccount(t, "alice").Wallet(t)
+		address = wallet.GetAddress()
+		funds   = big.NewInt(1000000000000000000)
+		gspec   = &Genesis{Config: params.TestChainConfig, Alloc: GenesisAlloc{address: {Balance: funds}}}
+		signer  = types.LatestSigner(gspec.Config)
 	)
 	_, blocks, receipts := GenerateChainWithGenesis(gspec, beacon.NewFaker(), 128, func(i int, block *BlockGen) {
 		tx := types.NewTx(&types.DynamicFeeTx{
@@ -2219,12 +2219,12 @@ func testSkipStaleTxIndicesInSnapSync(t *testing.T, scheme string) {
 // Benchmarks large blocks with value transfers to non-existing accounts
 func benchmarkLargeNumberOfValueToNonexisting(b *testing.B, numTxs, numBlocks int, recipientFn func(uint64) common.Address) {
 	var (
-		address, _        = common.NewAddressFromString("Q000000000000000000000000000000000000c0de")
-		signer            = types.ZondSigner{}
-		testBankWallet = testutil.LoadAccount(b, "alice").Wallet(b)
-		testBankAddress   = testBankWallet.GetAddress()
-		bankFunds         = big.NewInt(100000000000000000)
-		gspec             = &Genesis{
+		address, _      = common.NewAddressFromString("Q00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c0de")
+		signer          = types.ZondSigner{}
+		testBankWallet  = testutil.LoadAccount(b, "alice").Wallet(b)
+		testBankAddress = testBankWallet.GetAddress()
+		bankFunds       = big.NewInt(100000000000000000)
+		gspec           = &Genesis{
 			Config: params.TestChainConfig,
 			Alloc: GenesisAlloc{
 				testBankAddress: {Balance: bankFunds},
@@ -2321,13 +2321,13 @@ func BenchmarkBlockChain_1x1000Executions(b *testing.B) {
 
 // TestInitThenFailCreateContract tests a pretty notorious case that happened
 // on mainnet over blocks 7338108, 7338110 and 7338115.
-//   - Block 7338108: address Qe771789f5cccac282f23bb7add5690e1f6ca467c is initiated
+//   - Block 7338108: address Q00000000000000000000000000000000000000000000000000000000e771789f5cccac282f23bb7add5690e1f6ca467c is initiated
 //     with 0.001 quanta (thus created but no code)
 //   - Block 7338110: a CREATE2 is attempted. The CREATE2 would deploy code on
-//     the same address Qe771789f5cccac282f23bb7add5690e1f6ca467c. However, the
+//     the same address Q00000000000000000000000000000000000000000000000000000000e771789f5cccac282f23bb7add5690e1f6ca467c. However, the
 //     deployment fails due to OOG during initcode execution
 //   - Block 7338115: another tx checks the balance of
-//     Qe771789f5cccac282f23bb7add5690e1f6ca467c, and the snapshotter returned it as
+//     Q00000000000000000000000000000000000000000000000000000000e771789f5cccac282f23bb7add5690e1f6ca467c, and the snapshotter returned it as
 //     zero.
 //
 // The problem being that the snapshotter maintains a destructset, and adds items
@@ -2345,10 +2345,10 @@ func testInitThenFailCreateContract(t *testing.T, scheme string) {
 		engine = beacon.NewFaker()
 
 		// A sender who makes transactions, has some funds
-		wallet = testutil.LoadAccount(t, "alice").Wallet(t)
-		address   = wallet.GetAddress()
-		funds     = big.NewInt(1000000000000000000)
-		bb, _     = common.NewAddressFromString("Q000000000000000000000000000000000000bbbb")
+		wallet  = testutil.LoadAccount(t, "alice").Wallet(t)
+		address = wallet.GetAddress()
+		funds   = big.NewInt(1000000000000000000)
+		bb, _   = common.NewAddressFromString("Q00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000bbbb")
 	)
 
 	// The bb-code needs to CREATE2 the aa contract. It consists of
@@ -2463,14 +2463,14 @@ func TestEIP2718Transition(t *testing.T) {
 
 func testEIP2718Transition(t *testing.T, scheme string) {
 	var (
-		aa, _  = common.NewAddressFromString("Q000000000000000000000000000000000000aaaa")
+		aa, _  = common.NewAddressFromString("Q00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000aaaa")
 		engine = beacon.NewFaker()
 
 		// A sender who makes transactions, has some funds
-		wallet = testutil.LoadAccount(t, "alice").Wallet(t)
-		address   = wallet.GetAddress()
-		funds     = big.NewInt(1000000000000000000)
-		gspec     = &Genesis{
+		wallet  = testutil.LoadAccount(t, "alice").Wallet(t)
+		address = wallet.GetAddress()
+		funds   = big.NewInt(1000000000000000000)
+		gspec   = &Genesis{
 			Config: params.TestChainConfig,
 			Alloc: GenesisAlloc{
 				address: {Balance: funds},
@@ -2545,17 +2545,17 @@ func TestEIP1559Transition(t *testing.T) {
 
 func testEIP1559Transition(t *testing.T, scheme string) {
 	var (
-		aa, _  = common.NewAddressFromString("Q000000000000000000000000000000000000aaaa")
+		aa, _  = common.NewAddressFromString("Q00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000aaaa")
 		engine = beacon.NewFaker()
 
 		// A sender who makes transactions, has some funds
 		wallet1 = testutil.LoadAccount(t, "alice").Wallet(t)
 		wallet2 = testutil.LoadAccount(t, "bob").Wallet(t)
-		addr1      = wallet1.GetAddress()
-		addr2      = wallet2.GetAddress()
-		funds      = new(big.Int).Mul(common.Big1, big.NewInt(params.Quanta))
-		config     = *params.AllBeaconProtocolChanges
-		gspec      = &Genesis{
+		addr1   = wallet1.GetAddress()
+		addr2   = wallet2.GetAddress()
+		funds   = new(big.Int).Mul(common.Big1, big.NewInt(params.Quanta))
+		config  = *params.AllBeaconProtocolChanges
+		gspec   = &Genesis{
 			Config: &config,
 			Alloc: GenesisAlloc{
 				addr1: {Balance: funds},
@@ -2686,10 +2686,10 @@ func testSetCanonical(t *testing.T, scheme string) {
 	//log.Root().SetHandler(log.LvlFilterHandler(log.LvlDebug, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
 
 	var (
-		wallet = testutil.LoadAccount(t, "alice").Wallet(t)
-		address   = wallet.GetAddress()
-		funds     = big.NewInt(1000000000000000000)
-		gspec     = &Genesis{
+		wallet  = testutil.LoadAccount(t, "alice").Wallet(t)
+		address = wallet.GetAddress()
+		funds   = big.NewInt(1000000000000000000)
+		gspec   = &Genesis{
 			Config:  params.TestChainConfig,
 			Alloc:   GenesisAlloc{address: {Balance: funds}},
 			BaseFee: big.NewInt(params.InitialBaseFee),
@@ -2905,7 +2905,7 @@ func TestTxIndexer(t *testing.T) {
 		nonce  = uint64(0)
 	)
 	_, blocks, receipts := GenerateChainWithGenesis(gspec, engine, 128, func(i int, gen *BlockGen) {
-		to, _ := common.NewAddressFromString("Q00000000000000000000000000000000deadbeef")
+		to, _ := common.NewAddressFromString("Q0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000deadbeef")
 		tx := types.NewTx(&types.DynamicFeeTx{
 			Nonce:     nonce,
 			To:        &to,
@@ -3117,11 +3117,11 @@ func TestEIP3651(t *testing.T) {
 		// A sender who makes transactions, has some funds
 		wallet1 = testutil.LoadAccount(t, "alice").Wallet(t)
 		wallet2 = testutil.LoadAccount(t, "bob").Wallet(t)
-		addr1      = wallet1.GetAddress()
-		addr2      = wallet2.GetAddress()
-		funds      = new(big.Int).Mul(common.Big1, big.NewInt(params.Quanta))
-		config     = *params.AllBeaconProtocolChanges
-		gspec      = &Genesis{
+		addr1   = wallet1.GetAddress()
+		addr2   = wallet2.GetAddress()
+		funds   = new(big.Int).Mul(common.Big1, big.NewInt(params.Quanta))
+		config  = *params.AllBeaconProtocolChanges
+		gspec   = &Genesis{
 			Config: &config,
 			Alloc: GenesisAlloc{
 				addr1: {Balance: funds},

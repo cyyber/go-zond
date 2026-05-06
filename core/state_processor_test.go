@@ -79,10 +79,10 @@ func TestStateProcessorErrors(t *testing.T) {
 		// processor would reference the sender's derived address, not the
 		// allocator's.
 		var (
-			address0    = wallet1.GetAddress()
-			address1    = wallet2.GetAddress()
-			db          = rawdb.NewMemoryDatabase()
-			gspec       = &Genesis{
+			address0 = wallet1.GetAddress()
+			address1 = wallet2.GetAddress()
+			db       = rawdb.NewMemoryDatabase()
+			gspec    = &Genesis{
 				Config: config,
 				Alloc: GenesisAlloc{
 					address0: GenesisAccount{
@@ -237,7 +237,7 @@ func TestStateProcessorErrors(t *testing.T) {
 						ChainID: big.NewInt(1),
 					},
 					Alloc: GenesisAlloc{
-						common.HexToAddress("Q71562b71999873DB5b286dF957af199Ec94617F7"): GenesisAccount{
+						common.HexToAddress("Q0000000000000000000000000000000000000000000000000000000071562b71999873DB5b286dF957af199Ec94617F7"): GenesisAccount{
 							Balance: big.NewInt(1000000000000000000), // 1 quanta
 							Nonce:   0,
 						},
@@ -318,8 +318,8 @@ func TestStateProcessorRejectsNonEmptyExtraParams(t *testing.T) {
 		signer  = types.LatestSigner(config)
 		wallet1 = testutil.LoadAccount(t, "dave").Wallet(t)
 		from    = common.Address(wallet1.GetAddress())
-		db         = rawdb.NewMemoryDatabase()
-		gspec      = &Genesis{
+		db      = rawdb.NewMemoryDatabase()
+		gspec   = &Genesis{
 			Config: config,
 			Alloc: GenesisAlloc{
 				from: GenesisAccount{

@@ -31,10 +31,10 @@ import (
 	"github.com/theQRL/go-qrl/core/rawdb"
 	"github.com/theQRL/go-qrl/core/types"
 	"github.com/theQRL/go-qrl/core/vm"
+	"github.com/theQRL/go-qrl/internal/testutil"
 	"github.com/theQRL/go-qrl/params"
 	"github.com/theQRL/go-qrl/rpc"
 	"github.com/theQRL/go-qrl/trie"
-	"github.com/theQRL/go-qrl/internal/testutil"
 )
 
 func makeReceipt(addr common.Address) *types.Receipt {
@@ -53,14 +53,14 @@ func makeReceipt(addr common.Address) *types.Receipt {
 
 func BenchmarkFilters(b *testing.B) {
 	var (
-		db, _      = rawdb.NewLevelDBDatabase(b.TempDir(), 0, 0, "", false)
-		_, sys     = newTestFilterSystem(b, db, Config{})
+		db, _   = rawdb.NewLevelDBDatabase(b.TempDir(), 0, 0, "", false)
+		_, sys  = newTestFilterSystem(b, db, Config{})
 		wallet1 = testutil.MustLoadAccount("alice").MustWallet()
-		addr1      = wallet1.GetAddress()
-		addr2      = common.BytesToAddress([]byte("jeff"))
-		addr3      = common.BytesToAddress([]byte("ethereum"))
-		addr4      = common.BytesToAddress([]byte("random addresses please"))
-		to, _      = common.NewAddressFromString("Q0000000000000000000000000000000000000999")
+		addr1   = wallet1.GetAddress()
+		addr2   = common.BytesToAddress([]byte("jeff"))
+		addr3   = common.BytesToAddress([]byte("ethereum"))
+		addr4   = common.BytesToAddress([]byte("random addresses please"))
+		to, _   = common.NewAddressFromString("Q000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000999")
 
 		gspec = &core.Genesis{
 			Alloc:   core.GenesisAlloc{addr1: {Balance: big.NewInt(1000000)}},
@@ -117,8 +117,8 @@ func TestFilters(t *testing.T) {
 		backend, sys = newTestFilterSystem(t, db, Config{})
 		// Sender account
 		wallet1 = testutil.MustLoadAccount("alice").MustWallet()
-		addr       = wallet1.GetAddress()
-		signer     = types.NewZondSigner(big.NewInt(1))
+		addr    = wallet1.GetAddress()
+		signer  = types.NewZondSigner(big.NewInt(1))
 		// Logging contract
 		contract  = common.Address{0xfe}
 		contract2 = common.Address{0xff}

@@ -123,10 +123,10 @@ func TestParseAddress(t *testing.T) {
 		// Various error-cases:
 		{Input: "Q01"}, // too short string
 		{Input: ""},
-		{Input: [32]byte{}},        // wrong fixed-size array length
-		{Input: [20]byte{}},        // old 20-byte form no longer accepted
-		{Input: make([]byte, 47)},  // too short slice
-		{Input: make([]byte, 49)},  // too long slice
+		{Input: [32]byte{}},       // wrong fixed-size array length
+		{Input: [20]byte{}},       // old 20-byte form no longer accepted
+		{Input: make([]byte, 47)}, // too short slice
+		{Input: make([]byte, 49)}, // too long slice
 		{Input: nil},
 	}
 
@@ -243,9 +243,9 @@ func TestConvertUint256DataToSlice(t *testing.T) {
 
 func TestConvertAddressDataToSlice(t *testing.T) {
 	t.Parallel()
-	addr1, _ := common.NewAddressFromString("Q0000000000000000000000000000000000000001")
-	addr2, _ := common.NewAddressFromString("Q0000000000000000000000000000000000000002")
-	addr3, _ := common.NewAddressFromString("Q0000000000000000000000000000000000000003")
+	addr1, _ := common.NewAddressFromString("Q000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001")
+	addr2, _ := common.NewAddressFromString("Q000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002")
+	addr3, _ := common.NewAddressFromString("Q000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003")
 
 	slice := []common.Address{addr1, addr2, addr3}
 	var it any = slice
