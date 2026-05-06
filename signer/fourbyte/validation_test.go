@@ -78,18 +78,18 @@ func TestTransactionValidation(t *testing.T) {
 		db = newEmpty()
 	)
 	// 48-byte QRL address variants of the classic "dead" test address.
-	// validDead has the EIP-55 mixed-case checksum, lowerDead is
-	// all-lowercase so it fails the checksum validator.
+	// Address validation is structural only, so lowercase and mixed-case input
+	// are both accepted and canonicalized by the common address package.
 	const (
 		lowerDead = "Q00000000000000000000000000000000dead000000000000000000000000000000000000000000000000000000000000"
 		validDead = "Q00000000000000000000000000000000DEad000000000000000000000000000000000000000000000000000000000000"
 		zeroAddr  = "Q000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
 	)
 	testcases := []txtestcase{
-		// Invalid to checksum
+		// Lowercase address is structurally valid.
 		{from: lowerDead, to: lowerDead,
-			n: "0x01", g: "0x20", mfpg: "0x40", mpfpg: "0x0", value: "0x01", numMessages: 1},
-		// valid checksum (mixed case)
+			n: "0x01", g: "0x20", mfpg: "0x40", mpfpg: "0x0", value: "0x01", numMessages: 0},
+		// Mixed-case address is also structurally valid.
 		{from: lowerDead, to: validDead,
 			n: "0x01", g: "0x20", mfpg: "0x40", mpfpg: "0x0", value: "0x01", numMessages: 0},
 		// conflicting input and data

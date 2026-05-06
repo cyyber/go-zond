@@ -95,8 +95,7 @@ Some snags and todos
 * Gqrl todos
     - The signer should pass the `Origin` header as call-info to the UI. As of right now, the way that info about the request is put together is a bit of a hack into the HTTP server. This could probably be greatly improved.
     - Relay: Gqrl should be started in `gqrl --signer localhost:8550`.
-    - Currently, the Gqrl APIs use `common.Address` in the arguments to transaction submission (e.g `to` field). This type is 20 `bytes`, and is incapable of carrying checksum information. The signer uses `common.MixedcaseAddress`, which retains the original input.
-    - The Gqrl API should switch to use the same type, and relay `to`-account verbatim to the external API.
+    - QRL addresses are 48-byte values rendered as `Q` + 96 hex characters. The signer keeps `common.MixedcaseAddress` for API compatibility, but address validation is structural only and canonical output is lowercase.
 * [x] Storage
     * [x] An encrypted key-value storage should be implemented.
     * See [rules.md](rules.md) for more info about this.
@@ -552,10 +551,6 @@ Results in the following invocation on the UI:
       },
       "call_info": [
           {
-            "type": "WARNING",
-            "message": "Invalid checksum on to-address"
-          },
-          {
             "type": "Info",
             "message": "safeSend(address: Q0000000000000000000000000000000000000012)"
           }
@@ -597,10 +592,6 @@ curl -i -H "Content-Type: application/json" -X POST --data '{"jsonrpc":"2.0","me
         "input": null
       },
       "call_info": [
-          {
-            "type": "WARNING",
-            "message": "Invalid checksum on to-address"
-          },
           {
             "type": "WARNING",
             "message": "Transaction data did not match ABI-interface: WARNING: Supplied data is stuffed with extra data. \nWant 0000000000000002000000000000000000000000000000000000000000000012\nHave 0000000000000000000000000000000000000000000000000000000000000012\nfor method safeSend(address)"
@@ -875,7 +866,7 @@ A UI should conform to the following rules.
   * For example, not load icons, stylesheets from the internet
   * Not load files from the filesystem, unless they reside in the same local directory (e.g. config files)
 * A Graphical UI MUST show the blocky-identicon for qrl addresses.
-* A UI MUST warn display appropriate warning if the destination-account is formatted with invalid checksum.
+* A UI MUST validate that the destination account is a structurally valid QRL address.
 * A UI MUST NOT open any ports or services
   * The signer opens the public port
 * A UI SHOULD verify the permissions on the signer binary, and refuse to execute or warn if permissions allow non-user write.

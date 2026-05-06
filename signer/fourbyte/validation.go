@@ -66,10 +66,7 @@ func (db *Database) ValidateTransaction(selector *string, tx *apitypes.SendTxArg
 		}
 		return messages, nil
 	}
-	// Not a contract creation, validate as a plain transaction
-	if !tx.To.ValidChecksum() {
-		messages.Warn("Invalid checksum on recipient address")
-	}
+	// Not a contract creation, validate as a plain transaction.
 	if bytes.Equal(tx.To.Address().Bytes(), common.Address{}.Bytes()) {
 		messages.Crit("Transaction recipient is the zero address")
 	}
