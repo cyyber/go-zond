@@ -24,8 +24,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/theQRL/go-qrl/common/uint512"
 	"github.com/theQRL/go-qrl/common"
+	"github.com/theQRL/go-qrl/common/uint512"
 	"github.com/theQRL/go-qrl/core/types"
 	"github.com/theQRL/go-qrl/crypto"
 	"github.com/theQRL/go-qrl/params"
@@ -599,6 +599,34 @@ func BenchmarkOpKeccak256(bench *testing.B) {
 		stack.push(uint512.NewInt(32))
 		stack.push(start)
 		opKeccak256(&pc, qrvmInterpreter, &ScopeContext{mem, stack, nil})
+	}
+}
+
+func TestOpKeccak256Bytes32ResultIsRightAligned(t *testing.T) {
+	var (
+		env             = NewQRVM(BlockContext{}, TxContext{}, nil, params.TestChainConfig, Config{})
+		stack           = newstack()
+		mem             = NewMemory()
+		qrvmInterpreter = NewQRVMInterpreter(env)
+	)
+	env.interpreter = qrvmInterpreter
+	mem.Resize(32)
+	pc := uint64(0)
+
+	input := common.Hex2Bytes("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
+	mem.Set(0, 32, input)
+	stack.push(uint512.NewInt(32))
+	stack.push(new(uint512.Int))
+
+	opKeccak256(&pc, qrvmInterpreter, &ScopeContext{mem, stack, nil})
+
+	got := stack.peek().Bytes64()
+	want := crypto.Keccak256(input)
+	if !bytes.Equal(got[:32], make([]byte, 32)) {
+		t.Fatalf("expected keccak256 high half to be zero, got %x", got[:32])
+	}
+	if !bytes.Equal(got[32:], want) {
+		t.Fatalf("expected keccak256 low half %x, got %x", want, got[32:])
 	}
 }
 
