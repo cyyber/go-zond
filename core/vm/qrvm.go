@@ -20,7 +20,7 @@ import (
 	"math/big"
 	"sync/atomic"
 
-	"github.com/holiman/uint256"
+	"github.com/theQRL/go-qrl/common/uint512"
 	"github.com/theQRL/go-qrl/common"
 	"github.com/theQRL/go-qrl/core/types"
 	"github.com/theQRL/go-qrl/crypto"
@@ -446,9 +446,9 @@ func (qrvm *QRVM) Create(caller ContractRef, code []byte, gas uint64, value *big
 //
 // The different between Create2 with Create is Create2 uses keccak256(0xff ++ msg.sender ++ salt ++ keccak256(init_code))[12:]
 // instead of the usual sender-and-nonce-hash as the address where the contract is initialized at.
-func (qrvm *QRVM) Create2(caller ContractRef, code []byte, gas uint64, endowment *big.Int, salt *uint256.Int) (ret []byte, contractAddr common.Address, leftOverGas uint64, err error) {
+func (qrvm *QRVM) Create2(caller ContractRef, code []byte, gas uint64, endowment *big.Int, salt *uint512.Int) (ret []byte, contractAddr common.Address, leftOverGas uint64, err error) {
 	codeAndHash := &codeAndHash{code: code}
-	contractAddr = crypto.CreateAddress2(caller.Address(), salt.Bytes32(), codeAndHash.Hash().Bytes())
+	contractAddr = crypto.CreateAddress2(caller.Address(), salt.Bytes64(), codeAndHash.Hash().Bytes())
 	return qrvm.create(caller, codeAndHash, gas, endowment, contractAddr, CREATE2)
 }
 

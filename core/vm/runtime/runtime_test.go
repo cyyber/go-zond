@@ -80,12 +80,14 @@ func TestQRVM(t *testing.T) {
 }
 
 func TestExecute(t *testing.T) {
+	// MSTORE writes a 64-byte word to memory with the 512-bit stack entry
+	// right-aligned, so RETURN must cover bytes [32:64] to observe the low 32 bytes.
 	ret, _, err := Execute([]byte{
 		byte(vm.PUSH1), 10,
 		byte(vm.PUSH1), 0,
 		byte(vm.MSTORE),
 		byte(vm.PUSH1), 32,
-		byte(vm.PUSH1), 0,
+		byte(vm.PUSH1), 32,
 		byte(vm.RETURN),
 	}, nil, nil)
 	if err != nil {
@@ -100,13 +102,13 @@ func TestExecute(t *testing.T) {
 
 func TestCall(t *testing.T) {
 	state, _ := state.New(types.EmptyRootHash, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
-	address, _ := common.NewAddressFromString("Q000000000000000000000000000000000000000a")
+	address, _ := common.NewAddressFromString("Q00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000a")
 	state.SetCode(address, []byte{
 		byte(vm.PUSH1), 10,
 		byte(vm.PUSH1), 0,
 		byte(vm.MSTORE),
 		byte(vm.PUSH1), 32,
-		byte(vm.PUSH1), 0,
+		byte(vm.PUSH1), 32,
 		byte(vm.RETURN),
 	})
 
@@ -197,7 +199,7 @@ func BenchmarkQRVM_CREATE2_1200(bench *testing.B) {
 }
 
 func fakeHeader(n uint64, parentHash common.Hash) *types.Header {
-	coinbase, _ := common.NewAddressFromString("Q00000000000000000000000000000000deadbeef")
+	coinbase, _ := common.NewAddressFromString("Q0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000deadbeef")
 	header := types.Header{
 		Coinbase:   coinbase,
 		Number:     big.NewInt(int64(n)),
@@ -240,42 +242,23 @@ func TestBlockhash(t *testing.T) {
 	copy(parentHash[:], s)
 	header := fakeHeader(n, parentHash)
 
-	// This is the contract we're using. It requests the blockhash for current num (should be all zeroes),
-	// then iteratively fetches all blockhashes back to n-260.
-	// It returns
-	// 1. the first (should be zero)
-	// 2. the second (should be the parent hash)
-	// 3. the last non-zero hash
-	// By making the chain reader return hashes which correlate to the number, we can
-	// verify that it obtained the right hashes where it should
-
-	/*
-		// TODO(now.youtrack.cloud/issue/TGZ-30)
-		pragma hyperion ^0.5.3;
-		contract Hasher{
-
-			function test() public view returns (bytes32, bytes32, bytes32){
-				uint256 x = block.number;
-				bytes32 first;
-				bytes32 last;
-				bytes32 zero;
-				zero = blockhash(x); // Should be zeroes
-				first = blockhash(x-1);
-				for(uint256 i = 2 ; i < 260; i++){
-					bytes32 hash = blockhash(x - i);
-					if (uint256(hash) != 0){
-						last = hash;
-					}
-				}
-				return (zero, first, last);
-			}
-		}
-
-	*/
-	// The contract above
-	data := common.Hex2Bytes("6080604052348015600f57600080fd5b50600436106045576000357c010000000000000000000000000000000000000000000000000000000090048063f8a8fd6d14604a575b600080fd5b60506074565b60405180848152602001838152602001828152602001935050505060405180910390f35b600080600080439050600080600083409050600184034092506000600290505b61010481101560c35760008186034090506000816001900414151560b6578093505b5080806001019150506094565b508083839650965096505050505090919256fea165627a7a72305820462d71b510c1725ff35946c20b415b0d50b468ea157c8c77dff9466c9cb85f560029")
-	// The method call to 'test()'
-	input := common.Hex2Bytes("f8a8fd6d")
+	// Hand-rolled bytecode (replaces the prior Solidity fixture which depended
+	// on DUP/SWAP/LOG opcodes that shifted after the 512-bit VM migration).
+	//
+	// Emits three 32-byte return values packed into 96 bytes:
+	//   [0:32]  = blockhash(1000)  → zero       (request at head)
+	//   [32:64] = blockhash(999)   → parent     (served from cache, no GetHeader)
+	//   [64:96] = blockhash(744)   → oldest in-range hash (exactly 255 GetHeader calls)
+	//
+	// For each slot, BLOCKHASH pushes the 32-byte hash in the low half of the
+	// 512-bit stack word; SHL by 256 moves it into the high half so MSTORE's
+	// 64-byte write lands the hash in the top 32 bytes at the requested offset.
+	data := common.Hex2Bytes(
+		"6103e8406101001b600052" + // BLOCKHASH(1000); (h<<256); MSTORE(0)
+			"6103e7406101001b602052" + // BLOCKHASH(999);  (h<<256); MSTORE(32)
+			"6102e8406101001b604052" + // BLOCKHASH(744);  (h<<256); MSTORE(64)
+			"60606000f3") //               RETURN(0, 96)
+	input := []byte(nil)
 	chain := &dummyChain{}
 	ret, _, err := Execute(data, input, &Config{
 		GetHashFn:   core.GetHashFn(header, chain),
@@ -327,12 +310,12 @@ func benchmarkNonModifyingCode(gas uint64, code []byte, name string, tracerCode 
 		sender      = vm.AccountRef(cfg.Origin)
 	)
 	cfg.State.CreateAccount(destination)
-	eoa, _ := common.NewAddressFromString("Q00000000000000000000000000000000000000E0")
+	eoa, _ := common.NewAddressFromString("Q0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000E0")
 	{
 		cfg.State.CreateAccount(eoa)
 		cfg.State.SetNonce(eoa, 100)
 	}
-	reverting, _ := common.NewAddressFromString("Q00000000000000000000000000000000000000EE")
+	reverting, _ := common.NewAddressFromString("Q0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000EE")
 	{
 		cfg.State.CreateAccount(reverting)
 		cfg.State.SetCode(reverting, []byte{
@@ -675,7 +658,7 @@ func TestRuntimeJSTracer(t *testing.T) {
 				byte(vm.PUSH1), 0,
 				byte(vm.MSTORE),
 				// length, offset, value
-				byte(vm.PUSH1), 5, byte(vm.PUSH1), 27, byte(vm.PUSH1), 0,
+				byte(vm.PUSH1), 5, byte(vm.PUSH1), 59, byte(vm.PUSH1), 0,
 				byte(vm.CREATE),
 				byte(vm.POP),
 			},
@@ -691,7 +674,7 @@ func TestRuntimeJSTracer(t *testing.T) {
 				byte(vm.PUSH1), 0,
 				byte(vm.MSTORE),
 				// salt, length, offset, value
-				byte(vm.PUSH1), 1, byte(vm.PUSH1), 5, byte(vm.PUSH1), 27, byte(vm.PUSH1), 0,
+				byte(vm.PUSH1), 1, byte(vm.PUSH1), 5, byte(vm.PUSH1), 59, byte(vm.PUSH1), 0,
 				byte(vm.CREATE2),
 				byte(vm.POP),
 			},
@@ -740,11 +723,14 @@ func TestRuntimeJSTracer(t *testing.T) {
 		byte(vm.PUSH1), 0,
 		byte(vm.RETURN),
 	}
-	main, _ := common.NewAddressFromString("Q00000000000000000000000000000000000000aa")
-	address0, _ := common.NewAddressFromString("Q00000000000000000000000000000000000000bb")
-	address1, _ := common.NewAddressFromString("Q00000000000000000000000000000000000000cc")
-	address2, _ := common.NewAddressFromString("Q00000000000000000000000000000000000000dd")
-	address3, _ := common.NewAddressFromString("Q00000000000000000000000000000000000000ee")
+	// The runtime CALL / STATICCALL / DELEGATECALL opcodes pop the target
+	// address from the full 64-byte stack word, so each
+	// fixture hex ends with the classic single-byte marker at the very end.
+	main := common.BytesToAddress([]byte{0xaa})
+	address0 := common.BytesToAddress([]byte{0xbb})
+	address1 := common.BytesToAddress([]byte{0xcc})
+	address2 := common.BytesToAddress([]byte{0xdd})
+	address3 := common.BytesToAddress([]byte{0xee})
 	for i, jsTracer := range jsTracers {
 		for j, tc := range tests {
 			statedb, _ := state.New(types.EmptyRootHash, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)

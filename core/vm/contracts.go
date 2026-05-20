@@ -91,9 +91,9 @@ func (c *depositroot) RequiredGas(input []byte) uint64 {
 func (c *depositroot) Run(input []byte) ([]byte, error) {
 	var (
 		pkBytes     = getData(input, 0, 2592)    // 2592 bytes
-		credsBytes  = getData(input, 2592, 32)   // 32 bytes
-		amountBytes = getData(input, 2624, 8)    // 8 bytes
-		sigBytes    = getData(input, 2632, 4627) // 4627 bytes
+		credsBytes  = getData(input, 2592, 80)   // 80 bytes (prefix(1) + zero(15) + addr(64))
+		amountBytes = getData(input, 2672, 8)    // 8 bytes
+		sigBytes    = getData(input, 2680, 4627) // 4627 bytes
 	)
 
 	var amountUint uint64
@@ -141,8 +141,8 @@ func (d *depositdata) HashTreeRootWith(hh *ssz.Hasher) (err error) {
 	hh.PutBytes(d.PublicKey)
 
 	// Field (1) 'WithdrawalCredentials'
-	if size := len(d.WithdrawalCredentials); size != 32 {
-		err = ssz.ErrBytesLengthFn("--.WithdrawalCredentials", size, 32)
+	if size := len(d.WithdrawalCredentials); size != 80 {
+		err = ssz.ErrBytesLengthFn("--.WithdrawalCredentials", size, 80)
 		return
 	}
 	hh.PutBytes(d.WithdrawalCredentials)

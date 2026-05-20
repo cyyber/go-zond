@@ -44,9 +44,9 @@ type StateDB interface {
 	SubRefund(uint64)
 	GetRefund() uint64
 
-	GetCommittedState(common.Address, common.Hash) common.Hash
-	GetState(common.Address, common.Hash) common.Hash
-	SetState(common.Address, common.Hash, common.Hash)
+	GetCommittedState(common.Address, common.Hash) common.StorageValue
+	GetState(common.Address, common.Hash) common.StorageValue
+	SetState(common.Address, common.Hash, common.StorageValue)
 
 	// Exist reports whether the given account exists in state.
 	// Notably this should also return true for self-destructed accounts.

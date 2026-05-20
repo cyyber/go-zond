@@ -17,7 +17,7 @@
 package vm
 
 import (
-	"github.com/holiman/uint256"
+	"github.com/theQRL/go-qrl/common/uint512"
 )
 
 // Gas costs
@@ -31,7 +31,7 @@ const (
 )
 
 // callGas returns the actual gas cost of the call.
-func callGas(availableGas, base uint64, callCost *uint256.Int) (uint64, error) {
+func callGas(availableGas, base uint64, callCost *uint512.Int) (uint64, error) {
 	availableGas = availableGas - base
 	gas := availableGas - availableGas/64
 	// If the bit length exceeds 64 bit we know that the newly calculated "gas" for EIP150

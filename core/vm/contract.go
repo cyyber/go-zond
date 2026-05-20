@@ -19,7 +19,7 @@ package vm
 import (
 	"math/big"
 
-	"github.com/holiman/uint256"
+	"github.com/theQRL/go-qrl/common/uint512"
 	"github.com/theQRL/go-qrl/common"
 )
 
@@ -82,7 +82,7 @@ func NewContract(caller ContractRef, object ContractRef, value *big.Int, gas uin
 	return c
 }
 
-func (c *Contract) validJumpdest(dest *uint256.Int) bool {
+func (c *Contract) validJumpdest(dest *uint512.Int) bool {
 	udest, overflow := dest.Uint64WithOverflow()
 	// PC cannot go beyond len(code) and certainly can't be bigger than 63bits.
 	// Don't bother checking for JUMPDEST in that case.

@@ -36,7 +36,11 @@ func TestMemoryGasCost(t *testing.T) {
 		cost     uint64
 		overflow bool
 	}{
-		{0x1fffffffe0, 36028809887088637, false},
+		// The overflow threshold is still 0x1FFFFFFFE0, but the gas cost at
+		// that boundary drops by 4x relative to the 32-byte-word chain:
+		// doubling the word width quarters the squared word count that
+		// drives the quadratic term.
+		{0x1fffffffe0, 9007205697191936, false},
 		{0x1fffffffe1, 0, true},
 	}
 	for i, tt := range tests {
@@ -50,18 +54,21 @@ func TestMemoryGasCost(t *testing.T) {
 	}
 }
 
+// Gas expectations reflect the 64-byte VM word: the memory/Keccak step count
+// that drives the CREATE / CREATE2 initcode cost collapses to a quarter of
+// the original 32-byte-word values.
 var createGasTests = []struct {
 	code       string
 	gasUsed    uint64
 	minimumGas uint64
 }{
 	// legacy create(0, 0, 0xc000) _with_ 3860
-	{"0x61C00060006000f0" + "600052" + "60206000F3", 44309, 44309},
+	{"0x61C00060006000f0" + "600052" + "60206000F3", 38549, 38549},
 	// create2(0, 0, 0xc001, 0) (too large), with 3860
 	{"0x600061C00160006000f5" + "600052" + "60206000F3", 32012, 100_000},
 	// create2(0, 0, 0xc000, 0)
 	// This case is trying to deploy code at (within) the limit
-	{"0x600061C00060006000f5" + "600052" + "60206000F3", 53528, 53528},
+	{"0x600061C00060006000f5" + "600052" + "60206000F3", 47768, 47768},
 	// create2(0, 0, 0xc001, 0)
 	// This case is trying to deploy code exceeding the limit
 	{"0x600061C00160006000f5" + "600052" + "60206000F3", 32024, 100000},

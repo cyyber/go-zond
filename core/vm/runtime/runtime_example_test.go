@@ -24,7 +24,10 @@ import (
 )
 
 func ExampleExecute() {
-	ret, _, err := runtime.Execute(common.Hex2Bytes("6060604052600a8060106000396000f360606040526008565b00"), nil, nil)
+	// Ethereum-style Solidity init code: MSTORE free memory pointer, then
+	// CODECOPY the runtime body (bytes 16..25) to mem[0] and RETURN it.
+	// Opcodes updated for go-qrl's shifted DUP/SWAP range (DUP1 = 0xa0).
+	ret, _, err := runtime.Execute(common.Hex2Bytes("6060604052600aa060106000396000f360606040526008565b00"), nil, nil)
 	if err != nil {
 		fmt.Println(err)
 	}

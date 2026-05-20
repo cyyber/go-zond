@@ -49,7 +49,7 @@ func makeGasSStoreFunc(clearingRefund uint64) gasFunc {
 				panic("impossible case: address was not present in access list during sstore op")
 			}
 		}
-		value := common.Hash(y.Bytes32())
+		value := common.StorageValue(y.Bytes64())
 
 		if current == value { // noop (1)
 			// EIP 2200 original clause:
@@ -58,25 +58,25 @@ func makeGasSStoreFunc(clearingRefund uint64) gasFunc {
 		}
 		original := qrvm.StateDB.GetCommittedState(contract.Address(), x.Bytes32())
 		if original == current {
-			if original == (common.Hash{}) { // create slot (2.1.1)
+			if original == (common.StorageValue{}) { // create slot (2.1.1)
 				return cost + params.SstoreSetGasEIP2200, nil
 			}
-			if value == (common.Hash{}) { // delete slot (2.1.2b)
+			if value == (common.StorageValue{}) { // delete slot (2.1.2b)
 				qrvm.StateDB.AddRefund(clearingRefund)
 			}
 			// EIP-2200 original clause:
 			//		return params.SstoreResetGasEIP2200, nil // write existing slot (2.1.2)
 			return cost + (params.SstoreResetGasEIP2200 - params.ColdSloadCostEIP2929), nil // write existing slot (2.1.2)
 		}
-		if original != (common.Hash{}) {
-			if current == (common.Hash{}) { // recreate slot (2.2.1.1)
+		if original != (common.StorageValue{}) {
+			if current == (common.StorageValue{}) { // recreate slot (2.2.1.1)
 				qrvm.StateDB.SubRefund(clearingRefund)
-			} else if value == (common.Hash{}) { // delete slot (2.2.1.2)
+			} else if value == (common.StorageValue{}) { // delete slot (2.2.1.2)
 				qrvm.StateDB.AddRefund(clearingRefund)
 			}
 		}
 		if original == value {
-			if original == (common.Hash{}) { // reset to original inexistent slot (2.2.2.1)
+			if original == (common.StorageValue{}) { // reset to original inexistent slot (2.2.2.1)
 				// EIP 2200 Original clause:
 				//qrvm.StateDB.AddRefund(params.SstoreSetGasEIP2200 - params.SloadGasEIP2200)
 				qrvm.StateDB.AddRefund(params.SstoreSetGasEIP2200 - params.WarmStorageReadCostEIP2929)
@@ -124,7 +124,7 @@ func gasExtCodeCopyEIP2929(qrvm *QRVM, contract *Contract, stack *Stack, mem *Me
 	if err != nil {
 		return 0, err
 	}
-	addr := common.Address(stack.peek().Bytes20())
+	addr := stackToAddress(stack.peek())
 	// Check slot presence in the access list
 	if !qrvm.StateDB.AddressInAccessList(addr) {
 		qrvm.StateDB.AddAddressToAccessList(addr)
@@ -146,7 +146,7 @@ func gasExtCodeCopyEIP2929(qrvm *QRVM, contract *Contract, stack *Stack, mem *Me
 // - extcodesize,
 // - (ext) balance
 func gasEip2929AccountCheck(qrvm *QRVM, contract *Contract, stack *Stack, mem *Memory, memorySize uint64) (uint64, error) {
-	addr := common.Address(stack.peek().Bytes20())
+	addr := stackToAddress(stack.peek())
 	// Check slot presence in the access list
 	if !qrvm.StateDB.AddressInAccessList(addr) {
 		// If the caller cannot afford the cost, this change will be rolled back
@@ -159,7 +159,7 @@ func gasEip2929AccountCheck(qrvm *QRVM, contract *Contract, stack *Stack, mem *M
 
 func makeCallVariantGasCallEIP2929(oldCalculator gasFunc) gasFunc {
 	return func(qrvm *QRVM, contract *Contract, stack *Stack, mem *Memory, memorySize uint64) (uint64, error) {
-		addr := common.Address(stack.Back(1).Bytes20())
+		addr := stackToAddress(stack.Back(1))
 		// Check slot presence in the access list
 		warmAccess := qrvm.StateDB.AddressInAccessList(addr)
 		// The WarmStorageReadCostEIP2929 (100) is already deducted in the form of a constant cost, so

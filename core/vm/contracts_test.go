@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -53,6 +54,10 @@ var allPrecompiles = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{2}): &sha256hash{},
 	common.BytesToAddress([]byte{3}): &dataCopy{},
 	common.BytesToAddress([]byte{4}): &bigModExp{},
+}
+
+func precompileAddress(n string) string {
+	return "Q" + strings.Repeat("0", 2*common.AddressLength-len(n)) + n
 }
 
 func testPrecompiled(addr string, test precompiledTest, t *testing.T) {
@@ -188,10 +193,10 @@ func BenchmarkPrecompiledIdentity(bench *testing.B) {
 
 // Tests the sample inputs from the ModExp.
 func TestPrecompiledModExp(t *testing.T) {
-	testJson("modexp", "Q0000000000000000000000000000000000000004", t)
+	testJson("modexp", precompileAddress("04"), t)
 }
 func BenchmarkPrecompiledModExp(b *testing.B) {
-	benchJson("modexp", "Q0000000000000000000000000000000000000004", b)
+	benchJson("modexp", precompileAddress("04"), b)
 }
 
 // Tests OOG
@@ -201,12 +206,12 @@ func TestPrecompiledModExpOOG(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, test := range modexpTests {
-		testPrecompiledOOG("Q0000000000000000000000000000000000000004", test, t)
+		testPrecompiledOOG(precompileAddress("04"), test, t)
 	}
 }
 
 func TestPrecompiledDepositroot(t *testing.T) {
-	testJson("depositroot", "Q0000000000000000000000000000000000000001", t)
+	testJson("depositroot", precompileAddress("01"), t)
 }
 
 func testJson(name, addr string, t *testing.T) {

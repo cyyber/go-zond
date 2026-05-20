@@ -19,13 +19,13 @@ package vm
 import (
 	"math"
 
-	"github.com/holiman/uint256"
 	"github.com/theQRL/go-qrl/common"
+	"github.com/theQRL/go-qrl/common/uint512"
 )
 
 // calcMemSize64 calculates the required memory size, and returns
 // the size and whether the result overflowed uint64
-func calcMemSize64(off, l *uint256.Int) (uint64, bool) {
+func calcMemSize64(off, l *uint512.Int) (uint64, bool) {
 	if !l.IsUint64() {
 		return 0, true
 	}
@@ -35,7 +35,7 @@ func calcMemSize64(off, l *uint256.Int) (uint64, bool) {
 // calcMemSize64WithUint calculates the required memory size, and returns
 // the size and whether the result overflowed uint64
 // Identical to calcMemSize64, but length is a uint64
-func calcMemSize64WithUint(off *uint256.Int, length64 uint64) (uint64, bool) {
+func calcMemSize64WithUint(off *uint512.Int, length64 uint64) (uint64, bool) {
 	// if length is zero, memsize is always zero, regardless of offset
 	if length64 == 0 {
 		return 0, false
@@ -62,10 +62,17 @@ func getData(data []byte, start uint64, size uint64) []byte {
 }
 
 // toWordSize returns the ceiled word size required for memory expansion.
+// The VM word is 64 bytes.
 func toWordSize(size uint64) uint64 {
-	if size > math.MaxUint64-31 {
-		return math.MaxUint64/32 + 1
+	if size > math.MaxUint64-63 {
+		return math.MaxUint64/64 + 1
 	}
 
-	return (size + 31) / 32
+	return (size + 63) / 64
+}
+
+// stackToAddress extracts a 64-byte address from a 512-bit stack value.
+func stackToAddress(val *uint512.Int) common.Address {
+	b := val.Bytes64()
+	return common.BytesToAddress(b[:])
 }

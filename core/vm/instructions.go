@@ -19,8 +19,8 @@ package vm
 import (
 	"math"
 
-	"github.com/holiman/uint256"
 	"github.com/theQRL/go-qrl/common"
+	"github.com/theQRL/go-qrl/common/uint512"
 	"github.com/theQRL/go-qrl/core/types"
 	"github.com/theQRL/go-qrl/crypto"
 	"github.com/theQRL/go-qrl/params"
@@ -192,7 +192,7 @@ func opMulmod(pc *uint64, interpreter *QRVMInterpreter, scope *ScopeContext) ([]
 func opSHL(pc *uint64, interpreter *QRVMInterpreter, scope *ScopeContext) ([]byte, error) {
 	// Note, second operand is left in the stack; accumulate result into it, and no need to push it afterwards
 	shift, value := scope.Stack.pop(), scope.Stack.peek()
-	if shift.LtUint64(256) {
+	if shift.LtUint64(512) {
 		value.Lsh(value, uint(shift.Uint64()))
 	} else {
 		value.Clear()
@@ -206,7 +206,7 @@ func opSHL(pc *uint64, interpreter *QRVMInterpreter, scope *ScopeContext) ([]byt
 func opSHR(pc *uint64, interpreter *QRVMInterpreter, scope *ScopeContext) ([]byte, error) {
 	// Note, second operand is left in the stack; accumulate result into it, and no need to push it afterwards
 	shift, value := scope.Stack.pop(), scope.Stack.peek()
-	if shift.LtUint64(256) {
+	if shift.LtUint64(512) {
 		value.Rsh(value, uint(shift.Uint64()))
 	} else {
 		value.Clear()
@@ -219,7 +219,7 @@ func opSHR(pc *uint64, interpreter *QRVMInterpreter, scope *ScopeContext) ([]byt
 // and pushes on the stack arg2 shifted to the right by arg1 number of bits with sign extension.
 func opSAR(pc *uint64, interpreter *QRVMInterpreter, scope *ScopeContext) ([]byte, error) {
 	shift, value := scope.Stack.pop(), scope.Stack.peek()
-	if shift.GtUint64(256) {
+	if shift.GtUint64(512) {
 		if value.Sign() >= 0 {
 			value.Clear()
 		} else {
@@ -254,28 +254,28 @@ func opKeccak256(pc *uint64, interpreter *QRVMInterpreter, scope *ScopeContext) 
 	return nil, nil
 }
 func opAddress(pc *uint64, interpreter *QRVMInterpreter, scope *ScopeContext) ([]byte, error) {
-	scope.Stack.push(new(uint256.Int).SetBytes(scope.Contract.Address().Bytes()))
+	scope.Stack.push(new(uint512.Int).SetBytes(scope.Contract.Address().Bytes()))
 	return nil, nil
 }
 
 func opBalance(pc *uint64, interpreter *QRVMInterpreter, scope *ScopeContext) ([]byte, error) {
 	slot := scope.Stack.peek()
-	address := common.Address(slot.Bytes20())
+	address := stackToAddress(slot)
 	slot.SetFromBig(interpreter.qrvm.StateDB.GetBalance(address))
 	return nil, nil
 }
 
 func opOrigin(pc *uint64, interpreter *QRVMInterpreter, scope *ScopeContext) ([]byte, error) {
-	scope.Stack.push(new(uint256.Int).SetBytes(interpreter.qrvm.Origin.Bytes()))
+	scope.Stack.push(new(uint512.Int).SetBytes(interpreter.qrvm.Origin.Bytes()))
 	return nil, nil
 }
 func opCaller(pc *uint64, interpreter *QRVMInterpreter, scope *ScopeContext) ([]byte, error) {
-	scope.Stack.push(new(uint256.Int).SetBytes(scope.Contract.Caller().Bytes()))
+	scope.Stack.push(new(uint512.Int).SetBytes(scope.Contract.Caller().Bytes()))
 	return nil, nil
 }
 
 func opCallValue(pc *uint64, interpreter *QRVMInterpreter, scope *ScopeContext) ([]byte, error) {
-	v, _ := uint256.FromBig(scope.Contract.value)
+	v, _ := uint512.FromBig(scope.Contract.value)
 	scope.Stack.push(v)
 	return nil, nil
 }
@@ -283,7 +283,7 @@ func opCallValue(pc *uint64, interpreter *QRVMInterpreter, scope *ScopeContext) 
 func opCallDataLoad(pc *uint64, interpreter *QRVMInterpreter, scope *ScopeContext) ([]byte, error) {
 	x := scope.Stack.peek()
 	if offset, overflow := x.Uint64WithOverflow(); !overflow {
-		data := getData(scope.Contract.Input, offset, 32)
+		data := getData(scope.Contract.Input, offset, 64)
 		x.SetBytes(data)
 	} else {
 		x.Clear()
@@ -292,7 +292,7 @@ func opCallDataLoad(pc *uint64, interpreter *QRVMInterpreter, scope *ScopeContex
 }
 
 func opCallDataSize(pc *uint64, interpreter *QRVMInterpreter, scope *ScopeContext) ([]byte, error) {
-	scope.Stack.push(new(uint256.Int).SetUint64(uint64(len(scope.Contract.Input))))
+	scope.Stack.push(new(uint512.Int).SetUint64(uint64(len(scope.Contract.Input))))
 	return nil, nil
 }
 
@@ -315,7 +315,7 @@ func opCallDataCopy(pc *uint64, interpreter *QRVMInterpreter, scope *ScopeContex
 }
 
 func opReturnDataSize(pc *uint64, interpreter *QRVMInterpreter, scope *ScopeContext) ([]byte, error) {
-	scope.Stack.push(new(uint256.Int).SetUint64(uint64(len(interpreter.returnData))))
+	scope.Stack.push(new(uint512.Int).SetUint64(uint64(len(interpreter.returnData))))
 	return nil, nil
 }
 
@@ -343,12 +343,12 @@ func opReturnDataCopy(pc *uint64, interpreter *QRVMInterpreter, scope *ScopeCont
 
 func opExtCodeSize(pc *uint64, interpreter *QRVMInterpreter, scope *ScopeContext) ([]byte, error) {
 	slot := scope.Stack.peek()
-	slot.SetUint64(uint64(interpreter.qrvm.StateDB.GetCodeSize(slot.Bytes20())))
+	slot.SetUint64(uint64(interpreter.qrvm.StateDB.GetCodeSize(stackToAddress(slot))))
 	return nil, nil
 }
 
 func opCodeSize(pc *uint64, interpreter *QRVMInterpreter, scope *ScopeContext) ([]byte, error) {
-	l := new(uint256.Int)
+	l := new(uint512.Int)
 	l.SetUint64(uint64(len(scope.Contract.Code)))
 	scope.Stack.push(l)
 	return nil, nil
@@ -382,7 +382,7 @@ func opExtCodeCopy(pc *uint64, interpreter *QRVMInterpreter, scope *ScopeContext
 	if overflow {
 		uint64CodeOffset = math.MaxUint64
 	}
-	addr := common.Address(a.Bytes20())
+	addr := stackToAddress(&a)
 	codeCopy := getData(interpreter.qrvm.StateDB.GetCode(addr), uint64CodeOffset, length.Uint64())
 	scope.Memory.Set(memOffset.Uint64(), length.Uint64(), codeCopy)
 
@@ -417,7 +417,7 @@ func opExtCodeCopy(pc *uint64, interpreter *QRVMInterpreter, scope *ScopeContext
 //     account should be regarded as a non-existent account and zero should be returned.
 func opExtCodeHash(pc *uint64, interpreter *QRVMInterpreter, scope *ScopeContext) ([]byte, error) {
 	slot := scope.Stack.peek()
-	address := common.Address(slot.Bytes20())
+	address := stackToAddress(slot)
 	if interpreter.qrvm.StateDB.Empty(address) {
 		slot.Clear()
 	} else {
@@ -427,7 +427,7 @@ func opExtCodeHash(pc *uint64, interpreter *QRVMInterpreter, scope *ScopeContext
 }
 
 func opGasprice(pc *uint64, interpreter *QRVMInterpreter, scope *ScopeContext) ([]byte, error) {
-	v, _ := uint256.FromBig(interpreter.qrvm.GasPrice)
+	v, _ := uint512.FromBig(interpreter.qrvm.GasPrice)
 	scope.Stack.push(v)
 	return nil, nil
 }
@@ -455,29 +455,29 @@ func opBlockhash(pc *uint64, interpreter *QRVMInterpreter, scope *ScopeContext) 
 }
 
 func opCoinbase(pc *uint64, interpreter *QRVMInterpreter, scope *ScopeContext) ([]byte, error) {
-	scope.Stack.push(new(uint256.Int).SetBytes(interpreter.qrvm.Context.Coinbase.Bytes()))
+	scope.Stack.push(new(uint512.Int).SetBytes(interpreter.qrvm.Context.Coinbase.Bytes()))
 	return nil, nil
 }
 
 func opTimestamp(pc *uint64, interpreter *QRVMInterpreter, scope *ScopeContext) ([]byte, error) {
-	scope.Stack.push(new(uint256.Int).SetUint64(interpreter.qrvm.Context.Time))
+	scope.Stack.push(new(uint512.Int).SetUint64(interpreter.qrvm.Context.Time))
 	return nil, nil
 }
 
 func opNumber(pc *uint64, interpreter *QRVMInterpreter, scope *ScopeContext) ([]byte, error) {
-	v, _ := uint256.FromBig(interpreter.qrvm.Context.BlockNumber)
+	v, _ := uint512.FromBig(interpreter.qrvm.Context.BlockNumber)
 	scope.Stack.push(v)
 	return nil, nil
 }
 
 func opRandom(pc *uint64, interpreter *QRVMInterpreter, scope *ScopeContext) ([]byte, error) {
-	v := new(uint256.Int).SetBytes(interpreter.qrvm.Context.Random.Bytes())
+	v := new(uint512.Int).SetBytes(interpreter.qrvm.Context.Random.Bytes())
 	scope.Stack.push(v)
 	return nil, nil
 }
 
 func opGasLimit(pc *uint64, interpreter *QRVMInterpreter, scope *ScopeContext) ([]byte, error) {
-	scope.Stack.push(new(uint256.Int).SetUint64(interpreter.qrvm.Context.GasLimit))
+	scope.Stack.push(new(uint512.Int).SetUint64(interpreter.qrvm.Context.GasLimit))
 	return nil, nil
 }
 
@@ -489,14 +489,14 @@ func opPop(pc *uint64, interpreter *QRVMInterpreter, scope *ScopeContext) ([]byt
 func opMload(pc *uint64, interpreter *QRVMInterpreter, scope *ScopeContext) ([]byte, error) {
 	v := scope.Stack.peek()
 	offset := int64(v.Uint64())
-	v.SetBytes(scope.Memory.GetPtr(offset, 32))
+	v.SetBytes(scope.Memory.GetPtr(offset, 64))
 	return nil, nil
 }
 
 func opMstore(pc *uint64, interpreter *QRVMInterpreter, scope *ScopeContext) ([]byte, error) {
 	// pop value of the stack
 	mStart, val := scope.Stack.pop(), scope.Stack.pop()
-	scope.Memory.Set32(mStart.Uint64(), &val)
+	scope.Memory.Set64(mStart.Uint64(), &val)
 	return nil, nil
 }
 
@@ -520,7 +520,7 @@ func opSstore(pc *uint64, interpreter *QRVMInterpreter, scope *ScopeContext) ([]
 	}
 	loc := scope.Stack.pop()
 	val := scope.Stack.pop()
-	interpreter.qrvm.StateDB.SetState(scope.Contract.Address(), loc.Bytes32(), val.Bytes32())
+	interpreter.qrvm.StateDB.SetState(scope.Contract.Address(), loc.Bytes32(), common.StorageValue(val.Bytes64()))
 	return nil, nil
 }
 
@@ -555,17 +555,17 @@ func opJumpdest(pc *uint64, interpreter *QRVMInterpreter, scope *ScopeContext) (
 }
 
 func opPc(pc *uint64, interpreter *QRVMInterpreter, scope *ScopeContext) ([]byte, error) {
-	scope.Stack.push(new(uint256.Int).SetUint64(*pc))
+	scope.Stack.push(new(uint512.Int).SetUint64(*pc))
 	return nil, nil
 }
 
 func opMsize(pc *uint64, interpreter *QRVMInterpreter, scope *ScopeContext) ([]byte, error) {
-	scope.Stack.push(new(uint256.Int).SetUint64(uint64(scope.Memory.Len())))
+	scope.Stack.push(new(uint512.Int).SetUint64(uint64(scope.Memory.Len())))
 	return nil, nil
 }
 
 func opGas(pc *uint64, interpreter *QRVMInterpreter, scope *ScopeContext) ([]byte, error) {
-	scope.Stack.push(new(uint256.Int).SetUint64(scope.Contract.Gas))
+	scope.Stack.push(new(uint512.Int).SetUint64(scope.Contract.Gas))
 	return nil, nil
 }
 
@@ -661,7 +661,7 @@ func opCall(pc *uint64, interpreter *QRVMInterpreter, scope *ScopeContext) ([]by
 	gas := interpreter.qrvm.callGasTemp
 	// Pop other call parameters.
 	addr, value, inOffset, inSize, retOffset, retSize := stack.pop(), stack.pop(), stack.pop(), stack.pop(), stack.pop(), stack.pop()
-	toAddr := common.Address(addr.Bytes20())
+	toAddr := stackToAddress(&addr)
 	// Get the arguments from the memory.
 	args := scope.Memory.GetPtr(int64(inOffset.Uint64()), int64(inSize.Uint64()))
 
@@ -702,7 +702,7 @@ func opDelegateCall(pc *uint64, interpreter *QRVMInterpreter, scope *ScopeContex
 	gas := interpreter.qrvm.callGasTemp
 	// Pop other call parameters.
 	addr, inOffset, inSize, retOffset, retSize := stack.pop(), stack.pop(), stack.pop(), stack.pop(), stack.pop()
-	toAddr := common.Address(addr.Bytes20())
+	toAddr := stackToAddress(&addr)
 	// Get arguments from the memory.
 	args := scope.Memory.GetPtr(int64(inOffset.Uint64()), int64(inSize.Uint64()))
 
@@ -730,7 +730,7 @@ func opStaticCall(pc *uint64, interpreter *QRVMInterpreter, scope *ScopeContext)
 	gas := interpreter.qrvm.callGasTemp
 	// Pop other call parameters.
 	addr, inOffset, inSize, retOffset, retSize := stack.pop(), stack.pop(), stack.pop(), stack.pop(), stack.pop()
-	toAddr := common.Address(addr.Bytes20())
+	toAddr := stackToAddress(&addr)
 	// Get arguments from the memory.
 	args := scope.Memory.GetPtr(int64(inOffset.Uint64()), int64(inSize.Uint64()))
 
@@ -781,12 +781,12 @@ func makeLog(size int) executionFunc {
 		if interpreter.readOnly {
 			return nil, ErrWriteProtection
 		}
-		topics := make([]common.Hash, size)
+		topics := make([]common.LogTopic, size)
 		stack := scope.Stack
 		mStart, mSize := stack.pop(), stack.pop()
 		for i := range size {
 			addr := stack.pop()
-			topics[i] = addr.Bytes32()
+			topics[i] = common.LogTopic(addr.Bytes64())
 		}
 
 		d := scope.Memory.GetCopy(int64(mStart.Uint64()), int64(mSize.Uint64()))
@@ -807,7 +807,7 @@ func makeLog(size int) executionFunc {
 func opPush1(pc *uint64, interpreter *QRVMInterpreter, scope *ScopeContext) ([]byte, error) {
 	var (
 		codeLen = uint64(len(scope.Contract.Code))
-		integer = new(uint256.Int)
+		integer = new(uint512.Int)
 	)
 	*pc += 1
 	if *pc < codeLen {
@@ -827,7 +827,7 @@ func makePush(size uint64, pushByteSize int) executionFunc {
 
 		endMin := min(startMin+pushByteSize, codeLen)
 
-		integer := new(uint256.Int)
+		integer := new(uint512.Int)
 		scope.Stack.push(integer.SetBytes(common.RightPadBytes(
 			scope.Contract.Code[startMin:endMin], pushByteSize)))
 

@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/holiman/uint256"
+	"github.com/theQRL/go-qrl/common/uint512"
 )
 
 var activators = map[int]func(*JumpTable){}
@@ -51,27 +51,27 @@ func ActivateableQips() []string {
 }
 
 func opSelfBalance(pc *uint64, interpreter *QRVMInterpreter, scope *ScopeContext) ([]byte, error) {
-	balance, _ := uint256.FromBig(interpreter.qrvm.StateDB.GetBalance(scope.Contract.Address()))
+	balance, _ := uint512.FromBig(interpreter.qrvm.StateDB.GetBalance(scope.Contract.Address()))
 	scope.Stack.push(balance)
 	return nil, nil
 }
 
 // opChainID implements CHAINID opcode
 func opChainID(pc *uint64, interpreter *QRVMInterpreter, scope *ScopeContext) ([]byte, error) {
-	chainId, _ := uint256.FromBig(interpreter.qrvm.chainConfig.ChainID)
+	chainId, _ := uint512.FromBig(interpreter.qrvm.chainConfig.ChainID)
 	scope.Stack.push(chainId)
 	return nil, nil
 }
 
 // opBaseFee implements BASEFEE opcode
 func opBaseFee(pc *uint64, interpreter *QRVMInterpreter, scope *ScopeContext) ([]byte, error) {
-	baseFee, _ := uint256.FromBig(interpreter.qrvm.Context.BaseFee)
+	baseFee, _ := uint512.FromBig(interpreter.qrvm.Context.BaseFee)
 	scope.Stack.push(baseFee)
 	return nil, nil
 }
 
 // opPush0 implements the PUSH0 opcode
 func opPush0(pc *uint64, interpreter *QRVMInterpreter, scope *ScopeContext) ([]byte, error) {
-	scope.Stack.push(new(uint256.Int))
+	scope.Stack.push(new(uint512.Int))
 	return nil, nil
 }
