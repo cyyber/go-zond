@@ -15,15 +15,15 @@ var _ = (*logMarshaling)(nil)
 // MarshalJSON marshals as JSON.
 func (l Log) MarshalJSON() ([]byte, error) {
 	type Log struct {
-		Address     common.Address `json:"address" gencodec:"required"`
-		Topics      []common.Hash  `json:"topics" gencodec:"required"`
-		Data        hexutil.Bytes  `json:"data" gencodec:"required"`
-		BlockNumber hexutil.Uint64 `json:"blockNumber" rlp:"-"`
-		TxHash      common.Hash    `json:"transactionHash" gencodec:"required" rlp:"-"`
-		TxIndex     hexutil.Uint   `json:"transactionIndex" rlp:"-"`
-		BlockHash   common.Hash    `json:"blockHash" rlp:"-"`
-		Index       hexutil.Uint   `json:"logIndex" rlp:"-"`
-		Removed     bool           `json:"removed" rlp:"-"`
+		Address     common.Address    `json:"address" gencodec:"required"`
+		Topics      []common.LogTopic `json:"topics" gencodec:"required"`
+		Data        hexutil.Bytes     `json:"data" gencodec:"required"`
+		BlockNumber hexutil.Uint64    `json:"blockNumber" rlp:"-"`
+		TxHash      common.Hash       `json:"transactionHash" gencodec:"required" rlp:"-"`
+		TxIndex     hexutil.Uint      `json:"transactionIndex" rlp:"-"`
+		BlockHash   common.Hash       `json:"blockHash" rlp:"-"`
+		Index       hexutil.Uint      `json:"logIndex" rlp:"-"`
+		Removed     bool              `json:"removed" rlp:"-"`
 	}
 	var enc Log
 	enc.Address = l.Address
@@ -41,15 +41,15 @@ func (l Log) MarshalJSON() ([]byte, error) {
 // UnmarshalJSON unmarshals from JSON.
 func (l *Log) UnmarshalJSON(input []byte) error {
 	type Log struct {
-		Address     *common.Address `json:"address" gencodec:"required"`
-		Topics      []common.Hash   `json:"topics" gencodec:"required"`
-		Data        *hexutil.Bytes  `json:"data" gencodec:"required"`
-		BlockNumber *hexutil.Uint64 `json:"blockNumber" rlp:"-"`
-		TxHash      *common.Hash    `json:"transactionHash" gencodec:"required" rlp:"-"`
-		TxIndex     *hexutil.Uint   `json:"transactionIndex" rlp:"-"`
-		BlockHash   *common.Hash    `json:"blockHash" rlp:"-"`
-		Index       *hexutil.Uint   `json:"logIndex" rlp:"-"`
-		Removed     *bool           `json:"removed" rlp:"-"`
+		Address     *common.Address   `json:"address" gencodec:"required"`
+		Topics      []common.LogTopic `json:"topics" gencodec:"required"`
+		Data        *hexutil.Bytes    `json:"data" gencodec:"required"`
+		BlockNumber *hexutil.Uint64   `json:"blockNumber" rlp:"-"`
+		TxHash      *common.Hash      `json:"transactionHash" gencodec:"required" rlp:"-"`
+		TxIndex     *hexutil.Uint     `json:"transactionIndex" rlp:"-"`
+		BlockHash   *common.Hash      `json:"blockHash" rlp:"-"`
+		Index       *hexutil.Uint     `json:"logIndex" rlp:"-"`
+		Removed     *bool             `json:"removed" rlp:"-"`
 	}
 	var dec Log
 	if err := json.Unmarshal(input, &dec); err != nil {

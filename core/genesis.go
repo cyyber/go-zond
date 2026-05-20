@@ -202,11 +202,11 @@ func CommitGenesisState(db qrldb.Database, triedb *trie.Database, blockhash comm
 
 // GenesisAccount is an account in the state of the genesis block.
 type GenesisAccount struct {
-	Code    []byte                      `json:"code,omitempty"`
-	Storage map[common.Hash]common.Hash `json:"storage,omitempty"`
-	Balance *big.Int                    `json:"balance" gencodec:"required"`
-	Nonce   uint64                      `json:"nonce,omitempty"`
-	Seed    []byte                      `json:"seed,omitempty"` // for tests
+	Code    []byte                              `json:"code,omitempty"`
+	Storage map[common.Hash]common.StorageValue `json:"storage,omitempty"`
+	Balance *big.Int                            `json:"balance" gencodec:"required"`
+	Nonce   uint64                              `json:"nonce,omitempty"`
+	Seed    []byte                              `json:"seed,omitempty"` // for tests
 }
 
 // field type overrides for gencodec
@@ -224,28 +224,48 @@ type genesisAccountMarshaling struct {
 	Code       hexutil.Bytes
 	Balance    *math.HexOrDecimal256
 	Nonce      math.HexOrDecimal64
-	Storage    map[storageJSON]storageJSON
+	Storage    map[storageJSON]storageValueJSON
 	PrivateKey hexutil.Bytes
 }
 
-// storageJSON represents a 256 bit byte array, but allows less than 256 bits when
-// unmarshaling from hex.
+// storageJSON represents a 256-bit byte array (storage key) that allows less
+// than 256 bits when unmarshaling from hex.
 type storageJSON common.Hash
 
 func (h *storageJSON) UnmarshalText(text []byte) error {
 	text = bytes.TrimPrefix(text, []byte("0x"))
 	if len(text) > 64 {
-		return fmt.Errorf("too many hex characters in storage key/value %q", text)
+		return fmt.Errorf("too many hex characters in storage key %q", text)
 	}
 	offset := len(h) - len(text)/2 // pad on the left
 	if _, err := hex.Decode(h[offset:], text); err != nil {
-		return fmt.Errorf("invalid hex storage key/value %q", text)
+		return fmt.Errorf("invalid hex storage key %q", text)
 	}
 	return nil
 }
 
 func (h storageJSON) MarshalText() ([]byte, error) {
 	return hexutil.Bytes(h[:]).MarshalText()
+}
+
+// storageValueJSON represents a 512-bit byte array (storage value) that
+// allows less than 512 bits when unmarshaling from hex.
+type storageValueJSON common.StorageValue
+
+func (v *storageValueJSON) UnmarshalText(text []byte) error {
+	text = bytes.TrimPrefix(text, []byte("0x"))
+	if len(text) > 128 {
+		return fmt.Errorf("too many hex characters in storage value %q", text)
+	}
+	offset := len(v) - len(text)/2 // pad on the left
+	if _, err := hex.Decode(v[offset:], text); err != nil {
+		return fmt.Errorf("invalid hex storage value %q", text)
+	}
+	return nil
+}
+
+func (v storageValueJSON) MarshalText() ([]byte, error) {
+	return hexutil.Bytes(v[:]).MarshalText()
 }
 
 // GenesisMismatchError is raised when trying to overwrite an existing
@@ -535,6 +555,8 @@ func DeveloperGenesisBlock(gasLimit uint64, faucet common.Address) *Genesis {
 }
 
 func decodePrealloc(data string) GenesisAlloc {
+	// Prealloc data was encoded with 32-byte storage values; decode into
+	// byte slices and zero-extend to the 64-byte StorageValue width.
 	var p []struct {
 		Addr    *big.Int
 		Balance *big.Int
@@ -543,7 +565,7 @@ func decodePrealloc(data string) GenesisAlloc {
 			Code  []byte
 			Slots []struct {
 				Key common.Hash
-				Val common.Hash
+				Val []byte
 			}
 		} `rlp:"optional"`
 	}
@@ -557,9 +579,9 @@ func decodePrealloc(data string) GenesisAlloc {
 			acc.Nonce = account.Misc.Nonce
 			acc.Code = account.Misc.Code
 
-			acc.Storage = make(map[common.Hash]common.Hash)
+			acc.Storage = make(map[common.Hash]common.StorageValue)
 			for _, slot := range account.Misc.Slots {
-				acc.Storage[slot.Key] = slot.Val
+				acc.Storage[slot.Key] = common.BytesToStorageValue(slot.Val)
 			}
 		}
 		ga[common.BigToAddress(account.Addr)] = acc

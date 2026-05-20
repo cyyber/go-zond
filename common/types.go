@@ -29,7 +29,6 @@ import (
 	"strconv"
 
 	"github.com/theQRL/go-qrl/common/hexutil"
-	"golang.org/x/crypto/sha3"
 )
 
 // Lengths of hashes and addresses in bytes.
@@ -37,7 +36,14 @@ const (
 	// HashLength is the expected length of the hash
 	HashLength = 32
 	// AddressLength is the expected length of the address
-	AddressLength = 20
+	AddressLength = 64
+	// LogTopicLength is the width of a log topic, in bytes.
+	LogTopicLength = 64
+
+	// StorageValueLength is the width of a persistent storage slot value, in
+	// bytes. It matches the VM stack word so that a 512-bit value pushed by a
+	// contract round-trips through SSTORE/SLOAD without truncation.
+	StorageValueLength = 64
 )
 
 var (
@@ -45,7 +51,7 @@ var (
 	addressT = reflect.TypeFor[Address]()
 
 	// MaxAddress represents the maximum possible address value.
-	MaxAddress, _ = NewAddressFromString("Qffffffffffffffffffffffffffffffffffffffff")
+	MaxAddress, _ = NewAddressFromString("Qffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")
 
 	// MaxHash represents the maximum possible hash value.
 	MaxHash = HexToHash("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")
@@ -208,9 +214,194 @@ func (h UnprefixedHash) MarshalText() ([]byte, error) {
 	return []byte(hex.EncodeToString(h[:])), nil
 }
 
+/////////// LogTopic
+
+// LogTopic is the 64-byte topic of a contract event. Topics hold ABI-encoded
+// indexed event arguments; 64-byte addresses and 512-bit VM words use the full
+// width.
+type LogTopic [LogTopicLength]byte
+
+// BytesToLogTopic copies b into a LogTopic, right-aligned.
+//
+// QRVM LOG{0..4} opcodes push a uint512 stack word and serialize it big-endian
+// via Bytes64(). A value of N bytes sits in the LOW N bytes of that big-endian
+// encoding — the high (LogTopicLength-N) bytes are zero padding. Mirroring that
+// layout here keeps raw topic values comparable to on-chain topics.
+func BytesToLogTopic(b []byte) LogTopic {
+	var t LogTopic
+	t.SetBytes(b)
+	return t
+}
+
+// BytesToEventSignatureLogTopic copies an event signature hash into a LogTopic,
+// left-aligned.
+//
+// Hyperion emits the 32-byte Keccak event signature hash as the HIGH half of
+// the 64-byte LOG topic after the VM word-size migration, so event selectors use
+// hash || zero-padding instead of the raw-value alignment used by
+// BytesToLogTopic.
+func BytesToEventSignatureLogTopic(b []byte) LogTopic {
+	var t LogTopic
+	if len(b) > len(t) {
+		b = b[len(b)-LogTopicLength:]
+	}
+	copy(t[:], b)
+	return t
+}
+
+// HexToLogTopic parses a hex string into a LogTopic.
+func HexToLogTopic(s string) LogTopic { return BytesToLogTopic(FromHex(s)) }
+
+// Bytes returns a slice view of the topic.
+func (t LogTopic) Bytes() []byte { return t[:] }
+
+// Hex returns t as a 0x-prefixed lowercase hex string.
+func (t LogTopic) Hex() string { return hexutil.Encode(t[:]) }
+
+// Big returns t interpreted as a big-endian unsigned integer.
+func (t LogTopic) Big() *big.Int { return new(big.Int).SetBytes(t[:]) }
+
+// String implements fmt.Stringer.
+func (t LogTopic) String() string { return t.Hex() }
+
+// IsZero reports whether t is the zero topic.
+func (t LogTopic) IsZero() bool {
+	for _, b := range t {
+		if b != 0 {
+			return false
+		}
+	}
+	return true
+}
+
+// SetBytes copies b into t, right-aligned.
+//
+// See BytesToLogTopic for the rationale: QRVM LOG opcodes serialize the 512-bit
+// stack word in big-endian order, so a value of N bytes lands in
+// topic[LogTopicLength-N:] and the leading bytes are zero padding. SetBytes
+// mirrors that layout for inputs shorter than 64 bytes.
+func (t *LogTopic) SetBytes(b []byte) {
+	if len(b) > len(t) {
+		b = b[len(b)-LogTopicLength:]
+	}
+	for i := range t {
+		t[i] = 0
+	}
+	copy(t[LogTopicLength-len(b):], b)
+}
+
+// MarshalText encodes t as a 0x-prefixed hex string.
+func (t LogTopic) MarshalText() ([]byte, error) {
+	return hexutil.Bytes(t[:]).MarshalText()
+}
+
+// UnmarshalText decodes t from a 0x-prefixed hex string.
+func (t *LogTopic) UnmarshalText(input []byte) error {
+	return hexutil.UnmarshalFixedText("LogTopic", input, t[:])
+}
+
+// UnmarshalJSON decodes t from a JSON-quoted hex string.
+func (t *LogTopic) UnmarshalJSON(input []byte) error {
+	return hexutil.UnmarshalFixedJSON(reflect.TypeFor[LogTopic](), input, t[:])
+}
+
+// ImplementsGraphQLType reports whether LogTopic satisfies the Bytes64 scalar.
+func (LogTopic) ImplementsGraphQLType(name string) bool { return name == "Bytes64" }
+
+// UnmarshalGraphQL decodes t from a 0x-prefixed hex string supplied by a GraphQL query.
+func (t *LogTopic) UnmarshalGraphQL(input any) error {
+	s, ok := input.(string)
+	if !ok {
+		return fmt.Errorf("unexpected type %T for Bytes64", input)
+	}
+	return t.UnmarshalText([]byte(s))
+}
+
+/////////// StorageValue
+
+// StorageValue is the 64-byte value of a persistent storage slot. Slot keys
+// remain 32 bytes (they are Keccak-256 hashes produced by contracts) but a
+// value can hold a full 512-bit VM word — most importantly the 64-byte
+// address type, which does not fit in 32 bytes.
+type StorageValue [StorageValueLength]byte
+
+// BytesToStorageValue copies b into a StorageValue, right-aligned. If b is
+// longer than StorageValueLength it is cropped from the left.
+func BytesToStorageValue(b []byte) StorageValue {
+	var v StorageValue
+	v.SetBytes(b)
+	return v
+}
+
+// HexToStorageValue parses a hex string (with or without 0x prefix) into a
+// StorageValue.
+func HexToStorageValue(s string) StorageValue { return BytesToStorageValue(FromHex(s)) }
+
+// Bytes returns a copy of v's bytes.
+func (v StorageValue) Bytes() []byte { return v[:] }
+
+// Hex returns v as a 0x-prefixed lowercase hex string.
+func (v StorageValue) Hex() string { return hexutil.Encode(v[:]) }
+
+// Big returns v interpreted as a big-endian unsigned integer.
+func (v StorageValue) Big() *big.Int { return new(big.Int).SetBytes(v[:]) }
+
+// String implements fmt.Stringer.
+func (v StorageValue) String() string { return v.Hex() }
+
+// IsZero reports whether v is the zero value.
+func (v StorageValue) IsZero() bool {
+	for _, b := range v {
+		if b != 0 {
+			return false
+		}
+	}
+	return true
+}
+
+// SetBytes copies b into v, right-aligned. If b is longer than
+// StorageValueLength the most-significant bytes are dropped.
+func (v *StorageValue) SetBytes(b []byte) {
+	if len(b) > len(v) {
+		b = b[len(b)-StorageValueLength:]
+	}
+	// Zero first to avoid leaving stale bytes in the MSB region.
+	for i := range v {
+		v[i] = 0
+	}
+	copy(v[StorageValueLength-len(b):], b)
+}
+
+// MarshalText encodes v as a 0x-prefixed hex string.
+func (v StorageValue) MarshalText() ([]byte, error) {
+	return hexutil.Bytes(v[:]).MarshalText()
+}
+
+// UnmarshalText decodes v from a 0x-prefixed hex string.
+func (v *StorageValue) UnmarshalText(input []byte) error {
+	return hexutil.UnmarshalFixedText("StorageValue", input, v[:])
+}
+
+// UnmarshalJSON decodes v from a JSON-quoted hex string.
+func (v *StorageValue) UnmarshalJSON(input []byte) error {
+	return hexutil.UnmarshalFixedJSON(reflect.TypeFor[StorageValue](), input, v[:])
+}
+
+// ImplementsGraphQLType reports whether StorageValue satisfies the Bytes64 scalar.
+func (StorageValue) ImplementsGraphQLType(name string) bool { return name == "Bytes64" }
+
+// UnmarshalGraphQL decodes v from a 0x-prefixed hex string supplied by a GraphQL query.
+func (v *StorageValue) UnmarshalGraphQL(input any) error {
+	s, ok := input.(string)
+	if !ok {
+		return fmt.Errorf("unexpected type %T for Bytes64", input)
+	}
+	return v.UnmarshalText([]byte(s))
+}
+
 /////////// Address
 
-// Address represents the 20 byte address of a QRL account.
+// Address represents the 64 byte address of a QRL account.
 type Address [AddressLength]byte
 
 // BytesToAddress returns Address with value b.
@@ -259,35 +450,14 @@ func (a Address) Hash() Hash { return BytesToHash(a[:]) }
 // Big converts an address to a big integer.
 func (a Address) Big() *big.Int { return new(big.Int).SetBytes(a[:]) }
 
-// Hex returns an EIP55-compliant hex string representation of the address.
+// Hex returns the canonical Q-prefixed lowercase hex representation of the address.
 func (a Address) Hex() string {
-	return string(a.checksumHex())
+	return string(a.hex())
 }
 
 // String implements fmt.Stringer.
 func (a Address) String() string {
 	return a.Hex()
-}
-
-func (a *Address) checksumHex() []byte {
-	buf := a.hex()
-
-	// compute checksum
-	sha := sha3.NewLegacyKeccak256()
-	sha.Write(buf[1:])
-	hash := sha.Sum(nil)
-	for i := 1; i < len(buf); i++ {
-		hashByte := hash[(i-1)/2]
-		if (i+1)%2 == 0 {
-			hashByte = hashByte >> 4
-		} else {
-			hashByte &= 0xf
-		}
-		if buf[i] > '9' && hashByte > 7 {
-			buf[i] -= 32
-		}
-	}
-	return buf[:]
 }
 
 func (a Address) hex() []byte {
@@ -302,14 +472,13 @@ func (a Address) hex() []byte {
 func (a Address) Format(s fmt.State, c rune) {
 	switch c {
 	case 'v', 's':
-		s.Write(a.checksumHex())
+		s.Write(a.hex())
 	case 'q':
 		q := []byte{'"'}
 		s.Write(q)
-		s.Write(a.checksumHex())
+		s.Write(a.hex())
 		s.Write(q)
 	case 'x', 'X':
-		// %x disables the checksum.
 		hex := a.hex()
 		if !s.Flag('#') {
 			hex = hex[1:]
@@ -331,6 +500,7 @@ func (a *Address) SetBytes(b []byte) {
 	if len(b) > len(a) {
 		b = b[len(b)-AddressLength:]
 	}
+	clear(a[:])
 	copy(a[AddressLength-len(b):], b)
 }
 
@@ -382,8 +552,8 @@ func (a *Address) UnmarshalGraphQL(input any) error {
 	return err
 }
 
-// MixedcaseAddress retains the original string, which may or may not be
-// correctly checksummed
+// MixedcaseAddress retains the original string. QRL addresses are
+// case-insensitive and do not embed an EIP-55 style checksum.
 type MixedcaseAddress struct {
 	addr     Address
 	original string
@@ -423,15 +593,13 @@ func (ma *MixedcaseAddress) Address() Address {
 
 // String implements fmt.Stringer
 func (ma *MixedcaseAddress) String() string {
-	if ma.ValidChecksum() {
-		return fmt.Sprintf("%s [chksum ok]", ma.original)
-	}
-	return fmt.Sprintf("%s [chksum INVALID]", ma.original)
+	return ma.original
 }
 
-// ValidChecksum returns true if the address has valid checksum
+// ValidChecksum returns true for any structurally valid QRL address.
+// It is retained for compatibility with go-ethereum APIs.
 func (ma *MixedcaseAddress) ValidChecksum() bool {
-	return ma.original == ma.addr.Hex()
+	return IsAddress(ma.original)
 }
 
 // Original returns the mixed-case input string

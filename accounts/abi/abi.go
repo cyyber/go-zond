@@ -57,7 +57,7 @@ func JSON(reader io.Reader) (ABI, error) {
 
 // Pack the given method name to conform the ABI. Method call's data
 // will consist of method_id, args0, arg1, ... argN. Method id consists
-// of 4 bytes and arguments are all 32 bytes.
+// of 4 bytes and arguments are all 64 bytes.
 // Method ids are created from the first 4 bytes of the hash of the
 // methods string signature. (signature = baz(uint32,string32))
 func (abi ABI) Pack(name string, args ...any) ([]byte, error) {
@@ -87,7 +87,7 @@ func (abi ABI) getArguments(name string, data []byte) (Arguments, error) {
 	// we need to decide whether we're calling a method or an event
 	var args Arguments
 	if method, ok := abi.Methods[name]; ok {
-		if len(data)%32 != 0 {
+		if len(data)%64 != 0 {
 			return nil, fmt.Errorf("abi: improperly formatted output: %q - Bytes: %+v", data, data)
 		}
 		args = method.Outputs

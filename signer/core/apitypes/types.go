@@ -459,20 +459,24 @@ func parseInteger(encType string, encValue any) (*big.Int, error) {
 func (typedData *TypedData) EncodePrimitiveValue(encType string, encValue any, depth int) ([]byte, error) {
 	switch encType {
 	case "address":
-		retval := make([]byte, 32)
+		// Addresses on QRL are common.AddressLength bytes; right-align into
+		// a 64-byte slot so the encoding matches the 64-byte VM word used
+		// everywhere else in the struct hash. When AddressLength == 64 the
+		// right-align is a no-op (slot is fully filled).
+		retval := make([]byte, 64)
 		switch val := encValue.(type) {
 		case string:
 			if address, err := common.NewAddressFromString(val); err == nil {
-				copy(retval[12:], address.Bytes())
+				copy(retval[64-common.AddressLength:], address.Bytes())
 				return retval, nil
 			}
 		case []byte:
-			if len(val) == 20 {
-				copy(retval[12:], val)
+			if len(val) == common.AddressLength {
+				copy(retval[64-common.AddressLength:], val)
 				return retval, nil
 			}
-		case [20]byte:
-			copy(retval[12:], val[:])
+		case [common.AddressLength]byte:
+			copy(retval[64-common.AddressLength:], val[:])
 			return retval, nil
 		}
 		return nil, dataMismatchError(encType, encValue)

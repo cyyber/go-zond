@@ -27,10 +27,10 @@ import (
 )
 
 // packBytesSlice packs the given bytes as [L, V] as the canonical representation
-// bytes slice.
+// bytes slice. Bytes payloads are padded to a multiple of the 64-byte ABI slot.
 func packBytesSlice(bytes []byte, l int) []byte {
 	len := packNum(reflect.ValueOf(l))
-	return append(len, common.RightPadBytes(bytes, (l+31)/32*32)...)
+	return append(len, common.RightPadBytes(bytes, (l+63)/64*64)...)
 }
 
 // packElement packs the given reflect value according to the abi specification in
@@ -55,12 +55,12 @@ func packElement(t Type, reflectValue reflect.Value) ([]byte, error) {
 			reflectValue = mustArrayToByteSlice(reflectValue)
 		}
 
-		return common.LeftPadBytes(reflectValue.Bytes(), 32), nil
+		return common.LeftPadBytes(reflectValue.Bytes(), 64), nil
 	case BoolTy:
 		if reflectValue.Bool() {
-			return math.PaddedBigBytes(common.Big1, 32), nil
+			return math.PaddedBigBytes(common.Big1, 64), nil
 		}
-		return math.PaddedBigBytes(common.Big0, 32), nil
+		return math.PaddedBigBytes(common.Big0, 64), nil
 	case BytesTy:
 		if reflectValue.Kind() == reflect.Array {
 			reflectValue = mustArrayToByteSlice(reflectValue)
@@ -73,7 +73,10 @@ func packElement(t Type, reflectValue reflect.Value) ([]byte, error) {
 		if reflectValue.Kind() == reflect.Array {
 			reflectValue = mustArrayToByteSlice(reflectValue)
 		}
-		return common.RightPadBytes(reflectValue.Bytes(), 32), nil
+		if t.T == FunctionTy && reflectValue.Len() > 64 {
+			return []byte{}, errors.New("abi: function type does not fit in a 64-byte ABI word with 64-byte addresses")
+		}
+		return common.RightPadBytes(reflectValue.Bytes(), 64), nil
 	default:
 		return []byte{}, fmt.Errorf("could not pack element, unknown type: %v", t.T)
 	}
@@ -83,11 +86,11 @@ func packElement(t Type, reflectValue reflect.Value) ([]byte, error) {
 func packNum(value reflect.Value) []byte {
 	switch kind := value.Kind(); kind {
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		return math.U256Bytes(new(big.Int).SetUint64(value.Uint()))
+		return math.U512Bytes(new(big.Int).SetUint64(value.Uint()))
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		return math.U256Bytes(big.NewInt(value.Int()))
+		return math.U512Bytes(big.NewInt(value.Int()))
 	case reflect.Ptr:
-		return math.U256Bytes(new(big.Int).Set(value.Interface().(*big.Int)))
+		return math.U512Bytes(new(big.Int).Set(value.Interface().(*big.Int)))
 	default:
 		panic("abi: fatal error")
 	}

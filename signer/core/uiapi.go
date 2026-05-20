@@ -151,7 +151,7 @@ func (api *UIServerAPI) SetChainId(id math.HexOrDecimal64) math.HexOrDecimal64 {
 
 // Export returns encrypted private key associated with the given address in web3 keystore format.
 // Example
-// {"jsonrpc":"2.0","method":"clef_export","params":["Q19e7e376e7c213b7e7e7e46cc70a5dd086daff2a"], "id":4}
+// {"jsonrpc":"2.0","method":"clef_export","params":["Q0000000000000000000000000000000000000000000000000000000019e7e376e7c213b7e7e7e46cc70a5dd086daff2a"], "id":4}
 func (api *UIServerAPI) Export(ctx context.Context, addr common.Address) (json.RawMessage, error) {
 	// Look up the wallet containing the requested signer
 	wallet, err := api.am.Find(accounts.Account{Address: addr})
@@ -168,7 +168,7 @@ func (api *UIServerAPI) Export(ctx context.Context, addr common.Address) (json.R
 // in web3 keystore format. It will decrypt the keyJSON with the given passphrase and on successful
 // decryption it will encrypt the key with the given newPassphrase and store it in the keystore.
 // Example (the address in question has privkey `11...11`):
-// {"jsonrpc":"2.0","method":"clef_import","params":[{"address":"Q31fec69ece96b8cdac5814ff9dd92759e7c6018b","crypto":{"cipher":"aes-256-gcm","ciphertext":"f833f12f6cb57f6961fb34bbf4ff5019c9fd70e1ab98bf0f1ba164f1b4bc773e853f973b708a4ec1b5e1148de96437ac5fc75da87c6b7293628e9d45b4bc2ab7","cipherparams":{"iv":"4c2275c4a14a5e984bfaec2b"},"kdf":"argon2id","kdfparams":{"dklen":32,"m":262144,"p":1,"salt":"2c2f566f38f5b79634d17267d95a0914ed47a44fe91f9cbb0b8765ebaa0b7ddd","r":8}},"id":"216c7eac-e8c1-49af-a215-fa0036f29141","version":1},"test","yaddayadda"], "id":4}
+// {"jsonrpc":"2.0","method":"clef_import","params":[{"address":"Q0000000000000000000000000000000000000000000000000000000031fec69ece96b8cdac5814ff9dd92759e7c6018b","crypto":{"cipher":"aes-256-gcm","ciphertext":"f833f12f6cb57f6961fb34bbf4ff5019c9fd70e1ab98bf0f1ba164f1b4bc773e853f973b708a4ec1b5e1148de96437ac5fc75da87c6b7293628e9d45b4bc2ab7","cipherparams":{"iv":"4c2275c4a14a5e984bfaec2b"},"kdf":"argon2id","kdfparams":{"dklen":32,"m":262144,"p":1,"salt":"2c2f566f38f5b79634d17267d95a0914ed47a44fe91f9cbb0b8765ebaa0b7ddd","r":8}},"id":"216c7eac-e8c1-49af-a215-fa0036f29141","version":1},"test","yaddayadda"], "id":4}
 func (api *UIServerAPI) Import(ctx context.Context, keyJSON json.RawMessage, oldPassphrase, newPassphrase string) (accounts.Account, error) {
 	be := api.am.Backends(keystore.KeyStoreType)
 
