@@ -48,13 +48,13 @@ require (
 	github.com/theQRL/go-qrllib v0.0.0-20260305164948-c7005af0f8ff
 	github.com/urfave/cli/v2 v2.27.5
 	go.uber.org/automaxprocs v1.5.2
-	golang.org/x/crypto v0.48.0
+	golang.org/x/crypto v0.50.0
 	golang.org/x/exp v0.0.0-20231006140011-7918f672742d
-	golang.org/x/sync v0.19.0
-	golang.org/x/sys v0.41.0
-	golang.org/x/text v0.34.0
+	golang.org/x/sync v0.20.0
+	golang.org/x/sys v0.43.0
+	golang.org/x/text v0.36.0
 	golang.org/x/time v0.9.0
-	golang.org/x/tools v0.41.0
+	golang.org/x/tools v0.43.0
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 )
 
@@ -115,8 +115,8 @@ require (
 	github.com/tklauser/go-sysconf v0.3.12 // indirect
 	github.com/tklauser/numcpus v0.6.1 // indirect
 	github.com/xrash/smetrics v0.0.0-20240521201337-686a1a2994c1 // indirect
-	golang.org/x/mod v0.32.0 // indirect
-	golang.org/x/net v0.49.0 // indirect
+	golang.org/x/mod v0.34.0 // indirect
+	golang.org/x/net v0.52.0 // indirect
 	golang.org/x/xerrors v0.0.0-20220517211312-f3a8303e98df // indirect
 	google.golang.org/protobuf v1.33.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
@@ -128,3 +128,5 @@ tool (
 	golang.org/x/tools/cmd/stringer
 	google.golang.org/protobuf/cmd/protoc-gen-go
 )
+
+replace github.com/theQRL/go-qrllib => github.com/adamtka42/go-qrllib v0.0.0-20260519105900-7a94ef463e57
