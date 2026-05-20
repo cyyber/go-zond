@@ -92,7 +92,7 @@ func BenchmarkBloom9Lookup(b *testing.B) {
 }
 
 func BenchmarkCreateBloom(b *testing.B) {
-	to, _ := common.NewAddressFromString("Q0000000000000000000000000000000000000002")
+	to, _ := common.NewAddressFromString("Q00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000299aabbccddeeff001122334455667788")
 	var txs = Transactions{
 		NewTx(&DynamicFeeTx{
 			Nonce:     1,

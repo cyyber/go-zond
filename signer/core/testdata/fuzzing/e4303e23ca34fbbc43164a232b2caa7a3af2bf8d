@@ -48,16 +48,16 @@
     "name": "l",
     "version": "1",
     "chainId": "",
-    "verifyingContract": "QCcCCccccCCCCcCCCCCCcCcCccCcCCCcCcccccccC"
+    "verifyingContract": "Q00000000000000000000000000000000000000000000000000000000CcCCccccCCCCcCCCCCCcCcCccCcCCCcCcccccccC99aabbccddeeff001122334455667788"
   },
   "message": {
     "from": {
       "name": "",
-      "wallet": "QCD2a3d9F938E13CD947Ec05AbC7FE734Df8DD826"
+      "wallet": "Q00000000000000000000000000000000000000000000000000000000CD2a3d9F938E13CD947Ec05AbC7FE734Df8DD82699aabbccddeeff001122334455667788"
     },
     "to": {
       "name": "",
-      "wallet": "QbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB"
+      "wallet": "Q00000000000000000000000000000000000000000000000000000000bBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB99aabbccddeeff001122334455667788"
     },
     "": ""
   }

@@ -33,26 +33,35 @@ import (
 	"github.com/theQRL/go-qrl/common"
 )
 
-var (
-	address1, _       = common.NewAddressFromString("Q31fec69ece96b8cdac5814ff9dd92759e7c6018b")
-	address2, _       = common.NewAddressFromString("Q4cce0507B955D0c7e6b79269B66ed498c670Bb0a")
-	address3, _       = common.NewAddressFromString("Q2d9b972ef8219246c73363fd7c048cef81456f9d")
-	cachetestDir, _   = filepath.Abs(filepath.Join("testdata", "keystore"))
-	cachetestAccounts = []accounts.Account{
-		{
-			Address: address1,
-			URL:     accounts.URL{Scheme: KeyStoreScheme, Path: filepath.Join(cachetestDir, "UTC--2025-11-06T07-34-54.273240000Z--Q31fec69ece96b8cdac5814ff9dd92759e7c6018b")},
-		},
-		{
-			Address: address2,
-			URL:     accounts.URL{Scheme: KeyStoreScheme, Path: filepath.Join(cachetestDir, "aaa")},
-		},
-		{
-			Address: address3,
-			URL:     accounts.URL{Scheme: KeyStoreScheme, Path: filepath.Join(cachetestDir, "zzz")},
-		},
+// makeCachetestAccounts creates three freshly generated keystore accounts in a
+// new temporary directory and returns the directory plus the accounts sorted
+// the way the cache orders them by filename. Using live keygen keeps the
+// testdata tree free of address-format-specific encrypted keystore blobs.
+func makeCachetestAccounts(t *testing.T) (string, []accounts.Account) {
+	t.Helper()
+	dir := t.TempDir()
+	ks := NewKeyStore(dir, veryLightArgon2idT, veryLightArgon2idM, veryLightArgon2idP)
+	mk := func(basename string) accounts.Account {
+		acc, err := ks.NewAccount("")
+		if err != nil {
+			t.Fatalf("NewAccount: %v", err)
+		}
+		target := filepath.Join(dir, basename)
+		if err := os.Rename(acc.URL.Path, target); err != nil {
+			t.Fatalf("rename %q → %q: %v", acc.URL.Path, target, err)
+		}
+		return accounts.Account{
+			Address: acc.Address,
+			URL:     accounts.URL{Scheme: KeyStoreScheme, Path: target},
+		}
 	}
-)
+	// Byte-wise filename ordering is 'U' (0x55) < 'a' (0x61) < 'z' (0x7A),
+	// so the UTC fixture comes first, then aaa, then zzz.
+	utc := mk("UTC--2025-11-06T07-34-54.273240000Z--keystore-test-0")
+	a := mk("aaa")
+	z := mk("zzz")
+	return dir, []accounts.Account{utc, a, z}
+}
 
 // waitWatcherStart waits up to 1s for the keystore watcher to start.
 func waitWatcherStart(ks *KeyStore) bool {
@@ -89,6 +98,9 @@ func waitForAccounts(wantAccounts []accounts.Account, ks *KeyStore) error {
 func TestWatchNewFile(t *testing.T) {
 	t.Parallel()
 
+	srcDir, srcAccounts := makeCachetestAccounts(t)
+	_ = srcDir
+
 	dir, ks := tmpKeyStore(t)
 
 	// Ensure the watcher is started before adding any files.
@@ -97,13 +109,13 @@ func TestWatchNewFile(t *testing.T) {
 		t.Fatal("keystore watcher didn't start in time")
 	}
 	// Move in the files.
-	wantAccounts := make([]accounts.Account, len(cachetestAccounts))
-	for i := range cachetestAccounts {
+	wantAccounts := make([]accounts.Account, len(srcAccounts))
+	for i := range srcAccounts {
 		wantAccounts[i] = accounts.Account{
-			Address: cachetestAccounts[i].Address,
-			URL:     accounts.URL{Scheme: KeyStoreScheme, Path: filepath.Join(dir, filepath.Base(cachetestAccounts[i].URL.Path))},
+			Address: srcAccounts[i].Address,
+			URL:     accounts.URL{Scheme: KeyStoreScheme, Path: filepath.Join(dir, filepath.Base(srcAccounts[i].URL.Path))},
 		}
-		if err := cp.CopyFile(wantAccounts[i].URL.Path, cachetestAccounts[i].URL.Path); err != nil {
+		if err := cp.CopyFile(wantAccounts[i].URL.Path, srcAccounts[i].URL.Path); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -116,6 +128,7 @@ func TestWatchNewFile(t *testing.T) {
 
 func TestWatchNoDir(t *testing.T) {
 	t.Parallel()
+	_, srcAccounts := makeCachetestAccounts(t)
 	// Create ks but not the directory that it watches.
 	dir := filepath.Join(t.TempDir(), fmt.Sprintf("qrl-keystore-watchnodir-test-%d-%d", os.Getpid(), rand.Int()))
 	ks := NewKeyStore(dir, LightArgon2idT, LightArgon2idM, LightArgon2idP)
@@ -130,12 +143,12 @@ func TestWatchNoDir(t *testing.T) {
 	// Create the directory and copy a key file into it.
 	os.MkdirAll(dir, 0700)
 	file := filepath.Join(dir, "aaa")
-	if err := cp.CopyFile(file, cachetestAccounts[0].URL.Path); err != nil {
+	if err := cp.CopyFile(file, srcAccounts[0].URL.Path); err != nil {
 		t.Fatal(err)
 	}
 
 	// ks should see the account.
-	wantAccounts := []accounts.Account{cachetestAccounts[0]}
+	wantAccounts := []accounts.Account{srcAccounts[0]}
 	wantAccounts[0].URL = accounts.URL{Scheme: KeyStoreScheme, Path: file}
 	for d := 200 * time.Millisecond; d < 8*time.Second; d *= 2 {
 		list = ks.Accounts()
@@ -155,10 +168,11 @@ func TestWatchNoDir(t *testing.T) {
 
 func TestCacheInitialReload(t *testing.T) {
 	t.Parallel()
-	cache, _ := newAccountCache(cachetestDir)
-	accounts := cache.accounts()
-	if !reflect.DeepEqual(accounts, cachetestAccounts) {
-		t.Fatalf("got initial accounts: %swant %s", spew.Sdump(accounts), spew.Sdump(cachetestAccounts))
+	dir, want := makeCachetestAccounts(t)
+	cache, _ := newAccountCache(dir)
+	accts := cache.accounts()
+	if !reflect.DeepEqual(accts, want) {
+		t.Fatalf("got initial accounts: %swant %s", spew.Sdump(accts), spew.Sdump(want))
 	}
 }
 
@@ -167,13 +181,16 @@ func TestCacheAddDeleteOrder(t *testing.T) {
 	cache, _ := newAccountCache("testdata/no-such-dir")
 	cache.watcher.running = true // prevent unexpected reloads
 
-	address1, _ := common.NewAddressFromString("Q095e7baea6a6c7c4c2dfeb977efac326af552d87")
-	address2, _ := common.NewAddressFromString("Q2cac1adea150210703ba75ed097ddfe24e14f213")
-	address3, _ := common.NewAddressFromString("Q8bda78331c916a08481428e4b07c96d3e916d165")
-	address4, _ := common.NewAddressFromString("Qd49ff4eeb0b2686ed89c0fc0f2b6ea533ddbbd5e")
-	address5, _ := common.NewAddressFromString("Q7ef5a6135f1fd6a02593eedc869c6d41d934aef8")
-	address6, _ := common.NewAddressFromString("Qf466859ead1932d743d622cb74fc058882e8648a")
-	address7, _ := common.NewAddressFromString("Q289d485d9771714cce91d3393d764e1311907acc")
+	// QRL addresses constructed from distinct byte patterns (left-padded
+	// into the current AddressLength); the bytes themselves are only used
+	// for uniqueness / hasAddress lookups.
+	address1 := common.BytesToAddress(common.FromHex("095e7baea6a6c7c4c2dfeb977efac326af552d87095e7baea6a6c7c4c2dfeb977efac326af552d87a1b2c3d4e5f60102"))
+	address2 := common.BytesToAddress(common.FromHex("2cac1adea150210703ba75ed097ddfe24e14f2132cac1adea150210703ba75ed097ddfe24e14f213b2c3d4e5f6010203"))
+	address3 := common.BytesToAddress(common.FromHex("8bda78331c916a08481428e4b07c96d3e916d1658bda78331c916a08481428e4b07c96d3e916d165c3d4e5f601020304"))
+	address4 := common.BytesToAddress(common.FromHex("d49ff4eeb0b2686ed89c0fc0f2b6ea533ddbbd5ed49ff4eeb0b2686ed89c0fc0f2b6ea533ddbbd5ed4e5f60102030405"))
+	address5 := common.BytesToAddress(common.FromHex("7ef5a6135f1fd6a02593eedc869c6d41d934aef87ef5a6135f1fd6a02593eedc869c6d41d934aef8e5f6010203040506"))
+	address6 := common.BytesToAddress(common.FromHex("f466859ead1932d743d622cb74fc058882e8648af466859ead1932d743d622cb74fc058882e8648af60102030405060708"))
+	address7 := common.BytesToAddress(common.FromHex("289d485d9771714cce91d3393d764e1311907acc289d485d9771714cce91d3393d764e1311907acc0102030405060708ff"))
 	accs := []accounts.Account{
 		{
 			Address: address1,
@@ -193,7 +210,7 @@ func TestCacheAddDeleteOrder(t *testing.T) {
 		},
 		{
 			Address: address5,
-			URL:     accounts.URL{Scheme: KeyStoreScheme, Path: "UTC--2016-03-22T12-57-55.920751759Z--Q7ef5a6135f1fd6a02593eedc869c6d41d934aef8"},
+			URL:     accounts.URL{Scheme: KeyStoreScheme, Path: "UTC--2016-03-22T12-57-55.920751759Z--Q000000000000000000000000000000000000000000000000000000007ef5a6135f1fd6a02593eedc869c6d41d934aef8"},
 		},
 		{
 			Address: address6,
@@ -224,7 +241,8 @@ func TestCacheAddDeleteOrder(t *testing.T) {
 			t.Errorf("expected hasAccount(%x) to return true", a.Address)
 		}
 	}
-	address, _ := common.NewAddressFromString("Qbb81a0496aa34a64f96c2bcd28793165e1e6c08a")
+	// A distinct 64-byte address not added to the cache above.
+	address := common.BytesToAddress(common.FromHex("bb81a0496aa34a64f96c2bcd28793165e1e6c08abb81a0496aa34a64f96c2bcd28793165e1e6c08aaabbccddee0102030405"))
 	if cache.hasAddress(address) {
 		t.Errorf("expected hasAccount(%x) to return false", address)
 	}
@@ -261,9 +279,9 @@ func TestCacheFind(t *testing.T) {
 	cache, _ := newAccountCache(dir)
 	cache.watcher.running = true // prevent unexpected reloads
 
-	address1, _ := common.NewAddressFromString("Q095e7baea6a6c7c4c2dfeb977efac326af552d87")
-	address2, _ := common.NewAddressFromString("Q2cac1adea150210703ba75ed097ddfe24e14f213")
-	address3, _ := common.NewAddressFromString("Qd49ff4eeb0b2686ed89c0fc0f2b6ea533ddbbd5e")
+	address1 := common.BytesToAddress(common.FromHex("095e7baea6a6c7c4c2dfeb977efac326af552d87095e7baea6a6c7c4c2dfeb977efac326af552d87a1b2c3d4e5f60102"))
+	address2 := common.BytesToAddress(common.FromHex("2cac1adea150210703ba75ed097ddfe24e14f2132cac1adea150210703ba75ed097ddfe24e14f213b2c3d4e5f6010203"))
+	address3 := common.BytesToAddress(common.FromHex("d49ff4eeb0b2686ed89c0fc0f2b6ea533ddbbd5ed49ff4eeb0b2686ed89c0fc0f2b6ea533ddbbd5ed4e5f60102030405"))
 	accs := []accounts.Account{
 		{
 			Address: address1,
@@ -286,7 +304,7 @@ func TestCacheFind(t *testing.T) {
 		cache.add(a)
 	}
 
-	address, _ := common.NewAddressFromString("Qf466859ead1932d743d622cb74fc058882e8648a")
+	address := common.BytesToAddress(common.FromHex("f466859ead1932d743d622cb74fc058882e8648af466859ead1932d743d622cb74fc058882e8648af60102030405060708"))
 	nomatchAccount := accounts.Account{
 		Address: address,
 		URL:     accounts.URL{Scheme: KeyStoreScheme, Path: filepath.Join(dir, "something")},
@@ -337,6 +355,7 @@ func TestCacheFind(t *testing.T) {
 // is noticed by the watcher, and the account cache is updated accordingly
 func TestUpdatedKeyfileContents(t *testing.T) {
 	t.Parallel()
+	_, srcAccounts := makeCachetestAccounts(t)
 
 	// Create a temporary keystore to test with
 	dir := t.TempDir()
@@ -353,12 +372,12 @@ func TestUpdatedKeyfileContents(t *testing.T) {
 	file := filepath.Join(dir, "aaa")
 
 	// Place one of our testfiles in there
-	if err := cp.CopyFile(file, cachetestAccounts[0].URL.Path); err != nil {
+	if err := cp.CopyFile(file, srcAccounts[0].URL.Path); err != nil {
 		t.Fatal(err)
 	}
 
 	// ks should see the account.
-	wantAccounts := []accounts.Account{cachetestAccounts[0]}
+	wantAccounts := []accounts.Account{srcAccounts[0]}
 	wantAccounts[0].URL = accounts.URL{Scheme: KeyStoreScheme, Path: file}
 	if err := waitForAccounts(wantAccounts, ks); err != nil {
 		t.Error(err)
@@ -368,11 +387,11 @@ func TestUpdatedKeyfileContents(t *testing.T) {
 	os.Chtimes(file, time.Now().Add(-time.Second), time.Now().Add(-time.Second))
 
 	// Now replace file contents
-	if err := forceCopyFile(file, cachetestAccounts[1].URL.Path); err != nil {
+	if err := forceCopyFile(file, srcAccounts[1].URL.Path); err != nil {
 		t.Fatal(err)
 		return
 	}
-	wantAccounts = []accounts.Account{cachetestAccounts[1]}
+	wantAccounts = []accounts.Account{srcAccounts[1]}
 	wantAccounts[0].URL = accounts.URL{Scheme: KeyStoreScheme, Path: file}
 	if err := waitForAccounts(wantAccounts, ks); err != nil {
 		t.Errorf("First replacement failed")
@@ -384,11 +403,11 @@ func TestUpdatedKeyfileContents(t *testing.T) {
 	os.Chtimes(file, time.Now().Add(-time.Second), time.Now().Add(-time.Second))
 
 	// Now replace file contents again
-	if err := forceCopyFile(file, cachetestAccounts[2].URL.Path); err != nil {
+	if err := forceCopyFile(file, srcAccounts[2].URL.Path); err != nil {
 		t.Fatal(err)
 		return
 	}
-	wantAccounts = []accounts.Account{cachetestAccounts[2]}
+	wantAccounts = []accounts.Account{srcAccounts[2]}
 	wantAccounts[0].URL = accounts.URL{Scheme: KeyStoreScheme, Path: file}
 	if err := waitForAccounts(wantAccounts, ks); err != nil {
 		t.Errorf("Second replacement failed")

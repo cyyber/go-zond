@@ -18,7 +18,7 @@ package abi
 
 import (
 	"bytes"
-	"encoding/hex"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"math/big"
@@ -27,7 +27,6 @@ import (
 	"testing"
 
 	"github.com/theQRL/go-qrl/common"
-	"github.com/theQRL/go-qrl/common/math"
 	"github.com/theQRL/go-qrl/crypto"
 )
 
@@ -325,9 +324,10 @@ func TestMultiPack(t *testing.T) {
 	}
 
 	sig := crypto.Keccak256([]byte("bar(uint32,uint16)"))[:4]
-	sig = append(sig, make([]byte, 64)...)
-	sig[35] = 10
-	sig[67] = 11
+	// Two 64-byte ABI slots after the 4-byte selector.
+	sig = append(sig, make([]byte, 128)...)
+	sig[4+63] = 10  // uint32(10) — low byte of first slot
+	sig[4+127] = 11 // uint16(11) — low byte of second slot
 
 	packed, err := abi.Pack("bar", uint32(10), uint16(11))
 	if err != nil {
@@ -345,7 +345,7 @@ func ExampleJSON() {
 	if err != nil {
 		panic(err)
 	}
-	address, _ := common.NewAddressFromString("Q0000000000000000000000000000000000000001")
+	address, _ := common.NewAddressFromString("Q" + strings.Repeat("0", 126) + "01")
 	out, err := abi.Pack("isBar", address)
 	if err != nil {
 		panic(err)
@@ -353,7 +353,32 @@ func ExampleJSON() {
 
 	fmt.Printf("%x\n", out)
 	// Output:
-	// 1f2c40920000000000000000000000000000000000000000000000000000000000000001
+	// 1f2c409200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001
+}
+
+// abiSlotSize is the width of a single ABI slot after the 64-byte-address /
+// 512-bit VM migration.
+const abiSlotSize = 64
+
+// abiSlot returns a zero-padded big-endian encoding of v in a single ABI slot.
+func abiSlot(v uint64) []byte {
+	var b [abiSlotSize]byte
+	binary.BigEndian.PutUint64(b[abiSlotSize-8:], v)
+	return b[:]
+}
+
+// abiStringData returns the encoded tail for a dynamic string/bytes value:
+// a length slot followed by the bytes right-padded to a multiple of the slot
+// size.
+func abiStringData(data []byte) []byte {
+	out := abiSlot(uint64(len(data)))
+	padded := len(data)
+	if rem := padded % abiSlotSize; rem != 0 {
+		padded += abiSlotSize - rem
+	}
+	tail := make([]byte, padded)
+	copy(tail, data)
+	return append(out, tail...)
 }
 
 func TestInputVariableInputLength(t *testing.T) {
@@ -375,15 +400,9 @@ func TestInputVariableInputLength(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-
-	offset := make([]byte, 32)
-	offset[31] = 32
-	length := make([]byte, 32)
-	length[31] = byte(len(strin))
-	value := common.RightPadBytes([]byte(strin), 32)
-	exp := append(offset, append(length, value...)...)
-
-	// ignore first 4 bytes of the output. This is the function identifier
+	// Offset to data = 1 head slot.
+	exp := abiSlot(abiSlotSize)
+	exp = append(exp, abiStringData([]byte(strin))...)
 	strpack = strpack[4:]
 	if !bytes.Equal(strpack, exp) {
 		t.Errorf("expected %x, got %x\n", exp, strpack)
@@ -394,94 +413,58 @@ func TestInputVariableInputLength(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	// ignore first 4 bytes of the output. This is the function identifier
 	btspack = btspack[4:]
 	if !bytes.Equal(btspack, exp) {
 		t.Errorf("expected %x, got %x\n", exp, btspack)
 	}
 
-	//  test two strings
+	// test two strings (both fit in one slot's worth of data).
 	str1 := "hello"
 	str2 := "world"
 	str2pack, err := abi.Pack("strTwo", str1, str2)
 	if err != nil {
 		t.Error(err)
 	}
-
-	offset1 := make([]byte, 32)
-	offset1[31] = 64
-	length1 := make([]byte, 32)
-	length1[31] = byte(len(str1))
-	value1 := common.RightPadBytes([]byte(str1), 32)
-
-	offset2 := make([]byte, 32)
-	offset2[31] = 128
-	length2 := make([]byte, 32)
-	length2[31] = byte(len(str2))
-	value2 := common.RightPadBytes([]byte(str2), 32)
-
-	exp2 := append(offset1, offset2...)
-	exp2 = append(exp2, append(length1, value1...)...)
-	exp2 = append(exp2, append(length2, value2...)...)
-
-	// ignore first 4 bytes of the output. This is the function identifier
+	// Head is 2 offset slots = 2*64. Str1's tail is 2 slots (length + 1 data).
+	exp2 := abiSlot(2 * abiSlotSize)               // offset1
+	exp2 = append(exp2, abiSlot(4*abiSlotSize)...) // offset2 = head(2) + tail1(2)
+	exp2 = append(exp2, abiStringData([]byte(str1))...)
+	exp2 = append(exp2, abiStringData([]byte(str2))...)
 	str2pack = str2pack[4:]
 	if !bytes.Equal(str2pack, exp2) {
-		t.Errorf("expected %x, got %x\n", exp, str2pack)
+		t.Errorf("expected %x, got %x\n", exp2, str2pack)
 	}
 
-	// test two strings, first > 32, second < 32
-	str1 = strings.Repeat("a", 33)
+	// test two strings, first > slot size, second < slot size
+	str1 = strings.Repeat("a", abiSlotSize+1)
 	str2pack, err = abi.Pack("strTwo", str1, str2)
 	if err != nil {
 		t.Error(err)
 	}
-
-	offset1 = make([]byte, 32)
-	offset1[31] = 64
-	length1 = make([]byte, 32)
-	length1[31] = byte(len(str1))
-	value1 = common.RightPadBytes([]byte(str1), 64)
-	offset2[31] = 160
-
-	exp2 = append(offset1, offset2...)
-	exp2 = append(exp2, append(length1, value1...)...)
-	exp2 = append(exp2, append(length2, value2...)...)
-
-	// ignore first 4 bytes of the output. This is the function identifier
+	// Str1 tail = 1 length + ceil((64+1)/64)=2 data slots = 3 slots.
+	exp2 = abiSlot(2 * abiSlotSize)
+	exp2 = append(exp2, abiSlot(5*abiSlotSize)...) // head(2) + tail1(3)
+	exp2 = append(exp2, abiStringData([]byte(str1))...)
+	exp2 = append(exp2, abiStringData([]byte(str2))...)
 	str2pack = str2pack[4:]
 	if !bytes.Equal(str2pack, exp2) {
-		t.Errorf("expected %x, got %x\n", exp, str2pack)
+		t.Errorf("expected %x, got %x\n", exp2, str2pack)
 	}
 
-	// test two strings, first > 32, second >32
-	str1 = strings.Repeat("a", 33)
-	str2 = strings.Repeat("a", 33)
+	// test two strings, both > slot size
+	str1 = strings.Repeat("a", abiSlotSize+1)
+	str2 = strings.Repeat("a", abiSlotSize+1)
 	str2pack, err = abi.Pack("strTwo", str1, str2)
 	if err != nil {
 		t.Error(err)
 	}
-
-	offset1 = make([]byte, 32)
-	offset1[31] = 64
-	length1 = make([]byte, 32)
-	length1[31] = byte(len(str1))
-	value1 = common.RightPadBytes([]byte(str1), 64)
-
-	offset2 = make([]byte, 32)
-	offset2[31] = 160
-	length2 = make([]byte, 32)
-	length2[31] = byte(len(str2))
-	value2 = common.RightPadBytes([]byte(str2), 64)
-
-	exp2 = append(offset1, offset2...)
-	exp2 = append(exp2, append(length1, value1...)...)
-	exp2 = append(exp2, append(length2, value2...)...)
-
-	// ignore first 4 bytes of the output. This is the function identifier
+	exp2 = abiSlot(2 * abiSlotSize)
+	exp2 = append(exp2, abiSlot(5*abiSlotSize)...)
+	exp2 = append(exp2, abiStringData([]byte(str1))...)
+	exp2 = append(exp2, abiStringData([]byte(str2))...)
 	str2pack = str2pack[4:]
 	if !bytes.Equal(str2pack, exp2) {
-		t.Errorf("expected %x, got %x\n", exp, str2pack)
+		t.Errorf("expected %x, got %x\n", exp2, str2pack)
 	}
 }
 
@@ -492,6 +475,8 @@ func TestInputFixedArrayAndVariableInputLength(t *testing.T) {
 		t.Error(err)
 	}
 
+	leftPad := func(v *big.Int) []byte { return common.LeftPadBytes(v.Bytes(), abiSlotSize) }
+
 	// test string, fixed array uint256[2]
 	strin := "hello world"
 	arrin := [2]*big.Int{big.NewInt(1), big.NewInt(2)}
@@ -499,46 +484,24 @@ func TestInputFixedArrayAndVariableInputLength(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-
-	// generate expected output
-	offset := make([]byte, 32)
-	offset[31] = 96
-	length := make([]byte, 32)
-	length[31] = byte(len(strin))
-	strvalue := common.RightPadBytes([]byte(strin), 32)
-	arrinvalue1 := common.LeftPadBytes(arrin[0].Bytes(), 32)
-	arrinvalue2 := common.LeftPadBytes(arrin[1].Bytes(), 32)
-	exp := append(offset, arrinvalue1...)
-	exp = append(exp, arrinvalue2...)
-	exp = append(exp, append(length, strvalue...)...)
-
-	// ignore first 4 bytes of the output. This is the function identifier
+	// Head: string offset (slot 0) + arr[0] + arr[1]. String lives after 3 head
+	// slots at byte 3*64 = 192.
+	exp := abiSlot(3 * abiSlotSize)
+	exp = append(exp, leftPad(arrin[0])...)
+	exp = append(exp, leftPad(arrin[1])...)
+	exp = append(exp, abiStringData([]byte(strin))...)
 	fixedArrStrPack = fixedArrStrPack[4:]
 	if !bytes.Equal(fixedArrStrPack, exp) {
 		t.Errorf("expected %x, got %x\n", exp, fixedArrStrPack)
 	}
 
-	// test byte array, fixed array uint256[2]
+	// test byte array, fixed array uint256[2] — same encoding shape.
 	bytesin := []byte(strin)
 	arrin = [2]*big.Int{big.NewInt(1), big.NewInt(2)}
 	fixedArrBytesPack, err := abi.Pack("fixedArrBytes", bytesin, arrin)
 	if err != nil {
 		t.Error(err)
 	}
-
-	// generate expected output
-	offset = make([]byte, 32)
-	offset[31] = 96
-	length = make([]byte, 32)
-	length[31] = byte(len(strin))
-	strvalue = common.RightPadBytes([]byte(strin), 32)
-	arrinvalue1 = common.LeftPadBytes(arrin[0].Bytes(), 32)
-	arrinvalue2 = common.LeftPadBytes(arrin[1].Bytes(), 32)
-	exp = append(offset, arrinvalue1...)
-	exp = append(exp, arrinvalue2...)
-	exp = append(exp, append(length, strvalue...)...)
-
-	// ignore first 4 bytes of the output. This is the function identifier
 	fixedArrBytesPack = fixedArrBytesPack[4:]
 	if !bytes.Equal(fixedArrBytesPack, exp) {
 		t.Errorf("expected %x, got %x\n", exp, fixedArrBytesPack)
@@ -552,32 +515,20 @@ func TestInputFixedArrayAndVariableInputLength(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-
-	// generate expected output
-	stroffset := make([]byte, 32)
-	stroffset[31] = 128
-	strlength := make([]byte, 32)
-	strlength[31] = byte(len(strin))
-	strvalue = common.RightPadBytes([]byte(strin), 32)
-	fixedarrinvalue1 := common.LeftPadBytes(fixedarrin[0].Bytes(), 32)
-	fixedarrinvalue2 := common.LeftPadBytes(fixedarrin[1].Bytes(), 32)
-	dynarroffset := make([]byte, 32)
-	dynarroffset[31] = byte(160 + ((len(strin)/32)+1)*32)
-	dynarrlength := make([]byte, 32)
-	dynarrlength[31] = byte(len(dynarrin))
-	dynarrinvalue1 := common.LeftPadBytes(dynarrin[0].Bytes(), 32)
-	dynarrinvalue2 := common.LeftPadBytes(dynarrin[1].Bytes(), 32)
-	dynarrinvalue3 := common.LeftPadBytes(dynarrin[2].Bytes(), 32)
-	exp = append(stroffset, fixedarrinvalue1...)
-	exp = append(exp, fixedarrinvalue2...)
-	exp = append(exp, dynarroffset...)
-	exp = append(exp, append(strlength, strvalue...)...)
-	dynarrarg := append(dynarrlength, dynarrinvalue1...)
-	dynarrarg = append(dynarrarg, dynarrinvalue2...)
-	dynarrarg = append(dynarrarg, dynarrinvalue3...)
-	exp = append(exp, dynarrarg...)
-
-	// ignore first 4 bytes of the output. This is the function identifier
+	// Head: 1 str offset + 2 fixed arr + 1 dyn offset = 4 slots.
+	headSlots := uint64(4)
+	strTailSlots := uint64(1 + (len(strin)+abiSlotSize-1)/abiSlotSize) // length + data
+	stroffset := abiSlot(headSlots * abiSlotSize)
+	dynoffset := abiSlot((headSlots + strTailSlots) * abiSlotSize)
+	exp = append([]byte{}, stroffset...)
+	exp = append(exp, leftPad(fixedarrin[0])...)
+	exp = append(exp, leftPad(fixedarrin[1])...)
+	exp = append(exp, dynoffset...)
+	exp = append(exp, abiStringData([]byte(strin))...)
+	exp = append(exp, abiSlot(uint64(len(dynarrin)))...)
+	for _, v := range dynarrin {
+		exp = append(exp, leftPad(v)...)
+	}
 	mixedArrStrPack = mixedArrStrPack[4:]
 	if !bytes.Equal(mixedArrStrPack, exp) {
 		t.Errorf("expected %x, got %x\n", exp, mixedArrStrPack)
@@ -591,26 +542,14 @@ func TestInputFixedArrayAndVariableInputLength(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-
-	// generate expected output
-	stroffset = make([]byte, 32)
-	stroffset[31] = 192
-	strlength = make([]byte, 32)
-	strlength[31] = byte(len(strin))
-	strvalue = common.RightPadBytes([]byte(strin), 32)
-	fixedarrin1value1 := common.LeftPadBytes(fixedarrin1[0].Bytes(), 32)
-	fixedarrin1value2 := common.LeftPadBytes(fixedarrin1[1].Bytes(), 32)
-	fixedarrin2value1 := common.LeftPadBytes(fixedarrin2[0].Bytes(), 32)
-	fixedarrin2value2 := common.LeftPadBytes(fixedarrin2[1].Bytes(), 32)
-	fixedarrin2value3 := common.LeftPadBytes(fixedarrin2[2].Bytes(), 32)
-	exp = append(stroffset, fixedarrin1value1...)
-	exp = append(exp, fixedarrin1value2...)
-	exp = append(exp, fixedarrin2value1...)
-	exp = append(exp, fixedarrin2value2...)
-	exp = append(exp, fixedarrin2value3...)
-	exp = append(exp, append(strlength, strvalue...)...)
-
-	// ignore first 4 bytes of the output. This is the function identifier
+	// Head: 1 str offset + 2 fixed arr1 + 3 fixed arr2 = 6 slots.
+	exp = abiSlot(6 * abiSlotSize)
+	exp = append(exp, leftPad(fixedarrin1[0])...)
+	exp = append(exp, leftPad(fixedarrin1[1])...)
+	exp = append(exp, leftPad(fixedarrin2[0])...)
+	exp = append(exp, leftPad(fixedarrin2[1])...)
+	exp = append(exp, leftPad(fixedarrin2[2])...)
+	exp = append(exp, abiStringData([]byte(strin))...)
 	doubleFixedArrStrPack = doubleFixedArrStrPack[4:]
 	if !bytes.Equal(doubleFixedArrStrPack, exp) {
 		t.Errorf("expected %x, got %x\n", exp, doubleFixedArrStrPack)
@@ -625,35 +564,23 @@ func TestInputFixedArrayAndVariableInputLength(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-
-	// generate expected output
-	stroffset = make([]byte, 32)
-	stroffset[31] = 224
-	strlength = make([]byte, 32)
-	strlength[31] = byte(len(strin))
-	strvalue = common.RightPadBytes([]byte(strin), 32)
-	fixedarrin1value1 = common.LeftPadBytes(fixedarrin1[0].Bytes(), 32)
-	fixedarrin1value2 = common.LeftPadBytes(fixedarrin1[1].Bytes(), 32)
-	dynarroffset = math.U256Bytes(big.NewInt(int64(256 + ((len(strin)/32)+1)*32)))
-	dynarrlength = make([]byte, 32)
-	dynarrlength[31] = byte(len(dynarrin))
-	dynarrinvalue1 = common.LeftPadBytes(dynarrin[0].Bytes(), 32)
-	dynarrinvalue2 = common.LeftPadBytes(dynarrin[1].Bytes(), 32)
-	fixedarrin2value1 = common.LeftPadBytes(fixedarrin2[0].Bytes(), 32)
-	fixedarrin2value2 = common.LeftPadBytes(fixedarrin2[1].Bytes(), 32)
-	fixedarrin2value3 = common.LeftPadBytes(fixedarrin2[2].Bytes(), 32)
-	exp = append(stroffset, fixedarrin1value1...)
-	exp = append(exp, fixedarrin1value2...)
-	exp = append(exp, dynarroffset...)
-	exp = append(exp, fixedarrin2value1...)
-	exp = append(exp, fixedarrin2value2...)
-	exp = append(exp, fixedarrin2value3...)
-	exp = append(exp, append(strlength, strvalue...)...)
-	dynarrarg = append(dynarrlength, dynarrinvalue1...)
-	dynarrarg = append(dynarrarg, dynarrinvalue2...)
-	exp = append(exp, dynarrarg...)
-
-	// ignore first 4 bytes of the output. This is the function identifier
+	// Head: 1 str offset + 2 fixed arr1 + 1 dyn offset + 3 fixed arr2 = 7 slots.
+	headSlots = 7
+	strTailSlots = uint64(1 + (len(strin)+abiSlotSize-1)/abiSlotSize)
+	stroffset = abiSlot(headSlots * abiSlotSize)
+	dynoffset = abiSlot((headSlots + strTailSlots) * abiSlotSize)
+	exp = append([]byte{}, stroffset...)
+	exp = append(exp, leftPad(fixedarrin1[0])...)
+	exp = append(exp, leftPad(fixedarrin1[1])...)
+	exp = append(exp, dynoffset...)
+	exp = append(exp, leftPad(fixedarrin2[0])...)
+	exp = append(exp, leftPad(fixedarrin2[1])...)
+	exp = append(exp, leftPad(fixedarrin2[2])...)
+	exp = append(exp, abiStringData([]byte(strin))...)
+	exp = append(exp, abiSlot(uint64(len(dynarrin)))...)
+	for _, v := range dynarrin {
+		exp = append(exp, leftPad(v)...)
+	}
 	multipleMixedArrStrPack = multipleMixedArrStrPack[4:]
 	if !bytes.Equal(multipleMixedArrStrPack, exp) {
 		t.Errorf("expected %x, got %x\n", exp, multipleMixedArrStrPack)
@@ -759,14 +686,21 @@ func TestUnpackEvent(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	const hexdata = `000000000000000000000000376c47978271565f56deb45495afa69e59c16ab200000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000060000000000000000000000000000000000000000000000000000000000000000158`
-	data, err := hex.DecodeString(hexdata)
+	// Use a parallel input method with the same argument shape to produce the
+	// event data bytes deterministically against the current ABI slot width.
+	const inJSON = `[{"name":"received","type":"function","inputs":[{"name":"sender","type":"address"},{"name":"amount","type":"uint256"},{"name":"memo","type":"bytes"}]},{"name":"receivedAddr","type":"function","inputs":[{"name":"sender","type":"address"}]}]`
+	inAbi, err := JSON(strings.NewReader(inJSON))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(data)%32 == 0 {
-		t.Errorf("len(data) is %d, want a non-multiple of 32", len(data))
+	sender, _ := common.NewAddressFromString("Q000000000000000000000000000000000000000000000000000000000376c47978271565f56DEB45495afa69E59c16Ab2")
+	amount := big.NewInt(1)
+	memo := []byte{0x58}
+	packed, err := inAbi.Pack("received", sender, amount, memo)
+	if err != nil {
+		t.Fatal(err)
 	}
+	data := packed[4:]
 
 	type ReceivedEvent struct {
 		Sender common.Address
@@ -774,19 +708,32 @@ func TestUnpackEvent(t *testing.T) {
 		Memo   []byte
 	}
 	var ev ReceivedEvent
-
-	err = abi.UnpackIntoInterface(&ev, "received", data)
-	if err != nil {
+	if err := abi.UnpackIntoInterface(&ev, "received", data); err != nil {
 		t.Error(err)
 	}
+	if ev.Sender != sender {
+		t.Errorf("sender: got %v want %v", ev.Sender, sender)
+	}
+	if ev.Amount.Cmp(amount) != 0 {
+		t.Errorf("amount: got %s want %s", ev.Amount, amount)
+	}
+	if !bytes.Equal(ev.Memo, memo) {
+		t.Errorf("memo: got %x want %x", ev.Memo, memo)
+	}
 
+	packedAddr, err := inAbi.Pack("receivedAddr", sender)
+	if err != nil {
+		t.Fatal(err)
+	}
 	type ReceivedAddrEvent struct {
 		Sender common.Address
 	}
 	var receivedAddrEv ReceivedAddrEvent
-	err = abi.UnpackIntoInterface(&receivedAddrEv, "receivedAddr", data)
-	if err != nil {
+	if err := abi.UnpackIntoInterface(&receivedAddrEv, "receivedAddr", packedAddr[4:]); err != nil {
 		t.Error(err)
+	}
+	if receivedAddrEv.Sender != sender {
+		t.Errorf("receivedAddr sender: got %v want %v", receivedAddrEv.Sender, sender)
 	}
 }
 
@@ -797,23 +744,26 @@ func TestUnpackEventIntoMap(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	const hexdata = `000000000000000000000000376c47978271565f56deb45495afa69e59c16ab200000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000060000000000000000000000000000000000000000000000000000000000000000158`
-	data, err := hex.DecodeString(hexdata)
+	const inJSON = `[{"name":"received","type":"function","inputs":[{"name":"sender","type":"address"},{"name":"amount","type":"uint256"},{"name":"memo","type":"bytes"}]},{"name":"receivedAddr","type":"function","inputs":[{"name":"sender","type":"address"}]}]`
+	inAbi, err := JSON(strings.NewReader(inJSON))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(data)%32 == 0 {
-		t.Errorf("len(data) is %d, want a non-multiple of 32", len(data))
+	sender, _ := common.NewAddressFromString("Q000000000000000000000000000000000000000000000000000000000376c47978271565f56DEB45495afa69E59c16Ab2")
+	amount := big.NewInt(1)
+	memo := []byte{0x58}
+	packed, err := inAbi.Pack("received", sender, amount, memo)
+	if err != nil {
+		t.Fatal(err)
 	}
+	data := packed[4:]
 
-	sender, _ := common.NewAddressFromString("Q376c47978271565f56DEB45495afa69E59c16Ab2")
-	receivedMap := map[string]any{}
 	expectedReceivedMap := map[string]any{
 		"sender": sender,
-		"amount": big.NewInt(1),
-		"memo":   []byte{88},
+		"amount": amount,
+		"memo":   memo,
 	}
+	receivedMap := map[string]any{}
 	if err := abi.UnpackIntoMap(receivedMap, "received", data); err != nil {
 		t.Error(err)
 	}
@@ -830,8 +780,12 @@ func TestUnpackEventIntoMap(t *testing.T) {
 		t.Error("unpacked `received` map does not match expected map")
 	}
 
+	packedAddr, err := inAbi.Pack("receivedAddr", sender)
+	if err != nil {
+		t.Fatal(err)
+	}
 	receivedAddrMap := map[string]any{}
-	if err = abi.UnpackIntoMap(receivedAddrMap, "receivedAddr", data); err != nil {
+	if err = abi.UnpackIntoMap(receivedAddrMap, "receivedAddr", packedAddr[4:]); err != nil {
 		t.Error(err)
 	}
 	if len(receivedAddrMap) != 1 {
@@ -849,16 +803,27 @@ func TestUnpackMethodIntoMap(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	const hexdata = `00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000060000000000000000000000000000000000000000000000000000000000000015800000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000000000000000158000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000001580000000000000000000000000000000000000000000000000000000000000060000000000000000000000000000000000000000000000000000000000000015800000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000000000000000158`
-	data, err := hex.DecodeString(hexdata)
+
+	// The source data is a concatenation of return payloads for three separate
+	// calls (`send`, `get` etc.). Produce each payload via the packer to keep
+	// the expected values and slot width consistent.
+	const inJSON = `[{"name":"send","type":"function","inputs":[{"name":"amount","type":"uint256"}]},{"name":"get","type":"function","inputs":[{"name":"hash","type":"bytes"}]}]`
+	inAbi, err := JSON(strings.NewReader(inJSON))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(data)%32 != 0 {
-		t.Errorf("len(data) is %d, want a multiple of 32", len(data))
+	sendPacked, err := inAbi.Pack("send", big.NewInt(1))
+	if err != nil {
+		t.Fatal(err)
 	}
+	hashVal := []byte{0x58}
+	getPacked, err := inAbi.Pack("get", hashVal)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Tests a method with no outputs; the concrete data bytes don't matter.
+	data := append(append([]byte{}, sendPacked[4:]...), getPacked[4:]...)
 
-	// Tests a method with no outputs
 	receiveMap := map[string]any{}
 	if err = abi.UnpackIntoMap(receiveMap, "receive", data); err != nil {
 		t.Error(err)
@@ -867,9 +832,9 @@ func TestUnpackMethodIntoMap(t *testing.T) {
 		t.Error("unpacked `receive` map expected to have length 0")
 	}
 
-	// Tests a method with only outputs
+	// Tests a method with only outputs — feed just the send return payload.
 	sendMap := map[string]any{}
-	if err = abi.UnpackIntoMap(sendMap, "send", data); err != nil {
+	if err = abi.UnpackIntoMap(sendMap, "send", sendPacked[4:]); err != nil {
 		t.Error(err)
 	}
 	if len(sendMap) != 1 {
@@ -879,89 +844,86 @@ func TestUnpackMethodIntoMap(t *testing.T) {
 		t.Error("unpacked `send` map expected `amount` value of 1")
 	}
 
-	// Tests a method with outputs and inputs
+	// Tests a method with outputs and inputs — `get` return payload is a single
+	// bytes output.
 	getMap := map[string]any{}
-	if err = abi.UnpackIntoMap(getMap, "get", data); err != nil {
+	if err = abi.UnpackIntoMap(getMap, "get", getPacked[4:]); err != nil {
 		t.Error(err)
 	}
 	if len(getMap) != 1 {
 		t.Error("unpacked `get` map expected to have length 1")
 	}
-	expectedBytes := []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 96, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 88, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 96, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 88, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 96, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 88, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 96, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 88, 0}
-	if !bytes.Equal(getMap["hash"].([]byte), expectedBytes) {
-		t.Errorf("unpacked `get` map expected `hash` value of %v", expectedBytes)
+	if !bytes.Equal(getMap["hash"].([]byte), hashVal) {
+		t.Errorf("unpacked `get` map expected `hash` value of %x, got %x", hashVal, getMap["hash"])
 	}
 }
 
 func TestUnpackIntoMapNamingConflict(t *testing.T) {
 	t.Parallel()
-	// Two methods have the same name
+
+	// A shared (sender,amount,memo) payload for cases that care about the
+	// concrete bytes — regenerated against the live slot width.
+	const inJSON = `[{"name":"payload","type":"function","inputs":[{"name":"sender","type":"address"},{"name":"amount","type":"uint256"},{"name":"memo","type":"bytes"}]}]`
+	inAbi, err := JSON(strings.NewReader(inJSON))
+	if err != nil {
+		t.Fatal(err)
+	}
+	sender, _ := common.NewAddressFromString("Q000000000000000000000000000000000000000000000000000000000376c47978271565f56DEB45495afa69E59c16Ab2")
+	memo := []byte{0x58}
+	packed, err := inAbi.Pack("payload", sender, big.NewInt(1), memo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	payload := packed[4:]
+	expectedReceivedMap := map[string]any{
+		"sender": sender,
+		"amount": big.NewInt(1),
+		"memo":   memo,
+	}
+
+	// Short payload used by cases that expect a non-nil error: the length
+	// has to pass the name lookup but fail the slot-multiple check.
+	malformed := make([]byte, 96)
+
+	// Two methods have the same name → lookup must fail.
 	var abiJSON = `[{"constant":false,"inputs":[{"name":"memo","type":"bytes"}],"name":"get","outputs":[],"payable":true,"stateMutability":"payable","type":"function"},{"constant":false,"inputs":[],"name":"send","outputs":[{"name":"amount","type":"uint256"}],"payable":true,"stateMutability":"payable","type":"function"},{"constant":false,"inputs":[{"name":"addr","type":"address"}],"name":"get","outputs":[{"name":"hash","type":"bytes"}],"payable":true,"stateMutability":"payable","type":"function"}]`
 	abi, err := JSON(strings.NewReader(abiJSON))
 	if err != nil {
 		t.Fatal(err)
 	}
-	var hexdata = `00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000060000000000000000000000000000000000000000000000000000000000000000158`
-	data, err := hex.DecodeString(hexdata)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(data)%32 == 0 {
-		t.Errorf("len(data) is %d, want a non-multiple of 32", len(data))
-	}
 	getMap := map[string]any{}
-	if err = abi.UnpackIntoMap(getMap, "get", data); err == nil {
+	if err = abi.UnpackIntoMap(getMap, "get", malformed); err == nil {
 		t.Error("naming conflict between two methods; error expected")
 	}
 
-	// Two events have the same name
+	// Two events have the same name → first one wins, unpack OK.
 	abiJSON = `[{"constant":false,"inputs":[{"name":"memo","type":"bytes"}],"name":"receive","outputs":[],"payable":true,"stateMutability":"payable","type":"function"},{"anonymous":false,"inputs":[{"indexed":false,"name":"sender","type":"address"},{"indexed":false,"name":"amount","type":"uint256"},{"indexed":false,"name":"memo","type":"bytes"}],"name":"received","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"name":"sender","type":"address"}],"name":"received","type":"event"}]`
 	abi, err = JSON(strings.NewReader(abiJSON))
 	if err != nil {
 		t.Fatal(err)
 	}
-	hexdata = `000000000000000000000000376c47978271565f56deb45495afa69e59c16ab200000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000060000000000000000000000000000000000000000000000000000000000000000158`
-	data, err = hex.DecodeString(hexdata)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(data)%32 == 0 {
-		t.Errorf("len(data) is %d, want a non-multiple of 32", len(data))
-	}
 	receivedMap := map[string]any{}
-	if err = abi.UnpackIntoMap(receivedMap, "received", data); err != nil {
+	if err = abi.UnpackIntoMap(receivedMap, "received", payload); err != nil {
 		t.Error("naming conflict between two events; no error expected")
 	}
 
-	// Method and event have the same name
+	// Method and event have the same name → lookup must fail.
 	abiJSON = `[{"constant":false,"inputs":[{"name":"memo","type":"bytes"}],"name":"received","outputs":[],"payable":true,"stateMutability":"payable","type":"function"},{"anonymous":false,"inputs":[{"indexed":false,"name":"sender","type":"address"},{"indexed":false,"name":"amount","type":"uint256"},{"indexed":false,"name":"memo","type":"bytes"}],"name":"received","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"name":"sender","type":"address"}],"name":"receivedAddr","type":"event"}]`
 	abi, err = JSON(strings.NewReader(abiJSON))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(data)%32 == 0 {
-		t.Errorf("len(data) is %d, want a non-multiple of 32", len(data))
-	}
-	if err = abi.UnpackIntoMap(receivedMap, "received", data); err == nil {
+	if err = abi.UnpackIntoMap(receivedMap, "received", malformed); err == nil {
 		t.Error("naming conflict between an event and a method; error expected")
 	}
 
-	// Conflict is case sensitive
+	// Case-sensitive — `Received` is a distinct event; unpack succeeds.
 	abiJSON = `[{"constant":false,"inputs":[{"name":"memo","type":"bytes"}],"name":"received","outputs":[],"payable":true,"stateMutability":"payable","type":"function"},{"anonymous":false,"inputs":[{"indexed":false,"name":"sender","type":"address"},{"indexed":false,"name":"amount","type":"uint256"},{"indexed":false,"name":"memo","type":"bytes"}],"name":"Received","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"name":"sender","type":"address"}],"name":"receivedAddr","type":"event"}]`
 	abi, err = JSON(strings.NewReader(abiJSON))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(data)%32 == 0 {
-		t.Errorf("len(data) is %d, want a non-multiple of 32", len(data))
-	}
-	sender, _ := common.NewAddressFromString("Q376c47978271565f56DEB45495afa69E59c16Ab2")
-	expectedReceivedMap := map[string]any{
-		"sender": sender,
-		"amount": big.NewInt(1),
-		"memo":   []byte{88},
-	}
-	if err = abi.UnpackIntoMap(receivedMap, "Received", data); err != nil {
+	if err = abi.UnpackIntoMap(receivedMap, "Received", payload); err != nil {
 		t.Error(err)
 	}
 	if len(receivedMap) != 3 {
@@ -1190,21 +1152,47 @@ func TestUnnamedEventParam(t *testing.T) {
 func TestUnpackRevert(t *testing.T) {
 	t.Parallel()
 
+	// Helper: encode revert payload for Error(string reason).
+	revert := func(reason string) []byte {
+		stringTy, err := NewType("string", "", nil)
+		if err != nil {
+			t.Fatalf("build string type: %v", err)
+		}
+		body, err := (Arguments{{Type: stringTy}}).Pack(reason)
+		if err != nil {
+			t.Fatalf("pack revert reason: %v", err)
+		}
+		return append(append([]byte{}, revertSelector...), body...)
+	}
+	// Helper: encode revert payload for Panic(uint256 code).
+	panicPayload := func(code *big.Int) []byte {
+		uintTy, err := NewType("uint256", "", nil)
+		if err != nil {
+			t.Fatalf("build uint256 type: %v", err)
+		}
+		body, err := (Arguments{{Type: uintTy}}).Pack(code)
+		if err != nil {
+			t.Fatalf("pack panic code: %v", err)
+		}
+		return append(append([]byte{}, panicSelector...), body...)
+	}
+
 	var cases = []struct {
-		input     string
+		input     []byte
 		expect    string
 		expectErr error
 	}{
-		{"", "", errors.New("invalid data for unpacking")},
-		{"08c379a1", "", errors.New("invalid data for unpacking")},
-		{"08c379a00000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000d72657665727420726561736f6e00000000000000000000000000000000000000", "revert reason", nil},
-		{"4e487b710000000000000000000000000000000000000000000000000000000000000000", "generic panic", nil},
-		{"4e487b7100000000000000000000000000000000000000000000000000000000000000ff", "unknown panic code: 0xff", nil},
+		{nil, "", errors.New("invalid data for unpacking")},
+		// Valid selector but empty body.
+		{common.Hex2Bytes("08c379a1"), "", errors.New("invalid data for unpacking")},
+		{revert("revert reason"), "revert reason", nil},
+		{panicPayload(big.NewInt(0)), "generic panic", nil},
+		{panicPayload(big.NewInt(0xff)), "unknown panic code: 0xff", nil},
 	}
 	for index, c := range cases {
 		t.Run(fmt.Sprintf("case %d", index), func(t *testing.T) {
 			t.Parallel()
-			got, err := UnpackRevert(common.Hex2Bytes(c.input))
+			got, err := UnpackRevert(c.input)
 			if c.expectErr != nil {
 				if err == nil {
 					t.Fatalf("Expected non-nil error")

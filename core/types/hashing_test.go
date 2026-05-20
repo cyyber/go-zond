@@ -28,13 +28,13 @@ import (
 	"github.com/theQRL/go-qrl/common/hexutil"
 	"github.com/theQRL/go-qrl/core/rawdb"
 	"github.com/theQRL/go-qrl/core/types"
-	"github.com/theQRL/go-qrl/crypto/pqcrypto/wallet"
+	"github.com/theQRL/go-qrl/internal/testutil"
 	"github.com/theQRL/go-qrl/rlp"
 	"github.com/theQRL/go-qrl/trie"
 )
 
 func TestDeriveSha(t *testing.T) {
-	txs, err := genTxs(0)
+	txs, err := genTxs(t, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -44,7 +44,7 @@ func TestDeriveSha(t *testing.T) {
 		if !bytes.Equal(got[:], exp[:]) {
 			t.Fatalf("%d txs: got %x exp %x", len(txs), got, exp)
 		}
-		newTxs, err := genTxs(uint64(len(txs) + 1))
+		newTxs, err := genTxs(t, uint64(len(txs)+1))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -54,29 +54,53 @@ func TestDeriveSha(t *testing.T) {
 
 // TestEIP2718DeriveSha tests that the input to the DeriveSha function is correct.
 func TestEIP2718DeriveSha(t *testing.T) {
-	for _, tc := range []struct {
-		rlpData string
-		exp     string
-	}{
-		{
-			rlpData: "b202f001010203825208940102030405060708090a0b0c0d0e0f101112131404820506c08301020383070809820a0b830c0d0e",
-			exp:     "01 02f001010203825208940102030405060708090a0b0c0d0e0f101112131404820506c08301020383070809820a0b830c0d0e\n80 02f001010203825208940102030405060708090a0b0c0d0e0f101112131404820506c08301020383070809820a0b830c0d0e\n",
+	var to common.Address
+	for i := range to {
+		to[i] = byte(i + 1)
+	}
+	tx := types.NewTx(&types.DynamicFeeTx{
+		ChainID:   big.NewInt(1),
+		Nonce:     1,
+		GasTipCap: big.NewInt(2),
+		GasFeeCap: big.NewInt(3),
+		Gas:       21000,
+		To:        &to,
+		Value:     big.NewInt(4),
+		Data:      common.FromHex("0506"),
+		AccessList: types.AccessList{
+			{
+				Address:     common.BytesToAddress(common.FromHex("010203")),
+				StorageKeys: []common.Hash{common.BytesToHash(common.FromHex("070809"))},
+			},
 		},
-	} {
-		d := &hashToHumanReadable{}
-		var t1, t2 types.Transaction
-		rlp.DecodeBytes(common.FromHex(tc.rlpData), &t1)
-		rlp.DecodeBytes(common.FromHex(tc.rlpData), &t2)
-		txs := types.Transactions{&t1, &t2}
-		types.DeriveSha(txs, d)
-		if tc.exp != string(d.data) {
-			t.Fatalf("Want\n%v\nhave:\n%v", tc.exp, string(d.data))
-		}
+	})
+	txdata, err := tx.MarshalBinary()
+	if err != nil {
+		t.Fatal(err)
+	}
+	rlpData, err := rlp.EncodeToBytes(txdata)
+	if err != nil {
+		t.Fatal(err)
+	}
+	d := &hashToHumanReadable{}
+	var t1, t2 types.Transaction
+	if err := rlp.DecodeBytes(rlpData, &t1); err != nil {
+		t.Fatal(err)
+	}
+	if err := rlp.DecodeBytes(rlpData, &t2); err != nil {
+		t.Fatal(err)
+	}
+	txs := types.Transactions{&t1, &t2}
+	types.DeriveSha(txs, d)
+	typedTx := common.Bytes2Hex(txdata)
+	exp := "01 " + typedTx + "\n80 " + typedTx + "\n"
+	if exp != string(d.data) {
+		t.Fatalf("Want\n%v\nhave:\n%v", exp, string(d.data))
 	}
 }
 
 func BenchmarkDeriveSha200(b *testing.B) {
-	txs, err := genTxs(200)
+	txs, err := genTxs(b, 200)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -141,12 +165,10 @@ func TestDerivableList(t *testing.T) {
 	}
 }
 
-func genTxs(num uint64) (types.Transactions, error) {
-	wallet, err := wallet.RestoreFromSeedHex("0x010000deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef00000000000000000000000000000000")
-	if err != nil {
-		return nil, err
-	}
-	var addr = common.Address(wallet.GetAddress())
+func genTxs(tb testing.TB, num uint64) (types.Transactions, error) {
+	acc := testutil.LoadAccount(tb, "alice")
+	wallet := acc.Wallet(tb)
+	addr := acc.AddressBytes(tb)
 	newTx := func(i uint64) (*types.Transaction, error) {
 		signer := types.NewZondSigner(big.NewInt(18))
 		utx := types.NewTx(&types.DynamicFeeTx{

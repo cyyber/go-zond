@@ -59,7 +59,7 @@ func TestUpdateLeaks(t *testing.T) {
 		state.AddBalance(addr, big.NewInt(int64(11*i)))
 		state.SetNonce(addr, uint64(42*i))
 		if i%2 == 0 {
-			state.SetState(addr, common.BytesToHash([]byte{i, i, i}), common.BytesToHash([]byte{i, i, i, i}))
+			state.SetState(addr, common.BytesToHash([]byte{i, i, i}), common.BytesToStorageValue([]byte{i, i, i, i}))
 		}
 		if i%3 == 0 {
 			state.SetCode(addr, []byte{i, i, i, i, i})
@@ -94,8 +94,8 @@ func TestIntermediateLeaks(t *testing.T) {
 		state.SetBalance(addr, big.NewInt(int64(11*i)+int64(tweak)))
 		state.SetNonce(addr, uint64(42*i+tweak))
 		if i%2 == 0 {
-			state.SetState(addr, common.Hash{i, i, i, 0}, common.Hash{})
-			state.SetState(addr, common.Hash{i, i, i, tweak}, common.Hash{i, i, i, i, tweak})
+			state.SetState(addr, common.Hash{i, i, i, 0}, common.StorageValue{})
+			state.SetState(addr, common.Hash{i, i, i, tweak}, common.StorageValue{i, i, i, i, tweak})
 		}
 		if i%3 == 0 {
 			state.SetCode(addr, []byte{i, i, i, i, i, tweak})
@@ -287,7 +287,8 @@ func newTestAction(addr common.Address, r *rand.Rand) testAction {
 		{
 			name: "SetState",
 			fn: func(a testAction, s *StateDB) {
-				var key, val common.Hash
+				var key common.Hash
+				var val common.StorageValue
 				binary.BigEndian.PutUint16(key[:], uint16(a.args[0]))
 				binary.BigEndian.PutUint16(val[:], uint16(a.args[1]))
 				s.SetState(addr, key, val)
@@ -434,7 +435,7 @@ func (test *snapshotTest) run() bool {
 	return true
 }
 
-func forEachStorage(s *StateDB, addr common.Address, cb func(key, value common.Hash) bool) error {
+func forEachStorage(s *StateDB, addr common.Address, cb func(key common.Hash, value common.StorageValue) bool) error {
 	so := s.getStateObject(addr)
 	if so == nil {
 		return nil
@@ -463,7 +464,7 @@ func forEachStorage(s *StateDB, addr common.Address, cb func(key, value common.H
 			if err != nil {
 				return err
 			}
-			if !cb(key, common.BytesToHash(content)) {
+			if !cb(key, common.BytesToStorageValue(content)) {
 				return nil
 			}
 		}
@@ -491,10 +492,10 @@ func (test *snapshotTest) checkEqual(state, checkstate *StateDB) error {
 		checkeq("GetCodeSize", state.GetCodeSize(addr), checkstate.GetCodeSize(addr))
 		// Check storage.
 		if obj := state.getStateObject(addr); obj != nil {
-			forEachStorage(state, addr, func(key, value common.Hash) bool {
+			forEachStorage(state, addr, func(key common.Hash, value common.StorageValue) bool {
 				return checkeq("GetState("+key.Hex()+")", checkstate.GetState(addr, key), value)
 			})
-			forEachStorage(checkstate, addr, func(key, value common.Hash) bool {
+			forEachStorage(checkstate, addr, func(key common.Hash, value common.StorageValue) bool {
 				return checkeq("GetState("+key.Hex()+")", checkstate.GetState(addr, key), value)
 			})
 		}
@@ -536,7 +537,7 @@ func TestTouchDelete(t *testing.T) {
 // See https://github.com/theQRL/go-qrl/pull/15225#issuecomment-380191512
 func TestCopyOfCopy(t *testing.T) {
 	state, _ := New(types.EmptyRootHash, NewDatabase(rawdb.NewMemoryDatabase()), nil)
-	addr, _ := common.NewAddressFromString("Q000000000000000000000000000000000000aaaa")
+	addr, _ := common.NewAddressFromString("Q00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000aaaa99aabbccddeeff001122334455667788")
 	state.SetBalance(addr, big.NewInt(42))
 
 	if got := state.Copy().GetBalance(addr).Uint64(); got != 42 {
@@ -556,9 +557,9 @@ func TestCopyCommitCopy(t *testing.T) {
 	state, _ := New(types.EmptyRootHash, tdb, nil)
 
 	// Create an account and check if the retrieved balance is correct
-	addr, _ := common.NewAddressFromString("Qaffeaffeaffeaffeaffeaffeaffeaffeaffeaffe")
+	addr, _ := common.NewAddressFromString("Q00000000000000000000000000000000000000000000000000000000affeaffeaffeaffeaffeaffeaffeaffeaffeaffe99aabbccddeeff001122334455667788")
 	skey := common.HexToHash("aaa")
-	sval := common.HexToHash("bbb")
+	sval := common.HexToStorageValue("bbb")
 
 	state.SetBalance(addr, big.NewInt(42)) // Change the account trie
 	state.SetCode(addr, []byte("hello"))   // Change an external metadata
@@ -573,7 +574,7 @@ func TestCopyCommitCopy(t *testing.T) {
 	if val := state.GetState(addr, skey); val != sval {
 		t.Fatalf("initial non-committed storage slot mismatch: have %x, want %x", val, sval)
 	}
-	if val := state.GetCommittedState(addr, skey); val != (common.Hash{}) {
+	if val := state.GetCommittedState(addr, skey); val != (common.StorageValue{}) {
 		t.Fatalf("initial committed storage slot mismatch: have %x, want %x", val, common.Hash{})
 	}
 	// Copy the non-committed state database and check pre/post commit balance
@@ -587,7 +588,7 @@ func TestCopyCommitCopy(t *testing.T) {
 	if val := copyOne.GetState(addr, skey); val != sval {
 		t.Fatalf("first copy pre-commit non-committed storage slot mismatch: have %x, want %x", val, sval)
 	}
-	if val := copyOne.GetCommittedState(addr, skey); val != (common.Hash{}) {
+	if val := copyOne.GetCommittedState(addr, skey); val != (common.StorageValue{}) {
 		t.Fatalf("first copy pre-commit committed storage slot mismatch: have %x, want %x", val, common.Hash{})
 	}
 	// Copy the copy and check the balance once more
@@ -601,7 +602,7 @@ func TestCopyCommitCopy(t *testing.T) {
 	if val := copyTwo.GetState(addr, skey); val != sval {
 		t.Fatalf("second copy non-committed storage slot mismatch: have %x, want %x", val, sval)
 	}
-	if val := copyTwo.GetCommittedState(addr, skey); val != (common.Hash{}) {
+	if val := copyTwo.GetCommittedState(addr, skey); val != (common.StorageValue{}) {
 		t.Fatalf("second copy committed storage slot mismatch: have %x, want %x", val, sval)
 	}
 	// Commit state, ensure states can be loaded from disk
@@ -629,9 +630,9 @@ func TestCopyCopyCommitCopy(t *testing.T) {
 	state, _ := New(types.EmptyRootHash, NewDatabase(rawdb.NewMemoryDatabase()), nil)
 
 	// Create an account and check if the retrieved balance is correct
-	addr, _ := common.NewAddressFromString("Qaffeaffeaffeaffeaffeaffeaffeaffeaffeaffe")
+	addr, _ := common.NewAddressFromString("Q00000000000000000000000000000000000000000000000000000000affeaffeaffeaffeaffeaffeaffeaffeaffeaffe99aabbccddeeff001122334455667788")
 	skey := common.HexToHash("aaa")
-	sval := common.HexToHash("bbb")
+	sval := common.HexToStorageValue("bbb")
 
 	state.SetBalance(addr, big.NewInt(42)) // Change the account trie
 	state.SetCode(addr, []byte("hello"))   // Change an external metadata
@@ -646,7 +647,7 @@ func TestCopyCopyCommitCopy(t *testing.T) {
 	if val := state.GetState(addr, skey); val != sval {
 		t.Fatalf("initial non-committed storage slot mismatch: have %x, want %x", val, sval)
 	}
-	if val := state.GetCommittedState(addr, skey); val != (common.Hash{}) {
+	if val := state.GetCommittedState(addr, skey); val != (common.StorageValue{}) {
 		t.Fatalf("initial committed storage slot mismatch: have %x, want %x", val, common.Hash{})
 	}
 	// Copy the non-committed state database and check pre/post commit balance
@@ -660,7 +661,7 @@ func TestCopyCopyCommitCopy(t *testing.T) {
 	if val := copyOne.GetState(addr, skey); val != sval {
 		t.Fatalf("first copy non-committed storage slot mismatch: have %x, want %x", val, sval)
 	}
-	if val := copyOne.GetCommittedState(addr, skey); val != (common.Hash{}) {
+	if val := copyOne.GetCommittedState(addr, skey); val != (common.StorageValue{}) {
 		t.Fatalf("first copy committed storage slot mismatch: have %x, want %x", val, common.Hash{})
 	}
 	// Copy the copy and check the balance once more
@@ -674,7 +675,7 @@ func TestCopyCopyCommitCopy(t *testing.T) {
 	if val := copyTwo.GetState(addr, skey); val != sval {
 		t.Fatalf("second copy pre-commit non-committed storage slot mismatch: have %x, want %x", val, sval)
 	}
-	if val := copyTwo.GetCommittedState(addr, skey); val != (common.Hash{}) {
+	if val := copyTwo.GetCommittedState(addr, skey); val != (common.StorageValue{}) {
 		t.Fatalf("second copy pre-commit committed storage slot mismatch: have %x, want %x", val, common.Hash{})
 	}
 	// Copy the copy-copy and check the balance once more
@@ -688,7 +689,7 @@ func TestCopyCopyCommitCopy(t *testing.T) {
 	if val := copyThree.GetState(addr, skey); val != sval {
 		t.Fatalf("third copy non-committed storage slot mismatch: have %x, want %x", val, sval)
 	}
-	if val := copyThree.GetCommittedState(addr, skey); val != (common.Hash{}) {
+	if val := copyThree.GetCommittedState(addr, skey); val != (common.StorageValue{}) {
 		t.Fatalf("third copy committed storage slot mismatch: have %x, want %x", val, sval)
 	}
 }
@@ -698,9 +699,9 @@ func TestCommitCopy(t *testing.T) {
 	state, _ := New(types.EmptyRootHash, NewDatabase(rawdb.NewMemoryDatabase()), nil)
 
 	// Create an account and check if the retrieved balance is correct
-	addr, _ := common.NewAddressFromString("Qaffeaffeaffeaffeaffeaffeaffeaffeaffeaffe")
+	addr, _ := common.NewAddressFromString("Q00000000000000000000000000000000000000000000000000000000affeaffeaffeaffeaffeaffeaffeaffeaffeaffe99aabbccddeeff001122334455667788")
 	skey := common.HexToHash("aaa")
-	sval := common.HexToHash("bbb")
+	sval := common.HexToStorageValue("bbb")
 
 	state.SetBalance(addr, big.NewInt(42)) // Change the account trie
 	state.SetCode(addr, []byte("hello"))   // Change an external metadata
@@ -715,7 +716,7 @@ func TestCommitCopy(t *testing.T) {
 	if val := state.GetState(addr, skey); val != sval {
 		t.Fatalf("initial non-committed storage slot mismatch: have %x, want %x", val, sval)
 	}
-	if val := state.GetCommittedState(addr, skey); val != (common.Hash{}) {
+	if val := state.GetCommittedState(addr, skey); val != (common.StorageValue{}) {
 		t.Fatalf("initial committed storage slot mismatch: have %x, want %x", val, common.Hash{})
 	}
 	// Copy the committed state database, the copied one is not functional.
@@ -727,10 +728,10 @@ func TestCommitCopy(t *testing.T) {
 	if code := copied.GetCode(addr); code != nil {
 		t.Fatalf("unexpected code: have %x", code)
 	}
-	if val := copied.GetState(addr, skey); val != (common.Hash{}) {
+	if val := copied.GetState(addr, skey); val != (common.StorageValue{}) {
 		t.Fatalf("unexpected storage slot: have %x", val)
 	}
-	if val := copied.GetCommittedState(addr, skey); val != (common.Hash{}) {
+	if val := copied.GetCommittedState(addr, skey); val != (common.StorageValue{}) {
 		t.Fatalf("unexpected storage slot: have %x", val)
 	}
 	if !errors.Is(copied.Error(), trie.ErrCommitted) {
@@ -872,11 +873,11 @@ func TestStateDBAccessList(t *testing.T) {
 		}
 	}
 
-	state.AddAddressToAccessList(addr("Q00000000000000000000000000000000000000aa"))          // 1
-	state.AddSlotToAccessList(addr("Q00000000000000000000000000000000000000bb"), slot("01")) // 2,3
-	state.AddSlotToAccessList(addr("Q00000000000000000000000000000000000000bb"), slot("02")) // 4
-	verifyAddrs("Q00000000000000000000000000000000000000aa", "Q00000000000000000000000000000000000000bb")
-	verifySlots("Q00000000000000000000000000000000000000bb", "01", "02")
+	state.AddAddressToAccessList(addr("Q0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000aa99aabbccddeeff001122334455667788"))          // 1
+	state.AddSlotToAccessList(addr("Q0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000bb99aabbccddeeff001122334455667788"), slot("01")) // 2,3
+	state.AddSlotToAccessList(addr("Q0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000bb99aabbccddeeff001122334455667788"), slot("02")) // 4
+	verifyAddrs("Q0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000aa99aabbccddeeff001122334455667788", "Q0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000bb99aabbccddeeff001122334455667788")
+	verifySlots("Q0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000bb99aabbccddeeff001122334455667788", "01", "02")
 
 	// Make a copy
 	stateCopy1 := state.Copy()
@@ -885,78 +886,78 @@ func TestStateDBAccessList(t *testing.T) {
 	}
 
 	// same again, should cause no journal entries
-	state.AddSlotToAccessList(addr("Q00000000000000000000000000000000000000bb"), slot("01"))
-	state.AddSlotToAccessList(addr("Q00000000000000000000000000000000000000bb"), slot("02"))
-	state.AddAddressToAccessList(addr("Q00000000000000000000000000000000000000aa"))
+	state.AddSlotToAccessList(addr("Q0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000bb99aabbccddeeff001122334455667788"), slot("01"))
+	state.AddSlotToAccessList(addr("Q0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000bb99aabbccddeeff001122334455667788"), slot("02"))
+	state.AddAddressToAccessList(addr("Q0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000aa99aabbccddeeff001122334455667788"))
 	if exp, got := 4, state.journal.length(); exp != got {
 		t.Fatalf("journal length mismatch: have %d, want %d", got, exp)
 	}
 	// some new ones
-	state.AddSlotToAccessList(addr("Q00000000000000000000000000000000000000bb"), slot("03")) // 5
-	state.AddSlotToAccessList(addr("Q00000000000000000000000000000000000000aa"), slot("01")) // 6
-	state.AddSlotToAccessList(addr("Q00000000000000000000000000000000000000cc"), slot("01")) // 7,8
-	state.AddAddressToAccessList(addr("Q00000000000000000000000000000000000000cc"))
+	state.AddSlotToAccessList(addr("Q0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000bb99aabbccddeeff001122334455667788"), slot("03")) // 5
+	state.AddSlotToAccessList(addr("Q0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000aa99aabbccddeeff001122334455667788"), slot("01")) // 6
+	state.AddSlotToAccessList(addr("Q0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000cc99aabbccddeeff001122334455667788"), slot("01")) // 7,8
+	state.AddAddressToAccessList(addr("Q0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000cc99aabbccddeeff001122334455667788"))
 	if exp, got := 8, state.journal.length(); exp != got {
 		t.Fatalf("journal length mismatch: have %d, want %d", got, exp)
 	}
 
-	verifyAddrs("Q00000000000000000000000000000000000000aa", "Q00000000000000000000000000000000000000bb", "Q00000000000000000000000000000000000000cc")
-	verifySlots("Q00000000000000000000000000000000000000aa", "01")
-	verifySlots("Q00000000000000000000000000000000000000bb", "01", "02", "03")
-	verifySlots("Q00000000000000000000000000000000000000cc", "01")
+	verifyAddrs("Q0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000aa99aabbccddeeff001122334455667788", "Q0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000bb99aabbccddeeff001122334455667788", "Q0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000cc99aabbccddeeff001122334455667788")
+	verifySlots("Q0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000aa99aabbccddeeff001122334455667788", "01")
+	verifySlots("Q0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000bb99aabbccddeeff001122334455667788", "01", "02", "03")
+	verifySlots("Q0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000cc99aabbccddeeff001122334455667788", "01")
 
 	// now start rolling back changes
 	state.journal.revert(state, 7)
-	if _, ok := state.SlotInAccessList(addr("Q00000000000000000000000000000000000000cc"), slot("01")); ok {
+	if _, ok := state.SlotInAccessList(addr("Q0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000cc99aabbccddeeff001122334455667788"), slot("01")); ok {
 		t.Fatalf("slot present, expected missing")
 	}
-	verifyAddrs("Q00000000000000000000000000000000000000aa", "Q00000000000000000000000000000000000000bb", "Q00000000000000000000000000000000000000cc")
-	verifySlots("Q00000000000000000000000000000000000000aa", "01")
-	verifySlots("Q00000000000000000000000000000000000000bb", "01", "02", "03")
+	verifyAddrs("Q0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000aa99aabbccddeeff001122334455667788", "Q0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000bb99aabbccddeeff001122334455667788", "Q0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000cc99aabbccddeeff001122334455667788")
+	verifySlots("Q0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000aa99aabbccddeeff001122334455667788", "01")
+	verifySlots("Q0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000bb99aabbccddeeff001122334455667788", "01", "02", "03")
 
 	state.journal.revert(state, 6)
-	if state.AddressInAccessList(addr("Q00000000000000000000000000000000000000cc")) {
+	if state.AddressInAccessList(addr("Q0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000cc99aabbccddeeff001122334455667788")) {
 		t.Fatalf("addr present, expected missing")
 	}
-	verifyAddrs("Q00000000000000000000000000000000000000aa", "Q00000000000000000000000000000000000000bb")
-	verifySlots("Q00000000000000000000000000000000000000aa", "01")
-	verifySlots("Q00000000000000000000000000000000000000bb", "01", "02", "03")
+	verifyAddrs("Q0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000aa99aabbccddeeff001122334455667788", "Q0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000bb99aabbccddeeff001122334455667788")
+	verifySlots("Q0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000aa99aabbccddeeff001122334455667788", "01")
+	verifySlots("Q0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000bb99aabbccddeeff001122334455667788", "01", "02", "03")
 
 	state.journal.revert(state, 5)
-	if _, ok := state.SlotInAccessList(addr("Q00000000000000000000000000000000000000aa"), slot("01")); ok {
+	if _, ok := state.SlotInAccessList(addr("Q0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000aa99aabbccddeeff001122334455667788"), slot("01")); ok {
 		t.Fatalf("slot present, expected missing")
 	}
-	verifyAddrs("Q00000000000000000000000000000000000000aa", "Q00000000000000000000000000000000000000bb")
-	verifySlots("Q00000000000000000000000000000000000000bb", "01", "02", "03")
+	verifyAddrs("Q0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000aa99aabbccddeeff001122334455667788", "Q0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000bb99aabbccddeeff001122334455667788")
+	verifySlots("Q0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000bb99aabbccddeeff001122334455667788", "01", "02", "03")
 
 	state.journal.revert(state, 4)
-	if _, ok := state.SlotInAccessList(addr("Q00000000000000000000000000000000000000bb"), slot("03")); ok {
+	if _, ok := state.SlotInAccessList(addr("Q0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000bb99aabbccddeeff001122334455667788"), slot("03")); ok {
 		t.Fatalf("slot present, expected missing")
 	}
-	verifyAddrs("Q00000000000000000000000000000000000000aa", "Q00000000000000000000000000000000000000bb")
-	verifySlots("Q00000000000000000000000000000000000000bb", "01", "02")
+	verifyAddrs("Q0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000aa99aabbccddeeff001122334455667788", "Q0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000bb99aabbccddeeff001122334455667788")
+	verifySlots("Q0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000bb99aabbccddeeff001122334455667788", "01", "02")
 
 	state.journal.revert(state, 3)
-	if _, ok := state.SlotInAccessList(addr("Q00000000000000000000000000000000000000bb"), slot("02")); ok {
+	if _, ok := state.SlotInAccessList(addr("Q0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000bb99aabbccddeeff001122334455667788"), slot("02")); ok {
 		t.Fatalf("slot present, expected missing")
 	}
-	verifyAddrs("Q00000000000000000000000000000000000000aa", "Q00000000000000000000000000000000000000bb")
-	verifySlots("Q00000000000000000000000000000000000000bb", "01")
+	verifyAddrs("Q0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000aa99aabbccddeeff001122334455667788", "Q0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000bb99aabbccddeeff001122334455667788")
+	verifySlots("Q0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000bb99aabbccddeeff001122334455667788", "01")
 
 	state.journal.revert(state, 2)
-	if _, ok := state.SlotInAccessList(addr("Q00000000000000000000000000000000000000bb"), slot("01")); ok {
+	if _, ok := state.SlotInAccessList(addr("Q0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000bb99aabbccddeeff001122334455667788"), slot("01")); ok {
 		t.Fatalf("slot present, expected missing")
 	}
-	verifyAddrs("Q00000000000000000000000000000000000000aa", "Q00000000000000000000000000000000000000bb")
+	verifyAddrs("Q0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000aa99aabbccddeeff001122334455667788", "Q0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000bb99aabbccddeeff001122334455667788")
 
 	state.journal.revert(state, 1)
-	if state.AddressInAccessList(addr("Q00000000000000000000000000000000000000bb")) {
+	if state.AddressInAccessList(addr("Q0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000bb99aabbccddeeff001122334455667788")) {
 		t.Fatalf("addr present, expected missing")
 	}
-	verifyAddrs("Q00000000000000000000000000000000000000aa")
+	verifyAddrs("Q0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000aa99aabbccddeeff001122334455667788")
 
 	state.journal.revert(state, 0)
-	if state.AddressInAccessList(addr("Q00000000000000000000000000000000000000aa")) {
+	if state.AddressInAccessList(addr("Q0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000aa99aabbccddeeff001122334455667788")) {
 		t.Fatalf("addr present, expected missing")
 	}
 	if got, exp := len(state.accessList.addresses), 0; got != exp {
@@ -968,8 +969,8 @@ func TestStateDBAccessList(t *testing.T) {
 	// Check the copy
 	// Make a copy
 	state = stateCopy1
-	verifyAddrs("Q00000000000000000000000000000000000000aa", "Q00000000000000000000000000000000000000bb")
-	verifySlots("Q00000000000000000000000000000000000000bb", "01", "02")
+	verifyAddrs("Q0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000aa99aabbccddeeff001122334455667788", "Q0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000bb99aabbccddeeff001122334455667788")
+	verifySlots("Q0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000bb99aabbccddeeff001122334455667788", "01", "02")
 	if got, exp := len(state.accessList.addresses), 2; got != exp {
 		t.Fatalf("expected empty, got %d", got)
 	}
@@ -991,7 +992,7 @@ func TestFlushOrderDataLoss(t *testing.T) {
 	for a := range byte(10) {
 		state.CreateAccount(common.Address{a})
 		for s := range byte(10) {
-			state.SetState(common.Address{a}, common.Hash{a, s}, common.Hash{a, s})
+			state.SetState(common.Address{a}, common.Hash{a, s}, common.StorageValue{a, s})
 		}
 	}
 	root, err := state.Commit(0, false)
@@ -1012,8 +1013,8 @@ func TestFlushOrderDataLoss(t *testing.T) {
 	}
 	for a := range byte(10) {
 		for s := range byte(10) {
-			if have := state.GetState(common.Address{a}, common.Hash{a, s}); have != (common.Hash{a, s}) {
-				t.Errorf("account %d: slot %d: state mismatch: have %x, want %x", a, s, have, common.Hash{a, s})
+			if have := state.GetState(common.Address{a}, common.Hash{a, s}); have != (common.StorageValue{a, s}) {
+				t.Errorf("account %d: slot %d: state mismatch: have %x, want %x", a, s, have, common.StorageValue{a, s})
 			}
 		}
 	}
@@ -1026,19 +1027,19 @@ func TestResetObject(t *testing.T) {
 		db       = NewDatabaseWithNodeDB(disk, tdb)
 		snaps, _ = snapshot.New(snapshot.Config{CacheSize: 10}, disk, tdb, types.EmptyRootHash)
 		state, _ = New(types.EmptyRootHash, db, snaps)
-		addr, _  = common.NewAddressFromString("Q0000000000000000000000000000000000000001")
+		addr, _  = common.NewAddressFromString("Q00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000199aabbccddeeff001122334455667788")
 		slotA    = common.HexToHash("0x1")
 		slotB    = common.HexToHash("0x2")
 	)
 	// Initialize account with balance and storage in first transaction.
 	state.SetBalance(addr, big.NewInt(1))
-	state.SetState(addr, slotA, common.BytesToHash([]byte{0x1}))
+	state.SetState(addr, slotA, common.BytesToStorageValue([]byte{0x1}))
 	state.IntermediateRoot(true)
 
 	// Reset account and mutate balance and storages
 	state.CreateAccount(addr)
 	state.SetBalance(addr, big.NewInt(2))
-	state.SetState(addr, slotB, common.BytesToHash([]byte{0x2}))
+	state.SetState(addr, slotB, common.BytesToStorageValue([]byte{0x2}))
 	root, _ := state.Commit(0, true)
 
 	// Ensure the original account is wiped properly
@@ -1060,14 +1061,15 @@ func TestDeleteStorage(t *testing.T) {
 		db       = NewDatabaseWithNodeDB(disk, tdb)
 		snaps, _ = snapshot.New(snapshot.Config{CacheSize: 10}, disk, tdb, types.EmptyRootHash)
 		state, _ = New(types.EmptyRootHash, db, snaps)
-		addr, _  = common.NewAddressFromString("Q0000000000000000000000000000000000000001")
+		addr, _  = common.NewAddressFromString("Q00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000199aabbccddeeff001122334455667788")
 	)
 	// Initialize account and populate storage
 	state.SetBalance(addr, big.NewInt(1))
 	state.CreateAccount(addr)
 	for i := range 1000 {
 		slot := common.Hash(uint256.NewInt(uint64(i)).Bytes32())
-		value := common.Hash(uint256.NewInt(uint64(10 * i)).Bytes32())
+		buf := uint256.NewInt(uint64(10 * i)).Bytes32()
+		value := common.BytesToStorageValue(buf[:])
 		state.SetState(addr, slot, value)
 	}
 	root, _ := state.Commit(0, true)

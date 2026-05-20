@@ -30,7 +30,7 @@
     "name": "Ether Mail",
     "version": "1",
     "chainId": "1",
-    "verifyingContract": "QCCCcccccCCCCcCCCCCCcCcCccCcCCCcCcccccccC"
+    "verifyingContract": "Q00000000000000000000000000000000000000000000000000000000CCCcccccCCCCcCCCCCCcCcCccCcCCCcCcccccccC99aabbccddeeff001122334455667788"
   },
   "message": {
     "test":"255.3"

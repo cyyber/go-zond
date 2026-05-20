@@ -17,6 +17,7 @@
 package fourbyte
 
 import (
+	"encoding/hex"
 	"math/big"
 	"reflect"
 	"strings"
@@ -25,6 +26,22 @@ import (
 	"github.com/theQRL/go-qrl/accounts/abi"
 	"github.com/theQRL/go-qrl/common"
 )
+
+// mustPack packs the given ABI method using the provided JSON spec and returns
+// the resulting calldata. Used by fixture generation for tests that round-trip
+// calldata through abi.Pack instead of hand-rolled hex.
+func mustPack(t *testing.T, jsondata, name string, args ...any) string {
+	t.Helper()
+	a, err := abi.JSON(strings.NewReader(jsondata))
+	if err != nil {
+		t.Fatal(err)
+	}
+	packed, err := a.Pack(name, args...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return hex.EncodeToString(packed)
+}
 
 func verify(t *testing.T, jsondata, calldata string, exp []any) {
 	abispec, err := abi.JSON(strings.NewReader(jsondata))
@@ -58,12 +75,19 @@ func TestNewUnpacker(t *testing.T) {
 		calldata string
 		exp      []any
 	}
-	address, _ := common.NewAddressFromString("Q00000133700000deadbeef000000000000000000")
+	addrRaw, _ := hex.DecodeString("00000133700000deadbeef00000000000000000000000133700000deadbeef0000000000000000000011223344556677")
+	address := common.BytesToAddress(addrRaw)
+
+	const (
+		specF                 = `[{"type":"function","name":"f", "inputs":[{"type":"uint256"},{"type":"uint32[]"},{"type":"bytes10"},{"type":"bytes"}]}]`
+		specSam               = `[{"type":"function","name":"sam","inputs":[{"type":"bytes"},{"type":"bool"},{"type":"uint256[]"}]}]`
+		specSend              = `[{"type":"function","name":"send","inputs":[{"type":"uint256"}]}]`
+		specCompareAndApprove = `[{"type":"function","name":"compareAndApprove","inputs":[{"type":"address"},{"type":"uint256"},{"type":"uint256"}]}]`
+	)
 	testcases := []unpackTest{
 		{ // https://solidity.readthedocs.io/en/develop/abi-spec.html#use-of-dynamic-types
-			`[{"type":"function","name":"f", "inputs":[{"type":"uint256"},{"type":"uint32[]"},{"type":"bytes10"},{"type":"bytes"}]}]`,
-			// 0x123, [0x456, 0x789], "1234567890", "Hello, world!"
-			"8be65246" + "00000000000000000000000000000000000000000000000000000000000001230000000000000000000000000000000000000000000000000000000000000080313233343536373839300000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000e0000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000004560000000000000000000000000000000000000000000000000000000000000789000000000000000000000000000000000000000000000000000000000000000d48656c6c6f2c20776f726c642100000000000000000000000000000000000000",
+			specF,
+			mustPack(t, specF, "f", big.NewInt(0x123), []uint32{0x456, 0x789}, [10]byte{49, 50, 51, 52, 53, 54, 55, 56, 57, 48}, []byte("Hello, world!")),
 			[]any{
 				big.NewInt(0x123),
 				[]uint32{0x456, 0x789},
@@ -71,21 +95,20 @@ func TestNewUnpacker(t *testing.T) {
 				common.Hex2Bytes("48656c6c6f2c20776f726c6421"),
 			},
 		}, { // https://docs.soliditylang.org/en/develop/abi-spec.html#examples
-			`[{"type":"function","name":"sam","inputs":[{"type":"bytes"},{"type":"bool"},{"type":"uint256[]"}]}]`,
-			//  "dave", true and [1,2,3]
-			"a5643bf20000000000000000000000000000000000000000000000000000000000000060000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000000000000000000000000000000000000000000464617665000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000003",
+			specSam,
+			mustPack(t, specSam, "sam", []byte{0x64, 0x61, 0x76, 0x65}, true, []*big.Int{big.NewInt(1), big.NewInt(2), big.NewInt(3)}),
 			[]any{
 				[]byte{0x64, 0x61, 0x76, 0x65},
 				true,
 				[]*big.Int{big.NewInt(1), big.NewInt(2), big.NewInt(3)},
 			},
 		}, {
-			`[{"type":"function","name":"send","inputs":[{"type":"uint256"}]}]`,
-			"a52c101e0000000000000000000000000000000000000000000000000000000000000012",
+			specSend,
+			mustPack(t, specSend, "send", big.NewInt(0x12)),
 			[]any{big.NewInt(0x12)},
 		}, {
-			`[{"type":"function","name":"compareAndApprove","inputs":[{"type":"address"},{"type":"uint256"},{"type":"uint256"}]}]`,
-			"751e107900000000000000000000000000000133700000deadbeef00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001",
+			specCompareAndApprove,
+			mustPack(t, specCompareAndApprove, "compareAndApprove", address, new(big.Int).SetBytes([]byte{0x00}), big.NewInt(0x1)),
 			[]any{
 				address,
 				new(big.Int).SetBytes([]byte{0x00}),
@@ -110,26 +133,48 @@ func TestCalldataDecoding(t *testing.T) {
 	{"type":"function","name":"issue","inputs":[{"name":"a","type":"address[]"},{"name":"a","type":"uint256"}]},
 	{"type":"function","name":"sam","inputs":[{"name":"a","type":"bytes"},{"name":"a","type":"bool"},{"name":"a","type":"uint256[]"}]}
 ]`
+	// Baseline: generate a correct calldata for each decoder success case via
+	// abi.Pack, then derive the corresponding failure cases (truncations,
+	// illegal bool values, mis-aligned lengths) by mutating those payloads.
+	const (
+		sendSpec              = `[{"type":"function","name":"send","inputs":[{"name":"a","type":"uint256"}]}]`
+		compareSpec           = `[{"type":"function","name":"compareAndApprove","inputs":[{"name":"a","type":"address"},{"name":"a","type":"uint256"},{"name":"a","type":"uint256"}]}]`
+		issueSpec             = `[{"type":"function","name":"issue","inputs":[{"name":"a","type":"address[]"},{"name":"a","type":"uint256"}]}]`
+		samSpec               = `[{"type":"function","name":"sam","inputs":[{"name":"a","type":"bytes"},{"name":"a","type":"bool"},{"name":"a","type":"uint256[]"}]}]`
+	)
+	addrA := common.Address{0xde, 0xad}
+	addrB := common.Address{0xbe, 0xef}
+
+	sendOK := mustPack(t, sendSpec, "send", big.NewInt(0x12))
+	compareOK := mustPack(t, compareSpec, "compareAndApprove", common.Address{}, big.NewInt(0), big.NewInt(0))
+	issueOK := mustPack(t, issueSpec, "issue", []common.Address{addrA, addrB}, big.NewInt(1))
+	samOK := mustPack(t, samSpec, "sam", []byte{0x64, 0x61, 0x76, 0x65}, true, []*big.Int{big.NewInt(1), big.NewInt(2), big.NewInt(3)})
+	// Tamper the bool slot in samOK to an illegal value (0x11) to produce a
+	// decoder failure. samOK layout: 4-byte selector + [bytes offset][bool][uint256[] offset]...
+	// The second head slot (bytes 132..260 of the hex, i.e. 8 + 128..8 + 256) is the bool.
+	samBadBool := samOK[:8+128] + "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000011" + samOK[8+256+128:]
+
 	// Expected failures
 	for i, hexdata := range []string{
-		"a52c101e00000000000000000000000000000000000000000000000000000000000000120000000000000000000000000000000000000000000000000000000000000042",
-		"a52c101e000000000000000000000000000000000000000000000000000000000000001200",
-		"a52c101e00000000000000000000000000000000000000000000000000000000000000",
-		"a52c101e",
+		sendOK + "0000000000000000000000000000000000000000000000000000000000000042", // extra trailing bytes
+		sendOK + "00", // extra single byte
+		sendOK[:len(sendOK)-2], // truncated final byte
+		sendOK[:8],     // selector only
 		"a52c10",
 		"",
 		// Too short
 		"751e10790000000000000000000000000000000000000000000000000000000000000012",
 		"751e1079FFffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-		// Not valid multiple of 32
-		"deadbeef00000000000000000000000000000000000000000000000000000000000000",
+		// Not valid multiple of 64-byte slot width
+		"deadbeef" + "00000000000000000000000000000000000000000000000000000000000000",
 		// Too short 'issue'
-		"42958b5400000000000000000000000000000000000000000000000000000000000000120000000000000000000000000000000000000000000000000000000000000042",
-		// Too short compareAndApprove
-		"a52c101e00ff0000000000000000000000000000000000000000000000000000000000120000000000000000000000000000000000000000000000000000000000000042",
-		// From https://docs.soliditylang.org/en/develop/abi-spec.html
-		// contains a bool with illegal values
-		"a5643bf20000000000000000000000000000000000000000000000000000000000000060000000000000000000000000000000000000000000000000000000000000001100000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000000000000000000000000000000000000000000464617665000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000003",
+		"42958b54" + "00000000000000000000000000000000000000000000000000000000000000120000000000000000000000000000000000000000000000000000000000000042",
+		// Too short compareAndApprove (2 slots of 64 bytes instead of 3)
+		"751e1079" +
+			"00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000" +
+			"00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+		// sam with illegal bool byte (tampered copy of samOK).
+		samBadBool,
 	} {
 		_, err := parseCallData(common.Hex2Bytes(hexdata), jsondata)
 		if err == nil {
@@ -138,21 +183,13 @@ func TestCalldataDecoding(t *testing.T) {
 	}
 	// Expected success
 	for i, hexdata := range []string{
-		// From https://docs.soliditylang.org/en/develop/abi-spec.html
-		"a5643bf20000000000000000000000000000000000000000000000000000000000000060000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000000000000000000000000000000000000000000464617665000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000003",
-		"a52c101e0000000000000000000000000000000000000000000000000000000000000012",
-		"a52c101eFFffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-		"751e1079000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
-		"42958b54" +
-			// start of dynamic type
-			"0000000000000000000000000000000000000000000000000000000000000040" +
-			// uint256
-			"0000000000000000000000000000000000000000000000000000000000000001" +
-			// length of  array
-			"0000000000000000000000000000000000000000000000000000000000000002" +
-			// array values
-			"000000000000000000000000000000000000000000000000000000000000dead" +
-			"000000000000000000000000000000000000000000000000000000000000beef",
+		samOK,
+		sendOK,
+		// sendOK with high bits set in the uint256 slot (still a valid encoding).
+		"a52c101e" + "FFffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff" +
+			"FFffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+		compareOK,
+		issueOK,
 	} {
 		_, err := parseCallData(common.Hex2Bytes(hexdata), jsondata)
 		if err != nil {

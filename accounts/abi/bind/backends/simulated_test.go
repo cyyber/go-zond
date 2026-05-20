@@ -33,6 +33,7 @@ import (
 	"github.com/theQRL/go-qrl/core"
 	"github.com/theQRL/go-qrl/core/types"
 	"github.com/theQRL/go-qrl/crypto/pqcrypto/wallet"
+	"github.com/theQRL/go-qrl/internal/testutil"
 	"github.com/theQRL/go-qrl/params"
 )
 
@@ -96,7 +97,7 @@ func TestSimulatedBackend(t *testing.T) {
 	}
 }
 
-var testWallet, _ = wallet.RestoreFromSeedHex("0x010000b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f29100000000000000000000000000000000")
+var testWallet = testutil.MustLoadAccount("alice").MustWallet()
 
 // the following is based on this contract:
 //
@@ -111,11 +112,33 @@ var testWallet, _ = wallet.RestoreFromSeedHex("0x010000b71c71a67e1177ad4e901695e
 //	 	}
 //	 }
 const abiJSON = `[ { "constant": false, "inputs": [ { "name": "memo", "type": "bytes" } ], "name": "receive", "outputs": [ { "name": "res", "type": "string" } ], "payable": true, "stateMutability": "payable", "type": "function" }, { "anonymous": false, "inputs": [ { "indexed": false, "name": "sender", "type": "address" }, { "indexed": false, "name": "amount", "type": "uint256" }, { "indexed": false, "name": "memo", "type": "bytes" } ], "name": "received", "type": "event" }, { "anonymous": false, "inputs": [ { "indexed": false, "name": "sender", "type": "address" } ], "name": "receivedAddr", "type": "event" } ]`
-const abiBin = `0x608060405234801561001057600080fd5b506102a0806100206000396000f3fe60806040526004361061003b576000357c010000000000000000000000000000000000000000000000000000000090048063a69b6ed014610040575b600080fd5b6100b76004803603602081101561005657600080fd5b810190808035906020019064010000000081111561007357600080fd5b82018360208201111561008557600080fd5b803590602001918460018302840111640100000000831117156100a757600080fd5b9091929391929390505050610132565b6040518080602001828103825283818151815260200191508051906020019080838360005b838110156100f75780820151818401526020810190506100dc565b50505050905090810190601f1680156101245780820380516001836020036101000a031916815260200191505b509250505060405180910390f35b60607f75fd880d39c1daf53b6547ab6cb59451fc6452d27caa90e5b6649dd8293b9eed33348585604051808573ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff168152602001848152602001806020018281038252848482818152602001925080828437600081840152601f19601f8201169050808301925050509550505050505060405180910390a17f46923992397eac56cf13058aced2a1871933622717e27b24eabc13bf9dd329c833604051808273ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200191505060405180910390a16040805190810160405280600b81526020017f68656c6c6f20776f726c6400000000000000000000000000000000000000000081525090509291505056fea165627a7a72305820ff0c57dad254cfeda48c9cfb47f1353a558bccb4d1bc31da1dae69315772d29e0029`
-const deployedCode = `60806040526004361061003b576000357c010000000000000000000000000000000000000000000000000000000090048063a69b6ed014610040575b600080fd5b6100b76004803603602081101561005657600080fd5b810190808035906020019064010000000081111561007357600080fd5b82018360208201111561008557600080fd5b803590602001918460018302840111640100000000831117156100a757600080fd5b9091929391929390505050610132565b6040518080602001828103825283818151815260200191508051906020019080838360005b838110156100f75780820151818401526020810190506100dc565b50505050905090810190601f1680156101245780820380516001836020036101000a031916815260200191505b509250505060405180910390f35b60607f75fd880d39c1daf53b6547ab6cb59451fc6452d27caa90e5b6649dd8293b9eed33348585604051808573ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff168152602001848152602001806020018281038252848482818152602001925080828437600081840152601f19601f8201169050808301925050509550505050505060405180910390a17f46923992397eac56cf13058aced2a1871933622717e27b24eabc13bf9dd329c833604051808273ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200191505060405180910390a16040805190810160405280600b81526020017f68656c6c6f20776f726c6400000000000000000000000000000000000000000081525090509291505056fea165627a7a72305820ff0c57dad254cfeda48c9cfb47f1353a558bccb4d1bc31da1dae69315772d29e0029`
 
-// expected return value contains "hello world"
-var expectedReturn = []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 11, 104, 101, 108, 108, 111, 32, 119, 111, 114, 108, 100, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+// abiBin is a hand-rolled replacement for the Solidity receive() fixture.
+// The 12-byte init CODECOPYs a 34-byte runtime that, regardless of the
+// incoming selector, lays out an ABI-encoded string "hello world" under
+// the 64-byte slot layout:
+//
+//	[0:64]    offset = 0x40
+//	[64:128]  length = 11
+//	[128:192] "hello world" left-aligned, 53 zero-byte tail
+//
+// and RETURNs those 192 bytes. All opcodes used (PUSH1/2/11, MSTORE, SHL,
+// CODECOPY, RETURN) are stable across the 512-bit opcode shift.
+const abiBin = `0x6022600c60003960226000f3` +
+	`6040600052600b6040526a68656c6c6f20776f726c646101a81b60805260c06000f3`
+
+// deployedCode is the 34-byte runtime returned by the abiBin init code.
+const deployedCode = `6040600052600b6040526a68656c6c6f20776f726c646101a81b60805260c06000f3`
+
+// expectedReturn is the ABI-encoded "hello world" string under the 64-byte
+// slot layout; matches exactly what the abiBin runtime above RETURNs.
+var expectedReturn = func() []byte {
+	b := make([]byte, 192)
+	b[63] = 0x40 // offset slot: points 64 bytes past itself to the length slot
+	b[127] = 11  // length slot: 11 bytes of string data
+	copy(b[128:], []byte("hello world"))
+	return b
+}()
 
 func simTestBackend(testAddr common.Address) *SimulatedBackend {
 	return NewSimulatedBackend(
@@ -460,19 +483,38 @@ func TestTransactionByHash(t *testing.T) {
 }
 
 func TestEstimateGas(t *testing.T) {
-	/*
-		// TODO(now.youtrack.cloud/issue/TGZ-30)
-		pragma hyperion ^0.6.4;
-		contract GasEstimation {
-			function PureRevert() public { revert(); }
-			function Revert() public { revert("revert reason");}
-			function OOG() public { for (uint i = 0; ; i++) {}}
-			function Assert() public { assert(false);}
-			function Valid() public {}
-		}
-	*/
 	const contractAbi = "[{\"inputs\":[],\"name\":\"Assert\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"OOG\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"PureRevert\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"Revert\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"Valid\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]"
-	const contractBin = "0x60806040523480156100115760006000fd5b50610017565b61016e806100266000396000f3fe60806040523480156100115760006000fd5b506004361061005c5760003560e01c806350f6fe3414610062578063aa8b1d301461006c578063b9b046f914610076578063d8b9839114610080578063e09fface1461008a5761005c565b60006000fd5b61006a610094565b005b6100746100ad565b005b61007e6100b5565b005b6100886100c2565b005b610092610135565b005b6000600090505b5b808060010191505061009b565b505b565b60006000fd5b565b600015156100bf57fe5b5b565b6040517f08c379a000000000000000000000000000000000000000000000000000000000815260040180806020018281038252600d8152602001807f72657665727420726561736f6e0000000000000000000000000000000000000081526020015060200191505060405180910390fd5b565b5b56fea2646970667358221220345bbcbb1a5ecf22b53a78eaebf95f8ee0eceff6d10d4b9643495084d2ec934a64736f6c63430006040033"
+	// Hand-rolled GasEstimation replacement. 12-byte init copies a 131-byte
+	// runtime that dispatches on the top 4 bytes of CALLDATALOAD(0) (SHR
+	// 480) and branches to:
+	//   Valid()      (0xe09fface) → STOP
+	//   Revert()     (0xd8b98391) → REVERT Error("revert reason") in 64-byte
+	//                                slot layout (196 bytes payload)
+	//   PureRevert() (0xaa8b1d30) → REVERT(0,0)
+	//   OOG()        (0x50f6fe34) → tight JUMP loop → OOG
+	//   Assert()     (0xb9b046f9) → INVALID (consumes all gas)
+	// Unknown selectors (including a plain-value transfer with empty
+	// calldata) fall through to a bare REVERT(0,0), matching the Solidity
+	// original's behaviour when no receive/fallback matches.
+	const contractBin = "0x6083600c60003960836000f3" +
+		"6000356101e01c" + // selector = CALLDATALOAD(0) >> 480
+		"a063e09fface1461004357" + // DUP1 == Valid?     → 0x43
+		"a063d8b983911461004557" + // DUP1 == Revert?    → 0x45
+		"a063aa8b1d301461007657" + // DUP1 == PureRevert?→ 0x76
+		"a06350f6fe341461007c57" + // DUP1 == OOG?       → 0x7c
+		"a063b9b046f91461008157" + // DUP1 == Assert?    → 0x81
+		"60006000fd" + // fallback REVERT(0,0)
+		"5b00" + // 0x43 Valid: STOP
+		"5b6308c379a06101e01b600052" + // 0x45 Revert: MSTORE selector<<480 at 0
+		"6040600452" + // offset=0x40 at memory[4:68]
+		"600d604452" + // length=13 at memory[68:132]
+		"6c72657665727420726561736f6e" + // PUSH13 "revert reason"
+		"6101981b" + // SHL by 408 (=(64-13)*8) → high 13 bytes
+		"608452" + // MSTORE at 132
+		"60c46000fd" + // REVERT(0, 196)
+		"5b60006000fd" + // 0x76 PureRevert: REVERT(0,0)
+		"5b61007c56" + // 0x7c OOG: JUMPDEST; PUSH2 0x7c; JUMP
+		"5bfe" //       0x81 Assert: INVALID
 
 	wallet, _ := wallet.Generate(wallet.ML_DSA_87)
 	var addr common.Address = wallet.GetAddress()
@@ -517,7 +559,13 @@ func TestEstimateGas(t *testing.T) {
 			GasFeeCap: big.NewInt(0),
 			Value:     nil,
 			Data:      common.Hex2Bytes("d8b98391"),
-		}, 0, errors.New("execution reverted: revert reason"), "0x08c379a00000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000d72657665727420726561736f6e00000000000000000000000000000000000000"},
+		}, 0, errors.New("execution reverted: revert reason"),
+			// 64-byte slot ABI-encoded Error("revert reason"):
+			//   selector(4) | offset=0x40(64) | length=13(64) | "revert reason" + 51 zero pad(64)
+			"0x08c379a0" +
+				"00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000040" +
+				"0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000d" +
+				"72657665727420726561736f6e000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"},
 
 		{"PureRevert", qrl.CallMsg{
 			From:      addr,
@@ -553,7 +601,9 @@ func TestEstimateGas(t *testing.T) {
 			GasFeeCap: big.NewInt(0),
 			Value:     nil,
 			Data:      common.Hex2Bytes("e09fface"),
-		}, 21275, nil, nil},
+			// Intrinsic 21064 + 35 dispatcher gas (PUSH/CALLDATALOAD/SHR +
+			// one matched DUP1/PUSH4/EQ/JUMPI + JUMPDEST/STOP) = 21099.
+		}, 21099, nil, nil},
 	}
 	for _, c := range cases {
 		got, err := sim.EstimateGas(t.Context(), c.message)
@@ -586,7 +636,7 @@ func TestEstimateGasWithPrice(t *testing.T) {
 	sim := NewSimulatedBackend(core.GenesisAlloc{addr: {Balance: big.NewInt(params.Quanta*2 + 2e17)}}, 10000000)
 	defer sim.Close()
 
-	recipient, _ := common.NewAddressFromString("Q00000000000000000000000000000000deadbeef")
+	recipient, _ := common.NewAddressFromString("Q0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000deadbeef")
 	var cases = []struct {
 		name        string
 		message     qrl.CallMsg
@@ -1169,7 +1219,35 @@ func TestCallContractRevert(t *testing.T) {
 	bgCtx := t.Context()
 
 	reverterABI := `[{"inputs": [],"name": "noRevert","outputs": [],"stateMutability": "pure","type": "function"},{"inputs": [],"name": "revertASM","outputs": [],"stateMutability": "pure","type": "function"},{"inputs": [],"name": "revertNoString","outputs": [],"stateMutability": "pure","type": "function"},{"inputs": [],"name": "revertString","outputs": [],"stateMutability": "pure","type": "function"}]`
-	reverterBin := "608060405234801561001057600080fd5b506101d3806100206000396000f3fe608060405234801561001057600080fd5b506004361061004c5760003560e01c80634b409e01146100515780639b340e361461005b5780639bd6103714610065578063b7246fc11461006f575b600080fd5b610059610079565b005b6100636100ca565b005b61006d6100cf565b005b610077610145565b005b60006100c8576040517f08c379a0000000000000000000000000000000000000000000000000000000008152600401808060200182810382526000815260200160200191505060405180910390fd5b565b600080fd5b6000610143576040517f08c379a000000000000000000000000000000000000000000000000000000000815260040180806020018281038252600a8152602001807f736f6d65206572726f720000000000000000000000000000000000000000000081525060200191505060405180910390fd5b565b7f08c379a0000000000000000000000000000000000000000000000000000000006000526020600452600a6024527f736f6d65206572726f720000000000000000000000000000000000000000000060445260646000f3fea2646970667358221220cdd8af0609ec4996b7360c7c780bad5c735740c64b1fffc3445aa12d37f07cb164736f6c63430006070033"
+	// Hand-rolled replacement for the Solidity Reverter fixture. Under the
+	// 64-byte ABI slot layout the Error(string) payload becomes
+	//   selector(4) | offset=0x40(64) | length(64) | data(64 padded)
+	// for a total of 196 bytes (132 for an empty string). Selectors match
+	// Solidity's keccak256(sig)[:4]:
+	//   revertString()   → 0x9bd61037  (Error("some error"))
+	//   revertNoString() → 0x4b409e01  (Error(""))
+	//   revertASM()      → 0x9b340e36  (REVERT(0,0))
+	//   noRevert()       → 0xb7246fc1  (RETURN 32 zero bytes)
+	// 12-byte init copies a 137-byte runtime that dispatches on the top 4
+	// bytes of the 64-byte CALLDATALOAD word (SHR 480) and falls through
+	// to a bare REVERT for unknown selectors.
+	reverterBin := "6089600c60003960896000f3" + // init: CODECOPY 137 / RETURN
+		"6000356101e01c" + // selector = CALLDATALOAD(0) >> 480
+		"a0639bd6103714610038" + "57" + // DUP1 → revertString
+		"a0634b409e0114610066" + "57" + // DUP1 → revertNoString
+		"a0639b340e361461007d" + "57" + // DUP1 → revertASM
+		"a063b7246fc114610083" + "57" + // DUP1 → noRevert
+		"60006000fd" + // fallback REVERT(0,0)
+		"5b" + "6308c379a06101e01b600052" + // 0x38 revertString: MSTORE selector<<480 at 0
+		"6040600452" + // offset=0x40 at memory[4:68]
+		"600a604452" + // length=0x0a at memory[68:132]
+		"69736f6d65206572726f72" + "6101b01b" + "608452" + // "some error"<<432 at memory[132:196]
+		"60c46000fd" + // REVERT(0, 196)
+		"5b" + "6308c379a06101e01b600052" + // 0x66 revertNoString: selector
+		"6040600452" + // offset=0x40
+		"60846000fd" + // REVERT(0, 132)  (length slot stays zero from fresh memory)
+		"5b60006000fd" + // 0x7d revertASM: REVERT(0,0)
+		"5b60206000f3" //    0x83 noRevert:  RETURN(0, 32)
 
 	parsed, err := abi.JSON(strings.NewReader(reverterABI))
 	if err != nil {
@@ -1180,6 +1258,7 @@ func TestCallContractRevert(t *testing.T) {
 	if err != nil {
 		t.Errorf("could not deploy contract: %v", err)
 	}
+	sim.Commit()
 
 	inputs := make(map[string]any, 3)
 	inputs["revertASM"] = nil
@@ -1296,7 +1375,17 @@ Example contract to test event emission:
 */
 const callableAbi = "[{\"anonymous\":false,\"inputs\":[],\"name\":\"Called\",\"type\":\"event\"},{\"inputs\":[],\"name\":\"Call\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]"
 
-const callableBin = "6080604052348015600f57600080fd5b5060998061001e6000396000f3fe6080604052348015600f57600080fd5b506004361060285760003560e01c806334e2292114602d575b600080fd5b60336035565b005b7f81fab7a4a0aa961db47eefc81f143a5220e8c8495260dd65b1356f1d19d3c7b860405160405180910390a156fea2646970667358221220029436d24f3ac598ceca41d4d712e13ced6d70727f4cdc580667de66d2f51d8b64736f6c63430008010033"
+// Hand-rolled replacement for the Solidity fixture above. The original
+// bytecode depended on LOG/DUP/SWAP opcodes that shifted when the VM
+// widened to 512-bit words. 12-byte init copies a 58-byte runtime that
+//   - reads calldata[0:4] (shifted in from the 64-byte CALLDATALOAD word),
+//   - dispatches on selector 0x34e22921 (keccak256("Call()")[:4]),
+//   - and, on match, emits LOG1 with topic0 = keccak256("Called()"),
+//     so contract.WatchLogs(nil, "Called") still resolves the event.
+const callableBin = "603a600c600039603a6000f36000356101e01c63" +
+	"34e22921146100125700" +
+	"5b7f81fab7a4a0aa961db47eefc81f143a5220e8c8495260dd65b1356f1d19d3c7b8" +
+	"60006000c100"
 
 // TestForkLogsReborn check that the simulated reorgs
 // correctly remove and reborn logs.

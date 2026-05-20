@@ -28,8 +28,8 @@ import (
 	"github.com/theQRL/go-qrl/core/state"
 	"github.com/theQRL/go-qrl/core/types"
 	"github.com/theQRL/go-qrl/core/vm"
-	"github.com/theQRL/go-qrl/crypto/pqcrypto/wallet"
 	"github.com/theQRL/go-qrl/event"
+	"github.com/theQRL/go-qrl/internal/testutil"
 	"github.com/theQRL/go-qrl/params"
 	"github.com/theQRL/go-qrl/rpc"
 )
@@ -121,11 +121,12 @@ func (b *testBackend) teardown() {
 // newTestBackend creates a test backend. OBS: don't forget to invoke tearDown
 // after use, otherwise the blockchain instance will mem-leak via goroutines.
 func newTestBackend(t *testing.T, pending bool) *testBackend {
+	acc := testutil.LoadAccount(t, "alice")
 	var (
-		wallet, _ = wallet.RestoreFromSeedHex("010000b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f29100000000000000000000000000000000")
-		addr      = wallet.GetAddress()
-		config    = *params.TestChainConfig // needs copy because it is modified below
-		gspec     = &core.Genesis{
+		wallet = acc.Wallet(t)
+		addr   = acc.AddressBytes(t)
+		config = *params.TestChainConfig // needs copy because it is modified below
+		gspec  = &core.Genesis{
 			Config: &config,
 			Alloc:  core.GenesisAlloc{addr: {Balance: big.NewInt(math.MaxInt64)}},
 		}

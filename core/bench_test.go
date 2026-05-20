@@ -27,6 +27,7 @@ import (
 	"github.com/theQRL/go-qrl/core/types"
 	"github.com/theQRL/go-qrl/core/vm"
 	"github.com/theQRL/go-qrl/crypto/pqcrypto/wallet"
+	"github.com/theQRL/go-qrl/internal/testutil"
 	"github.com/theQRL/go-qrl/params"
 	"github.com/theQRL/go-qrl/qrldb"
 )
@@ -64,9 +65,9 @@ func BenchmarkInsertChain_ring1000_diskdb(b *testing.B) {
 
 var (
 	// This is the content of the genesis block used by the benchmarks.
-	benchRootWallet, _ = wallet.RestoreFromSeedHex("0x010000b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f29100000000000000000000000000000000")
-	benchRootAddr      = common.Address(benchRootWallet.GetAddress())
-	benchRootFunds     = math.BigPow(2, 200)
+	benchRootWallet = testutil.MustLoadAccount("alice").MustWallet()
+	benchRootAddr   = common.Address(benchRootWallet.GetAddress())
+	benchRootFunds  = math.BigPow(2, 200)
 )
 
 // genValueTx returns a block generator that includes a single

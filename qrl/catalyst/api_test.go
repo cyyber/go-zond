@@ -34,7 +34,7 @@ import (
 	"github.com/theQRL/go-qrl/core"
 	"github.com/theQRL/go-qrl/core/types"
 	"github.com/theQRL/go-qrl/crypto"
-	"github.com/theQRL/go-qrl/crypto/pqcrypto/wallet"
+	"github.com/theQRL/go-qrl/internal/testutil"
 	"github.com/theQRL/go-qrl/miner"
 	"github.com/theQRL/go-qrl/node"
 	"github.com/theQRL/go-qrl/p2p"
@@ -48,7 +48,7 @@ import (
 
 var (
 	// testWallet is a private key to use for funding a tester account.
-	testWallet, _ = wallet.RestoreFromSeedHex("010000b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f29100000000000000000000000000000000")
+	testWallet = testutil.MustLoadAccount("alice").MustWallet()
 
 	// testAddr is the QRL address of the tester account.
 	testAddr = common.Address(testWallet.GetAddress())
@@ -72,7 +72,7 @@ func generateChain(n int) (*core.Genesis, []*types.Block) {
 	generate := func(i int, g *core.BlockGen) {
 		g.OffsetTime(5)
 		g.SetExtra([]byte("test"))
-		to, _ := common.NewAddressFromString("Q9a9070028361F7AAbeB3f2F2Dc07F82C4a98A02a")
+		to, _ := common.NewAddressFromString("Q000000000000000000000000000000000000000000000000000000009a9070028361F7AAbeB3f2F2Dc07F82C4a98A02a")
 		tx, _ := types.SignTx(types.NewTx(&types.DynamicFeeTx{
 			Nonce:     testNonce,
 			To:        &to,
@@ -266,8 +266,11 @@ func TestNewBlock(t *testing.T) {
 		api    = NewConsensusAPI(qrlservice)
 		parent = blocks[len(blocks)-1]
 
-		// This QRVM code generates a log when the contract is created.
-		logCode = common.Hex2Bytes("60606040525b7f24ec1d3ff24c2f6ff210738839dbc339cd45a5294d85c79361016243157aae7b60405180905060405180910390a15b600a8060416000396000f360606040526008565b00")
+		// Minimal constructor that emits a LOG0 event and deploys a 1-byte
+		// STOP runtime. Every opcode (PUSH1, LOG0=0xc0, CODECOPY, RETURN,
+		// STOP) is stable across the 512-bit opcode shift, so the test
+		// does not depend on a Solidity recompile.
+		logCode = common.Hex2Bytes("60006000c06001601160003960016000f300")
 	)
 	// The event channels.
 	newLogCh := make(chan []*types.Log, 10)

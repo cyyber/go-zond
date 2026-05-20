@@ -28,14 +28,14 @@ import (
 	"github.com/theQRL/go-qrl/core/rawdb"
 	"github.com/theQRL/go-qrl/core/types"
 	"github.com/theQRL/go-qrl/core/vm"
-	"github.com/theQRL/go-qrl/crypto/pqcrypto/wallet"
 	"github.com/theQRL/go-qrl/params"
 	"github.com/theQRL/go-qrl/trie"
+	"github.com/theQRL/go-qrl/internal/testutil"
 )
 
 // Test chain parameters.
 var (
-	testWallet, _ = wallet.RestoreFromSeedHex("010000b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f29100000000000000000000000000000000")
+	testWallet = testutil.MustLoadAccount("alice").MustWallet()
 	testAddress   = testWallet.GetAddress()
 	testDB        = rawdb.NewMemoryDatabase()
 

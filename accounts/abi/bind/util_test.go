@@ -28,12 +28,21 @@ import (
 	"github.com/theQRL/go-qrl/common"
 	"github.com/theQRL/go-qrl/core"
 	"github.com/theQRL/go-qrl/core/types"
-	"github.com/theQRL/go-qrl/crypto/pqcrypto/wallet"
+	"github.com/theQRL/go-qrl/crypto"
+	"github.com/theQRL/go-qrl/internal/testutil"
 )
 
-var testWallet, _ = wallet.RestoreFromSeedHex("010000f29f58aff0b00de2844f7e20bd9eeaacc379150043beeb328335817512b29fbb7184da84a092f842b2a06d72a24a5d28")
+var testWallet = testutil.MustLoadAccount("dave").MustWallet()
 
-var wantedAddr, _ = common.NewAddressFromString("QcF39819954C9b2937A802eCff89F4d7aA89b0769")
+// wantedAddr is CreateAddress(dave, nonce=0) — the address of the first
+// contract dave deploys. Recomputed at init time so it stays in sync with
+// whatever fixture dave uses.
+var wantedAddr = crypto.CreateAddress(testWallet.GetAddress(), 0)
+
+// The fixture bytecode is a minimal constructor that CODECOPYs a single
+// STOP (0x00) from the deploy code into memory and RETURNs it as runtime
+// code; every opcode used (PUSH1, CODECOPY, RETURN, STOP) is stable across
+// the 512-bit VM opcode shift.
 var waitDeployedTests = map[string]struct {
 	code        string
 	gas         uint64
@@ -41,7 +50,7 @@ var waitDeployedTests = map[string]struct {
 	wantErr     error
 }{
 	"successful deploy": {
-		code:        `6060604052600a8060106000396000f360606040526008565b00`,
+		code:        "6001600c60003960016000f300",
 		gas:         3000000,
 		wantAddress: wantedAddr,
 	},
@@ -119,7 +128,7 @@ func TestWaitDeployedCornerCases(t *testing.T) {
 
 	// Create a transaction to an account.
 	code := "6060604052600a8060106000396000f360606040526008565b00"
-	to, _ := common.NewAddressFromString("Q0000000000000000000000000000000000000001")
+	to, _ := common.NewAddressFromString("Q000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001")
 	tx := types.NewTx(&types.DynamicFeeTx{
 		Nonce:     0,
 		To:        &to,

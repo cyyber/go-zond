@@ -28,7 +28,7 @@ import (
 
 	"github.com/theQRL/go-qrl/common"
 	"github.com/theQRL/go-qrl/core/types"
-	"github.com/theQRL/go-qrl/crypto/pqcrypto/wallet"
+	"github.com/theQRL/go-qrl/internal/testutil"
 	"github.com/theQRL/go-qrl/params"
 	"github.com/theQRL/go-qrl/rlp"
 	"golang.org/x/crypto/sha3"
@@ -331,7 +331,7 @@ func TestBlockReceiptStorage(t *testing.T) {
 	db := NewMemoryDatabase()
 
 	// Create a live block since we need metadata to reconstruct the receipt
-	to1, _ := common.NewAddressFromString("Q0000000000000000000000000000000000000001")
+	to1, _ := common.NewAddressFromString("Q000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001")
 	tx1 := types.NewTx(&types.DynamicFeeTx{
 		Nonce:     1,
 		To:        &to1,
@@ -340,7 +340,7 @@ func TestBlockReceiptStorage(t *testing.T) {
 		GasFeeCap: big.NewInt(1),
 		Data:      nil,
 	})
-	to2, _ := common.NewAddressFromString("Q0000000000000000000000000000000000000002")
+	to2, _ := common.NewAddressFromString("Q000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002")
 	tx2 := types.NewTx(&types.DynamicFeeTx{
 		Nonce:     2,
 		To:        &to2,
@@ -580,7 +580,7 @@ func BenchmarkWriteAncientBlocks(b *testing.B) {
 	// individually for each block, just make one batch here and reuse it for all writes.
 	const batchSize = 128
 	const blockTxs = 20
-	allBlocks := makeTestBlocks(b.N, blockTxs)
+	allBlocks := makeTestBlocks(b, b.N, blockTxs)
 	batchReceipts := makeTestReceipts(batchSize, blockTxs)
 
 	// The benchmark loop writes batches of blocks, but note that the total block count is
@@ -607,8 +607,8 @@ func BenchmarkWriteAncientBlocks(b *testing.B) {
 }
 
 // makeTestBlocks creates fake blocks for the ancient write benchmark.
-func makeTestBlocks(nblock int, txsPerBlock int) []*types.Block {
-	wallet, _ := wallet.RestoreFromSeedHex("0x010000b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f29100000000000000000000000000000000")
+func makeTestBlocks(tb testing.TB, nblock int, txsPerBlock int) []*types.Block {
+	wallet := testutil.LoadAccount(tb, "alice").Wallet(tb)
 	signer := types.LatestSignerForChainID(big.NewInt(8))
 
 	// Create transactions.
@@ -659,7 +659,7 @@ func makeTestReceipts(n int, nPerBlock int) []types.Receipts {
 
 type fullLogRLP struct {
 	Address     common.Address
-	Topics      []common.Hash
+	Topics      []common.LogTopic
 	Data        []byte
 	BlockNumber uint64
 	TxHash      common.Hash
@@ -686,7 +686,7 @@ func TestReadLogs(t *testing.T) {
 	db := NewMemoryDatabase()
 
 	// Create a live block since we need metadata to reconstruct the receipt
-	to1, _ := common.NewAddressFromString("Q0000000000000000000000000000000000000001")
+	to1, _ := common.NewAddressFromString("Q000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001")
 	tx1 := types.NewTx(&types.DynamicFeeTx{
 		Nonce:     1,
 		To:        &to1,
@@ -695,7 +695,7 @@ func TestReadLogs(t *testing.T) {
 		GasFeeCap: big.NewInt(1),
 		Data:      nil,
 	})
-	to2, _ := common.NewAddressFromString("Q0000000000000000000000000000000000000002")
+	to2, _ := common.NewAddressFromString("Q000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002")
 	tx2 := types.NewTx(&types.DynamicFeeTx{
 		Nonce:     2,
 		To:        &to2,
@@ -779,8 +779,8 @@ func TestReadLogs(t *testing.T) {
 
 func TestDeriveLogFields(t *testing.T) {
 	// Create a few transactions to have receipts for
-	to2, _ := common.NewAddressFromString("Q0000000000000000000000000000000000000002")
-	to3, _ := common.NewAddressFromString("Q0000000000000000000000000000000000000003")
+	to2, _ := common.NewAddressFromString("Q000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002")
+	to3, _ := common.NewAddressFromString("Q000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003")
 	txs := types.Transactions{
 		types.NewTx(&types.DynamicFeeTx{
 			Nonce:     1,

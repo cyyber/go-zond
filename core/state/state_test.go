@@ -64,29 +64,29 @@ func TestDump(t *testing.T) {
 	s.state, _ = New(root, tdb, nil)
 	got := string(s.state.Dump(nil))
 	want := `{
-    "root": "71edff0130dd2385947095001c73d9e28d862fc286fca2b922ca6f6f3cddfdd2",
+    "root": "ea8552c57078a86cf6a10b821bf70417a32562ab74f21f370340e411ffa30f2a",
     "accounts": {
-        "Q0000000000000000000000000000000000000001": {
+        "Q00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001": {
             "balance": "22",
             "nonce": 0,
             "root": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
             "codeHash": "0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470",
-            "key": "0x1468288056310c82aa4c01a7e12a10f8111a0560e72b700555479031b86c357d"
+            "key": "0xa6eef7e35abe7026729641147f7915573c7e97b47efa546f5f6e3230263bcb49"
         },
-        "Q0000000000000000000000000000000000000002": {
+        "Q00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002": {
             "balance": "44",
             "nonce": 0,
             "root": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
             "codeHash": "0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470",
-            "key": "0xd52688a8f926c816ca1e079067caba944f158e764817b83fc43594370ca9cf62"
+            "key": "0xac33ff75c19e70fe83507db0d683fd3465c996598dc972688b7ace676c89077b"
         },
-        "Q0000000000000000000000000000000000000102": {
+        "Q00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000102": {
             "balance": "0",
             "nonce": 0,
             "root": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
             "codeHash": "0x87874902497a5bb968da31a2998d8f22e949d1ef6214bcdedd8bae24cca4b9e3",
             "code": "0x03030303030303",
-            "key": "0xa17eacbc25cda025e81db9c5c62868822c73ce097cee2a63e33a2e41268358a1"
+            "key": "0x565a22c1af7fcc038f06206699a6bd0ad8c85d23dafe9aebac3e0df68e8fb320"
         }
     }
 }`
@@ -121,11 +121,11 @@ func TestIterativeDump(t *testing.T) {
 	s.state.IterativeDump(nil, json.NewEncoder(b))
 	// check that DumpToCollector contains the state objects that are in trie
 	got := b.String()
-	want := `{"root":"0xd5710ea8166b7b04bc2bfb129d7db12931cee82f75ca8e2d075b4884322bf3de"}
-{"balance":"22","nonce":0,"root":"0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421","codeHash":"0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470","address":"Q0000000000000000000000000000000000000001","key":"0x1468288056310c82aa4c01a7e12a10f8111a0560e72b700555479031b86c357d"}
-{"balance":"1337","nonce":0,"root":"0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421","codeHash":"0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470","address":"Q0000000000000000000000000000000000000000","key":"0x5380c7b7ae81a58eb98d9c78de4a1fd7fd9535fc953ed2be602daaa41767312a"}
-{"balance":"0","nonce":0,"root":"0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421","codeHash":"0x87874902497a5bb968da31a2998d8f22e949d1ef6214bcdedd8bae24cca4b9e3","code":"0x03030303030303","address":"Q0000000000000000000000000000000000000102","key":"0xa17eacbc25cda025e81db9c5c62868822c73ce097cee2a63e33a2e41268358a1"}
-{"balance":"44","nonce":0,"root":"0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421","codeHash":"0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470","address":"Q0000000000000000000000000000000000000002","key":"0xd52688a8f926c816ca1e079067caba944f158e764817b83fc43594370ca9cf62"}
+	want := `{"root":"0x9d1c7e1352115a1f6b0f2e10117ae5bdd96217c56aa008b23381a2b6f658a1f0"}
+{"balance":"0","nonce":0,"root":"0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421","codeHash":"0x87874902497a5bb968da31a2998d8f22e949d1ef6214bcdedd8bae24cca4b9e3","code":"0x03030303030303","address":"Q00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000102","key":"0x565a22c1af7fcc038f06206699a6bd0ad8c85d23dafe9aebac3e0df68e8fb320"}
+{"balance":"22","nonce":0,"root":"0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421","codeHash":"0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470","address":"Q00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001","key":"0xa6eef7e35abe7026729641147f7915573c7e97b47efa546f5f6e3230263bcb49"}
+{"balance":"44","nonce":0,"root":"0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421","codeHash":"0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470","address":"Q00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002","key":"0xac33ff75c19e70fe83507db0d683fd3465c996598dc972688b7ace676c89077b"}
+{"balance":"1337","nonce":0,"root":"0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421","codeHash":"0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470","address":"Q00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","key":"0xad3228b676f7d3cd4284a5443f17f1962b36e491b30a40b2405849e597ba5fb5"}
 `
 	if got != want {
 		t.Errorf("DumpToCollector mismatch:\ngot: %s\nwant: %s\n", got, want)
@@ -134,18 +134,18 @@ func TestIterativeDump(t *testing.T) {
 
 func TestNull(t *testing.T) {
 	s := newStateEnv()
-	address, _ := common.NewAddressFromString("Q00000000823140710bf13990e4500136726d8b55")
+	address, _ := common.NewAddressFromString("Q0000000000000000000000000000000000000000000000000000000000000000823140710bf13990e4500136726d8b5599aabbccddeeff001122334455667788")
 	s.state.CreateAccount(address)
 	//value := common.FromHex("0x823140710bf13990e4500136726d8b55")
-	var value common.Hash
+	var value common.StorageValue
 
 	s.state.SetState(address, common.Hash{}, value)
 	s.state.Commit(0, false)
 
-	if value := s.state.GetState(address, common.Hash{}); value != (common.Hash{}) {
+	if value := s.state.GetState(address, common.Hash{}); value != (common.StorageValue{}) {
 		t.Errorf("expected empty current value, got %x", value)
 	}
-	if value := s.state.GetCommittedState(address, common.Hash{}); value != (common.Hash{}) {
+	if value := s.state.GetCommittedState(address, common.Hash{}); value != (common.StorageValue{}) {
 		t.Errorf("expected empty committed value, got %x", value)
 	}
 }
@@ -153,8 +153,8 @@ func TestNull(t *testing.T) {
 func TestSnapshot(t *testing.T) {
 	stateobjaddr := common.BytesToAddress([]byte("aa"))
 	var storageaddr common.Hash
-	data1 := common.BytesToHash([]byte{42})
-	data2 := common.BytesToHash([]byte{43})
+	data1 := common.BytesToStorageValue([]byte{42})
+	data2 := common.BytesToStorageValue([]byte{43})
 	s := newStateEnv()
 
 	// snapshot the genesis state
@@ -171,17 +171,17 @@ func TestSnapshot(t *testing.T) {
 	if v := s.state.GetState(stateobjaddr, storageaddr); v != data1 {
 		t.Errorf("wrong storage value %v, want %v", v, data1)
 	}
-	if v := s.state.GetCommittedState(stateobjaddr, storageaddr); v != (common.Hash{}) {
-		t.Errorf("wrong committed storage value %v, want %v", v, common.Hash{})
+	if v := s.state.GetCommittedState(stateobjaddr, storageaddr); v != (common.StorageValue{}) {
+		t.Errorf("wrong committed storage value %v, want %v", v, common.StorageValue{})
 	}
 
 	// revert up to the genesis state and ensure correct content
 	s.state.RevertToSnapshot(genesis)
-	if v := s.state.GetState(stateobjaddr, storageaddr); v != (common.Hash{}) {
-		t.Errorf("wrong storage value %v, want %v", v, common.Hash{})
+	if v := s.state.GetState(stateobjaddr, storageaddr); v != (common.StorageValue{}) {
+		t.Errorf("wrong storage value %v, want %v", v, common.StorageValue{})
 	}
-	if v := s.state.GetCommittedState(stateobjaddr, storageaddr); v != (common.Hash{}) {
-		t.Errorf("wrong committed storage value %v, want %v", v, common.Hash{})
+	if v := s.state.GetCommittedState(stateobjaddr, storageaddr); v != (common.StorageValue{}) {
+		t.Errorf("wrong committed storage value %v, want %v", v, common.StorageValue{})
 	}
 }
 
@@ -197,8 +197,8 @@ func TestSnapshot2(t *testing.T) {
 	stateobjaddr1 := common.BytesToAddress([]byte("so1"))
 	var storageaddr common.Hash
 
-	data0 := common.BytesToHash([]byte{17})
-	data1 := common.BytesToHash([]byte{18})
+	data0 := common.BytesToStorageValue([]byte{17})
+	data1 := common.BytesToStorageValue([]byte{18})
 
 	state.SetState(stateobjaddr0, storageaddr, data0)
 	state.SetState(stateobjaddr1, storageaddr, data1)

@@ -28,16 +28,16 @@ import (
 	"github.com/theQRL/go-qrl/core/txpool"
 	"github.com/theQRL/go-qrl/core/types"
 	"github.com/theQRL/go-qrl/core/vm"
-	"github.com/theQRL/go-qrl/crypto/pqcrypto/wallet"
 	"github.com/theQRL/go-qrl/event"
 	"github.com/theQRL/go-qrl/params"
 	"github.com/theQRL/go-qrl/qrl/downloader"
 	"github.com/theQRL/go-qrl/qrldb"
+	"github.com/theQRL/go-qrl/internal/testutil"
 )
 
 var (
 	// testWallet is a wallet to use for funding a tester account.
-	testWallet, _ = wallet.RestoreFromSeedHex("010000b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f29100000000000000000000000000000000")
+	testWallet = testutil.MustLoadAccount("alice").MustWallet()
 )
 
 // testTxPool is a mock transaction pool that blindly accepts all transactions.

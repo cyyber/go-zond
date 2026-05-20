@@ -25,19 +25,19 @@ import (
 	"github.com/theQRL/go-qrl/consensus/beacon"
 	"github.com/theQRL/go-qrl/core/types"
 	"github.com/theQRL/go-qrl/crypto"
-	"github.com/theQRL/go-qrl/crypto/pqcrypto/wallet"
+	"github.com/theQRL/go-qrl/internal/testutil"
 	"github.com/theQRL/go-qrl/params"
 	"github.com/theQRL/go-qrl/rlp"
 	"golang.org/x/crypto/sha3"
 )
 
-func getBlock(transactions int, dataSize int) *types.Block {
+func getBlock(tb testing.TB, transactions int, dataSize int) *types.Block {
 	var (
-		aa, _  = common.NewAddressFromString("Q000000000000000000000000000000000000aaaa")
+		aa, _  = common.NewAddressFromString("Q00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000aaaa")
 		engine = beacon.NewFaker()
 
 		// A sender who makes transactions, has some funds
-		d, _    = wallet.RestoreFromSeedHex("0x010000b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f29100000000000000000000000000000000")
+		d       = testutil.LoadAccount(tb, "alice").Wallet(tb)
 		address = d.GetAddress()
 		funds   = big.NewInt(1_000_000_000_000_000_000)
 		gspec   = &Genesis{
@@ -84,7 +84,7 @@ func TestRlpIterator(t *testing.T) {
 
 func testRlpIterator(t *testing.T, txs, datasize int) {
 	desc := fmt.Sprintf("%d txs [%d datasize]", txs, datasize)
-	bodyRlp, _ := rlp.EncodeToBytes(getBlock(txs, datasize).Body())
+	bodyRlp, _ := rlp.EncodeToBytes(getBlock(t, txs, datasize).Body())
 	it, err := rlp.NewListIterator(bodyRlp)
 	if err != nil {
 		t.Fatal(err)
@@ -145,7 +145,7 @@ func BenchmarkHashing(b *testing.B) {
 		blockRlp []byte
 	)
 	{
-		block := getBlock(200, 50)
+		block := getBlock(b, 200, 50)
 		bodyRlp, _ = rlp.EncodeToBytes(block.Body())
 		blockRlp, _ = rlp.EncodeToBytes(block)
 	}

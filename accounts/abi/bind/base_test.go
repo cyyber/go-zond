@@ -18,6 +18,7 @@ package bind_test
 
 import (
 	"context"
+	"encoding/hex"
 	"errors"
 	"math/big"
 	"reflect"
@@ -29,7 +30,6 @@ import (
 	"github.com/theQRL/go-qrl/accounts/abi"
 	"github.com/theQRL/go-qrl/accounts/abi/bind"
 	"github.com/theQRL/go-qrl/common"
-	"github.com/theQRL/go-qrl/common/hexutil"
 	"github.com/theQRL/go-qrl/core/types"
 	"github.com/theQRL/go-qrl/crypto"
 	"github.com/theQRL/go-qrl/rlp"
@@ -120,7 +120,7 @@ func TestPassingBlockNumber(t *testing.T) {
 			codeAtBytes: []byte{1, 2, 3},
 		},
 	}
-	contractAddr, _ := common.NewAddressFromString("Q0000000000000000000000000000000000000000")
+	contractAddr, _ := common.NewAddressFromString("Q000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000")
 	bc := bind.NewBoundContract(contractAddr, abi.ABI{
 		Methods: map[string]abi.Method{
 			"something": {
@@ -163,25 +163,39 @@ func TestPassingBlockNumber(t *testing.T) {
 	}
 }
 
-const hexData = "0x000000000000000000000000376c47978271565f56deb45495afa69e59c16ab200000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000060000000000000000000000000000000000000000000000000000000000000000158"
+// mockSender is the 64-byte address encoded into hexData (the non-indexed
+// portion of every mock "received(...)" event used in these tests). It also
+// replaces the 20-byte hex literals that used to be parsed via
+// NewAddressFromString.
+var mockSender = func() common.Address {
+	raw, _ := hex.DecodeString("978271565f56deb45495afa69e59c16ab2376c47978271565f56deb45495afa69e59c16ab2112233445566778899aabb")
+	return common.BytesToAddress(raw)
+}()
+
+// hexData is the ABI-encoded non-indexed payload (address, uint256, bytes) =
+// (mockSender, 1, [88]) as produced by abi.Pack with a 64-byte slot width.
+var hexData = func() []byte {
+	const spec = `[{"name":"f","type":"function","inputs":[{"type":"address"},{"type":"uint256"},{"type":"bytes"}]}]`
+	a, _ := abi.JSON(strings.NewReader(spec))
+	packed, _ := a.Pack("f", mockSender, big.NewInt(1), []byte{88})
+	return packed[4:]
+}()
 
 func TestUnpackIndexedStringTyLogIntoMap(t *testing.T) {
 	hash := crypto.Keccak256Hash([]byte("testName"))
-	topics := []common.Hash{
-		crypto.Keccak256Hash([]byte("received(string,address,uint256,bytes)")),
-		hash,
+	topics := []common.LogTopic{
+		common.BytesToEventSignatureLogTopic(crypto.Keccak256([]byte("received(string,address,uint256,bytes)"))),
+		common.BytesToLogTopic(hash.Bytes()),
 	}
 	mockLog := newMockLog(topics, common.HexToHash("0x0"))
 
 	abiString := `[{"anonymous":false,"inputs":[{"indexed":true,"name":"name","type":"string"},{"indexed":false,"name":"sender","type":"address"},{"indexed":false,"name":"amount","type":"uint256"},{"indexed":false,"name":"memo","type":"bytes"}],"name":"received","type":"event"}]`
 	parsedAbi, _ := abi.JSON(strings.NewReader(abiString))
-	contractAddr, _ := common.NewAddressFromString("Q0000000000000000000000000000000000000000")
-	bc := bind.NewBoundContract(contractAddr, parsedAbi, nil, nil, nil)
-	sender, _ := common.NewAddressFromString("Q376c47978271565f56DEB45495afa69E59c16Ab2")
+	bc := bind.NewBoundContract(common.Address{}, parsedAbi, nil, nil, nil)
 
 	expectedReceivedMap := map[string]any{
-		"name":   hash,
-		"sender": sender,
+		"name":   common.BytesToLogTopic(hash.Bytes()),
+		"sender": mockSender,
 		"amount": big.NewInt(1),
 		"memo":   []byte{88},
 	}
@@ -193,7 +207,7 @@ func TestUnpackAnonymousLogIntoMap(t *testing.T) {
 
 	abiString := `[{"anonymous":false,"inputs":[{"indexed":false,"name":"amount","type":"uint256"}],"name":"received","type":"event"}]`
 	parsedAbi, _ := abi.JSON(strings.NewReader(abiString))
-	contractAddr, _ := common.NewAddressFromString("Q0000000000000000000000000000000000000000")
+	contractAddr, _ := common.NewAddressFromString("Q000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000")
 	bc := bind.NewBoundContract(contractAddr, parsedAbi, nil, nil, nil)
 
 	var received map[string]any
@@ -212,21 +226,19 @@ func TestUnpackIndexedSliceTyLogIntoMap(t *testing.T) {
 		t.Fatal(err)
 	}
 	hash := crypto.Keccak256Hash(sliceBytes)
-	topics := []common.Hash{
-		crypto.Keccak256Hash([]byte("received(string[],address,uint256,bytes)")),
-		hash,
+	topics := []common.LogTopic{
+		common.BytesToEventSignatureLogTopic(crypto.Keccak256([]byte("received(string[],address,uint256,bytes)"))),
+		common.BytesToLogTopic(hash.Bytes()),
 	}
 	mockLog := newMockLog(topics, common.HexToHash("0x0"))
 
 	abiString := `[{"anonymous":false,"inputs":[{"indexed":true,"name":"names","type":"string[]"},{"indexed":false,"name":"sender","type":"address"},{"indexed":false,"name":"amount","type":"uint256"},{"indexed":false,"name":"memo","type":"bytes"}],"name":"received","type":"event"}]`
 	parsedAbi, _ := abi.JSON(strings.NewReader(abiString))
-	contractAddr, _ := common.NewAddressFromString("Q0000000000000000000000000000000000000000")
-	bc := bind.NewBoundContract(contractAddr, parsedAbi, nil, nil, nil)
+	bc := bind.NewBoundContract(common.Address{}, parsedAbi, nil, nil, nil)
 
-	sender, _ := common.NewAddressFromString("Q376c47978271565f56DEB45495afa69E59c16Ab2")
 	expectedReceivedMap := map[string]any{
-		"names":  hash,
-		"sender": sender,
+		"names":  common.BytesToLogTopic(hash.Bytes()),
+		"sender": mockSender,
 		"amount": big.NewInt(1),
 		"memo":   []byte{88},
 	}
@@ -234,28 +246,26 @@ func TestUnpackIndexedSliceTyLogIntoMap(t *testing.T) {
 }
 
 func TestUnpackIndexedArrayTyLogIntoMap(t *testing.T) {
-	address1, _ := common.NewAddressFromString("Q0000000000000000000000000000000000000000")
-	address2, _ := common.NewAddressFromString("Q376c47978271565f56DEB45495afa69E59c16Ab2")
+	address1 := common.Address{}
+	address2 := mockSender
 	arrBytes, err := rlp.EncodeToBytes([2]common.Address{address1, address2})
 	if err != nil {
 		t.Fatal(err)
 	}
 	hash := crypto.Keccak256Hash(arrBytes)
-	topics := []common.Hash{
-		crypto.Keccak256Hash([]byte("received(address[2],address,uint256,bytes)")),
-		hash,
+	topics := []common.LogTopic{
+		common.BytesToEventSignatureLogTopic(crypto.Keccak256([]byte("received(address[2],address,uint256,bytes)"))),
+		common.BytesToLogTopic(hash.Bytes()),
 	}
 	mockLog := newMockLog(topics, common.HexToHash("0x0"))
 
 	abiString := `[{"anonymous":false,"inputs":[{"indexed":true,"name":"addresses","type":"address[2]"},{"indexed":false,"name":"sender","type":"address"},{"indexed":false,"name":"amount","type":"uint256"},{"indexed":false,"name":"memo","type":"bytes"}],"name":"received","type":"event"}]`
 	parsedAbi, _ := abi.JSON(strings.NewReader(abiString))
-	contractAddr, _ := common.NewAddressFromString("Q0000000000000000000000000000000000000000")
-	bc := bind.NewBoundContract(contractAddr, parsedAbi, nil, nil, nil)
+	bc := bind.NewBoundContract(common.Address{}, parsedAbi, nil, nil, nil)
 
-	sender, _ := common.NewAddressFromString("Q376c47978271565f56DEB45495afa69E59c16Ab2")
 	expectedReceivedMap := map[string]any{
-		"addresses": hash,
-		"sender":    sender,
+		"addresses": common.BytesToLogTopic(hash.Bytes()),
+		"sender":    mockSender,
 		"amount":    big.NewInt(1),
 		"memo":      []byte{88},
 	}
@@ -263,51 +273,45 @@ func TestUnpackIndexedArrayTyLogIntoMap(t *testing.T) {
 }
 
 func TestUnpackIndexedFuncTyLogIntoMap(t *testing.T) {
-	mockAddress, _ := common.NewAddressFromString("Q376c47978271565f56DEB45495afa69E59c16Ab2")
-	addrBytes := mockAddress.Bytes()
+	addrBytes := mockSender.Bytes()
 	hash := crypto.Keccak256Hash([]byte("mockFunction(address,uint)"))
 	functionSelector := hash[:4]
 	functionTyBytes := append(addrBytes, functionSelector...)
-	var functionTy [24]byte
-	copy(functionTy[:], functionTyBytes[0:24])
-	topics := []common.Hash{
-		crypto.Keccak256Hash([]byte("received(function,address,uint256,bytes)")),
-		common.BytesToHash(functionTyBytes),
+	topics := []common.LogTopic{
+		common.BytesToEventSignatureLogTopic(crypto.Keccak256([]byte("received(function,address,uint256,bytes)"))),
+		common.BytesToLogTopic(functionTyBytes),
 	}
 	mockLog := newMockLog(topics, common.HexToHash("0x5c698f13940a2153440c6d19660878bc90219d9298fdcf37365aa8d88d40fc42"))
 	abiString := `[{"anonymous":false,"inputs":[{"indexed":true,"name":"function","type":"function"},{"indexed":false,"name":"sender","type":"address"},{"indexed":false,"name":"amount","type":"uint256"},{"indexed":false,"name":"memo","type":"bytes"}],"name":"received","type":"event"}]`
 	parsedAbi, _ := abi.JSON(strings.NewReader(abiString))
-	contractAddr, _ := common.NewAddressFromString("Q0000000000000000000000000000000000000000")
-	bc := bind.NewBoundContract(contractAddr, parsedAbi, nil, nil, nil)
+	bc := bind.NewBoundContract(common.Address{}, parsedAbi, nil, nil, nil)
 
-	sender, _ := common.NewAddressFromString("Q376c47978271565f56DEB45495afa69E59c16Ab2")
-	expectedReceivedMap := map[string]any{
-		"function": functionTy,
-		"sender":   sender,
-		"amount":   big.NewInt(1),
-		"memo":     []byte{88},
+	received := make(map[string]any)
+	err := bc.UnpackLogIntoMap(received, "received", mockLog)
+	if err == nil {
+		t.Fatal("expected indexed function topic to be rejected")
 	}
-	unpackAndCheck(t, bc, expectedReceivedMap, mockLog)
+	if !strings.Contains(err.Error(), "function type does not fit") {
+		t.Fatalf("unexpected error: %v", err)
+	}
 }
 
 func TestUnpackIndexedBytesTyLogIntoMap(t *testing.T) {
 	bytes := []byte{1, 2, 3, 4, 5}
 	hash := crypto.Keccak256Hash(bytes)
-	topics := []common.Hash{
-		crypto.Keccak256Hash([]byte("received(bytes,address,uint256,bytes)")),
-		hash,
+	topics := []common.LogTopic{
+		common.BytesToEventSignatureLogTopic(crypto.Keccak256([]byte("received(bytes,address,uint256,bytes)"))),
+		common.BytesToLogTopic(hash.Bytes()),
 	}
 	mockLog := newMockLog(topics, common.HexToHash("0x5c698f13940a2153440c6d19660878bc90219d9298fdcf37365aa8d88d40fc42"))
 
 	abiString := `[{"anonymous":false,"inputs":[{"indexed":true,"name":"content","type":"bytes"},{"indexed":false,"name":"sender","type":"address"},{"indexed":false,"name":"amount","type":"uint256"},{"indexed":false,"name":"memo","type":"bytes"}],"name":"received","type":"event"}]`
 	parsedAbi, _ := abi.JSON(strings.NewReader(abiString))
-	contractAddr, _ := common.NewAddressFromString("Q0000000000000000000000000000000000000000")
-	bc := bind.NewBoundContract(contractAddr, parsedAbi, nil, nil, nil)
+	bc := bind.NewBoundContract(common.Address{}, parsedAbi, nil, nil, nil)
 
-	sender, _ := common.NewAddressFromString("Q376c47978271565f56DEB45495afa69E59c16Ab2")
 	expectedReceivedMap := map[string]any{
-		"content": hash,
-		"sender":  sender,
+		"content": common.BytesToLogTopic(hash.Bytes()),
+		"sender":  mockSender,
 		"amount":  big.NewInt(1),
 		"memo":    []byte{88},
 	}
@@ -356,12 +360,11 @@ func unpackAndCheck(t *testing.T, bc *bind.BoundContract, expected map[string]an
 	}
 }
 
-func newMockLog(topics []common.Hash, txHash common.Hash) types.Log {
-	address, _ := common.NewAddressFromString("Q0000000000000000000000000000000000000000")
+func newMockLog(topics []common.LogTopic, txHash common.Hash) types.Log {
 	return types.Log{
-		Address:     address,
+		Address:     common.Address{},
 		Topics:      topics,
-		Data:        hexutil.MustDecode(hexData),
+		Data:        hexData,
 		BlockNumber: uint64(26),
 		TxHash:      txHash,
 		TxIndex:     111,
@@ -372,7 +375,7 @@ func newMockLog(topics []common.Hash, txHash common.Hash) types.Log {
 }
 
 func TestCall(t *testing.T) {
-	contractAddr, _ := common.NewAddressFromString("Q0000000000000000000000000000000000000000")
+	contractAddr, _ := common.NewAddressFromString("Q000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000")
 	var method, methodWithArg = "something", "somethingArrrrg"
 	tests := []struct {
 		name, method string

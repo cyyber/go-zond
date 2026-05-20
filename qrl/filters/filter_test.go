@@ -31,7 +31,7 @@ import (
 	"github.com/theQRL/go-qrl/core/rawdb"
 	"github.com/theQRL/go-qrl/core/types"
 	"github.com/theQRL/go-qrl/core/vm"
-	"github.com/theQRL/go-qrl/crypto/pqcrypto/wallet"
+	"github.com/theQRL/go-qrl/internal/testutil"
 	"github.com/theQRL/go-qrl/params"
 	"github.com/theQRL/go-qrl/rpc"
 	"github.com/theQRL/go-qrl/trie"
@@ -53,14 +53,14 @@ func makeReceipt(addr common.Address) *types.Receipt {
 
 func BenchmarkFilters(b *testing.B) {
 	var (
-		db, _      = rawdb.NewLevelDBDatabase(b.TempDir(), 0, 0, "", false)
-		_, sys     = newTestFilterSystem(b, db, Config{})
-		wallet1, _ = wallet.RestoreFromSeedHex("0x010000b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f29100000000000000000000000000000000")
-		addr1      = wallet1.GetAddress()
-		addr2      = common.BytesToAddress([]byte("jeff"))
-		addr3      = common.BytesToAddress([]byte("ethereum"))
-		addr4      = common.BytesToAddress([]byte("random addresses please"))
-		to, _      = common.NewAddressFromString("Q0000000000000000000000000000000000000999")
+		db, _   = rawdb.NewLevelDBDatabase(b.TempDir(), 0, 0, "", false)
+		_, sys  = newTestFilterSystem(b, db, Config{})
+		wallet1 = testutil.MustLoadAccount("alice").MustWallet()
+		addr1   = wallet1.GetAddress()
+		addr2   = common.BytesToAddress([]byte("jeff"))
+		addr3   = common.BytesToAddress([]byte("ethereum"))
+		addr4   = common.BytesToAddress([]byte("random addresses please"))
+		to, _   = common.NewAddressFromString("Q00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000999")
 
 		gspec = &core.Genesis{
 			Alloc:   core.GenesisAlloc{addr1: {Balance: big.NewInt(1000000)}},
@@ -116,53 +116,28 @@ func TestFilters(t *testing.T) {
 		db           = rawdb.NewMemoryDatabase()
 		backend, sys = newTestFilterSystem(t, db, Config{})
 		// Sender account
-		wallet1, _ = wallet.RestoreFromSeedHex("0x010000b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f29100000000000000000000000000000000")
-		addr       = wallet1.GetAddress()
-		signer     = types.NewZondSigner(big.NewInt(1))
+		wallet1 = testutil.MustLoadAccount("alice").MustWallet()
+		addr    = wallet1.GetAddress()
+		signer  = types.NewZondSigner(big.NewInt(1))
 		// Logging contract
 		contract  = common.Address{0xfe}
 		contract2 = common.Address{0xff}
 		abiStr    = `[{"inputs":[],"name":"log0","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"t1","type":"uint256"}],"name":"log1","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"t1","type":"uint256"},{"internalType":"uint256","name":"t2","type":"uint256"}],"name":"log2","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"t1","type":"uint256"},{"internalType":"uint256","name":"t2","type":"uint256"},{"internalType":"uint256","name":"t3","type":"uint256"}],"name":"log3","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"t1","type":"uint256"},{"internalType":"uint256","name":"t2","type":"uint256"},{"internalType":"uint256","name":"t3","type":"uint256"},{"internalType":"uint256","name":"t4","type":"uint256"}],"name":"log4","outputs":[],"stateMutability":"nonpayable","type":"function"}]`
 
-		/*
-			// SPDX-License-Identifier: GPL-3.0
-			// TODO(now.youtrack.cloud/issue/TGZ-30)
-			pragma hyperion >=0.7.0 <0.9.0;
-
-			contract Logger {
-			    function log0() external {
-			        assembly {
-			            log0(0, 0)
-			        }
-			    }
-
-			    function log1(uint t1) external {
-			        assembly {
-			            log1(0, 0, t1)
-			        }
-			    }
-
-			    function log2(uint t1, uint t2) external {
-			        assembly {
-			            log2(0, 0, t1, t2)
-			        }
-			    }
-
-			    function log3(uint t1, uint t2, uint t3) external {
-			        assembly {
-			            log3(0, 0, t1, t2, t3)
-			        }
-			    }
-
-			    function log4(uint t1, uint t2, uint t3, uint t4) external {
-			        assembly {
-			            log4(0, 0, t1, t2, t3, t4)
-			        }
-			    }
-			}
-		*/
-
-		bytecode = common.FromHex("608060405234801561001057600080fd5b50600436106100575760003560e01c80630aa731851461005c5780632a4c08961461006657806378b9a1f314610082578063c670f8641461009e578063c683d6a3146100ba575b600080fd5b6100646100d6565b005b610080600480360381019061007b9190610143565b6100dc565b005b61009c60048036038101906100979190610196565b6100e8565b005b6100b860048036038101906100b391906101d6565b6100f2565b005b6100d460048036038101906100cf9190610203565b6100fa565b005b600080a0565b808284600080a3505050565b8082600080a25050565b80600080a150565b80828486600080a450505050565b600080fd5b6000819050919050565b6101208161010d565b811461012b57600080fd5b50565b60008135905061013d81610117565b92915050565b60008060006060848603121561015c5761015b610108565b5b600061016a8682870161012e565b935050602061017b8682870161012e565b925050604061018c8682870161012e565b9150509250925092565b600080604083850312156101ad576101ac610108565b5b60006101bb8582860161012e565b92505060206101cc8582860161012e565b9150509250929050565b6000602082840312156101ec576101eb610108565b5b60006101fa8482850161012e565b91505092915050565b6000806000806080858703121561021d5761021c610108565b5b600061022b8782880161012e565b945050602061023c8782880161012e565b935050604061024d8782880161012e565b925050606061025e8782880161012e565b9150509295919450925056fea264697066735822122073a4b156f487e59970dc1ef449cc0d51467268f676033a17188edafcee861f9864736f6c63430008110033")
+		// Hand-rolled replacement for the Solidity Logger fixture. The
+		// original contract relied on LOGn/DUP/SWAP opcodes that shifted
+		// when the VM widened to 512-bit words. Under the 64-byte ABI
+		// slot layout, log1(uint256) packs to 4+64=68 bytes of calldata
+		// and log2(uint256,uint256) packs to 4+64+64=132 bytes. This
+		// minimal bytecode branches on calldata size:
+		//
+		//   size == 132: emit LOG2 with topics t1=CALLDATALOAD(4),
+		//                                       t2=CALLDATALOAD(68)
+		//   otherwise:  emit LOG1 with topic  t1=CALLDATALOAD(4)
+		//
+		// The test never invokes log0/log3/log4, so the fall-through is
+		// fine.
+		bytecode = common.FromHex("60043536610084146100125760006000c1005b604435b060006000c200")
 
 		hash1 = common.BytesToHash([]byte("topic1"))
 		hash2 = common.BytesToHash([]byte("topic2"))
@@ -289,6 +264,33 @@ func TestFilters(t *testing.T) {
 	})
 	backend.setPending(pchain[0], preceipts[0])
 
+	// Expected logs are rebuilt from the actual chain/tx hashes produced
+	// above so the test stays insulated from contract-bytecode changes.
+	mkLog := func(blockIdx, txIdx, logIdx int, addr common.Address, topicBytes ...[]byte) *types.Log {
+		block := chain[blockIdx]
+		tx := block.Transactions()[txIdx]
+		topics := make([]common.LogTopic, len(topicBytes))
+		for i, tb := range topicBytes {
+			topics[i] = common.BytesToLogTopic(tb)
+		}
+		return &types.Log{
+			Address:     addr,
+			Topics:      topics,
+			Data:        []byte{},
+			BlockNumber: block.NumberU64(),
+			TxHash:      tx.Hash(),
+			TxIndex:     uint(txIdx),
+			BlockHash:   block.Hash(),
+			Index:       uint(logIdx),
+		}
+	}
+	mustJSON := func(logs ...*types.Log) string {
+		b, err := json.Marshal(logs)
+		if err != nil {
+			t.Fatalf("marshal logs: %v", err)
+		}
+		return string(b)
+	}
 	for i, tc := range []struct {
 		f    *Filter
 		want string
@@ -296,43 +298,54 @@ func TestFilters(t *testing.T) {
 	}{
 		{
 			f:    sys.NewBlockFilter(chain[2].Hash(), []common.Address{contract}, nil),
-			want: `[{"address":"Qfe00000000000000000000000000000000000000","topics":["0x0000000000000000000000000000000000000000000000000000746f70696332","0x0000000000000000000000000000000000000000000000000000746f70696331"],"data":"0x","blockNumber":"0x3","transactionHash":"0xabeaa3a78b0388e1d5eccae6548761832c0ecb1aaea6e5a5aef24a1b9aa6d5e6","transactionIndex":"0x0","blockHash":"0x207006320bfb3413ae191d3f4fb3c36566aabc82acea381467c4f8928ec72a99","logIndex":"0x0","removed":false}]`,
+			want: mustJSON(mkLog(2, 0, 0, contract, hash2.Bytes(), hash1.Bytes())),
 		},
 		{
-			f:    sys.NewRangeFilter(0, int64(rpc.LatestBlockNumber), []common.Address{contract}, [][]common.Hash{{hash1, hash2, hash3, hash4}}),
-			want: `[{"address":"Qfe00000000000000000000000000000000000000","topics":["0x0000000000000000000000000000000000000000000000000000746f70696331"],"data":"0x","blockNumber":"0x2","transactionHash":"0x6aaf21e1608d7ce841d4d8aecfddeb3cb67a1f336e2e0a302be26bf6c13327e0","transactionIndex":"0x0","blockHash":"0xf9672460cd13a34c9bddffcb46f8c2773d7f2545ee4008f4193278a1ffe4a474","logIndex":"0x0","removed":false},{"address":"Qfe00000000000000000000000000000000000000","topics":["0x0000000000000000000000000000000000000000000000000000746f70696332","0x0000000000000000000000000000000000000000000000000000746f70696331"],"data":"0x","blockNumber":"0x3","transactionHash":"0xabeaa3a78b0388e1d5eccae6548761832c0ecb1aaea6e5a5aef24a1b9aa6d5e6","transactionIndex":"0x0","blockHash":"0x207006320bfb3413ae191d3f4fb3c36566aabc82acea381467c4f8928ec72a99","logIndex":"0x0","removed":false},{"address":"Qfe00000000000000000000000000000000000000","topics":["0x0000000000000000000000000000000000000000000000000000746f70696334"],"data":"0x","blockNumber":"0x3e8","transactionHash":"0xdd1b17bb23012b0f8b3e9fe465f93452069c72aff647ce3a7a997d3710f06d75","transactionIndex":"0x0","blockHash":"0xd775a674640f1f9454b68d853f3a202f4d2f7f985df331ea7e45812f4038e783","logIndex":"0x0","removed":false}]`,
+			f: sys.NewRangeFilter(0, int64(rpc.LatestBlockNumber), []common.Address{contract}, [][]common.LogTopic{{common.BytesToLogTopic(hash1.Bytes()), common.BytesToLogTopic(hash2.Bytes()), common.BytesToLogTopic(hash3.Bytes()), common.BytesToLogTopic(hash4.Bytes())}}),
+			want: mustJSON(
+				mkLog(1, 0, 0, contract, hash1.Bytes()),
+				mkLog(2, 0, 0, contract, hash2.Bytes(), hash1.Bytes()),
+				mkLog(999, 0, 0, contract, hash4.Bytes()),
+			),
 		},
 		{
-			f: sys.NewRangeFilter(900, 999, []common.Address{contract}, [][]common.Hash{{hash3}}),
+			f: sys.NewRangeFilter(900, 999, []common.Address{contract}, [][]common.LogTopic{{common.BytesToLogTopic(hash3.Bytes())}}),
 		},
 		{
-			f:    sys.NewRangeFilter(990, int64(rpc.LatestBlockNumber), []common.Address{contract2}, [][]common.Hash{{hash3}}),
-			want: `[{"address":"Qff00000000000000000000000000000000000000","topics":["0x0000000000000000000000000000000000000000000000000000746f70696333"],"data":"0x","blockNumber":"0x3e7","transactionHash":"0xcef6909852c7317a800a13bc8ede04622a0aa15d62807b12122bf8fad6ac0b5f","transactionIndex":"0x0","blockHash":"0x5e7712ed078faebc1ca9d44bf174c5dd5654c6287004fecbe22d3f834ed528dd","logIndex":"0x0","removed":false}]`,
+			f:    sys.NewRangeFilter(990, int64(rpc.LatestBlockNumber), []common.Address{contract2}, [][]common.LogTopic{{common.BytesToLogTopic(hash3.Bytes())}}),
+			want: mustJSON(mkLog(998, 0, 0, contract2, hash3.Bytes())),
 		},
 		{
-			f:    sys.NewRangeFilter(1, 10, nil, [][]common.Hash{{hash1, hash2}}),
-			want: `[{"address":"Qfe00000000000000000000000000000000000000","topics":["0x0000000000000000000000000000000000000000000000000000746f70696331"],"data":"0x","blockNumber":"0x2","transactionHash":"0x6aaf21e1608d7ce841d4d8aecfddeb3cb67a1f336e2e0a302be26bf6c13327e0","transactionIndex":"0x0","blockHash":"0xf9672460cd13a34c9bddffcb46f8c2773d7f2545ee4008f4193278a1ffe4a474","logIndex":"0x0","removed":false},{"address":"Qff00000000000000000000000000000000000000","topics":["0x0000000000000000000000000000000000000000000000000000746f70696331"],"data":"0x","blockNumber":"0x2","transactionHash":"0x6301f00e7ec7c7d398f1e67942ecd561cffebc5648ff3c5a6d6a321b7fb0172d","transactionIndex":"0x1","blockHash":"0xf9672460cd13a34c9bddffcb46f8c2773d7f2545ee4008f4193278a1ffe4a474","logIndex":"0x1","removed":false},{"address":"Qfe00000000000000000000000000000000000000","topics":["0x0000000000000000000000000000000000000000000000000000746f70696332","0x0000000000000000000000000000000000000000000000000000746f70696331"],"data":"0x","blockNumber":"0x3","transactionHash":"0xabeaa3a78b0388e1d5eccae6548761832c0ecb1aaea6e5a5aef24a1b9aa6d5e6","transactionIndex":"0x0","blockHash":"0x207006320bfb3413ae191d3f4fb3c36566aabc82acea381467c4f8928ec72a99","logIndex":"0x0","removed":false}]`,
+			f: sys.NewRangeFilter(1, 10, nil, [][]common.LogTopic{{common.BytesToLogTopic(hash1.Bytes()), common.BytesToLogTopic(hash2.Bytes())}}),
+			want: mustJSON(
+				mkLog(1, 0, 0, contract, hash1.Bytes()),
+				mkLog(1, 1, 1, contract2, hash1.Bytes()),
+				mkLog(2, 0, 0, contract, hash2.Bytes(), hash1.Bytes()),
+			),
 		},
 		{
-			f: sys.NewRangeFilter(0, int64(rpc.LatestBlockNumber), nil, [][]common.Hash{{common.BytesToHash([]byte("fail"))}}),
+			f: sys.NewRangeFilter(0, int64(rpc.LatestBlockNumber), nil, [][]common.LogTopic{{common.BytesToLogTopic([]byte("fail"))}}),
 		},
 		{
 			f: sys.NewRangeFilter(0, int64(rpc.LatestBlockNumber), []common.Address{common.BytesToAddress([]byte("failmenow"))}, nil),
 		},
 		{
-			f: sys.NewRangeFilter(0, int64(rpc.LatestBlockNumber), nil, [][]common.Hash{{common.BytesToHash([]byte("fail"))}, {hash1}}),
+			f: sys.NewRangeFilter(0, int64(rpc.LatestBlockNumber), nil, [][]common.LogTopic{{common.BytesToLogTopic([]byte("fail"))}, {common.BytesToLogTopic(hash1.Bytes())}}),
 		},
 		{
 			f:    sys.NewRangeFilter(int64(rpc.LatestBlockNumber), int64(rpc.LatestBlockNumber), nil, nil),
-			want: `[{"address":"Qfe00000000000000000000000000000000000000","topics":["0x0000000000000000000000000000000000000000000000000000746f70696334"],"data":"0x","blockNumber":"0x3e8","transactionHash":"0xdd1b17bb23012b0f8b3e9fe465f93452069c72aff647ce3a7a997d3710f06d75","transactionIndex":"0x0","blockHash":"0xd775a674640f1f9454b68d853f3a202f4d2f7f985df331ea7e45812f4038e783","logIndex":"0x0","removed":false}]`,
+			want: mustJSON(mkLog(999, 0, 0, contract, hash4.Bytes())),
 		},
 		{
-			f:    sys.NewRangeFilter(int64(rpc.FinalizedBlockNumber), int64(rpc.LatestBlockNumber), nil, nil),
-			want: `[{"address":"Qff00000000000000000000000000000000000000","topics":["0x0000000000000000000000000000000000000000000000000000746f70696333"],"data":"0x","blockNumber":"0x3e7","transactionHash":"0xcef6909852c7317a800a13bc8ede04622a0aa15d62807b12122bf8fad6ac0b5f","transactionIndex":"0x0","blockHash":"0x5e7712ed078faebc1ca9d44bf174c5dd5654c6287004fecbe22d3f834ed528dd","logIndex":"0x0","removed":false},{"address":"Qfe00000000000000000000000000000000000000","topics":["0x0000000000000000000000000000000000000000000000000000746f70696334"],"data":"0x","blockNumber":"0x3e8","transactionHash":"0xdd1b17bb23012b0f8b3e9fe465f93452069c72aff647ce3a7a997d3710f06d75","transactionIndex":"0x0","blockHash":"0xd775a674640f1f9454b68d853f3a202f4d2f7f985df331ea7e45812f4038e783","logIndex":"0x0","removed":false}]`,
+			f: sys.NewRangeFilter(int64(rpc.FinalizedBlockNumber), int64(rpc.LatestBlockNumber), nil, nil),
+			want: mustJSON(
+				mkLog(998, 0, 0, contract2, hash3.Bytes()),
+				mkLog(999, 0, 0, contract, hash4.Bytes()),
+			),
 		},
 		{
 			f:    sys.NewRangeFilter(int64(rpc.FinalizedBlockNumber), int64(rpc.FinalizedBlockNumber), nil, nil),
-			want: `[{"address":"Qff00000000000000000000000000000000000000","topics":["0x0000000000000000000000000000000000000000000000000000746f70696333"],"data":"0x","blockNumber":"0x3e7","transactionHash":"0xcef6909852c7317a800a13bc8ede04622a0aa15d62807b12122bf8fad6ac0b5f","transactionIndex":"0x0","blockHash":"0x5e7712ed078faebc1ca9d44bf174c5dd5654c6287004fecbe22d3f834ed528dd","logIndex":"0x0","removed":false}]`,
+			want: mustJSON(mkLog(998, 0, 0, contract2, hash3.Bytes())),
 		},
 		{
 			f: sys.NewRangeFilter(int64(rpc.LatestBlockNumber), int64(rpc.FinalizedBlockNumber), nil, nil),

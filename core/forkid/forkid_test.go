@@ -55,7 +55,7 @@ func TestCreation(t *testing.T) {
 			params.MainnetChainConfig,
 			core.DefaultGenesisBlock().ToBlock(),
 			[]testcase{
-				{0, 0, ID{Hash: checksumToBytes(0xfab12fcc), Next: 0}},
+				{0, 0, ID{Hash: checksumToBytes(0x91b41b71), Next: 0}},
 				// NOTE(rgeraldes24): revisit upon new fork
 				/*
 					{0, 0, ID{Hash: checksumToBytes(0xfc64ec04), Next: 1150000}},                    // Unsynced
@@ -115,11 +115,11 @@ func TestValidation(t *testing.T) {
 		//----------------------
 
 		// Local is mainnet Zond, remote announces the same. No future fork is announced.
-		{params.MainnetChainConfig, 15050000, 20000000, ID{Hash: checksumToBytes(0xfab12fcc), Next: 0}, nil},
+		{params.MainnetChainConfig, 15050000, 20000000, ID{Hash: checksumToBytes(0x91b41b71), Next: 0}, nil},
 
 		// Local is mainnet Zond, remote announces the same. Remote also announces a next fork
 		// at time 0xffffffff, but that is uncertain.
-		{params.MainnetChainConfig, 15050000, 20000000, ID{Hash: checksumToBytes(0xfab12fcc), Next: math.MaxUint64}, nil},
+		{params.MainnetChainConfig, 15050000, 20000000, ID{Hash: checksumToBytes(0x91b41b71), Next: math.MaxUint64}, nil},
 
 		// Local is mainnet Zond, and isn't aware of more forks. Remote announces Zond +
 		// 0xffffffff. Local needs software update, reject.
@@ -132,7 +132,7 @@ func TestValidation(t *testing.T) {
 		// at some future timestamp 8888888888, for itself, but past block for local. Local is incompatible.
 		//
 		// This case detects non-upgraded nodes with majority hash power (typical Ropsten mess).
-		{params.MainnetChainConfig, 88888888, 8888888888, ID{Hash: checksumToBytes(0xfab12fcc), Next: 8888888888}, ErrLocalIncompatibleOrStale},
+		{params.MainnetChainConfig, 88888888, 8888888888, ID{Hash: checksumToBytes(0x91b41b71), Next: 8888888888}, ErrLocalIncompatibleOrStale},
 	}
 	for i, tt := range tests {
 		filter := newFilter(tt.config, core.DefaultGenesisBlock().ToBlock(), func() (uint64, uint64) { return tt.head, tt.time })

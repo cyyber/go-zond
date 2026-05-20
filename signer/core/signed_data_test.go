@@ -134,17 +134,17 @@ var jsonTypedData = `
         "name": "Ether Mail",
         "version": "1",
         "chainId": "1",
-        "verifyingContract": "QCCCcccccCCCCcCCCCCCcCcCccCcCCCcCcccccccC"
+        "verifyingContract": "QCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCc99aabbccddeeff001122334455667788"
       },
       "message": {
         "from": {
           "name": "Cow",
 		  "test": 3,
-          "wallet": "QcD2a3d9F938E13CD947Ec05AbC7FE734Df8DD826"
+          "wallet": "QcD2a3d9F938E13CD947Ec05AbC7FE734Df8DD826cD2a3d9F938E13CD947Ec05AbC7FE734Df8DD826aabbccddeeff010299aabbccddeeff001122334455667788"
         },
         "to": {
           "name": "Bob",
-          "wallet": "QbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB"
+          "wallet": "QbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbBbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbBaabbccddee01020399aabbccddeeff001122334455667788"
         },
         "contents": "Hello, Bob!"
       }
@@ -153,22 +153,24 @@ var jsonTypedData = `
 
 const primaryType = "Mail"
 
+// 64-byte QRL addresses — any 128-char hex works; these extend the original
+// 20-byte fixtures to the full address width.
 var domainStandard = apitypes.TypedDataDomain{
 	Name:              "Ether Mail",
 	Version:           "1",
 	ChainId:           math.NewHexOrDecimal256(1),
-	VerifyingContract: "QCcCCccccCCCCcCCCCCCcCcCccCcCCCcCcccccccC",
+	VerifyingContract: "QCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCc99aabbccddeeff001122334455667788",
 	Salt:              "",
 }
 
 var messageStandard = map[string]any{
 	"from": map[string]any{
 		"name":   "Cow",
-		"wallet": "QCD2a3d9F938E13CD947Ec05AbC7FE734Df8DD826",
+		"wallet": "QCD2a3d9F938E13CD947Ec05AbC7FE734Df8DD826CD2a3d9F938E13CD947Ec05AbC7FE734Df8DD826aabbccddeeff010299aabbccddeeff001122334455667788",
 	},
 	"to": map[string]any{
 		"name":   "Bob",
-		"wallet": "QbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB",
+		"wallet": "QbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbBbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbBaabbccddee01020399aabbccddeeff001122334455667788",
 	},
 	"contents": "Hello, Bob!",
 }
@@ -295,7 +297,7 @@ func TestHashStruct(t *testing.T) {
 		t.Fatal(err)
 	}
 	mainHash := fmt.Sprintf("0x%s", common.Bytes2Hex(hash))
-	if mainHash != "0xc52c0ee5d84264471806290a3f2c4cecfc5490626bf912d01f240d7a274b371e" {
+	if mainHash != "0xeffdb2572b96cf174446b4b5e29ea4cdfe99bdc1062c0e74d3f0f02d0e3627df" {
 		t.Errorf("Expected different hashStruct result (got %s)", mainHash)
 	}
 
@@ -304,7 +306,7 @@ func TestHashStruct(t *testing.T) {
 		t.Error(err)
 	}
 	domainHash := fmt.Sprintf("0x%s", common.Bytes2Hex(hash))
-	if domainHash != "0xf2cee375fa42b42143804025fc449deafd50cc031ca257e0b194a650a912090f" {
+	if domainHash != "0x924f059b0a641eed4ccf8aa0493fae0c3da1608bc27d6f3c1153c630564c2ceb" {
 		t.Errorf("Expected different domain hashStruct result (got %s)", domainHash)
 	}
 }
@@ -337,7 +339,7 @@ func TestEncodeData(t *testing.T) {
 		t.Fatal(err)
 	}
 	dataEncoding := fmt.Sprintf("0x%s", common.Bytes2Hex(hash))
-	if dataEncoding != "0xa0cedeb2dc280ba39b857546d74f5549c3a1d7bdc2dd96bf881f76108e23dac2fc71e5fa27ff56c350aa531bc129ebdf613b772b6604664f5d8dbe21b85eb0c8cd54f074a4af31b4411ff6a60c9719dbd559c221c8ac3492d9d872b041d703d1b5aadf3154a261abdd9086fc627b61efca26ae5702701d05cd2305f7c52a2fc8" {
+	if dataEncoding != "0xa0cedeb2dc280ba39b857546d74f5549c3a1d7bdc2dd96bf881f76108e23dac2f888d4475c55744d89f6b79a6379db848638f3413c2fc14e12365fe5d631d900c4820e22bb4840c5fd1609ee923f74d281c863bd07b0933743bced0b7c5381dcb5aadf3154a261abdd9086fc627b61efca26ae5702701d05cd2305f7c52a2fc8" {
 		t.Errorf("Expected different encodeData result (got %s)", dataEncoding)
 	}
 }
@@ -531,7 +533,7 @@ var complexTypedData = `
     "domain": {
         "chainId": "56",
         "name": "da.systems",
-        "verifyingContract": "Q0000000000000000000000000000000020210722",
+        "verifyingContract": "Q00000000000000000000000000000000202107220000000000000000000000000000000020210722112233445566778899aabbccddeeff001122334455667788",
         "version": "1"
     },
     "message": {
@@ -584,7 +586,7 @@ func TestComplexTypedData(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	expSigHash := common.FromHex("0x42b1aca82bb6900ff75e90a136de550a58f1a220a071704088eabd5e6ce20446")
+	expSigHash := common.FromHex("0xac3c843be9142fd326260349ab779f913083bb1b0d1d80010b55c3cd8d1e01eb")
 	if !bytes.Equal(expSigHash, sighash) {
 		t.Fatalf("Error, got %x, wanted %x", sighash, expSigHash)
 	}
@@ -682,7 +684,7 @@ var complexTypedDataLCRefType = `
     "domain": {
         "chainId": "56",
         "name": "da.systems",
-        "verifyingContract": "Q0000000000000000000000000000000020210722",
+        "verifyingContract": "Q00000000000000000000000000000000202107220000000000000000000000000000000020210722112233445566778899aabbccddeeff001122334455667788",
         "version": "1"
     },
     "message": {
@@ -735,7 +737,7 @@ func TestComplexTypedDataWithLowercaseReftype(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	expSigHash := common.FromHex("0x49191f910874f0148597204d9076af128d4694a7c4b714f1ccff330b87207bff")
+	expSigHash := common.FromHex("0x4f36ab9b7b50c6e7e91017a569cdfe8e4d8adb5e0901cb27f3d845879a8e5141")
 	if !bytes.Equal(expSigHash, sighash) {
 		t.Fatalf("Error, got %x, wanted %x", sighash, expSigHash)
 	}

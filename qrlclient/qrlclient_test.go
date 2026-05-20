@@ -30,7 +30,7 @@ import (
 	"github.com/theQRL/go-qrl/consensus/beacon"
 	"github.com/theQRL/go-qrl/core"
 	"github.com/theQRL/go-qrl/core/types"
-	"github.com/theQRL/go-qrl/crypto/pqcrypto/wallet"
+	"github.com/theQRL/go-qrl/internal/testutil"
 	"github.com/theQRL/go-qrl/node"
 	"github.com/theQRL/go-qrl/params"
 	qrlsvc "github.com/theQRL/go-qrl/qrl"
@@ -55,7 +55,7 @@ var (
 
 func TestToFilterArg(t *testing.T) {
 	blockHashErr := errors.New("cannot specify both BlockHash and FromBlock/ToBlock")
-	address, _ := common.NewAddressFromString("QD36722ADeC3EdCB29c8e7b5a47f352D701393462")
+	address, _ := common.NewAddressFromString("Q00000000000000000000000000000000000000000000000000000000D36722ADeC3EdCB29c8e7b5a47f352D701393462")
 	addresses := []common.Address{
 		address,
 	}
@@ -75,13 +75,13 @@ func TestToFilterArg(t *testing.T) {
 				Addresses: addresses,
 				FromBlock: big.NewInt(1),
 				ToBlock:   big.NewInt(2),
-				Topics:    [][]common.Hash{},
+				Topics:    [][]common.LogTopic{},
 			},
 			map[string]any{
 				"address":   addresses,
 				"fromBlock": "0x1",
 				"toBlock":   "0x2",
-				"topics":    [][]common.Hash{},
+				"topics":    [][]common.LogTopic{},
 			},
 			nil,
 		},
@@ -89,13 +89,13 @@ func TestToFilterArg(t *testing.T) {
 			"with nil fromBlock and nil toBlock",
 			qrl.FilterQuery{
 				Addresses: addresses,
-				Topics:    [][]common.Hash{},
+				Topics:    [][]common.LogTopic{},
 			},
 			map[string]any{
 				"address":   addresses,
 				"fromBlock": "0x0",
 				"toBlock":   "latest",
-				"topics":    [][]common.Hash{},
+				"topics":    [][]common.LogTopic{},
 			},
 			nil,
 		},
@@ -105,13 +105,13 @@ func TestToFilterArg(t *testing.T) {
 				Addresses: addresses,
 				FromBlock: big.NewInt(-1),
 				ToBlock:   big.NewInt(-1),
-				Topics:    [][]common.Hash{},
+				Topics:    [][]common.LogTopic{},
 			},
 			map[string]any{
 				"address":   addresses,
 				"fromBlock": "pending",
 				"toBlock":   "pending",
-				"topics":    [][]common.Hash{},
+				"topics":    [][]common.LogTopic{},
 			},
 			nil,
 		},
@@ -120,12 +120,12 @@ func TestToFilterArg(t *testing.T) {
 			qrl.FilterQuery{
 				Addresses: addresses,
 				BlockHash: &blockHash,
-				Topics:    [][]common.Hash{},
+				Topics:    [][]common.LogTopic{},
 			},
 			map[string]any{
 				"address":   addresses,
 				"blockHash": blockHash,
-				"topics":    [][]common.Hash{},
+				"topics":    [][]common.LogTopic{},
 			},
 			nil,
 		},
@@ -135,7 +135,7 @@ func TestToFilterArg(t *testing.T) {
 				Addresses: addresses,
 				BlockHash: &blockHash,
 				FromBlock: big.NewInt(1),
-				Topics:    [][]common.Hash{},
+				Topics:    [][]common.LogTopic{},
 			},
 			nil,
 			blockHashErr,
@@ -146,7 +146,7 @@ func TestToFilterArg(t *testing.T) {
 				Addresses: addresses,
 				BlockHash: &blockHash,
 				ToBlock:   big.NewInt(1),
-				Topics:    [][]common.Hash{},
+				Topics:    [][]common.LogTopic{},
 			},
 			nil,
 			blockHashErr,
@@ -158,7 +158,7 @@ func TestToFilterArg(t *testing.T) {
 				BlockHash: &blockHash,
 				FromBlock: big.NewInt(1),
 				ToBlock:   big.NewInt(2),
-				Topics:    [][]common.Hash{},
+				Topics:    [][]common.LogTopic{},
 			},
 			nil,
 			blockHashErr,
@@ -181,9 +181,9 @@ func TestToFilterArg(t *testing.T) {
 }
 
 var (
-	testWallet, _ = wallet.RestoreFromSeedHex("010000b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f29100000000000000000000000000000000")
-	testAddr      = testWallet.GetAddress()
-	testBalance   = big.NewInt(2e18)
+	testWallet  = testutil.MustLoadAccount("alice").MustWallet()
+	testAddr    = testWallet.GetAddress()
+	testBalance = big.NewInt(2e18)
 )
 
 var genesis = &core.Genesis{

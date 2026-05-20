@@ -33,6 +33,7 @@ import (
 	"github.com/theQRL/go-qrl/core/types"
 	"github.com/theQRL/go-qrl/core/vm"
 	"github.com/theQRL/go-qrl/crypto/pqcrypto/wallet"
+	"github.com/theQRL/go-qrl/internal/testutil"
 	"github.com/theQRL/go-qrl/node"
 	"github.com/theQRL/go-qrl/params"
 	"github.com/theQRL/go-qrl/qrl"
@@ -141,7 +142,7 @@ func TestGraphQLBlockSerialization(t *testing.T) {
 		},
 		// should return `status` as decimal
 		{
-			body: `{"query": "{block {number call (data : {from : \"Qa94f5374fce5edbc8e2a8697c15331677e6ebf0b\", to: \"Q6295ee1b4f6dd65047762f924ecd367c17eabf8f\", data :\"0x12a7b914\"}){data status}}}"}`,
+			body: `{"query": "{block {number call (data : {from : \"Qbe6c1fd78f40b86a24dc2d7d633e2912d71e5d166f8be2c850d5727f0adcc170c7741b784295eae0c4f28291d0928dc7a94f5374fce5edbc8e2a8697c1533167\", to: \"Q6295ee1b4f6dd65047762f924ecd367c17eabf8f6295ee1b4f6dd65047762f924ecd367c17eabf8f11223344556677886295ee1b4f6dd65047762f924ecd367c\", data :\"0x12a7b914\"}){data status}}}"}`,
 			want: `{"data":{"block":{"number":"0xa","call":{"data":"0x","status":"0x1"}}}}`,
 			code: 200,
 		},
@@ -167,10 +168,12 @@ func TestGraphQLBlockSerialization(t *testing.T) {
 func TestGraphQLBlockSerializationEIP2718(t *testing.T) {
 	// Account for signing txes
 	var (
-		wallet, _ = wallet.RestoreFromSeedHex("0x010000f29f58aff0b00de2844f7e20bd9eeaacc379150043beeb328335817512b29fbb7184da84a092f842b2a06d72a24a5d28")
-		address   = wallet.GetAddress()
-		funds     = big.NewInt(1000000000000000000)
-		dad, _    = common.NewAddressFromString("Q0000000000000000000000000000000000000dad")
+		wallet  = testutil.LoadAccount(t, "dave").Wallet(t)
+		address = wallet.GetAddress()
+		funds   = big.NewInt(1000000000000000000)
+		// 64-byte "dad" address: the 0xdad marker lives in the lowest two
+		// bytes, everything else is zero.
+		dad = common.BytesToAddress([]byte{0x0d, 0xad})
 	)
 	stack := createNode(t)
 	defer stack.Close()
@@ -225,7 +228,9 @@ func TestGraphQLBlockSerializationEIP2718(t *testing.T) {
 	}{
 		{
 			body: `{"query": "{block {number transactions { from { address } to { address } value hash type accessList { address storageKeys } index}}}"}`,
-			want: `{"data":{"block":{"number":"0x1","transactions":[{"from":{"address":"Qd5812f6cf4a0f645aa620cd57319a0ed649dd8f5"},"to":{"address":"Q0000000000000000000000000000000000000dad"},"value":"0x64","hash":"0x1a5b30c9e2c2e13643e7d47f34cf05dbd2ccbf366a733146db6f190e70711dbd","type":"0x2","accessList":[],"index":"0x0"},{"from":{"address":"Qd5812f6cf4a0f645aa620cd57319a0ed649dd8f5"},"to":{"address":"Q0000000000000000000000000000000000000dad"},"value":"0x32","hash":"0x4f54fca3fdfbeb2ff72287ae4bd7e20a1b206a3cb256ffadec9104758a1f9777","type":"0x2","accessList":[{"address":"Q0000000000000000000000000000000000000dad","storageKeys":["0x0000000000000000000000000000000000000000000000000000000000000000"]}],"index":"0x1"}]}}}`,
+			// Addresses widen to 128 hex chars and tx hashes change because
+			// the from/to/accessList fields now carry 64-byte values.
+			want: `{"data":{"block":{"number":"0x1","transactions":[{"from":{"address":"Q8ac356c6e37760c7706eba2fa7e08b78d8b01fdfaf4a4b91d4a244b59c73eab4657362f640e94eda01fd397d0c8774fd80d4d8b815a22200988d0a886c979a9a"},"to":{"address":"Q00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000dad"},"value":"0x64","hash":"0x56ba58ab4cbd181edb15b73ba4993e04293ab3a54f84011a6ad885b1d44bce18","type":"0x2","accessList":[],"index":"0x0"},{"from":{"address":"Q8ac356c6e37760c7706eba2fa7e08b78d8b01fdfaf4a4b91d4a244b59c73eab4657362f640e94eda01fd397d0c8774fd80d4d8b815a22200988d0a886c979a9a"},"to":{"address":"Q00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000dad"},"value":"0x32","hash":"0x397986c31646aaa7b06e4bf092e69aa383a533b2198e873a8d5c9a40b02594d0","type":"0x2","accessList":[{"address":"Q00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000dad","storageKeys":["0x0000000000000000000000000000000000000000000000000000000000000000"]}],"index":"0x1"}]}}}`,
 			code: 200,
 		},
 	} {
@@ -267,16 +272,19 @@ func TestGraphQLHTTPOnSamePort_GQLRequest_Unsuccessful(t *testing.T) {
 func TestGraphQLConcurrentResolvers(t *testing.T) {
 	var (
 		wallet, _ = wallet.Generate(wallet.ML_DSA_87)
-		dadStr    = "Q0000000000000000000000000000000000000dad"
-		dad, _    = common.NewAddressFromString(dadStr)
-		genesis   = &core.Genesis{
+		// A 64-byte address with the "dad" marker at the lowest three
+		// bytes so the test logs have an identifiable address.
+		dadStr  = "Q00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000dad"
+		dad     = common.BytesToAddress([]byte{0x0d, 0xad})
+		genesis = &core.Genesis{
 			Config:   params.AllBeaconProtocolChanges,
 			GasLimit: 11500000,
 			Alloc: core.GenesisAlloc{
 				wallet.GetAddress(): {Balance: big.NewInt(params.Quanta)},
 				dad: {
-					// LOG0(0, 0), LOG0(0, 0), RETURN(0, 0)
-					Code:    common.Hex2Bytes("60006000a060006000a060006000f3"),
+					// LOG0(0, 0), LOG0(0, 0), RETURN(0, 0). LOG0 moved
+					// from 0xa0 to 0xc0 in the 512-bit VM opcode shift.
+					Code:    common.Hex2Bytes("60006000c060006000c060006000f3"),
 					Nonce:   0,
 					Balance: big.NewInt(0),
 				},
@@ -334,11 +342,11 @@ func TestGraphQLConcurrentResolvers(t *testing.T) {
 		// Account fields race the resolve the state object.
 		{
 			body: fmt.Sprintf(`{ block { account(address: "%s") { balance transactionCount code } } }`, dadStr),
-			want: `{"block":{"account":{"balance":"0x0","transactionCount":"0x0","code":"0x60006000a060006000a060006000f3"}}}`,
+			want: `{"block":{"account":{"balance":"0x0","transactionCount":"0x0","code":"0x60006000c060006000c060006000f3"}}}`,
 		},
 		// Test values for a non-existent account.
 		{
-			body: fmt.Sprintf(`{ block { account(address: "%s") { balance transactionCount code } } }`, "Q1111111111111111111111111111111111111111"),
+			body: fmt.Sprintf(`{ block { account(address: "%s") { balance transactionCount code } } }`, "Q11111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111"),
 			want: `{"block":{"account":{"balance":"0x0","transactionCount":"0x0","code":"0x"}}}`,
 		},
 	} {
@@ -396,7 +404,7 @@ func TestWithdrawals(t *testing.T) {
 		},
 		{
 			body: "{block(number: 1) { withdrawalsRoot withdrawals { validator amount } } }",
-			want: `{"block":{"withdrawalsRoot":"0x8418fc1a48818928f6692f148e9b10e99a88edc093b095cb8ca97950284b553d","withdrawals":[{"validator":"0x5","amount":"0xa"}]}}`,
+			want: `{"block":{"withdrawalsRoot":"0xaa813d09af1a68c5a1504f6b586e5803e976b3270992d4c4efa074289841228b","withdrawals":[{"validator":"0x5","amount":"0xa"}]}}`,
 		},
 	} {
 		res := handler.Schema.Exec(t.Context(), tt.body, "", map[string]any{})

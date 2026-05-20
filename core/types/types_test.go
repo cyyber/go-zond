@@ -21,7 +21,7 @@ import (
 	"testing"
 
 	"github.com/theQRL/go-qrl/common"
-	"github.com/theQRL/go-qrl/crypto/pqcrypto/wallet"
+	"github.com/theQRL/go-qrl/internal/testutil"
 	"github.com/theQRL/go-qrl/rlp"
 )
 
@@ -41,8 +41,8 @@ func BenchmarkDecodeRLP(b *testing.B) {
 }
 
 func benchRLP(b *testing.B, encode bool) {
-	wallet, _ := wallet.RestoreFromSeedHex("0x010000b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f29100000000000000000000000000000000")
-	to, _ := common.NewAddressFromString("Q00000000000000000000000000000000deadbeef")
+	wallet := testutil.LoadAccount(b, "alice").Wallet(b)
+	to, _ := common.NewAddressFromString("Q0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000deadbeef99aabbccddeeff001122334455667788")
 	signer := NewZondSigner(big.NewInt(1337))
 	for _, tc := range []struct {
 		name string

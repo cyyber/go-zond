@@ -1,0 +1,10 @@
+{
+  "Q00000000000000000000000000000000c0decafec0decafec0decafec0decafec0decafec0decafec0decafec0decafec0decafec0decafec0decafec0decafe": {
+    "balance": "0x0",
+    "nonce": "0x0"
+  },
+  "Q058de61fde8db2a26b12d5788a390de6f1abd80a0f2b5b907a8738ec61a71b9bc19515317c19cbaa32312e735417a72d97b010804ecf9fa98d4fb8836b90770a": {
+    "balance": "0x1000000000000000",
+    "nonce": "0x0"
+  }
+}
