@@ -19,6 +19,11 @@ const (
 	ML_DSA_87 wallettype.WalletType = wallettype.ML_DSA_87
 )
 
+var (
+	_ [common.AddressLength - walletcommon.AddressSize]byte
+	_ [walletcommon.AddressSize - common.AddressLength]byte
+)
+
 var ErrBadWalletType = errors.New("unsupported wallet type")
 
 type Wallet interface {
@@ -48,6 +53,13 @@ func (w *MLDSA87Wallet) GetPK() []byte {
 
 func (w *MLDSA87Wallet) GetDescriptor() descriptor.Descriptor {
 	return w.Wallet.GetDescriptor().ToDescriptor()
+}
+
+func (w *MLDSA87Wallet) GetAddress() [common.AddressLength]uint8 {
+	var addr [common.AddressLength]uint8
+	walletAddr := w.Wallet.GetAddress()
+	copy(addr[:], walletAddr[:])
+	return addr
 }
 
 func (w *MLDSA87Wallet) GetSeed() (walletcommon.ExtendedSeed, error) {

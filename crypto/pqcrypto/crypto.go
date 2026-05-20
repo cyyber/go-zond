@@ -28,7 +28,13 @@ func BytesToDescriptor(b []byte) (descriptor.Descriptor, error) {
 }
 
 func PublicKeyAndDescriptorToAddress(pk []byte, d descriptor.Descriptor) (common.Address, error) {
-	return libwallet.GetAddressFromPKAndDescriptor(pk, d)
+	addrBytes, err := libwallet.GetAddressFromPKAndDescriptor(pk, d)
+	if err != nil {
+		return common.Address{}, err
+	}
+	var addr common.Address
+	copy(addr[:], addrBytes[:])
+	return addr, nil
 }
 
 func MLDSA87VerifySignature(sig []byte, msg []byte, pk []byte) (bool, error) {

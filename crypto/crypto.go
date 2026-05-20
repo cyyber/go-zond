@@ -77,13 +77,35 @@ func HashData(kh KeccakState, data []byte) (h common.Hash) {
 // CreateAddress creates a qrl address given the bytes and the nonce
 func CreateAddress(b common.Address, nonce uint64) common.Address {
 	data, _ := rlp.EncodeToBytes([]any{b, nonce})
-	return common.BytesToAddress(Keccak256(data)[12:])
+	return keccakToAddress(data)
 }
 
-// CreateAddress2 creates a qrl address given the address bytes, initial
-// contract code hash and a salt.
-func CreateAddress2(b common.Address, salt [32]byte, inithash []byte) common.Address {
-	return common.BytesToAddress(Keccak256([]byte{0xff}, b.Bytes(), salt[:], inithash)[12:])
+// CreateAddress2 creates a qrl address for a CREATE2 invocation given the
+// sender address, a 64-byte salt and the keccak256 hash of the init code.
+//
+// The salt is 512 bits wide to match the VM stack word. Callers that hold a
+// narrower value should left-pad to 64 bytes.
+func CreateAddress2(b common.Address, salt [64]byte, inithash []byte) common.Address {
+	return keccakToAddress([]byte{0xff}, b.Bytes(), salt[:], inithash)
+}
+
+// addressDomain prefixes every Keccak-512 input used to derive a QRL
+// address. It isolates address hashes from any other Keccak-512 use in the
+// ecosystem so collisions in one protocol can't be carried into another.
+var addressDomain = []byte("QRL-ADDR-v1")
+
+// keccakToAddress derives a 64-byte address as
+//
+//	address = Keccak-512(addressDomain || data...)
+//
+// Using the full 64-byte digest yields 2^256 collision resistance under the
+// birthday bound, matching SHAKE256's maximum security strength.
+func keccakToAddress(data ...[]byte) common.Address {
+	parts := make([][]byte, 0, len(data)+1)
+	parts = append(parts, addressDomain)
+	parts = append(parts, data...)
+	h := Keccak512(parts...)
+	return common.BytesToAddress(h[len(h)-common.AddressLength:])
 }
 
 // ToECDSA creates a private key with the given D value.
@@ -219,7 +241,7 @@ func ValidateSignatureValues(v byte, r, s *big.Int, homestead bool) bool {
 
 func PubkeyToAddress(p ecdsa.PublicKey) common.Address {
 	pubBytes := FromECDSAPub(&p)
-	return common.BytesToAddress(Keccak256(pubBytes[1:])[12:])
+	return keccakToAddress(pubBytes[1:])
 }
 
 func zeroBytes(bytes []byte) {
