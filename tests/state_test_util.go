@@ -342,7 +342,8 @@ func (tx *stTransaction) toMessage(ps stPostState, baseFee *big.Int) (*core.Mess
 		if err != nil {
 			return nil, fmt.Errorf("invalid seed: %v", err)
 		}
-		from = key.GetAddress()
+		addr := key.GetAddress()
+		copy(from[:], addr[:])
 	}
 	// Parse recipient if present.
 	var to *common.Address

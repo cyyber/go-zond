@@ -549,7 +549,7 @@ func (args *FilterCriteria) UnmarshalJSON(data []byte) error {
 	// topics is an array consisting of strings and/or arrays of strings.
 	// JSON null values are converted to common.Hash{} and ignored by the filter manager.
 	if len(raw.Topics) > 0 {
-		args.Topics = make([][]common.Hash, len(raw.Topics))
+		args.Topics = make([][]common.LogTopic, len(raw.Topics))
 		for i, t := range raw.Topics {
 			switch topic := t.(type) {
 			case nil:
@@ -561,7 +561,7 @@ func (args *FilterCriteria) UnmarshalJSON(data []byte) error {
 				if err != nil {
 					return err
 				}
-				args.Topics[i] = []common.Hash{top}
+				args.Topics[i] = []common.LogTopic{top}
 
 			case []any:
 				// or case e.g. [null, "topic0", "topic1"]
@@ -601,10 +601,10 @@ func decodeAddress(s string) (common.Address, error) {
 	return common.BytesToAddress(b), err
 }
 
-func decodeTopic(s string) (common.Hash, error) {
+func decodeTopic(s string) (common.LogTopic, error) {
 	b, err := hexutil.Decode(s)
-	if err == nil && len(b) != common.HashLength {
-		err = fmt.Errorf("hex has invalid length %d after decoding; expected %d for topic", len(b), common.HashLength)
+	if err == nil && len(b) != common.LogTopicLength {
+		err = fmt.Errorf("hex has invalid length %d after decoding; expected %d for topic", len(b), common.LogTopicLength)
 	}
-	return common.BytesToHash(b), err
+	return common.BytesToLogTopic(b), err
 }

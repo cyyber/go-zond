@@ -32,7 +32,7 @@ import (
 	"github.com/theQRL/go-qrl/params"
 )
 
-// var faucetAddr, _ = common.NewAddressFromString("Q71562b71999873DB5b286dF957af199Ec94617F7")
+// var faucetAddr, _ = common.NewAddressFromString("Q0000000000000000000000000000000000000000000000000000000071562b71999873DB5b286dF957af199Ec94617F7")
 var faucetKey, _ = wallet.RestoreFromSeedHex("0x010000b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f29100000000000000000000000000000000")
 
 func (s *Suite) sendSuccessfulTxs(t *utesting.T) error {

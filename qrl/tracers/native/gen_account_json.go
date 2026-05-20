@@ -18,7 +18,7 @@ func (a account) MarshalJSON() ([]byte, error) {
 		Balance *hexutil.Big                `json:"balance,omitempty"`
 		Code    hexutil.Bytes               `json:"code,omitempty"`
 		Nonce   uint64                      `json:"nonce,omitempty"`
-		Storage map[common.Hash]common.Hash `json:"storage,omitempty"`
+		Storage map[common.Hash]common.StorageValue `json:"storage,omitempty"`
 	}
 	var enc account
 	enc.Balance = (*hexutil.Big)(a.Balance)
@@ -34,7 +34,7 @@ func (a *account) UnmarshalJSON(input []byte) error {
 		Balance *hexutil.Big                `json:"balance,omitempty"`
 		Code    *hexutil.Bytes              `json:"code,omitempty"`
 		Nonce   *uint64                     `json:"nonce,omitempty"`
-		Storage map[common.Hash]common.Hash `json:"storage,omitempty"`
+		Storage map[common.Hash]common.StorageValue `json:"storage,omitempty"`
 	}
 	var dec account
 	if err := json.Unmarshal(input, &dec); err != nil {

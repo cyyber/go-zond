@@ -449,7 +449,19 @@ func (t *jsTracer) setBuiltinFunctions() {
 		}
 		code = common.CopyBytes(code)
 		codeHash := crypto.Keccak256(code)
-		b := crypto.CreateAddress2(addr, common.HexToHash(salt), codeHash).Bytes()
+		// Parse the salt as up to 64 raw bytes, right-aligned into the 64-byte
+		// CREATE2 salt word.
+		var saltBytes [64]byte
+		saltHex := salt
+		if len(saltHex) >= 2 && (saltHex[:2] == "0x" || saltHex[:2] == "0X") {
+			saltHex = saltHex[2:]
+		}
+		saltRaw := common.FromHex(saltHex)
+		if len(saltRaw) > 64 {
+			saltRaw = saltRaw[len(saltRaw)-64:]
+		}
+		copy(saltBytes[64-len(saltRaw):], saltRaw)
+		b := crypto.CreateAddress2(addr, saltBytes, codeHash).Bytes()
 		res, err := t.toBuf(vm, b)
 		if err != nil {
 			vm.Interrupt(err)

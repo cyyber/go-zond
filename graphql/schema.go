@@ -19,7 +19,10 @@ package graphql
 const schema string = `
     # Bytes32 is a 32 byte binary string, represented as 0x-prefixed hexadecimal.
     scalar Bytes32
-    # Address is a 20 byte QRL address, represented as 0x-prefixed hexadecimal.
+    # Bytes64 is a 64 byte binary string, represented as 0x-prefixed hexadecimal.
+    # Used for storage slot values and log topics, which carry 512-bit VM words.
+    scalar Bytes64
+    # Address is a 64 byte QRL address, represented as 0x-prefixed hexadecimal.
     scalar Address
     # Bytes is an arbitrary length binary string, represented as 0x-prefixed hexadecimal.
     # An empty byte string is represented as '0x'. Byte strings must have an even number of hexadecimal nybbles.
@@ -53,7 +56,7 @@ const schema string = `
         code: Bytes!
         # Storage provides access to the storage of a contract account, indexed
         # by its 32 byte slot identifier.
-        storage(slot: Bytes32!): Bytes32!
+        storage(slot: Bytes32!): Bytes64!
     }
 
     # Log is a QRL event log.
@@ -64,7 +67,7 @@ const schema string = `
         # be a contract account.
         account(block: Long): Account!
         # Topics is a list of 0-4 indexed topics for the log.
-        topics: [Bytes32!]!
+        topics: [Bytes64!]!
         # Data is unindexed data for this log.
         data: Bytes!
         # Transaction is the transaction that generated this log entry.
@@ -172,7 +175,7 @@ const schema string = `
         #  - [[], [B]]          matches any topic in first position, B in second position
         #  - [[A], [B]]         matches topic A in first position, B in second position
         #  - [[A, B]], [C, D]]  matches topic (A OR B) in first position, (C OR D) in second position
-        topics: [[Bytes32!]!]
+        topics: [[Bytes64!]!]
     }
 
     # Block is a QRL block.
@@ -290,7 +293,7 @@ const schema string = `
         #  - [[], [B]]          matches any topic in first position, B in second position
         #  - [[A], [B]]         matches topic A in first position, B in second position
         #  - [[A, B]], [C, D]]  matches topic (A OR B) in first position, (C OR D) in second position
-        topics: [[Bytes32!]!]
+        topics: [[Bytes64!]!]
     }
 
     # SyncState contains the current synchronisation state of the client.

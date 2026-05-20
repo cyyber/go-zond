@@ -42,7 +42,7 @@ type account struct {
 	Balance *big.Int                    `json:"balance,omitempty"`
 	Code    []byte                      `json:"code,omitempty"`
 	Nonce   uint64                      `json:"nonce,omitempty"`
-	Storage map[common.Hash]common.Hash `json:"storage,omitempty"`
+	Storage map[common.Hash]common.StorageValue `json:"storage,omitempty"`
 }
 
 func (a *account) exists() bool {
@@ -153,10 +153,12 @@ func (t *prestateTracer) CaptureState(pc uint64, op vm.OpCode, gas, cost uint64,
 		slot := common.Hash(stackData[stackLen-1].Bytes32())
 		t.lookupStorage(caller, slot)
 	case stackLen >= 1 && (op == vm.EXTCODECOPY || op == vm.EXTCODEHASH || op == vm.EXTCODESIZE || op == vm.BALANCE):
-		addr := common.Address(stackData[stackLen-1].Bytes20())
+		b1 := stackData[stackLen-1].Bytes32()
+		addr := common.BytesToAddress(b1[:])
 		t.lookupAccount(addr)
 	case stackLen >= 5 && (op == vm.DELEGATECALL || op == vm.CALL || op == vm.STATICCALL):
-		addr := common.Address(stackData[stackLen-2].Bytes20())
+		b2 := stackData[stackLen-2].Bytes32()
+		addr := common.BytesToAddress(b2[:])
 		t.lookupAccount(addr)
 	case op == vm.CREATE:
 		nonce := t.env.StateDB.GetNonce(caller)
@@ -173,7 +175,7 @@ func (t *prestateTracer) CaptureState(pc uint64, op vm.OpCode, gas, cost uint64,
 		}
 		inithash := crypto.Keccak256(init)
 		salt := stackData[stackLen-4]
-		addr := crypto.CreateAddress2(caller, salt.Bytes32(), inithash)
+		addr := crypto.CreateAddress2(caller, salt.Bytes64(), inithash)
 		t.lookupAccount(addr)
 		t.created[addr] = true
 	}
@@ -194,7 +196,7 @@ func (t *prestateTracer) CaptureTxEnd(restGas uint64) {
 			continue
 		}
 		modified := false
-		postAccount := &account{Storage: make(map[common.Hash]common.Hash)}
+		postAccount := &account{Storage: make(map[common.Hash]common.StorageValue)}
 		newBalance := t.env.StateDB.GetBalance(addr)
 		newNonce := t.env.StateDB.GetNonce(addr)
 		newCode := t.env.StateDB.GetCode(addr)
@@ -214,7 +216,7 @@ func (t *prestateTracer) CaptureTxEnd(restGas uint64) {
 
 		for key, val := range state.Storage {
 			// don't include the empty slot
-			if val == (common.Hash{}) {
+			if val == (common.StorageValue{}) {
 				delete(t.pre[addr].Storage, key)
 			}
 
@@ -224,7 +226,7 @@ func (t *prestateTracer) CaptureTxEnd(restGas uint64) {
 				delete(t.pre[addr].Storage, key)
 			} else {
 				modified = true
-				if newVal != (common.Hash{}) {
+				if newVal != (common.StorageValue{}) {
 					postAccount.Storage[key] = newVal
 				}
 			}
@@ -282,7 +284,7 @@ func (t *prestateTracer) lookupAccount(addr common.Address) {
 		Balance: t.env.StateDB.GetBalance(addr),
 		Nonce:   t.env.StateDB.GetNonce(addr),
 		Code:    t.env.StateDB.GetCode(addr),
-		Storage: make(map[common.Hash]common.Hash),
+		Storage: make(map[common.Hash]common.StorageValue),
 	}
 }
 
