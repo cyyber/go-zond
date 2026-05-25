@@ -112,7 +112,7 @@ It is possible to refer to a file containing the message.`,
 		)
 		switch len(signature) {
 		case pqcrypto.MLDSA87SignatureLength:
-			ok, err = pqcrypto.MLDSA87VerifySignature(signature, accounts.TextHash(message), publicKey)
+			ok, err = pqcrypto.MLDSA87VerifySignatureWithDefaultDescriptor(signature, accounts.TextHash(message), publicKey)
 			if err != nil {
 				utils.Fatalf("Can't verify ML-DSA-87 signature: %v", err)
 			}

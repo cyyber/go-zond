@@ -195,7 +195,7 @@ func (s ZondSigner) Sender(tx *Transaction) (common.Address, error) {
 	ok := false
 	switch pqcryptodesc.Type() {
 	case byte(wallettype.ML_DSA_87):
-		ok, err = pqcrypto.MLDSA87VerifySignature(sig, msg.Bytes(), pk)
+		ok, err = pqcrypto.MLDSA87VerifySignature(sig, msg.Bytes(), pk, pqcryptodesc)
 		if err != nil {
 			return common.Address{}, err
 		}
