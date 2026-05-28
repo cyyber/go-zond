@@ -148,18 +148,15 @@ func TestEIP2930Signer(t *testing.T) {
 		wantSignerHash common.Hash
 		wantSenderErr  error
 		wantSignErr    error
-		wantHash       common.Hash // after signing
 	}{
-		// Hash expectations regenerated for 64-byte addresses: the signer
-		// hash (over the tx payload) and the tx hash (over the signed
-		// payload) both change because access list entries and recipient
-		// fields carry the 64-byte 0xb8 RLP header now.
+		// Signer hash expectations are deterministic and regenerated for
+		// 64-byte addresses. The signed transaction hash is intentionally
+		// not fixture-tested because ML-DSA signatures may be randomized.
 		{
 			tx:             tx0,
 			signer:         signer1,
 			wantSignerHash: common.HexToHash("0dd9694ffcf29a75b23fd87a7a8e8517bec9b80f14d39272f2dae01c2e42b5ba"),
 			wantSenderErr:  ErrInvalidChainId,
-			wantHash:       common.HexToHash("15eb92d0374240375170b14b96b5ab8fc91477081691658a70a99ee05174b648"),
 		},
 		// NOTE(rgeraldes24): not valid atm
 		/*
@@ -192,21 +189,18 @@ func TestEIP2930Signer(t *testing.T) {
 			tx:             tx3,
 			signer:         signer1,
 			wantSignerHash: common.HexToHash("aef4e74af00d23227a4107636688b7f0e5c9e6898e90706dd8be1f2dd9b8b443"),
-			wantHash:       common.HexToHash("8da1304a92867b29108f764c23eab8965f78488a13feac3080c366486c201c2e"),
 		},
 		{
 			// qrvmone example
 			tx:             tx4,
 			signer:         signer1,
 			wantSignerHash: common.HexToHash("eb090eac470fc6383e3f4b070af7204751c322152d67d4a99d90c7e6a77e146e"),
-			wantHash:       common.HexToHash("425077bf8b52deab07da80960e5da5c6a6b944d857b4757d9967903ffa69382a"),
 		},
 		{
 			// qrvmone example
 			tx:             tx5,
 			signer:         signer1,
 			wantSignerHash: common.HexToHash("74b586687a89d3c7f3c4f62382a218d2d750df9d8858ee5263d855d2f52de538"),
-			wantHash:       common.HexToHash("2ccebe99f351dca71c9d8fe1dbcb7756992d7cceeeea38c36ff93eacb1b57dd9"),
 		},
 	}
 
@@ -228,8 +222,12 @@ func TestEIP2930Signer(t *testing.T) {
 			t.Fatalf("test %d: wrong SignTx error %q", i, err)
 		}
 		if signedTx != nil {
-			if signedTx.Hash() != test.wantHash {
-				t.Errorf("test %d: wrong tx hash after signing: got %x, want %x", i, signedTx.Hash(), test.wantHash)
+			signedSender, err := Sender(test.signer, signedTx)
+			if err != nil {
+				t.Errorf("test %d: signed tx Sender error %q", i, err)
+			}
+			if signedSender != keyAddr {
+				t.Errorf("test %d: signed tx sender address %x, want %x", i, signedSender, keyAddr)
 			}
 		}
 	}

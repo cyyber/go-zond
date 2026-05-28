@@ -129,4 +129,4 @@ tool (
 	google.golang.org/protobuf/cmd/protoc-gen-go
 )
 
-replace github.com/theQRL/go-qrllib => github.com/cyyber/go-qrllib v0.0.0-20260520071712-ea6b16589b15
+replace github.com/theQRL/go-qrllib => github.com/adamtka42/go-qrllib v0.0.0-20260528135157-a4888358f555
