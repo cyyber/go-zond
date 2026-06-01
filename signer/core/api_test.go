@@ -17,7 +17,6 @@
 package core_test
 
 import (
-	"bytes"
 	"fmt"
 	"math/big"
 	"os"
@@ -39,8 +38,9 @@ import (
 
 // Used for testing
 type headlessUi struct {
-	approveCh chan string // to send approve/deny
-	inputCh   chan string // to send password
+	approveCh           chan string // to send approve/deny
+	inputCh             chan string // to send password
+	lastSignDataRequest *core.SignDataRequest
 }
 
 func (ui *headlessUi) OnInputRequired(info core.UserInputRequest) (core.UserInputResponse, error) {
@@ -68,6 +68,7 @@ func (ui *headlessUi) ApproveTx(request *core.SignTxRequest) (core.SignTxRespons
 }
 
 func (ui *headlessUi) ApproveSignData(request *core.SignDataRequest) (core.SignDataResponse, error) {
+	ui.lastSignDataRequest = request
 	approved := (<-ui.approveCh == "Y")
 	return core.SignDataResponse{approved}, nil
 }
@@ -118,7 +119,10 @@ func setup(t *testing.T) (*core.SignerAPI, *headlessUi) {
 	if err != nil {
 		t.Fatal(err.Error())
 	}
-	ui := &headlessUi{make(chan string, 20), make(chan string, 20)}
+	ui := &headlessUi{
+		approveCh: make(chan string, 20),
+		inputCh:   make(chan string, 20),
+	}
 	am := core.StartClefAccountManager(tmpDirName(t) /*false,*/, true /*, ""*/)
 	api := core.NewSignerAPI(am, 1337 /*true,*/, ui, db, true, &storage.NoStorage{})
 	return api, ui
@@ -296,8 +300,12 @@ func TestSignTx(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !bytes.Equal(res.Raw, res2.Raw) {
-		t.Error("Expected tx to be unmodified by UI")
+	parsedTx2 := &types.Transaction{}
+	if err := parsedTx2.UnmarshalBinary(res2.Raw); err != nil {
+		t.Fatal(err)
+	}
+	if parsedTx2.Value().Cmp(tx.Value.ToInt()) != 0 {
+		t.Errorf("Expected value to be unchanged, expected %v got %v", tx.Value, parsedTx2.Value())
 	}
 
 	//The tx is modified by the UI
@@ -308,16 +316,14 @@ func TestSignTx(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	parsedTx2 := &types.Transaction{}
-	if err := parsedTx2.UnmarshalBinary(res.Raw); err != nil {
+	parsedTx2 = &types.Transaction{}
+	if err := parsedTx2.UnmarshalBinary(res2.Raw); err != nil {
 		t.Fatal(err)
 	}
 
 	//The tx should be modified by the UI
-	if parsedTx2.Value().Cmp(tx.Value.ToInt()) != 0 {
-		t.Errorf("Expected value to be unchanged, got %v", parsedTx.Value())
-	}
-	if bytes.Equal(res.Raw, res2.Raw) {
-		t.Error("Expected tx to be modified by UI")
+	expectedModifiedValue := new(big.Int).Add(tx.Value.ToInt(), big.NewInt(1))
+	if parsedTx2.Value().Cmp(expectedModifiedValue) != 0 {
+		t.Errorf("Expected value to be modified, expected %v got %v", expectedModifiedValue, parsedTx2.Value())
 	}
 }

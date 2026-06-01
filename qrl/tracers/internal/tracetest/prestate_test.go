@@ -42,11 +42,8 @@ type testcase struct {
 	Result       any             `json:"result"`
 }
 
-// Legacy fixtures under testdata/prestate_tracer[_with_diff_mode]/ were
-// retired during the QRL address / 512-bit-VM migration. The
-// directories now contain only a .gitkeep placeholder, so these tests
-// pass vacuously; programmatic coverage for prestateTracer (both plain
-// and diffMode) lives in TestInternals.
+// TestPrestateTracer scans regenerated 64-byte-address fixtures for the
+// prestate tracer.
 func TestPrestateTracer(t *testing.T) {
 	testPrestateDiffTracer("prestateTracer", "prestate_tracer", t)
 }
@@ -124,7 +121,7 @@ func testPrestateDiffTracer(tracerName string, dirPath string, t *testing.T) {
 			if err != nil {
 				t.Fatalf("failed to marshal test: %v", err)
 			}
-			if string(want) != string(res) {
+			if !sameTraceJSON(want, res) {
 				t.Fatalf("trace mismatch\n have: %v\n want: %v\n", string(res), string(want))
 			}
 		})

@@ -112,15 +112,16 @@ func TestT8n(t *testing.T) {
 	// under the 64-byte address / 512-bit VM layout. They were retired in
 	// favour of a single freshly-regenerated scenario (./testdata/simple),
 	// which exercises the happy-path transfer + state-transition output.
-	// Edge cases (blockhash, missing random, withdrawals, etc.) have been
-	// dropped pending targeted regeneration; the bare happy path is enough
-	// to keep the CLI wiring under test.
+	// TODO: Regenerate the retired blockhash, missing-random, withdrawal,
+	// block-builder, and invalid-RLP fixtures under the 64-byte address /
+	// 512-bit VM layout instead of keeping only this minimal CLI coverage.
 	for i, tc := range []struct {
-		base        string
-		input       t8nInput
-		output      t8nOutput
-		expExitCode int
-		expOut      string
+		base                 string
+		input                t8nInput
+		output               t8nOutput
+		expExitCode          int
+		expOut               string
+		ignoreSignedTxHashes bool
 	}{
 		{ // Exit 3 on bad config — bad fork name
 			base: "./testdata/simple",
@@ -135,8 +136,9 @@ func TestT8n(t *testing.T) {
 			input: t8nInput{
 				"alloc.json", "txs.json", "env.json", "Zond", "",
 			},
-			output: t8nOutput{alloc: true, result: true},
-			expOut: "exp.json",
+			output:               t8nOutput{alloc: true, result: true},
+			expOut:               "exp.json",
+			ignoreSignedTxHashes: true,
 		},
 	} {
 		args := []string{"t8n"}
@@ -160,7 +162,9 @@ func TestT8n(t *testing.T) {
 				t.Fatalf("test %d: could not read expected output: %v", i, err)
 			}
 			have := tt.Output()
-			ok, err := cmpJson(have, want)
+			ok, err := cmpJsonWithOptions(have, want, cmpOptions{
+				ignoreSignedTxHashes: tc.ignoreSignedTxHashes,
+			})
 			switch {
 			case err != nil:
 				t.Fatalf("test %d, file %v: json parsing failed: %v", i, file, err)
@@ -321,6 +325,14 @@ func TestB11r(t *testing.T) {
 
 // cmpJson compares the JSON in two byte slices.
 func cmpJson(a, b []byte) (bool, error) {
+	return cmpJsonWithOptions(a, b, cmpOptions{})
+}
+
+type cmpOptions struct {
+	ignoreSignedTxHashes bool
+}
+
+func cmpJsonWithOptions(a, b []byte, opts cmpOptions) (bool, error) {
 	var j, j2 any
 	if err := json.Unmarshal(a, &j); err != nil {
 		return false, err
@@ -328,5 +340,27 @@ func cmpJson(a, b []byte) (bool, error) {
 	if err := json.Unmarshal(b, &j2); err != nil {
 		return false, err
 	}
+	if opts.ignoreSignedTxHashes {
+		normalizeSignedTxHashes(j)
+		normalizeSignedTxHashes(j2)
+	}
 	return reflect.DeepEqual(j2, j), nil
+}
+
+func normalizeSignedTxHashes(v any) {
+	root, ok := v.(map[string]any)
+	if !ok {
+		return
+	}
+	result, ok := root["result"].(map[string]any)
+	if !ok {
+		return
+	}
+	result["txRoot"] = "<nondeterministic ML-DSA-87 signature>"
+	receipts, _ := result["receipts"].([]any)
+	for _, receipt := range receipts {
+		if r, ok := receipt.(map[string]any); ok {
+			r["transactionHash"] = "<nondeterministic ML-DSA-87 signature>"
+		}
+	}
 }

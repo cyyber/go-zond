@@ -214,10 +214,10 @@ func TestRegenerateT8nFixtures(t *testing.T) {
 	_ = big.NewInt // keep import
 }
 
-// qPrefixed returns "Q" + lowercase hex of the 64-byte address, as the
-// t8ntool JSON loader requires a Q-prefixed address (not "0x" prefix).
+// qPrefixed returns the canonical QIP-55 Q-prefixed address expected by the
+// t8ntool JSON loader.
 func qPrefixed(a [64]byte) string {
-	return "Q" + hex.EncodeToString(a[:])
+	return common.Address(a).Hex()
 }
 
 func asStderr(err error) string {

@@ -1,9 +1,8 @@
 # hack/gen — test fixture generator
 
-This package regenerates every fixture file the go-qrl test suite depends on
-(addresses, genesis, blocks, transactions, receipts, ABI calldata). It exists
-because the 48-byte address / 512-bit VM migration invalidated the whole
-fixture surface, and hand-editing hundreds of files is not viable.
+This package regenerates fixture files the go-qrl test suite depends on. It
+exists because the 64-byte address / 512-bit VM migration invalidated large
+parts of the fixture surface, and hand-editing hundreds of files is not viable.
 
 ## Usage
 
@@ -29,14 +28,14 @@ row must produce a zero-line `git diff`, and CI should enforce that.
 | `main.go` | CLI dispatcher (`--target`, `--list`, `--out`). |
 | `common.go` | Shared helpers (deterministic seed, atomic file write). |
 | `addresses.go` | Stable labelled accounts → `testdata/addresses.json`. |
-| `blocks.go` | **stub** — genesis + block RLP/JSON fixtures. |
-| `transactions.go` | **stub** — signed tx fixtures (Legacy / DynamicFee / access-list). |
-| `receipts.go` | **stub** — receipts with 64-byte log topics. |
-| `abi_fixtures.go` | **stub** — encoded calldata + event topic fixtures. |
+| `blocks.go` | TODO — genesis + block RLP/JSON fixtures. |
+| `transactions.go` | TODO — signed tx fixtures (Legacy / DynamicFee / access-list). |
+| `receipts.go` | TODO — receipts with 64-byte log topics. |
+| `abi_fixtures.go` | TODO — encoded calldata + event topic fixtures. |
 
-The stubs print a TODO line and return `nil` so `--target=all` runs cleanly;
-implement them as Phase 3.2 pulls each class of `t.Skip(TODO: ...)` test off
-the skip list.
+The TODO generators intentionally return an error. `--target=all` must not pass
+until every fixture class is implemented and a zero-line `git diff` proves that
+regeneration is deterministic.
 
 ## Generator contract
 

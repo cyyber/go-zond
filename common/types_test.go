@@ -128,17 +128,18 @@ func TestAddressUnmarshalJSON(t *testing.T) {
 	}
 }
 
-func TestAddressHexCanonicalLowercase(t *testing.T) {
-	// QRL addresses are canonicalized as Q + 128 lowercase hex characters.
-	// Mixed-case input remains accepted by parsers but is not emitted.
+func TestAddressHexQIP55Checksum(t *testing.T) {
+	// QRL addresses are canonicalized as Q + 128 QIP-55 mixed-case hex
+	// characters. Mixed-case input remains accepted by parsers, but output is
+	// always normalized to the SHAKE256 checksum casing.
 	var tests = []struct {
 		Input  string
 		Output string
 	}{
-		{"Q" + strings.Repeat("0", 88) + "5AAEB6053F3E94C9B9A09F33669435E7EF1BEAED", "Q" + strings.Repeat("0", 88) + "5aaeb6053f3e94c9b9a09f33669435e7ef1beaed"},
-		{"Q" + strings.Repeat("0", 88) + "fb6916095CA1dF60bB79CE92ce3eA74c37c5d359", "Q" + strings.Repeat("0", 88) + "fb6916095ca1df60bb79ce92ce3ea74c37c5d359"},
-		{"Q" + strings.Repeat("0", 88) + "DBf03B407C01e7CD3cBEa99509D93F8ddDc8C6FB", "Q" + strings.Repeat("0", 88) + "dbf03b407c01e7cd3cbea99509d93f8dddc8c6fb"},
-		{"Q" + strings.Repeat("0", 88) + "D1220a0cf47c7B9bE7a2e6bA89F429762E7b9ADb", "Q" + strings.Repeat("0", 88) + "d1220a0cf47c7b9be7a2e6ba89f429762e7b9adb"},
+		{"Q" + strings.Repeat("0", 88) + "5AAEB6053F3E94C9B9A09F33669435E7EF1BEAED", "Q" + strings.Repeat("0", 88) + "5AAeb6053F3e94c9b9A09f33669435e7EF1BEaEd"},
+		{"Q" + strings.Repeat("0", 88) + "fb6916095CA1dF60bB79CE92ce3eA74c37c5d359", "Q" + strings.Repeat("0", 88) + "Fb6916095Ca1df60BB79CE92CE3ea74c37c5d359"},
+		{"Q" + strings.Repeat("0", 88) + "DBf03B407C01e7CD3cBEa99509D93F8ddDc8C6FB", "Q" + strings.Repeat("0", 88) + "DBf03B407c01E7cD3Cbea99509D93f8DDdc8c6FB"},
+		{"Q" + strings.Repeat("0", 88) + "D1220a0cf47c7B9bE7a2e6bA89F429762E7b9ADb", "Q" + strings.Repeat("0", 88) + "d1220A0cf47c7B9BE7a2e6BA89f429762e7B9AdB"},
 	}
 	for i, test := range tests {
 		addr, _ := NewAddressFromString(test.Input)
@@ -186,12 +187,16 @@ func TestMixedcaseAccount_Address(t *testing.T) {
 		A     MixedcaseAddress
 		Valid bool
 	}
-	mixedcasePrefix := strings.Repeat("0", 88)
+	lowercase := "Q" + strings.Repeat("0", 88) + "ae967917c465db8578ca9024c205720b1a3651a9"
+	addr, err := NewAddressFromString(lowercase)
+	if err != nil {
+		t.Fatal(err)
+	}
+	canonical := addr.Hex()
 	if err := json.Unmarshal([]byte(fmt.Sprintf(`[
-			{"A" : "Q%[1]sae967917c465db8578ca9024c205720b1a3651a9", "Valid": true},
-			{"A" : "Q%[1]sAE967917C465dB8578CA9024C205720b1A3651A9", "Valid": true},
-			{"A" : "Q%[1]s1111111111111111111122222222222233333333", "Valid": true}
-		]`, mixedcasePrefix)), &res); err != nil {
+			{"A" : "%s", "Valid": true},
+			{"A" : "%s", "Valid": false}
+		]`, canonical, lowercase)), &res); err != nil {
 		t.Fatal(err)
 	}
 
@@ -405,6 +410,7 @@ func TestAddress_Format(t *testing.T) {
 		suffixUp   = "B26F2B342AAB24BCF63EA218C6A9274D30AB9A15"
 		zeroPrefix = "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
 	)
+	checksum := addr.Hex()
 
 	tests := []struct {
 		name string
@@ -414,12 +420,12 @@ func TestAddress_Format(t *testing.T) {
 		{
 			name: "println",
 			out:  fmt.Sprintln(addr),
-			want: "Q" + zeroPrefix + suffixLow + "\n",
+			want: checksum + "\n",
 		},
 		{
 			name: "print",
 			out:  fmt.Sprint(addr),
-			want: "Q" + zeroPrefix + suffixLow,
+			want: checksum,
 		},
 		{
 			name: "printf-s",
@@ -428,12 +434,12 @@ func TestAddress_Format(t *testing.T) {
 				fmt.Fprintf(buf, "%s", addr)
 				return buf.String()
 			}(),
-			want: "Q" + zeroPrefix + suffixLow,
+			want: checksum,
 		},
 		{
 			name: "printf-q",
 			out:  fmt.Sprintf("%q", addr),
-			want: `"Q` + zeroPrefix + suffixLow + `"`,
+			want: `"` + checksum + `"`,
 		},
 		{
 			name: "printf-x",
@@ -453,7 +459,7 @@ func TestAddress_Format(t *testing.T) {
 		{
 			name: "printf-v",
 			out:  fmt.Sprintf("%v", addr),
-			want: "Q" + zeroPrefix + suffixLow,
+			want: checksum,
 		},
 		// The original default formatter for byte slice
 		{

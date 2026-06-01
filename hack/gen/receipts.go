@@ -13,12 +13,11 @@
 
 package main
 
-import "fmt"
+import "errors"
 
 // generateReceipts is a stub. Implement receipt fixtures with 64-byte log
 // topics so core/types receipt tests and tracer testdata reflect the new
 // VM semantics.
 func generateReceipts(outDir string) error {
-	fmt.Println("  receipts     TODO: implement receipt fixtures")
-	return nil
+	return errors.New("receipt fixture generator is not implemented")
 }

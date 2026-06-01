@@ -13,13 +13,12 @@
 
 package main
 
-import "fmt"
+import "errors"
 
 // generateTransactions is a stub. Implement signed tx fixtures (legacy,
 // DynamicFee, access-list) using the wallets from addresses.json so
 // internal/qrlapi, core/types, and signer tests can drop their t.Skip
 // markers.
 func generateTransactions(outDir string) error {
-	fmt.Println("  transactions TODO: implement signed transaction fixtures")
-	return nil
+	return errors.New("transaction fixture generator is not implemented")
 }

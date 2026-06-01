@@ -13,7 +13,7 @@
 
 package main
 
-import "fmt"
+import "errors"
 
 // generateBlocks is a stub. Implement genesis + block RLP/JSON fixtures so
 // core/types, core/rawdb, cmd/qrvm t8ntool testdata can be regenerated
@@ -21,6 +21,5 @@ import "fmt"
 //
 // See hack/gen/README.md for the generator contract.
 func generateBlocks(outDir string) error {
-	fmt.Println("  blocks       TODO: implement genesis + block fixtures")
-	return nil
+	return errors.New("blocks fixture generator is not implemented")
 }

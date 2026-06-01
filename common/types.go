@@ -29,6 +29,7 @@ import (
 	"strconv"
 
 	"github.com/theQRL/go-qrl/common/hexutil"
+	"golang.org/x/crypto/sha3"
 )
 
 // Lengths of hashes and addresses in bytes.
@@ -450,14 +451,44 @@ func (a Address) Hash() Hash { return BytesToHash(a[:]) }
 // Big converts an address to a big integer.
 func (a Address) Big() *big.Int { return new(big.Int).SetBytes(a[:]) }
 
-// Hex returns the canonical Q-prefixed lowercase hex representation of the address.
+// Hex returns the canonical QIP-55 mixed-case representation of the address.
 func (a Address) Hex() string {
-	return string(a.hex())
+	return qip55AddressHex(a[:])
 }
 
 // String implements fmt.Stringer.
 func (a Address) String() string {
 	return a.Hex()
+}
+
+func qip55AddressHex(addr []byte) string {
+	lower := make([]byte, 1+len(addr)*2)
+	copy(lower[:1], hexutil.PrefixQ)
+	hex.Encode(lower[1:], addr)
+
+	var checksum [AddressLength]byte
+	h := sha3.NewShake256()
+	_, _ = h.Write(lower[1:])
+	_, _ = h.Read(checksum[:])
+
+	out := make([]byte, len(lower))
+	copy(out, lower)
+	for i := 1; i < len(out); i++ {
+		c := out[i]
+		if c < 'a' || c > 'f' {
+			continue
+		}
+		nibble := checksum[(i-1)/2]
+		if (i-1)%2 == 0 {
+			nibble >>= 4
+		} else {
+			nibble &= 0x0f
+		}
+		if nibble >= 8 {
+			out[i] = c - ('a' - 'A')
+		}
+	}
+	return string(out)
 }
 
 func (a Address) hex() []byte {
@@ -472,12 +503,9 @@ func (a Address) hex() []byte {
 func (a Address) Format(s fmt.State, c rune) {
 	switch c {
 	case 'v', 's':
-		s.Write(a.hex())
+		s.Write([]byte(a.Hex()))
 	case 'q':
-		q := []byte{'"'}
-		s.Write(q)
-		s.Write(a.hex())
-		s.Write(q)
+		fmt.Fprintf(s, "%q", a.Hex())
 	case 'x', 'X':
 		hex := a.hex()
 		if !s.Flag('#') {
@@ -504,9 +532,9 @@ func (a *Address) SetBytes(b []byte) {
 	copy(a[AddressLength-len(b):], b)
 }
 
-// MarshalText returns the hex representation of a.
+// MarshalText returns the canonical QIP-55 representation of a.
 func (a Address) MarshalText() ([]byte, error) {
-	return hexutil.BytesQ(a[:]).MarshalText()
+	return []byte(a.Hex()), nil
 }
 
 // UnmarshalText parses a hash in hex syntax.
@@ -552,8 +580,8 @@ func (a *Address) UnmarshalGraphQL(input any) error {
 	return err
 }
 
-// MixedcaseAddress retains the original string. QRL addresses are
-// case-insensitive and do not embed an EIP-55 style checksum.
+// MixedcaseAddress retains the original string and can validate its QIP-55
+// checksum casing.
 type MixedcaseAddress struct {
 	addr     Address
 	original string
@@ -596,10 +624,13 @@ func (ma *MixedcaseAddress) String() string {
 	return ma.original
 }
 
-// ValidChecksum returns true for any structurally valid QRL address.
-// It is retained for compatibility with go-ethereum APIs.
+// ValidChecksum returns true if the original string matches the canonical
+// QIP-55 checksum casing for the underlying address.
 func (ma *MixedcaseAddress) ValidChecksum() bool {
-	return IsAddress(ma.original)
+	if ma == nil || !IsAddress(ma.original) {
+		return false
+	}
+	return ma.original == ma.addr.Hex()
 }
 
 // Original returns the mixed-case input string

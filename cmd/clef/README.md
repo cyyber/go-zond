@@ -95,7 +95,7 @@ Some snags and todos
 * Gqrl todos
     - The signer should pass the `Origin` header as call-info to the UI. As of right now, the way that info about the request is put together is a bit of a hack into the HTTP server. This could probably be greatly improved.
     - Relay: Gqrl should be started in `gqrl --signer localhost:8550`.
-    - QRL addresses are 48-byte values rendered as `Q` + 96 hex characters. The signer keeps `common.MixedcaseAddress` for API compatibility, but address validation is structural only and canonical output is lowercase.
+    - QRL addresses are 64-byte values rendered as `Q` + 128 QIP-55 mixed-case hex characters. The signer keeps `common.MixedcaseAddress` for API compatibility and uses it to validate checksum casing when the original input is available.
 * [x] Storage
     * [x] An encrypted key-value storage should be implemented.
     * See [rules.md](rules.md) for more info about this.

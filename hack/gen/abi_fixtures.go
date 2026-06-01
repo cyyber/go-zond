@@ -13,12 +13,11 @@
 
 package main
 
-import "fmt"
+import "errors"
 
 // generateABIFixtures is a stub. Implement encoded calldata and event topic
 // fixtures with the 64-byte ABI slot so accounts/abi and signer/fourbyte
 // unpacker tests can be unskipped.
 func generateABIFixtures(outDir string) error {
-	fmt.Println("  abi          TODO: implement ABI calldata/event fixtures")
-	return nil
+	return errors.New("ABI fixture generator is not implemented")
 }

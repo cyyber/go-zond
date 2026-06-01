@@ -196,12 +196,13 @@ func TestAccountUpdate(t *testing.T) {
 	t.Parallel()
 	datadir, addrs, _ := tmpDatadirWithKeystore(t)
 	// Target the account backed by the "zzz" file. The CLI accepts the
-	// lower-case hex form; the OLD-password prompt echoes the EIP-55
-	// checksummed form of the same address.
+	// lower-case hex form and the OLD-password prompt echoes the canonical
+	// QIP-55 form of the same address.
 	zzzAddr := addrs[2]
+	zzzLower := fmt.Sprintf("%#x", zzzAddr)
 	gqrl := runGqrl(t, "account", "update",
 		"--datadir", datadir, "--lightkdf",
-		fmt.Sprintf("%#x", zzzAddr))
+		zzzLower)
 	defer gqrl.ExpectExit()
 	gqrl.Expect(fmt.Sprintf(`
 Please give a NEW password. Do not forget this password.
@@ -210,5 +211,5 @@ Password: {{.InputLine "foobar_new"}}
 Repeat password: {{.InputLine "foobar_new"}}
 Please provide the OLD password for account %s | Attempt 1/3
 Password: {{.InputLine "foobar"}}
-`, zzzAddr.String()))
+`, zzzAddr.Hex()))
 }

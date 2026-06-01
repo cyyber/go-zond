@@ -21,6 +21,7 @@ import (
 	"math/big"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -79,16 +80,12 @@ type callTracerTest struct {
 }
 
 // TestCallTracerNative scans testdata/call_tracer/*.json and runs the
-// callTracer against each. The legacy fixtures were retired during the
-// QRL address / 512-bit-VM migration; the directory now keeps only a
-// .gitkeep placeholder so this test passes vacuously. Real programmatic
-// coverage for the callTracer lives in TestInternals.
+// callTracer against each regenerated 64-byte-address fixture.
 func TestCallTracerNative(t *testing.T) {
 	testCallTracer("callTracer", "call_tracer", t)
 }
 
 // TODO(now.youtrack.cloud/issue/TGZ-13)
-// Same story as TestCallTracerNative; fixtures retired.
 func TestCallTracerNativeWithLog(t *testing.T) {
 	testCallTracer("callTracer", "call_tracer_withLog", t)
 }
@@ -161,7 +158,7 @@ func testCallTracer(tracerName string, dirPath string, t *testing.T) {
 			if err != nil {
 				t.Fatalf("failed to marshal test: %v", err)
 			}
-			if string(want) != string(res) {
+			if !sameTraceJSON(want, res) {
 				t.Fatalf("trace mismatch\n have: %v\n want: %v\n", string(res), string(want))
 			}
 			// Sanity check: compare top call's gas used against vm result
@@ -251,8 +248,8 @@ func benchTracer(tracerName string, test *callTracerTest, b *testing.B) {
 
 func TestInternals(t *testing.T) {
 	var (
-		to     = common.BytesToAddress(common.FromHex("deadbeef00000000000000000000000000000000deadbeef000000000000000000000000000000000000000000000000"))
-		origin = common.BytesToAddress(common.FromHex("feed000000000000000000000000000000000000feed0000000000000000000000000000000000000000000000000000"))
+		to        = common.BytesToAddress(common.FromHex("deadbeef00000000000000000000000000000000deadbeef000000000000000000000000000000000000000000000000"))
+		origin    = common.BytesToAddress(common.FromHex("feed000000000000000000000000000000000000feed0000000000000000000000000000000000000000000000000000"))
 		txContext = vm.TxContext{
 			Origin:   origin,
 			GasPrice: big.NewInt(1),
@@ -367,7 +364,7 @@ func TestInternals(t *testing.T) {
 				byte(vm.MSTORE), // memory[4:68] = offset 0x40
 				byte(vm.PUSH1), 0x04,
 				byte(vm.PUSH1), 0x44,
-				byte(vm.MSTORE), // memory[68:132] = length 4
+				byte(vm.MSTORE),                        // memory[68:132] = length 4
 				byte(vm.PUSH4), 0x6e, 0x6f, 0x70, 0x65, // "nope"
 				byte(vm.PUSH2), 0x01, 0xe0, // 480 = (64-4)*8
 				byte(vm.SHL),
@@ -526,7 +523,7 @@ func TestInternals(t *testing.T) {
 			code: []byte{
 				byte(vm.PUSH4), 0x12, 0x34, 0x56, 0x78,
 				byte(vm.PUSH1), 0x00,
-				byte(vm.MSTORE), // memory[0:64] with value in low 4 bytes
+				byte(vm.MSTORE),      // memory[0:64] with value in low 4 bytes
 				byte(vm.PUSH1), 0xcc, // topic2
 				byte(vm.PUSH1), 0xbb, // topic1
 				byte(vm.PUSH1), 0x40, // length = 64
@@ -578,9 +575,20 @@ func TestInternals(t *testing.T) {
 			if err != nil {
 				t.Fatalf("test %v: failed to retrieve trace result: %v", tc.name, err)
 			}
-			if string(res) != tc.want {
+			if !sameTraceJSON([]byte(tc.want), res) {
 				t.Errorf("test %v: trace mismatch\n have: %v\n want: %v\n", tc.name, string(res), tc.want)
 			}
 		})
 	}
+}
+
+func sameTraceJSON(want, have []byte) bool {
+	var wantJSON, haveJSON any
+	if err := json.Unmarshal([]byte(strings.ToLower(string(want))), &wantJSON); err != nil {
+		return false
+	}
+	if err := json.Unmarshal([]byte(strings.ToLower(string(have))), &haveJSON); err != nil {
+		return false
+	}
+	return reflect.DeepEqual(wantJSON, haveJSON)
 }

@@ -35,7 +35,7 @@ func deterministicSeed(label string) string {
 	sum := sha256.Sum256([]byte("qrl-testgen-v1|" + label))
 	var seed [48]byte
 	copy(seed[:32], sum[:])
-	// Stretch to 48 bytes by hashing the sum prefixed with a counter.
+	// Fill the 48-byte seed payload by hashing the sum prefixed with a counter.
 	for i := 32; i < 48; i += 8 {
 		var ctr [9]byte
 		copy(ctr[:], sum[:])

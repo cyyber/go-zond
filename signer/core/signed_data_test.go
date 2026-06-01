@@ -225,14 +225,12 @@ func TestSignData(t *testing.T) {
 	// data/typed via SignTypeData
 	control.approveCh <- "Y"
 	control.inputCh <- "a_long_password"
-	var want []byte
 	if signature, err = api.SignTypedData(t.Context(), a, typedData); err != nil {
 		t.Fatal(err)
 	} else if signature == nil || len(signature) != 4627 {
 		t.Errorf("Expected 4627 byte ML-DSA-87 signature (got %d bytes)", len(signature))
-	} else {
-		want = signature
 	}
+	wantHash := append([]byte(nil), control.lastSignDataRequest.Hash...)
 
 	// data/typed via SignData / mimetype typed data
 	control.approveCh <- "Y"
@@ -243,8 +241,8 @@ func TestSignData(t *testing.T) {
 		t.Fatal(err)
 	} else if signature == nil || len(signature) != 4627 {
 		t.Errorf("Expected 4627 byte ML-DSA-87 signature (got %d bytes)", len(signature))
-	} else if have := signature; !bytes.Equal(have, want) {
-		t.Fatalf("want %x, have %x", want, have)
+	} else if haveHash := control.lastSignDataRequest.Hash; !bytes.Equal(haveHash, wantHash) {
+		t.Fatalf("want hash %x, have hash %x", wantHash, haveHash)
 	}
 }
 
