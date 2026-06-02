@@ -137,15 +137,15 @@ func TestNull(t *testing.T) {
 	address, _ := common.NewAddressFromString("Q0000000000000000000000000000000000000000000000000000000000000000823140710bf13990e4500136726d8b5599aabbccddeeff001122334455667788")
 	s.state.CreateAccount(address)
 	//value := common.FromHex("0x823140710bf13990e4500136726d8b55")
-	var value common.StorageValue
+	var value common.StorageValue64
 
 	s.state.SetState(address, common.Hash{}, value)
 	s.state.Commit(0, false)
 
-	if value := s.state.GetState(address, common.Hash{}); value != (common.StorageValue{}) {
+	if value := s.state.GetState(address, common.Hash{}); value != (common.StorageValue64{}) {
 		t.Errorf("expected empty current value, got %x", value)
 	}
-	if value := s.state.GetCommittedState(address, common.Hash{}); value != (common.StorageValue{}) {
+	if value := s.state.GetCommittedState(address, common.Hash{}); value != (common.StorageValue64{}) {
 		t.Errorf("expected empty committed value, got %x", value)
 	}
 }
@@ -153,8 +153,8 @@ func TestNull(t *testing.T) {
 func TestSnapshot(t *testing.T) {
 	stateobjaddr := common.BytesToAddress([]byte("aa"))
 	var storageaddr common.Hash
-	data1 := common.BytesToStorageValue([]byte{42})
-	data2 := common.BytesToStorageValue([]byte{43})
+	data1 := common.BytesToStorageValue64([]byte{42})
+	data2 := common.BytesToStorageValue64([]byte{43})
 	s := newStateEnv()
 
 	// snapshot the genesis state
@@ -171,17 +171,17 @@ func TestSnapshot(t *testing.T) {
 	if v := s.state.GetState(stateobjaddr, storageaddr); v != data1 {
 		t.Errorf("wrong storage value %v, want %v", v, data1)
 	}
-	if v := s.state.GetCommittedState(stateobjaddr, storageaddr); v != (common.StorageValue{}) {
-		t.Errorf("wrong committed storage value %v, want %v", v, common.StorageValue{})
+	if v := s.state.GetCommittedState(stateobjaddr, storageaddr); v != (common.StorageValue64{}) {
+		t.Errorf("wrong committed storage value %v, want %v", v, common.StorageValue64{})
 	}
 
 	// revert up to the genesis state and ensure correct content
 	s.state.RevertToSnapshot(genesis)
-	if v := s.state.GetState(stateobjaddr, storageaddr); v != (common.StorageValue{}) {
-		t.Errorf("wrong storage value %v, want %v", v, common.StorageValue{})
+	if v := s.state.GetState(stateobjaddr, storageaddr); v != (common.StorageValue64{}) {
+		t.Errorf("wrong storage value %v, want %v", v, common.StorageValue64{})
 	}
-	if v := s.state.GetCommittedState(stateobjaddr, storageaddr); v != (common.StorageValue{}) {
-		t.Errorf("wrong committed storage value %v, want %v", v, common.StorageValue{})
+	if v := s.state.GetCommittedState(stateobjaddr, storageaddr); v != (common.StorageValue64{}) {
+		t.Errorf("wrong committed storage value %v, want %v", v, common.StorageValue64{})
 	}
 }
 
@@ -197,8 +197,8 @@ func TestSnapshot2(t *testing.T) {
 	stateobjaddr1 := common.BytesToAddress([]byte("so1"))
 	var storageaddr common.Hash
 
-	data0 := common.BytesToStorageValue([]byte{17})
-	data1 := common.BytesToStorageValue([]byte{18})
+	data0 := common.BytesToStorageValue64([]byte{17})
+	data1 := common.BytesToStorageValue64([]byte{18})
 
 	state.SetState(stateobjaddr0, storageaddr, data0)
 	state.SetState(stateobjaddr1, storageaddr, data1)

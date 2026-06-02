@@ -131,10 +131,10 @@ func (a *Account) Code(ctx context.Context) (hexutil.Bytes, error) {
 	return state.GetCode(a.address), nil
 }
 
-func (a *Account) Storage(ctx context.Context, args struct{ Slot common.Hash }) (common.StorageValue, error) {
+func (a *Account) Storage(ctx context.Context, args struct{ Slot common.Hash }) (common.StorageValue64, error) {
 	state, err := a.getState(ctx)
 	if err != nil {
-		return common.StorageValue{}, err
+		return common.StorageValue64{}, err
 	}
 	return state.GetState(a.address, args.Slot), nil
 }

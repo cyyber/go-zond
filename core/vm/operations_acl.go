@@ -49,7 +49,7 @@ func makeGasSStoreFunc(clearingRefund uint64) gasFunc {
 				panic("impossible case: address was not present in access list during sstore op")
 			}
 		}
-		value := common.StorageValue(y.Bytes64())
+		value := common.StorageValue64(y.Bytes64())
 
 		if current == value { // noop (1)
 			// EIP 2200 original clause:
@@ -58,25 +58,25 @@ func makeGasSStoreFunc(clearingRefund uint64) gasFunc {
 		}
 		original := qrvm.StateDB.GetCommittedState(contract.Address(), x.Bytes32())
 		if original == current {
-			if original == (common.StorageValue{}) { // create slot (2.1.1)
+			if original == (common.StorageValue64{}) { // create slot (2.1.1)
 				return cost + params.SstoreSetGasEIP2200, nil
 			}
-			if value == (common.StorageValue{}) { // delete slot (2.1.2b)
+			if value == (common.StorageValue64{}) { // delete slot (2.1.2b)
 				qrvm.StateDB.AddRefund(clearingRefund)
 			}
 			// EIP-2200 original clause:
 			//		return params.SstoreResetGasEIP2200, nil // write existing slot (2.1.2)
 			return cost + (params.SstoreResetGasEIP2200 - params.ColdSloadCostEIP2929), nil // write existing slot (2.1.2)
 		}
-		if original != (common.StorageValue{}) {
-			if current == (common.StorageValue{}) { // recreate slot (2.2.1.1)
+		if original != (common.StorageValue64{}) {
+			if current == (common.StorageValue64{}) { // recreate slot (2.2.1.1)
 				qrvm.StateDB.SubRefund(clearingRefund)
-			} else if value == (common.StorageValue{}) { // delete slot (2.2.1.2)
+			} else if value == (common.StorageValue64{}) { // delete slot (2.2.1.2)
 				qrvm.StateDB.AddRefund(clearingRefund)
 			}
 		}
 		if original == value {
-			if original == (common.StorageValue{}) { // reset to original inexistent slot (2.2.2.1)
+			if original == (common.StorageValue64{}) { // reset to original inexistent slot (2.2.2.1)
 				// EIP 2200 Original clause:
 				//qrvm.StateDB.AddRefund(params.SstoreSetGasEIP2200 - params.SloadGasEIP2200)
 				qrvm.StateDB.AddRefund(params.SstoreSetGasEIP2200 - params.WarmStorageReadCostEIP2929)

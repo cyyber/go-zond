@@ -106,7 +106,7 @@ type (
 	storageChange struct {
 		account  *common.Address
 		key      common.Hash
-		prevalue common.StorageValue
+		prevalue common.StorageValue64
 	}
 	codeChange struct {
 		account            *common.Address

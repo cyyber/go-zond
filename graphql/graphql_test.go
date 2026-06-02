@@ -192,6 +192,7 @@ func TestGraphQLBlockSerializationEIP2718(t *testing.T) {
 		BaseFee: big.NewInt(params.InitialBaseFee),
 	}
 	signer := types.LatestSigner(genesis.Config)
+	var txHashes []common.Hash
 	newGQLService(t, stack, genesis, 1, func(i int, gen *core.BlockGen) {
 		gen.SetCoinbase(common.Address{1})
 		tx, _ := types.SignNewTx(wallet, signer, &types.DynamicFeeTx{
@@ -202,6 +203,7 @@ func TestGraphQLBlockSerializationEIP2718(t *testing.T) {
 			GasFeeCap: big.NewInt(params.InitialBaseFee),
 		})
 		gen.AddTx(tx)
+		txHashes = append(txHashes, tx.Hash())
 		tx, _ = types.SignNewTx(wallet, signer, &types.DynamicFeeTx{
 			ChainID:   genesis.Config.ChainID,
 			Nonce:     uint64(1),
@@ -215,6 +217,7 @@ func TestGraphQLBlockSerializationEIP2718(t *testing.T) {
 			}},
 		})
 		gen.AddTx(tx)
+		txHashes = append(txHashes, tx.Hash())
 	})
 	// start node
 	if err := stack.Start(); err != nil {
@@ -230,7 +233,9 @@ func TestGraphQLBlockSerializationEIP2718(t *testing.T) {
 			body: `{"query": "{block {number transactions { from { address } to { address } value hash type accessList { address storageKeys } index}}}"}`,
 			// Addresses widen to 128 hex chars and tx hashes change because
 			// the from/to/accessList fields now carry 64-byte values.
-			want: `{"data":{"block":{"number":"0x1","transactions":[{"from":{"address":"Q8ac356c6e37760c7706eba2fa7e08b78d8b01fdfaf4a4b91d4a244b59c73eab4657362f640e94eda01fd397d0c8774fd80d4d8b815a22200988d0a886c979a9a"},"to":{"address":"Q00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000dad"},"value":"0x64","hash":"0x56ba58ab4cbd181edb15b73ba4993e04293ab3a54f84011a6ad885b1d44bce18","type":"0x2","accessList":[],"index":"0x0"},{"from":{"address":"Q8ac356c6e37760c7706eba2fa7e08b78d8b01fdfaf4a4b91d4a244b59c73eab4657362f640e94eda01fd397d0c8774fd80d4d8b815a22200988d0a886c979a9a"},"to":{"address":"Q00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000dad"},"value":"0x32","hash":"0x397986c31646aaa7b06e4bf092e69aa383a533b2198e873a8d5c9a40b02594d0","type":"0x2","accessList":[{"address":"Q00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000dad","storageKeys":["0x0000000000000000000000000000000000000000000000000000000000000000"]}],"index":"0x1"}]}}}`,
+			want: fmt.Sprintf(`{"data":{"block":{"number":"0x1","transactions":[{"from":{"address":"%s"},"to":{"address":"%s"},"value":"0x64","hash":"%s","type":"0x2","accessList":[],"index":"0x0"},{"from":{"address":"%s"},"to":{"address":"%s"},"value":"0x32","hash":"%s","type":"0x2","accessList":[{"address":"%s","storageKeys":["0x0000000000000000000000000000000000000000000000000000000000000000"]}],"index":"0x1"}]}}}`,
+				common.Address(address).Hex(), dad.Hex(), txHashes[0].Hex(),
+				common.Address(address).Hex(), dad.Hex(), txHashes[1].Hex(), dad.Hex()),
 			code: 200,
 		},
 	} {
@@ -274,8 +279,8 @@ func TestGraphQLConcurrentResolvers(t *testing.T) {
 		wallet, _ = wallet.Generate(wallet.ML_DSA_87)
 		// A 64-byte address with the "dad" marker at the lowest three
 		// bytes so the test logs have an identifiable address.
-		dadStr  = "Q00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000dad"
 		dad     = common.BytesToAddress([]byte{0x0d, 0xad})
+		dadStr  = dad.Hex()
 		genesis = &core.Genesis{
 			Config:   params.AllBeaconProtocolChanges,
 			GasLimit: 11500000,

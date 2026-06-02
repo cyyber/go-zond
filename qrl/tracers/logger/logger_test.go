@@ -50,9 +50,11 @@ type dummyStatedb struct {
 	state.StateDB
 }
 
-func (*dummyStatedb) GetRefund() uint64                                               { return 1337 }
-func (*dummyStatedb) GetState(_ common.Address, _ common.Hash) common.StorageValue    { return common.StorageValue{} }
-func (*dummyStatedb) SetState(_ common.Address, _ common.Hash, _ common.StorageValue) {}
+func (*dummyStatedb) GetRefund() uint64 { return 1337 }
+func (*dummyStatedb) GetState(_ common.Address, _ common.Hash) common.StorageValue64 {
+	return common.StorageValue64{}
+}
+func (*dummyStatedb) SetState(_ common.Address, _ common.Hash, _ common.StorageValue64) {}
 
 func TestStoreCapture(t *testing.T) {
 	var (
@@ -73,7 +75,7 @@ func TestStoreCapture(t *testing.T) {
 		t.Fatalf("expected exactly 1 changed value on address %x, got %d", contract.Address(),
 			len(logger.storage[contract.Address()]))
 	}
-	exp := common.BytesToStorageValue(common.BigToHash(big.NewInt(1)).Bytes())
+	exp := common.BytesToStorageValue64(common.BigToHash(big.NewInt(1)).Bytes())
 	if logger.storage[contract.Address()][index] != exp {
 		t.Errorf("expected %x, got %x", exp, logger.storage[contract.Address()][index])
 	}

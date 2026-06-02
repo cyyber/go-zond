@@ -45,7 +45,7 @@ var (
 	testContract = common.BytesToAddress(common.FromHex("000000000000000000000000000000000000beef000000000000000000000000000000000000beef11223344556677"))
 	testEmpty    = common.BytesToAddress(common.FromHex("000000000000000000000000000000000000eeee000000000000000000000000000000000000eeee11223344556677"))
 	testSlot     = common.HexToHash("0xdeadbeef")
-	testValue    = common.BytesToStorageValue(crypto.Keccak256Hash(testSlot[:]).Bytes())
+	testValue    = common.BytesToStorageValue64(crypto.Keccak256Hash(testSlot[:]).Bytes())
 	testBalance  = big.NewInt(2e18)
 )
 
@@ -83,7 +83,7 @@ func generateTestChain() (*core.Genesis, []*types.Block) {
 	genesis := &core.Genesis{
 		Config: params.AllBeaconProtocolChanges,
 		Alloc: core.GenesisAlloc{
-			testAddr:     {Balance: testBalance, Storage: map[common.Hash]common.StorageValue{testSlot: testValue}},
+			testAddr:     {Balance: testBalance, Storage: map[common.Hash]common.StorageValue64{testSlot: testValue}},
 			testContract: {Nonce: 1, Code: []byte{0x13, 0x37}},
 			testEmpty:    {Balance: big.NewInt(1)},
 		},
@@ -498,19 +498,19 @@ func TestOverrideAccountMarshal(t *testing.T) {
 
 	// 64-byte Address values render as a Q prefix plus 128 lowercase hex
 	// characters with the seed byte at position 0 and the remaining 63
-	// bytes zeroed.
+	// bytes zeroed, rendered with QIP-55 checksum casing.
 	expected := `{
   "Q11000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000": {},
-  "Qaa000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000": {
-    "nonce": "0x5"
-  },
-  "Qbb000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000": {
+  "QBB000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000": {
     "code": "0x01"
   },
-  "Qcc000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000": {
+  "QCC000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000": {
     "code": "0x",
     "balance": "0x0",
     "state": {}
+  },
+  "QaA000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000": {
+    "nonce": "0x5"
   }
 }`
 

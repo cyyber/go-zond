@@ -73,7 +73,7 @@ func makeTestState(scheme string) (qrldb.Database, Database, *trie.Database, com
 		if i%5 == 0 {
 			for j := range byte(5) {
 				hash := crypto.Keccak256Hash([]byte{i, i, i, i, i, j, j})
-				obj.SetState(hash, common.BytesToStorageValue(hash.Bytes()))
+				obj.SetState(hash, common.BytesToStorageValue64(hash.Bytes()))
 			}
 		}
 		accounts = append(accounts, acc)

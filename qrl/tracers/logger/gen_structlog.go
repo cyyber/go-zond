@@ -5,10 +5,10 @@ package logger
 import (
 	"encoding/json"
 
-	"github.com/theQRL/go-qrl/common/uint512"
 	"github.com/theQRL/go-qrl/common"
 	"github.com/theQRL/go-qrl/common/hexutil"
 	"github.com/theQRL/go-qrl/common/math"
+	"github.com/theQRL/go-qrl/common/uint512"
 	"github.com/theQRL/go-qrl/core/vm"
 )
 
@@ -17,20 +17,20 @@ var _ = (*structLogMarshaling)(nil)
 // MarshalJSON marshals as JSON.
 func (s StructLog) MarshalJSON() ([]byte, error) {
 	type StructLog struct {
-		Pc            uint64                      `json:"pc"`
-		Op            vm.OpCode                   `json:"op"`
-		Gas           math.HexOrDecimal64         `json:"gas"`
-		GasCost       math.HexOrDecimal64         `json:"gasCost"`
-		Memory        hexutil.Bytes               `json:"memory,omitempty"`
-		MemorySize    int                         `json:"memSize"`
-		Stack         []uint512.Int               `json:"stack"`
-		ReturnData    hexutil.Bytes               `json:"returnData,omitempty"`
-		Storage       map[common.Hash]common.StorageValue `json:"-"`
-		Depth         int                         `json:"depth"`
-		RefundCounter uint64                      `json:"refund"`
-		Err           error                       `json:"-"`
-		OpName        string                      `json:"opName"`
-		ErrorString   string                      `json:"error,omitempty"`
+		Pc            uint64                                `json:"pc"`
+		Op            vm.OpCode                             `json:"op"`
+		Gas           math.HexOrDecimal64                   `json:"gas"`
+		GasCost       math.HexOrDecimal64                   `json:"gasCost"`
+		Memory        hexutil.Bytes                         `json:"memory,omitempty"`
+		MemorySize    int                                   `json:"memSize"`
+		Stack         []uint512.Int                         `json:"stack"`
+		ReturnData    hexutil.Bytes                         `json:"returnData,omitempty"`
+		Storage       map[common.Hash]common.StorageValue64 `json:"-"`
+		Depth         int                                   `json:"depth"`
+		RefundCounter uint64                                `json:"refund"`
+		Err           error                                 `json:"-"`
+		OpName        string                                `json:"opName"`
+		ErrorString   string                                `json:"error,omitempty"`
 	}
 	var enc StructLog
 	enc.Pc = s.Pc
@@ -53,18 +53,18 @@ func (s StructLog) MarshalJSON() ([]byte, error) {
 // UnmarshalJSON unmarshals from JSON.
 func (s *StructLog) UnmarshalJSON(input []byte) error {
 	type StructLog struct {
-		Pc            *uint64                     `json:"pc"`
-		Op            *vm.OpCode                  `json:"op"`
-		Gas           *math.HexOrDecimal64        `json:"gas"`
-		GasCost       *math.HexOrDecimal64        `json:"gasCost"`
-		Memory        *hexutil.Bytes              `json:"memory,omitempty"`
-		MemorySize    *int                        `json:"memSize"`
-		Stack         []uint512.Int               `json:"stack"`
-		ReturnData    *hexutil.Bytes              `json:"returnData,omitempty"`
-		Storage       map[common.Hash]common.StorageValue `json:"-"`
-		Depth         *int                        `json:"depth"`
-		RefundCounter *uint64                     `json:"refund"`
-		Err           error                       `json:"-"`
+		Pc            *uint64                               `json:"pc"`
+		Op            *vm.OpCode                            `json:"op"`
+		Gas           *math.HexOrDecimal64                  `json:"gas"`
+		GasCost       *math.HexOrDecimal64                  `json:"gasCost"`
+		Memory        *hexutil.Bytes                        `json:"memory,omitempty"`
+		MemorySize    *int                                  `json:"memSize"`
+		Stack         []uint512.Int                         `json:"stack"`
+		ReturnData    *hexutil.Bytes                        `json:"returnData,omitempty"`
+		Storage       map[common.Hash]common.StorageValue64 `json:"-"`
+		Depth         *int                                  `json:"depth"`
+		RefundCounter *uint64                               `json:"refund"`
+		Err           error                                 `json:"-"`
 	}
 	var dec StructLog
 	if err := json.Unmarshal(input, &dec); err != nil {

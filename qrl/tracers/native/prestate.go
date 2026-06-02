@@ -39,10 +39,10 @@ func init() {
 type state = map[common.Address]*account
 
 type account struct {
-	Balance *big.Int                    `json:"balance,omitempty"`
-	Code    []byte                      `json:"code,omitempty"`
-	Nonce   uint64                      `json:"nonce,omitempty"`
-	Storage map[common.Hash]common.StorageValue `json:"storage,omitempty"`
+	Balance *big.Int                              `json:"balance,omitempty"`
+	Code    []byte                                `json:"code,omitempty"`
+	Nonce   uint64                                `json:"nonce,omitempty"`
+	Storage map[common.Hash]common.StorageValue64 `json:"storage,omitempty"`
 }
 
 func (a *account) exists() bool {
@@ -196,7 +196,7 @@ func (t *prestateTracer) CaptureTxEnd(restGas uint64) {
 			continue
 		}
 		modified := false
-		postAccount := &account{Storage: make(map[common.Hash]common.StorageValue)}
+		postAccount := &account{Storage: make(map[common.Hash]common.StorageValue64)}
 		newBalance := t.env.StateDB.GetBalance(addr)
 		newNonce := t.env.StateDB.GetNonce(addr)
 		newCode := t.env.StateDB.GetCode(addr)
@@ -216,7 +216,7 @@ func (t *prestateTracer) CaptureTxEnd(restGas uint64) {
 
 		for key, val := range state.Storage {
 			// don't include the empty slot
-			if val == (common.StorageValue{}) {
+			if val == (common.StorageValue64{}) {
 				delete(t.pre[addr].Storage, key)
 			}
 
@@ -226,7 +226,7 @@ func (t *prestateTracer) CaptureTxEnd(restGas uint64) {
 				delete(t.pre[addr].Storage, key)
 			} else {
 				modified = true
-				if newVal != (common.StorageValue{}) {
+				if newVal != (common.StorageValue64{}) {
 					postAccount.Storage[key] = newVal
 				}
 			}
@@ -284,7 +284,7 @@ func (t *prestateTracer) lookupAccount(addr common.Address) {
 		Balance: t.env.StateDB.GetBalance(addr),
 		Nonce:   t.env.StateDB.GetNonce(addr),
 		Code:    t.env.StateDB.GetCode(addr),
-		Storage: make(map[common.Hash]common.StorageValue),
+		Storage: make(map[common.Hash]common.StorageValue64),
 	}
 }
 

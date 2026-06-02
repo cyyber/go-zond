@@ -91,14 +91,14 @@ var trieRoot common.Hash
 func getChain() *core.BlockChain {
 	ga := make(core.GenesisAlloc, 1000)
 	var a = make([]byte, 20)
-	var mkStorage = func(k, v int) (common.Hash, common.StorageValue) {
+	var mkStorage = func(k, v int) (common.Hash, common.StorageValue64) {
 		var kB = make([]byte, 32)
 		var vB = make([]byte, 64)
 		binary.LittleEndian.PutUint64(kB, uint64(k))
 		binary.LittleEndian.PutUint64(vB, uint64(v))
-		return common.BytesToHash(kB), common.BytesToStorageValue(vB)
+		return common.BytesToHash(kB), common.BytesToStorageValue64(vB)
 	}
-	storage := make(map[common.Hash]common.StorageValue)
+	storage := make(map[common.Hash]common.StorageValue64)
 	for i := 0; i < 10; i++ {
 		k, v := mkStorage(i, i)
 		storage[k] = v

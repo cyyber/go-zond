@@ -41,10 +41,10 @@ const (
 	// LogTopicLength is the width of a log topic, in bytes.
 	LogTopicLength = 64
 
-	// StorageValueLength is the width of a persistent storage slot value, in
+	// StorageValue64Length is the width of a persistent storage slot value, in
 	// bytes. It matches the VM stack word so that a 512-bit value pushed by a
 	// contract round-trips through SSTORE/SLOAD without truncation.
-	StorageValueLength = 64
+	StorageValue64Length = 64
 )
 
 var (
@@ -318,40 +318,40 @@ func (t *LogTopic) UnmarshalGraphQL(input any) error {
 	return t.UnmarshalText([]byte(s))
 }
 
-/////////// StorageValue
+/////////// StorageValue64
 
-// StorageValue is the 64-byte value of a persistent storage slot. Slot keys
+// StorageValue64 is the 64-byte value of a persistent storage slot. Slot keys
 // remain 32 bytes (they are Keccak-256 hashes produced by contracts) but a
 // value can hold a full 512-bit VM word — most importantly the 64-byte
 // address type, which does not fit in 32 bytes.
-type StorageValue [StorageValueLength]byte
+type StorageValue64 [StorageValue64Length]byte
 
-// BytesToStorageValue copies b into a StorageValue, right-aligned. If b is
-// longer than StorageValueLength it is cropped from the left.
-func BytesToStorageValue(b []byte) StorageValue {
-	var v StorageValue
+// BytesToStorageValue64 copies b into a StorageValue64, right-aligned. If b is
+// longer than StorageValue64Length it is cropped from the left.
+func BytesToStorageValue64(b []byte) StorageValue64 {
+	var v StorageValue64
 	v.SetBytes(b)
 	return v
 }
 
-// HexToStorageValue parses a hex string (with or without 0x prefix) into a
-// StorageValue.
-func HexToStorageValue(s string) StorageValue { return BytesToStorageValue(FromHex(s)) }
+// HexToStorageValue64 parses a hex string (with or without 0x prefix) into a
+// StorageValue64.
+func HexToStorageValue64(s string) StorageValue64 { return BytesToStorageValue64(FromHex(s)) }
 
 // Bytes returns a copy of v's bytes.
-func (v StorageValue) Bytes() []byte { return v[:] }
+func (v StorageValue64) Bytes() []byte { return v[:] }
 
 // Hex returns v as a 0x-prefixed lowercase hex string.
-func (v StorageValue) Hex() string { return hexutil.Encode(v[:]) }
+func (v StorageValue64) Hex() string { return hexutil.Encode(v[:]) }
 
 // Big returns v interpreted as a big-endian unsigned integer.
-func (v StorageValue) Big() *big.Int { return new(big.Int).SetBytes(v[:]) }
+func (v StorageValue64) Big() *big.Int { return new(big.Int).SetBytes(v[:]) }
 
 // String implements fmt.Stringer.
-func (v StorageValue) String() string { return v.Hex() }
+func (v StorageValue64) String() string { return v.Hex() }
 
 // IsZero reports whether v is the zero value.
-func (v StorageValue) IsZero() bool {
+func (v StorageValue64) IsZero() bool {
 	for _, b := range v {
 		if b != 0 {
 			return false
@@ -361,38 +361,38 @@ func (v StorageValue) IsZero() bool {
 }
 
 // SetBytes copies b into v, right-aligned. If b is longer than
-// StorageValueLength the most-significant bytes are dropped.
-func (v *StorageValue) SetBytes(b []byte) {
+// StorageValue64Length the most-significant bytes are dropped.
+func (v *StorageValue64) SetBytes(b []byte) {
 	if len(b) > len(v) {
-		b = b[len(b)-StorageValueLength:]
+		b = b[len(b)-StorageValue64Length:]
 	}
 	// Zero first to avoid leaving stale bytes in the MSB region.
 	for i := range v {
 		v[i] = 0
 	}
-	copy(v[StorageValueLength-len(b):], b)
+	copy(v[StorageValue64Length-len(b):], b)
 }
 
 // MarshalText encodes v as a 0x-prefixed hex string.
-func (v StorageValue) MarshalText() ([]byte, error) {
+func (v StorageValue64) MarshalText() ([]byte, error) {
 	return hexutil.Bytes(v[:]).MarshalText()
 }
 
 // UnmarshalText decodes v from a 0x-prefixed hex string.
-func (v *StorageValue) UnmarshalText(input []byte) error {
-	return hexutil.UnmarshalFixedText("StorageValue", input, v[:])
+func (v *StorageValue64) UnmarshalText(input []byte) error {
+	return hexutil.UnmarshalFixedText("StorageValue64", input, v[:])
 }
 
 // UnmarshalJSON decodes v from a JSON-quoted hex string.
-func (v *StorageValue) UnmarshalJSON(input []byte) error {
-	return hexutil.UnmarshalFixedJSON(reflect.TypeFor[StorageValue](), input, v[:])
+func (v *StorageValue64) UnmarshalJSON(input []byte) error {
+	return hexutil.UnmarshalFixedJSON(reflect.TypeFor[StorageValue64](), input, v[:])
 }
 
-// ImplementsGraphQLType reports whether StorageValue satisfies the Bytes64 scalar.
-func (StorageValue) ImplementsGraphQLType(name string) bool { return name == "Bytes64" }
+// ImplementsGraphQLType reports whether StorageValue64 satisfies the Bytes64 scalar.
+func (StorageValue64) ImplementsGraphQLType(name string) bool { return name == "Bytes64" }
 
 // UnmarshalGraphQL decodes v from a 0x-prefixed hex string supplied by a GraphQL query.
-func (v *StorageValue) UnmarshalGraphQL(input any) error {
+func (v *StorageValue64) UnmarshalGraphQL(input any) error {
 	s, ok := input.(string)
 	if !ok {
 		return fmt.Errorf("unexpected type %T for Bytes64", input)

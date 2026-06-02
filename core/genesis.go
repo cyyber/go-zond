@@ -202,11 +202,11 @@ func CommitGenesisState(db qrldb.Database, triedb *trie.Database, blockhash comm
 
 // GenesisAccount is an account in the state of the genesis block.
 type GenesisAccount struct {
-	Code    []byte                              `json:"code,omitempty"`
-	Storage map[common.Hash]common.StorageValue `json:"storage,omitempty"`
-	Balance *big.Int                            `json:"balance" gencodec:"required"`
-	Nonce   uint64                              `json:"nonce,omitempty"`
-	Seed    []byte                              `json:"seed,omitempty"` // for tests
+	Code    []byte                                `json:"code,omitempty"`
+	Storage map[common.Hash]common.StorageValue64 `json:"storage,omitempty"`
+	Balance *big.Int                              `json:"balance" gencodec:"required"`
+	Nonce   uint64                                `json:"nonce,omitempty"`
+	Seed    []byte                                `json:"seed,omitempty"` // for tests
 }
 
 // field type overrides for gencodec
@@ -224,7 +224,7 @@ type genesisAccountMarshaling struct {
 	Code       hexutil.Bytes
 	Balance    *math.HexOrDecimal256
 	Nonce      math.HexOrDecimal64
-	Storage    map[storageJSON]storageValueJSON
+	Storage    map[storageJSON]storageValue64JSON
 	PrivateKey hexutil.Bytes
 }
 
@@ -248,11 +248,11 @@ func (h storageJSON) MarshalText() ([]byte, error) {
 	return hexutil.Bytes(h[:]).MarshalText()
 }
 
-// storageValueJSON represents a 512-bit byte array (storage value) that
+// storageValue64JSON represents a 512-bit byte array (storage value) that
 // allows less than 512 bits when unmarshaling from hex.
-type storageValueJSON common.StorageValue
+type storageValue64JSON common.StorageValue64
 
-func (v *storageValueJSON) UnmarshalText(text []byte) error {
+func (v *storageValue64JSON) UnmarshalText(text []byte) error {
 	text = bytes.TrimPrefix(text, []byte("0x"))
 	if len(text) > 128 {
 		return fmt.Errorf("too many hex characters in storage value %q", text)
@@ -264,7 +264,7 @@ func (v *storageValueJSON) UnmarshalText(text []byte) error {
 	return nil
 }
 
-func (v storageValueJSON) MarshalText() ([]byte, error) {
+func (v storageValue64JSON) MarshalText() ([]byte, error) {
 	return hexutil.Bytes(v[:]).MarshalText()
 }
 
@@ -556,7 +556,7 @@ func DeveloperGenesisBlock(gasLimit uint64, faucet common.Address) *Genesis {
 
 func decodePrealloc(data string) GenesisAlloc {
 	// Prealloc data was encoded with 32-byte storage values; decode into
-	// byte slices and zero-extend to the 64-byte StorageValue width.
+	// byte slices and zero-extend to the 64-byte StorageValue64 width.
 	var p []struct {
 		Addr    *big.Int
 		Balance *big.Int
@@ -579,9 +579,9 @@ func decodePrealloc(data string) GenesisAlloc {
 			acc.Nonce = account.Misc.Nonce
 			acc.Code = account.Misc.Code
 
-			acc.Storage = make(map[common.Hash]common.StorageValue)
+			acc.Storage = make(map[common.Hash]common.StorageValue64)
 			for _, slot := range account.Misc.Slots {
-				acc.Storage[slot.Key] = common.BytesToStorageValue(slot.Val)
+				acc.Storage[slot.Key] = common.BytesToStorageValue64(slot.Val)
 			}
 		}
 		ga[common.BigToAddress(account.Addr)] = acc

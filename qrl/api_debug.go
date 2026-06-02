@@ -205,8 +205,8 @@ type StorageRangeResult struct {
 type storageMap map[common.Hash]storageEntry
 
 type storageEntry struct {
-	Key   *common.Hash        `json:"key"`
-	Value common.StorageValue `json:"value"`
+	Key   *common.Hash          `json:"key"`
+	Value common.StorageValue64 `json:"value"`
 }
 
 // StorageRangeAt returns the storage at the given block height and transaction index.
@@ -250,7 +250,7 @@ func storageRangeAt(statedb *state.StateDB, root common.Hash, address common.Add
 		if err != nil {
 			return StorageRangeResult{}, err
 		}
-		e := storageEntry{Value: common.BytesToStorageValue(content)}
+		e := storageEntry{Value: common.BytesToStorageValue64(content)}
 		if preimage := tr.GetKey(it.Key); preimage != nil {
 			preimage := common.BytesToHash(preimage)
 			e.Key = &preimage

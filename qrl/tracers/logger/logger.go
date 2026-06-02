@@ -26,17 +26,17 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/theQRL/go-qrl/common/uint512"
 	"github.com/theQRL/go-qrl/common"
 	"github.com/theQRL/go-qrl/common/hexutil"
 	"github.com/theQRL/go-qrl/common/math"
+	"github.com/theQRL/go-qrl/common/uint512"
 	"github.com/theQRL/go-qrl/core/types"
 	"github.com/theQRL/go-qrl/core/vm"
 	"github.com/theQRL/go-qrl/params"
 )
 
 // Storage represents a contract's storage.
-type Storage map[common.Hash]common.StorageValue
+type Storage map[common.Hash]common.StorageValue64
 
 // Copy duplicates the current storage.
 func (s Storage) Copy() Storage {
@@ -62,18 +62,18 @@ type Config struct {
 // StructLog is emitted to the QRVM each cycle and lists information about the current internal state
 // prior to the execution of the statement.
 type StructLog struct {
-	Pc            uint64                      `json:"pc"`
-	Op            vm.OpCode                   `json:"op"`
-	Gas           uint64                      `json:"gas"`
-	GasCost       uint64                      `json:"gasCost"`
-	Memory        []byte                      `json:"memory,omitempty"`
-	MemorySize    int                         `json:"memSize"`
-	Stack         []uint512.Int               `json:"stack"`
-	ReturnData    []byte                      `json:"returnData,omitempty"`
-	Storage       map[common.Hash]common.StorageValue `json:"-"`
-	Depth         int                         `json:"depth"`
-	RefundCounter uint64                      `json:"refund"`
-	Err           error                       `json:"-"`
+	Pc            uint64                                `json:"pc"`
+	Op            vm.OpCode                             `json:"op"`
+	Gas           uint64                                `json:"gas"`
+	GasCost       uint64                                `json:"gasCost"`
+	Memory        []byte                                `json:"memory,omitempty"`
+	MemorySize    int                                   `json:"memSize"`
+	Stack         []uint512.Int                         `json:"stack"`
+	ReturnData    []byte                                `json:"returnData,omitempty"`
+	Storage       map[common.Hash]common.StorageValue64 `json:"-"`
+	Depth         int                                   `json:"depth"`
+	RefundCounter uint64                                `json:"refund"`
+	Err           error                                 `json:"-"`
 }
 
 // overrides for gencodec
@@ -194,7 +194,7 @@ func (l *StructLogger) CaptureState(pc uint64, op vm.OpCode, gas, cost uint64, s
 		} else if op == vm.SSTORE && stackLen >= 2 {
 			// capture SSTORE opcodes and record the written entry in the local storage.
 			var (
-				value   = common.StorageValue(stackData[stackLen-2].Bytes64())
+				value   = common.StorageValue64(stackData[stackLen-2].Bytes64())
 				address = common.Hash(stackData[stackLen-1].Bytes32())
 			)
 			l.storage[contract.Address()][address] = value

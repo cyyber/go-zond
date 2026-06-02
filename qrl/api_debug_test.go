@@ -169,10 +169,10 @@ func TestStorageRangeAt(t *testing.T) {
 			common.HexToHash("5723d2c3a83af9b735e3b7f21531e5623d183a9095a56604ead41f3582fdfb75"),
 		}
 		storage = storageMap{
-			keys[0]: {Key: &common.Hash{0x02}, Value: common.StorageValue{0x01}},
-			keys[1]: {Key: &common.Hash{0x04}, Value: common.StorageValue{0x02}},
-			keys[2]: {Key: &common.Hash{0x01}, Value: common.StorageValue{0x03}},
-			keys[3]: {Key: &common.Hash{0x03}, Value: common.StorageValue{0x04}},
+			keys[0]: {Key: &common.Hash{0x02}, Value: common.StorageValue64{0x01}},
+			keys[1]: {Key: &common.Hash{0x04}, Value: common.StorageValue64{0x02}},
+			keys[2]: {Key: &common.Hash{0x01}, Value: common.StorageValue64{0x03}},
+			keys[3]: {Key: &common.Hash{0x03}, Value: common.StorageValue64{0x04}},
 		}
 	)
 	for _, entry := range storage {

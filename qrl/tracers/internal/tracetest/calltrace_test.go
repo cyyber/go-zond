@@ -390,7 +390,7 @@ func TestInternals(t *testing.T) {
 			// prestateTracer diffMode: SSTORE into a fresh slot produces a
 			// `post` entry for the touched storage and an updated sender
 			// balance; `pre` records the original empty storage and the
-			// sender's original balance. The 64-byte StorageValue encoding
+			// sender's original balance. The 64-byte StorageValue64 encoding
 			// left-pads the stored scalar to the full slot width.
 			name: "Prestate-tracer diffMode - SSTORE",
 			code: []byte{

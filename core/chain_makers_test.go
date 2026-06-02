@@ -35,11 +35,11 @@ func TestGenerateWithdrawalChain(t *testing.T) {
 	var (
 		wallet  = testutil.LoadAccount(t, "alice").Wallet(t)
 		address = wallet.GetAddress()
-		aa        = common.Address{0xaa}
-		bb        = common.Address{0xbb}
-		funds     = big.NewInt(0).Mul(big.NewInt(1337), big.NewInt(params.Quanta))
-		config    = *params.AllBeaconProtocolChanges
-		gspec     = &Genesis{
+		aa      = common.Address{0xaa}
+		bb      = common.Address{0xbb}
+		funds   = big.NewInt(0).Mul(big.NewInt(1337), big.NewInt(params.Quanta))
+		config  = *params.AllBeaconProtocolChanges
+		gspec   = &Genesis{
 			Config:   &config,
 			Alloc:    GenesisAlloc{address: {Balance: funds}},
 			BaseFee:  big.NewInt(params.InitialBaseFee),
@@ -51,11 +51,11 @@ func TestGenerateWithdrawalChain(t *testing.T) {
 	)
 
 	// init 0xaa with some storage elements
-	storage := make(map[common.Hash]common.StorageValue)
-	storage[common.Hash{0x00}] = common.StorageValue{0x00}
-	storage[common.Hash{0x01}] = common.StorageValue{0x01}
-	storage[common.Hash{0x02}] = common.StorageValue{0x02}
-	storage[common.Hash{0x03}] = common.HexToStorageValue("0303")
+	storage := make(map[common.Hash]common.StorageValue64)
+	storage[common.Hash{0x00}] = common.StorageValue64{0x00}
+	storage[common.Hash{0x01}] = common.StorageValue64{0x01}
+	storage[common.Hash{0x02}] = common.StorageValue64{0x02}
+	storage[common.Hash{0x03}] = common.HexToStorageValue64("0303")
 	gspec.Alloc[aa] = GenesisAccount{
 		Balance: common.Big1,
 		Nonce:   1,
@@ -144,11 +144,11 @@ func ExampleGenerateChain() {
 		wallet1 = testutil.MustLoadAccount("alice").MustWallet()
 		wallet2 = testutil.MustLoadAccount("bob").MustWallet()
 		wallet3 = testutil.MustLoadAccount("carol").MustWallet()
-		addr1      = wallet1.GetAddress()
-		addr2      = wallet2.GetAddress()
-		addr3      = wallet3.GetAddress()
-		db         = rawdb.NewMemoryDatabase()
-		genDb      = rawdb.NewMemoryDatabase()
+		addr1   = wallet1.GetAddress()
+		addr2   = wallet2.GetAddress()
+		addr3   = wallet3.GetAddress()
+		db      = rawdb.NewMemoryDatabase()
+		genDb   = rawdb.NewMemoryDatabase()
 	)
 
 	// Ensure that key1 has some funds in the genesis block.

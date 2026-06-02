@@ -43,7 +43,7 @@ func (c Code) String() string {
 // because the trie indexes entries by their Keccak-256; values are 64 bytes
 // so that a full 512-bit VM word (including a 64-byte address) can be
 // stored without truncation.
-type Storage map[common.Hash]common.StorageValue
+type Storage map[common.Hash]common.StorageValue64
 
 func (s Storage) String() (str string) {
 	for key, value := range s {
@@ -146,7 +146,7 @@ func (s *stateObject) getTrie() (Trie, error) {
 }
 
 // GetState retrieves a value from the account storage trie.
-func (s *stateObject) GetState(key common.Hash) common.StorageValue {
+func (s *stateObject) GetState(key common.Hash) common.StorageValue64 {
 	// If we have a dirty value for this state entry, return it
 	value, dirty := s.dirtyStorage[key]
 	if dirty {
@@ -157,7 +157,7 @@ func (s *stateObject) GetState(key common.Hash) common.StorageValue {
 }
 
 // GetCommittedState retrieves a value from the committed account storage trie.
-func (s *stateObject) GetCommittedState(key common.Hash) common.StorageValue {
+func (s *stateObject) GetCommittedState(key common.Hash) common.StorageValue64 {
 	// If we have a pending write or clean cached, return that
 	if value, pending := s.pendingStorage[key]; pending {
 		return value
@@ -172,13 +172,13 @@ func (s *stateObject) GetCommittedState(key common.Hash) common.StorageValue {
 	//      have been handles via pendingStorage above.
 	//   2) we don't have new values, and can deliver empty response back
 	if _, destructed := s.db.stateObjectsDestruct[s.address]; destructed {
-		return common.StorageValue{}
+		return common.StorageValue64{}
 	}
 	// If no live objects are available, attempt to use snapshots
 	var (
 		enc   []byte
 		err   error
-		value common.StorageValue
+		value common.StorageValue64
 	)
 	if s.db.snap != nil {
 		start := time.Now()
@@ -200,7 +200,7 @@ func (s *stateObject) GetCommittedState(key common.Hash) common.StorageValue {
 		tr, err := s.getTrie()
 		if err != nil {
 			s.db.setError(err)
-			return common.StorageValue{}
+			return common.StorageValue64{}
 		}
 		val, err := tr.GetStorage(s.address, key.Bytes())
 		if metrics.EnabledExpensive {
@@ -208,7 +208,7 @@ func (s *stateObject) GetCommittedState(key common.Hash) common.StorageValue {
 		}
 		if err != nil {
 			s.db.setError(err)
-			return common.StorageValue{}
+			return common.StorageValue64{}
 		}
 		value.SetBytes(val)
 	}
@@ -217,7 +217,7 @@ func (s *stateObject) GetCommittedState(key common.Hash) common.StorageValue {
 }
 
 // SetState updates a value in account storage.
-func (s *stateObject) SetState(key common.Hash, value common.StorageValue) {
+func (s *stateObject) SetState(key common.Hash, value common.StorageValue64) {
 	// If the new value is the same as old, don't set
 	prev := s.GetState(key)
 	if prev == value {
@@ -232,7 +232,7 @@ func (s *stateObject) SetState(key common.Hash, value common.StorageValue) {
 	s.setState(key, value)
 }
 
-func (s *stateObject) setState(key common.Hash, value common.StorageValue) {
+func (s *stateObject) setState(key common.Hash, value common.StorageValue64) {
 	s.dirtyStorage[key] = value
 }
 
@@ -293,7 +293,7 @@ func (s *stateObject) updateTrie() (Trie, error) {
 		s.originStorage[key] = value
 
 		var encoded []byte // rlp-encoded value to be used by the snapshot
-		if (value == common.StorageValue{}) {
+		if (value == common.StorageValue64{}) {
 			if err := tr.DeleteStorage(s.address, key[:]); err != nil {
 				s.db.setError(err)
 				return nil, err
@@ -328,7 +328,7 @@ func (s *stateObject) updateTrie() (Trie, error) {
 		}
 		// Track the original value of slot only if it's mutated first time
 		if _, ok := origin[khash]; !ok {
-			if prev == (common.StorageValue{}) {
+			if prev == (common.StorageValue64{}) {
 				origin[khash] = nil // nil if it was not present previously
 			} else {
 				// Encoding []byte cannot fail, ok to ignore the error.

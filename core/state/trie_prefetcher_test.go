@@ -32,14 +32,14 @@ func filledStateDB() *StateDB {
 	// Create an account and check if the retrieved balance is correct
 	addr, _ := common.NewAddressFromString("Q00000000000000000000000000000000000000000000000000000000affeaffeaffeaffeaffeaffeaffeaffeaffeaffe99aabbccddeeff001122334455667788")
 	skey := common.HexToHash("aaa")
-	sval := common.HexToStorageValue("bbb")
+	sval := common.HexToStorageValue64("bbb")
 
 	state.SetBalance(addr, big.NewInt(42)) // Change the account trie
 	state.SetCode(addr, []byte("hello"))   // Change an external metadata
 	state.SetState(addr, skey, sval)       // Change the storage trie
 	for i := range 100 {
 		sk := common.BigToHash(big.NewInt(int64(i)))
-		state.SetState(addr, sk, common.BytesToStorageValue(sk.Bytes())) // Change the storage trie
+		state.SetState(addr, sk, common.BytesToStorageValue64(sk.Bytes())) // Change the storage trie
 	}
 	return state
 }
