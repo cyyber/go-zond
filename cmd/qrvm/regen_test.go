@@ -7,7 +7,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"math/big"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -23,9 +22,9 @@ import (
 //	WRITE_FIXTURES=1 go test -run TestRegenerateT8nFixtures ./cmd/qrvm/
 //
 // Requires a `qrvm` binary to exist at /tmp/qrvm (build it via
-// `go build -o /tmp/qrvm ./cmd/qrvm/`). The helper generates a fresh
-// ML-DSA-87 wallet, seeds an alloc/env/txs triple at ./testdata/simple/,
-// and captures the resulting t8n output as exp.json.
+// `go build -o /tmp/qrvm ./cmd/qrvm/`). The helper restores a deterministic
+// ML-DSA-87 wallet, seeds an alloc/env/txs triple at ./testdata/simple/, and
+// captures the resulting t8n/t9n/b11r outputs.
 func TestRegenerateT8nFixtures(t *testing.T) {
 	if os.Getenv("WRITE_FIXTURES") == "" {
 		t.Skip("set WRITE_FIXTURES=1 to regenerate t8n fixtures")
@@ -37,19 +36,18 @@ func TestRegenerateT8nFixtures(t *testing.T) {
 	if _, err := os.Stat(qrvm); err != nil {
 		t.Fatalf("qrvm binary not found at %s (set QRVM_BIN or build to /tmp/qrvm first)", qrvm)
 	}
-	// Generate fresh wallet.
-	w, err := wallet.Generate(wallet.ML_DSA_87)
+	const (
+		fixtureSeedHex = "010000d00b21539420cb9ff91e44b0b9d25ac67642ebba7a459f8fa2bbc477c3a216a20110ca8811758940cfb6dd984316dd74"
+		invalidRLP     = "0xf852328001825208870b9331677e6ebf0a801ca098ff921201554726367d2be8c804a7ff89ccf285ebc57dff8ae4c44b9c19ac4aa03887321be575c8095f789dd4c743dfe42c1820f9231f98a962b210e3ac2452a3"
+	)
+	w, err := wallet.RestoreFromSeedHex(fixtureSeedHex)
 	if err != nil {
-		t.Fatalf("wallet.Generate: %v", err)
-	}
-	seedBytes, err := w.GetSeed()
-	if err != nil {
-		t.Fatalf("wallet.GetSeed: %v", err)
+		t.Fatalf("wallet.RestoreFromSeedHex: %v", err)
 	}
 	sender := w.GetAddress()
 	recipient := common.BytesToAddress(common.FromHex(
 		"c0decafec0decafec0decafec0decafec0decafec0decafec0decafec0decafec0decafec0decafec0decafec0decafe"))
-	seedHex := "0x" + hex.EncodeToString(seedBytes.ToBytes())
+	seedHex := "0x" + fixtureSeedHex
 
 	dir := filepath.Join("testdata", "simple")
 	if err := os.MkdirAll(dir, 0755); err != nil {
@@ -68,6 +66,14 @@ func TestRegenerateT8nFixtures(t *testing.T) {
 	env := map[string]any{
 		"currentCoinbase":  fmt.Sprintf("%#x", recipient),
 		"currentRandom":    "0xdeadc0de",
+		"currentGasLimit":  "0x750a163df65e8a",
+		"currentNumber":    "1",
+		"currentTimestamp": "1000",
+		"currentBaseFee":   "0x1",
+		"withdrawals":      []any{},
+	}
+	envMissingRandom := map[string]any{
+		"currentCoinbase":  fmt.Sprintf("%#x", recipient),
 		"currentGasLimit":  "0x750a163df65e8a",
 		"currentNumber":    "1",
 		"currentTimestamp": "1000",
@@ -103,7 +109,24 @@ func TestRegenerateT8nFixtures(t *testing.T) {
 	}
 	writeJSON("alloc.json", alloc)
 	writeJSON("env.json", env)
+	writeJSON("env-missingrandom.json", envMissingRandom)
 	writeJSON("txs.json", txs)
+	invalidRLPJSON, err := json.Marshal(invalidRLP)
+	if err != nil {
+		t.Fatalf("marshal invalid.rlp: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "invalid.rlp"), append(invalidRLPJSON, '\n'), 0644); err != nil {
+		t.Fatalf("write invalid.rlp: %v", err)
+	}
+	withdrawals := []map[string]any{
+		{
+			"index":          "0x42",
+			"validatorIndex": "0x43",
+			"address":        qPrefixed(recipient),
+			"amount":         "0x2a",
+		},
+	}
+	writeJSON("withdrawals.json", withdrawals)
 
 	// Invoke t8n CLI to capture the expected output (alloc+result combined).
 	cmd := exec.Command(qrvm, "t8n",
@@ -209,9 +232,26 @@ func TestRegenerateT8nFixtures(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "b11r_exp.json"), append(b11rPretty, '\n'), 0644); err != nil {
 		t.Fatalf("write b11r_exp.json: %v", err)
 	}
-	t.Logf("regenerated %s/b11r_exp.json + header.json", dir)
-
-	_ = big.NewInt // keep import
+	b11rWithdrawalsCmd := exec.Command(qrvm, "b11r",
+		"--input.header", filepath.Join(dir, "header.json"),
+		"--input.withdrawals", filepath.Join(dir, "withdrawals.json"),
+		"--input.txs", filepath.Join(dir, "signed_txs.rlp"),
+		"--output.basedir", dir,
+		"--output.block", "stdout",
+	)
+	b11rWithdrawalsOut, err := b11rWithdrawalsCmd.Output()
+	if err != nil {
+		t.Fatalf("b11r withdrawals invocation failed: %v\nstderr: %s", err, asStderr(err))
+	}
+	var b11rWithdrawalsWrapped any
+	if err := json.Unmarshal(b11rWithdrawalsOut, &b11rWithdrawalsWrapped); err != nil {
+		t.Fatalf("parse b11r withdrawals stdout: %v\noutput: %s", err, b11rWithdrawalsOut)
+	}
+	b11rWithdrawalsPretty, _ := json.MarshalIndent(b11rWithdrawalsWrapped, "", "  ")
+	if err := os.WriteFile(filepath.Join(dir, "b11r_withdrawals_exp.json"), append(b11rWithdrawalsPretty, '\n'), 0644); err != nil {
+		t.Fatalf("write b11r_withdrawals_exp.json: %v", err)
+	}
+	t.Logf("regenerated %s fixtures", dir)
 }
 
 // qPrefixed returns the canonical QIP-55 Q-prefixed address expected by the

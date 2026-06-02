@@ -24,6 +24,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/theQRL/go-qrl/cmd/qrvm/internal/t8ntool"
 	"github.com/theQRL/go-qrl/internal/cmdtest"
 	"github.com/theQRL/go-qrl/internal/reexec"
 )
@@ -108,13 +109,9 @@ func TestT8n(t *testing.T) {
 	tt := new(testT8n)
 	tt.TestCmd = cmdtest.NewTestCmd(t, tt)
 	// The legacy ./testdata/{1,3,4,13,24,25,26} cases embedded 20-byte
-	// addresses and ML-DSA-87 signatures keyed to them, and so cannot decode
-	// under the 64-byte address / 512-bit VM layout. They were retired in
-	// favour of a single freshly-regenerated scenario (./testdata/simple),
-	// which exercises the happy-path transfer + state-transition output.
-	// TODO: Regenerate the retired blockhash, missing-random, withdrawal,
-	// block-builder, and invalid-RLP fixtures under the 64-byte address /
-	// 512-bit VM layout instead of keeping only this minimal CLI coverage.
+	// addresses and ML-DSA-87 signatures keyed to them. The simple fixture is
+	// regenerated for the 64-byte address / 512-bit VM layout and keeps the
+	// transition CLI covered without relying on stale pre-migration data.
 	for i, tc := range []struct {
 		base                 string
 		input                t8nInput
@@ -139,6 +136,14 @@ func TestT8n(t *testing.T) {
 			output:               t8nOutput{alloc: true, result: true},
 			expOut:               "exp.json",
 			ignoreSignedTxHashes: true,
+		},
+		{ // Post-merge/Zond env must include currentRandom
+			base: "./testdata/simple",
+			input: t8nInput{
+				"alloc.json", "txs.json", "env-missingrandom.json", "Zond", "",
+			},
+			output:      t8nOutput{alloc: false, result: false},
+			expExitCode: t8ntool.ErrorConfig,
 		},
 	} {
 		args := []string{"t8n"}
@@ -199,11 +204,9 @@ func (args *t9nInput) get(base string) []string {
 func TestT9n(t *testing.T) {
 	tt := new(testT8n)
 	tt.TestCmd = cmdtest.NewTestCmd(t, tt)
-	// The legacy ./testdata/{15,16,17,18} cases embedded 20-byte
-	// addresses and pre-migration ML-DSA-87 signed RLPs that cannot be
-	// validated under the new address/signature layout. Retired pending
-	// targeted regeneration. Kept: a single happy-path validation against
-	// the freshly-signed tx from ./testdata/simple/signed_txs.rlp.
+	// The legacy ./testdata/{15,16,17,18} cases embedded 20-byte addresses
+	// and pre-migration signed RLPs. The simple fixture keeps the valid path
+	// and an invalid-RLP failure covered under the new layout.
 	for i, tc := range []struct {
 		base        string
 		input       t9nInput
@@ -216,6 +219,13 @@ func TestT9n(t *testing.T) {
 				inTxs: "signed_txs.rlp",
 			},
 			expOut: "t9n_exp.json",
+		},
+		{ // Invalid RLP
+			base: "./testdata/simple",
+			input: t9nInput{
+				inTxs: "invalid.rlp",
+			},
+			expExitCode: t8ntool.ErrorIO,
 		},
 	} {
 		args := []string{"t9n"}
@@ -274,12 +284,9 @@ func (args *b11rInput) get(base string) []string {
 func TestB11r(t *testing.T) {
 	tt := new(testT8n)
 	tt.TestCmd = cmdtest.NewTestCmd(t, tt)
-	// The legacy ./testdata/{20,27} cases embedded a 20-byte-address
-	// block header and a withdrawals-feature variant. Retired pending
-	// targeted regeneration (especially the withdrawals case, which
-	// requires a fork-config path we don't cover yet). Kept: a single
-	// happy-path assembly against the freshly-signed tx from
-	// ./testdata/simple/signed_txs.rlp.
+	// The legacy ./testdata/{20,27} cases embedded 20-byte-address block
+	// headers. The simple fixture covers block assembly with and without
+	// withdrawals using 64-byte addresses.
 	for i, tc := range []struct {
 		base        string
 		input       b11rInput
@@ -293,6 +300,15 @@ func TestB11r(t *testing.T) {
 				inTxsRlp: "signed_txs.rlp",
 			},
 			expOut: "b11r_exp.json",
+		},
+		{ // unsealed block, one tx, one withdrawal
+			base: "./testdata/simple",
+			input: b11rInput{
+				inEnv:         "header.json",
+				inWithdrawals: "withdrawals.json",
+				inTxsRlp:      "signed_txs.rlp",
+			},
+			expOut: "b11r_withdrawals_exp.json",
 		},
 	} {
 		args := []string{"b11r"}
