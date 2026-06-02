@@ -2237,20 +2237,23 @@ var isAddress = function (address) {
 };
 
 /**
- * Checks if the given string is a structurally valid QRL address
+ * Checks if the given string is a canonical QIP-55 QRL address
  *
  * @method isChecksumAddress
  * @param {String} address the given HEX address
  * @return {Boolean}
 */
 var isChecksumAddress = function (address) {
+    if (typeof _qrlIsChecksumAddress === 'function') {
+        return _qrlIsChecksumAddress(address);
+    }
     return isAddress(address);
 };
 
 
 
 /**
- * Makes a canonical lowercase QRL address
+ * Makes a canonical QIP-55 QRL address
  *
  * @method toChecksumAddress
  * @param {String} address the given HEX address
@@ -2258,6 +2261,9 @@ var isChecksumAddress = function (address) {
 */
 var toChecksumAddress = function (address) {
     if (typeof address === 'undefined') return '';
+    if (typeof _qrlToChecksumAddress === 'function') {
+        return _qrlToChecksumAddress(address);
+    }
 
     return 'Q' + address.toLowerCase().replace(/^q/,'');
 };

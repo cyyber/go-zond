@@ -92,7 +92,25 @@ func New(assetPath string, output io.Writer) *JSRE {
 	go re.runEventLoop()
 	re.Set("loadScript", MakeCallback(re.vm, re.loadScript))
 	re.Set("inspect", re.prettyPrintJS)
+	re.Set("_qrlToChecksumAddress", qrlToChecksumAddress)
+	re.Set("_qrlIsChecksumAddress", qrlIsChecksumAddress)
 	return re
+}
+
+func qrlToChecksumAddress(input string) (string, error) {
+	addr, err := common.NewAddressFromString(input)
+	if err != nil {
+		return "", err
+	}
+	return addr.Hex(), nil
+}
+
+func qrlIsChecksumAddress(input string) bool {
+	addr, err := common.NewMixedcaseAddressFromString(input)
+	if err != nil {
+		return false
+	}
+	return addr.ValidChecksum()
 }
 
 // randomSource returns a pseudo random value generator.
