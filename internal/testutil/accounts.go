@@ -11,9 +11,8 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU General Public License for more details.
 
-// Package testutil exposes helpers that load fixture files produced by
-// hack/gen. Tests should use these instead of hard-coding seeds / addresses
-// inline so fixture regeneration stays the single source of truth.
+// Package testutil exposes helpers that load checked-in fixture accounts.
+// Tests should use these instead of hard-coding seeds / addresses inline.
 package testutil
 
 import (
@@ -100,11 +99,11 @@ func LoadAccount(t testing.TB, label string) Account {
 	t.Helper()
 	accs, err := loadAccounts()
 	if err != nil {
-		t.Fatalf("testutil: %v (regenerate with 'go run ./hack/gen --target=addresses')", err)
+		t.Fatalf("testutil: %v (update testdata/addresses.json)", err)
 	}
 	acc, ok := accs[label]
 	if !ok {
-		t.Fatalf("testutil: unknown account label %q (add it to hack/gen/addresses.go and regenerate)", label)
+		t.Fatalf("testutil: unknown account label %q (add it to testdata/addresses.json)", label)
 	}
 	return acc
 }
@@ -116,11 +115,11 @@ func LoadAccount(t testing.TB, label string) Account {
 func MustLoadAccount(label string) Account {
 	accs, err := loadAccounts()
 	if err != nil {
-		panic(fmt.Sprintf("testutil: %v (regenerate with 'go run ./hack/gen --target=addresses')", err))
+		panic(fmt.Sprintf("testutil: %v (update testdata/addresses.json)", err))
 	}
 	acc, ok := accs[label]
 	if !ok {
-		panic(fmt.Sprintf("testutil: unknown account label %q (add it to hack/gen/addresses.go and regenerate)", label))
+		panic(fmt.Sprintf("testutil: unknown account label %q (add it to testdata/addresses.json)", label))
 	}
 	return acc
 }

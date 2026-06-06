@@ -16,8 +16,7 @@ package testutil
 import "testing"
 
 // TestLoadAccountDerivesAddress confirms the JSON address matches the address
-// derived from the JSON seed. If this fails, testdata/addresses.json is
-// stale — run `go run ./hack/gen --target=addresses`.
+// derived from the JSON seed. If this fails, testdata/addresses.json is stale.
 func TestLoadAccountDerivesAddress(t *testing.T) {
 	t.Parallel()
 	acc := LoadAccount(t, "alice")
