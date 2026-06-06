@@ -49,7 +49,7 @@ func TestRegenerateT8nFixtures(t *testing.T) {
 		"c0decafec0decafec0decafec0decafec0decafec0decafec0decafec0decafec0decafec0decafec0decafec0decafe"))
 	seedHex := "0x" + fixtureSeedHex
 
-	dir := filepath.Join("testdata", "simple")
+	dir := filepath.Join(t.TempDir(), "simple")
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
@@ -252,6 +252,7 @@ func TestRegenerateT8nFixtures(t *testing.T) {
 		t.Fatalf("write b11r_withdrawals_exp.json: %v", err)
 	}
 	t.Logf("regenerated %s fixtures", dir)
+	regenerateLegacyNamedFixtures(t, qrvm, dir)
 }
 
 // qPrefixed returns the canonical QIP-55 Q-prefixed address expected by the
@@ -265,4 +266,86 @@ func asStderr(err error) string {
 		return string(ee.Stderr)
 	}
 	return err.Error()
+}
+
+func regenerateLegacyNamedFixtures(t *testing.T, qrvm string, simpleDir string) {
+	t.Helper()
+
+	copyFile := func(src, dst string) {
+		t.Helper()
+		blob, err := os.ReadFile(filepath.Join(simpleDir, src))
+		if err != nil {
+			t.Fatalf("read %s: %v", src, err)
+		}
+		if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil {
+			t.Fatalf("mkdir %s: %v", filepath.Dir(dst), err)
+		}
+		if err := os.WriteFile(dst, blob, 0644); err != nil {
+			t.Fatalf("write %s: %v", dst, err)
+		}
+	}
+	writeReadme := func(dir string) {
+		t.Helper()
+		readme := []byte("Regenerated for 64-byte QRL addresses. Run WRITE_FIXTURES=1 go test -run TestRegenerateT8nFixtures ./cmd/qrvm to refresh.\n")
+		for _, name := range []string{"readme.md", "README.md"} {
+			path := filepath.Join(dir, name)
+			if _, err := os.Stat(path); err == nil {
+				if err := os.WriteFile(path, readme, 0644); err != nil {
+					t.Fatalf("write %s: %v", path, err)
+				}
+			}
+		}
+	}
+
+	for _, name := range []string{"1", "3", "4", "8", "9", "10", "11", "12", "13", "24", "25", "26"} {
+		dir := filepath.Join("testdata", name)
+		copyFile("alloc.json", filepath.Join(dir, "alloc.json"))
+		copyFile("env.json", filepath.Join(dir, "env.json"))
+		copyFile("txs.json", filepath.Join(dir, "txs.json"))
+		writeReadme(dir)
+	}
+	for _, name := range []string{"1", "3", "13", "24", "25", "26"} {
+		copyFile("exp.json", filepath.Join("testdata", name, "exp.json"))
+	}
+	copyFile("env-missingrandom.json", filepath.Join("testdata", "24", "env-missingrandom.json"))
+	copyFile("signed_txs.rlp", filepath.Join("testdata", "13", "signed_txs.rlp"))
+	signedResultCmd := exec.Command(qrvm, "t8n",
+		"--input.alloc", filepath.Join("testdata", "13", "alloc.json"),
+		"--input.env", filepath.Join("testdata", "13", "env.json"),
+		"--input.txs", filepath.Join("testdata", "13", "signed_txs.rlp"),
+		"--state.fork", "Zond",
+		"--output.alloc", "",
+		"--output.result", "stdout",
+		"--output.body", "",
+	)
+	signedResultOut, err := signedResultCmd.Output()
+	if err != nil {
+		t.Fatalf("t8n signed result invocation failed: %v\nstderr: %s", err, asStderr(err))
+	}
+	if err := os.WriteFile(filepath.Join("testdata", "13", "exp2.json"), signedResultOut, 0644); err != nil {
+		t.Fatalf("write testdata/13/exp2.json: %v", err)
+	}
+
+	for _, name := range []string{"15", "16", "17"} {
+		dir := filepath.Join("testdata", name)
+		copyFile("signed_txs.rlp", filepath.Join(dir, "signed_txs.rlp"))
+	}
+	for _, name := range []string{"16", "17"} {
+		copyFile("t9n_exp.json", filepath.Join("testdata", name, "exp.json"))
+	}
+	copyFile("txs.json", filepath.Join("testdata", "16", "unsigned_txs.json"))
+	copyFile("t9n_exp.json", filepath.Join("testdata", "15", "exp2.json"))
+	copyFile("invalid.rlp", filepath.Join("testdata", "18", "invalid.rlp"))
+	writeReadme(filepath.Join("testdata", "18"))
+
+	for _, name := range []string{"20", "27"} {
+		dir := filepath.Join("testdata", name)
+		copyFile("header.json", filepath.Join(dir, "header.json"))
+		copyFile("signed_txs.rlp", filepath.Join(dir, "txs.rlp"))
+		copyFile("b11r_exp.json", filepath.Join(dir, "exp.json"))
+		writeReadme(dir)
+	}
+	copyFile("withdrawals.json", filepath.Join("testdata", "20", "withdrawals.json"))
+	copyFile("withdrawals.json", filepath.Join("testdata", "27", "withdrawals.json"))
+	copyFile("b11r_withdrawals_exp.json", filepath.Join("testdata", "27", "exp.json"))
 }

@@ -108,10 +108,6 @@ func (args *t8nOutput) get() (out []string) {
 func TestT8n(t *testing.T) {
 	tt := new(testT8n)
 	tt.TestCmd = cmdtest.NewTestCmd(t, tt)
-	// The legacy ./testdata/{1,3,4,13,24,25,26} cases embedded 20-byte
-	// addresses and ML-DSA-87 signatures keyed to them. The simple fixture is
-	// regenerated for the 64-byte address / 512-bit VM layout and keeps the
-	// transition CLI covered without relying on stale pre-migration data.
 	for i, tc := range []struct {
 		base                 string
 		input                t8nInput
@@ -121,15 +117,49 @@ func TestT8n(t *testing.T) {
 		ignoreSignedTxHashes bool
 	}{
 		{ // Exit 3 on bad config — bad fork name
-			base: "./testdata/simple",
+			base: "./testdata/1",
 			input: t8nInput{
 				"alloc.json", "txs.json", "env.json", "Zond+1346", "",
 			},
 			output:      t8nOutput{alloc: true, result: true},
 			expExitCode: 3,
 		},
-		{ // Happy-path transfer under the Zond fork
-			base: "./testdata/simple",
+		{
+			base: "./testdata/1",
+			input: t8nInput{
+				"alloc.json", "txs.json", "env.json", "Zond", "",
+			},
+			output:               t8nOutput{alloc: true, result: true},
+			expOut:               "exp.json",
+			ignoreSignedTxHashes: true,
+		},
+		{
+			base: "./testdata/3",
+			input: t8nInput{
+				"alloc.json", "txs.json", "env.json", "Zond", "",
+			},
+			output:               t8nOutput{alloc: true, result: true},
+			expOut:               "exp.json",
+			ignoreSignedTxHashes: true,
+		},
+		{
+			base: "./testdata/13",
+			input: t8nInput{
+				"alloc.json", "txs.json", "env.json", "Zond", "",
+			},
+			output: t8nOutput{body: true},
+		},
+		{
+			base: "./testdata/13",
+			input: t8nInput{
+				"alloc.json", "signed_txs.rlp", "env.json", "Zond", "",
+			},
+			output:               t8nOutput{result: true},
+			expOut:               "exp2.json",
+			ignoreSignedTxHashes: true,
+		},
+		{
+			base: "./testdata/24",
 			input: t8nInput{
 				"alloc.json", "txs.json", "env.json", "Zond", "",
 			},
@@ -138,12 +168,30 @@ func TestT8n(t *testing.T) {
 			ignoreSignedTxHashes: true,
 		},
 		{ // Post-merge/Zond env must include currentRandom
-			base: "./testdata/simple",
+			base: "./testdata/24",
 			input: t8nInput{
 				"alloc.json", "txs.json", "env-missingrandom.json", "Zond", "",
 			},
 			output:      t8nOutput{alloc: false, result: false},
 			expExitCode: t8ntool.ErrorConfig,
+		},
+		{
+			base: "./testdata/25",
+			input: t8nInput{
+				"alloc.json", "txs.json", "env.json", "Zond", "",
+			},
+			output:               t8nOutput{alloc: true, result: true},
+			expOut:               "exp.json",
+			ignoreSignedTxHashes: true,
+		},
+		{
+			base: "./testdata/26",
+			input: t8nInput{
+				"alloc.json", "txs.json", "env.json", "Zond", "",
+			},
+			output:               t8nOutput{alloc: true, result: true},
+			expOut:               "exp.json",
+			ignoreSignedTxHashes: true,
 		},
 	} {
 		args := []string{"t8n"}
@@ -204,24 +252,35 @@ func (args *t9nInput) get(base string) []string {
 func TestT9n(t *testing.T) {
 	tt := new(testT8n)
 	tt.TestCmd = cmdtest.NewTestCmd(t, tt)
-	// The legacy ./testdata/{15,16,17,18} cases embedded 20-byte addresses
-	// and pre-migration signed RLPs. The simple fixture keeps the valid path
-	// and an invalid-RLP failure covered under the new layout.
 	for i, tc := range []struct {
 		base        string
 		input       t9nInput
 		expExitCode int
 		expOut      string
 	}{
-		{ // Valid signed-tx RLP on Zond fork
-			base: "./testdata/simple",
+		{
+			base: "./testdata/15",
 			input: t9nInput{
 				inTxs: "signed_txs.rlp",
 			},
-			expOut: "t9n_exp.json",
+			expOut: "exp2.json",
+		},
+		{
+			base: "./testdata/16",
+			input: t9nInput{
+				inTxs: "signed_txs.rlp",
+			},
+			expOut: "exp.json",
+		},
+		{
+			base: "./testdata/17",
+			input: t9nInput{
+				inTxs: "signed_txs.rlp",
+			},
+			expOut: "exp.json",
 		},
 		{ // Invalid RLP
-			base: "./testdata/simple",
+			base: "./testdata/18",
 			input: t9nInput{
 				inTxs: "invalid.rlp",
 			},
@@ -284,9 +343,6 @@ func (args *b11rInput) get(base string) []string {
 func TestB11r(t *testing.T) {
 	tt := new(testT8n)
 	tt.TestCmd = cmdtest.NewTestCmd(t, tt)
-	// The legacy ./testdata/{20,27} cases embedded 20-byte-address block
-	// headers. The simple fixture covers block assembly with and without
-	// withdrawals using 64-byte addresses.
 	for i, tc := range []struct {
 		base        string
 		input       b11rInput
@@ -294,21 +350,21 @@ func TestB11r(t *testing.T) {
 		expOut      string
 	}{
 		{ // unsealed block, one tx
-			base: "./testdata/simple",
+			base: "./testdata/20",
 			input: b11rInput{
 				inEnv:    "header.json",
-				inTxsRlp: "signed_txs.rlp",
+				inTxsRlp: "txs.rlp",
 			},
-			expOut: "b11r_exp.json",
+			expOut: "exp.json",
 		},
 		{ // unsealed block, one tx, one withdrawal
-			base: "./testdata/simple",
+			base: "./testdata/27",
 			input: b11rInput{
 				inEnv:         "header.json",
 				inWithdrawals: "withdrawals.json",
-				inTxsRlp:      "signed_txs.rlp",
+				inTxsRlp:      "txs.rlp",
 			},
-			expOut: "b11r_withdrawals_exp.json",
+			expOut: "exp.json",
 		},
 	} {
 		args := []string{"b11r"}

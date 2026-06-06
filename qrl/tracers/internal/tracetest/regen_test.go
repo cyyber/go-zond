@@ -13,7 +13,9 @@ import (
 	"fmt"
 	"math/big"
 	"os"
+	"path"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/theQRL/go-qrl/common"
@@ -34,10 +36,11 @@ import (
 // and captures the resulting tracer output under the current 64-byte address /
 // 512-bit VM layout.
 type fixtureScenario struct {
-	name       string // output JSON filename (without .json)
+	path       string // output JSON path relative to testdata/
 	targetCode []byte // optional contract bytecode at the recipient address
 	txData     []byte // optional calldata
 	txValue    *big.Int
+	create     bool
 }
 
 // TestRegenerateFixtures regenerates JSON fixtures under testdata/ for each
@@ -53,38 +56,18 @@ func TestRegenerateFixtures(t *testing.T) {
 		t.Skip("set WRITE_FIXTURES=1 to regenerate tracetest JSON fixtures")
 	}
 
-	// Deterministic-looking sender/contract addresses keep the fixtures stable
-	// across regenerator invocations (only the ML-DSA-87 signature varies).
-	senderWallet, err := wallet.Generate(wallet.ML_DSA_87)
+	const fixtureSeedHex = "01000041f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff29862f24fba42fe6f97efaf641980eff298"
+	senderWallet, err := wallet.RestoreFromSeedHex(fixtureSeedHex)
 	if err != nil {
-		t.Fatalf("wallet.Generate: %v", err)
+		t.Fatalf("wallet.RestoreFromSeedHex: %v", err)
 	}
 	sender := senderWallet.GetAddress()
 	contractAddr := common.BytesToAddress(common.FromHex(
 		"c0decafec0decafec0decafec0decafec0decafec0decafec0decafec0decafec0decafec0decafec0decafec0decafe"))
 
-	scenarios := []fixtureScenario{
-		{
-			name:    "simple_transfer",
-			txValue: big.NewInt(1000),
-			// no target code → plain transfer path
-		},
-		{
-			name: "contract_call_stop",
-			targetCode: []byte{
-				byte(vm.STOP),
-			},
-			txValue: big.NewInt(0),
-		},
-		{
-			name: "contract_call_revert",
-			targetCode: []byte{
-				byte(vm.PUSH1), 0x00,
-				byte(vm.PUSH1), 0x00,
-				byte(vm.REVERT),
-			},
-			txValue: big.NewInt(0),
-		},
+	scenarios, err := collectFixtureScenarios("testdata")
+	if err != nil {
+		t.Fatalf("collect fixture scenarios: %v", err)
 	}
 
 	chainID := params.TestChainConfig.ChainID
@@ -103,11 +86,14 @@ func TestRegenerateFixtures(t *testing.T) {
 	}
 
 	for _, sc := range scenarios {
-		to := contractAddr
+		var to *common.Address
+		if !sc.create {
+			to = &contractAddr
+		}
 		alloc := core.GenesisAlloc{
 			sender: {Balance: new(big.Int).Mul(big.NewInt(10), big.NewInt(params.Quanta))},
 		}
-		if len(sc.targetCode) > 0 {
+		if !sc.create && len(sc.targetCode) > 0 {
 			alloc[contractAddr] = core.GenesisAccount{
 				Balance: new(big.Int),
 				Code:    sc.targetCode,
@@ -121,17 +107,17 @@ func TestRegenerateFixtures(t *testing.T) {
 			GasTipCap: big.NewInt(0),
 			GasFeeCap: big.NewInt(1),
 			Gas:       gas,
-			To:        &to,
+			To:        to,
 			Value:     sc.txValue,
 			Data:      sc.txData,
 		})
 		signedTx, err := types.SignTx(tx, signer, senderWallet)
 		if err != nil {
-			t.Fatalf("SignTx(%s): %v", sc.name, err)
+			t.Fatalf("SignTx(%s): %v", sc.path, err)
 		}
 		txBytes, err := signedTx.MarshalBinary()
 		if err != nil {
-			t.Fatalf("MarshalBinary(%s): %v", sc.name, err)
+			t.Fatalf("MarshalBinary(%s): %v", sc.path, err)
 		}
 		txHex := hexutil.Encode(txBytes)
 
@@ -141,43 +127,139 @@ func TestRegenerateFixtures(t *testing.T) {
 			BaseFee: big.NewInt(1),
 		}
 
-		type target struct {
-			dir          string
-			tracerName   string
-			tracerCfg    json.RawMessage
-			fixtureKind  string // "call" | "flat" | "prestate"
+		tracerName, tracerCfg, err := tracerForFixture(sc.path)
+		if err != nil {
+			t.Fatalf("%s: %v", sc.path, err)
 		}
-		targets := []target{
-			{dir: "call_tracer", tracerName: "callTracer", fixtureKind: "call"},
-			{dir: "call_tracer_withLog", tracerName: "callTracer", tracerCfg: json.RawMessage(`{"withLog":true}`), fixtureKind: "call"},
-			{dir: "call_tracer_flat", tracerName: "flatCallTracer", fixtureKind: "flat"},
-			{dir: "prestate_tracer", tracerName: "prestateTracer", fixtureKind: "prestate"},
-			{dir: "prestate_tracer_with_diff_mode", tracerName: "prestateTracer", tracerCfg: json.RawMessage(`{"diffMode":true}`), fixtureKind: "prestate"},
+		res := runTraceForFixture(t, sc.path, genesis, ctx, signedTx, signer, tracerName, tracerCfg)
+
+		payload := map[string]any{
+			"genesis": genesis,
+			"context": ctx,
+			"input":   txHex,
 		}
+		if tracerCfg != nil {
+			payload["tracerConfig"] = tracerCfg
+		}
+		payload["result"] = json.RawMessage(res)
 
-		for _, tgt := range targets {
-			res := runTraceForFixture(t, sc.name, genesis, ctx, signedTx, signer, tgt.tracerName, tgt.tracerCfg)
+		out, err := json.MarshalIndent(payload, "", "  ")
+		if err != nil {
+			t.Fatalf("marshal %s: %v", sc.path, err)
+		}
+		outPath := filepath.Join("testdata", filepath.FromSlash(sc.path))
+		if err := os.MkdirAll(filepath.Dir(outPath), 0755); err != nil {
+			t.Fatalf("mkdir %s: %v", filepath.Dir(outPath), err)
+		}
+		if err := os.WriteFile(outPath, out, 0644); err != nil {
+			t.Fatalf("write %s: %v", outPath, err)
+		}
+		t.Logf("wrote %s (%d bytes)", outPath, len(out))
+	}
+}
 
-			payload := map[string]any{
-				"genesis": genesis,
-				"context": ctx,
-				"input":   txHex,
-			}
-			if tgt.tracerCfg != nil {
-				payload["tracerConfig"] = tgt.tracerCfg
-			}
-			payload["result"] = json.RawMessage(res)
-
-			out, err := json.MarshalIndent(payload, "", "  ")
+func collectFixtureScenarios(root string) ([]fixtureScenario, error) {
+	var scenarios []fixtureScenario
+	for _, dir := range []string{
+		"call_tracer",
+		"call_tracer_withLog",
+		"call_tracer_flat",
+		"prestate_tracer",
+		"prestate_tracer_with_diff_mode",
+	} {
+		base := filepath.Join(root, dir)
+		if err := filepath.WalkDir(base, func(file string, d os.DirEntry, err error) error {
 			if err != nil {
-				t.Fatalf("marshal %s/%s: %v", tgt.dir, sc.name, err)
+				return err
 			}
-			path := filepath.Join("testdata", tgt.dir, sc.name+".json")
-			if err := os.WriteFile(path, out, 0644); err != nil {
-				t.Fatalf("write %s: %v", path, err)
+			if d.IsDir() || !strings.HasSuffix(d.Name(), ".json") {
+				return nil
 			}
-			t.Logf("wrote %s (%d bytes)", path, len(out))
+			rel, err := filepath.Rel(root, file)
+			if err != nil {
+				return err
+			}
+			scenarios = append(scenarios, scenarioForFixture(filepath.ToSlash(rel)))
+			return nil
+		}); err != nil {
+			return nil, err
 		}
+	}
+	return scenarios, nil
+}
+
+func scenarioForFixture(rel string) fixtureScenario {
+	name := strings.TrimSuffix(path.Base(rel), ".json")
+	sc := fixtureScenario{
+		path:    rel,
+		txValue: big.NewInt(0),
+		targetCode: []byte{
+			byte(vm.STOP),
+		},
+	}
+	switch {
+	case strings.Contains(name, "transfer"):
+		sc.txValue = big.NewInt(1000)
+		sc.targetCode = nil
+	case strings.Contains(name, "create"):
+		sc.create = true
+		sc.txData = []byte{
+			byte(vm.PUSH1), 0x00,
+			byte(vm.PUSH1), 0x00,
+			byte(vm.RETURN),
+		}
+	case strings.Contains(name, "delegatecall"):
+		sc.targetCode = []byte{
+			byte(vm.PUSH1), 0x00,
+			byte(vm.PUSH1), 0x00,
+			byte(vm.PUSH1), 0x00,
+			byte(vm.PUSH1), 0x00,
+			byte(vm.PUSH1), 0xcc,
+			byte(vm.GAS),
+			byte(vm.DELEGATECALL),
+		}
+	case strings.Contains(name, "revert") || strings.Contains(name, "throw") || strings.Contains(name, "failed"):
+		sc.targetCode = []byte{
+			byte(vm.PUSH1), 0x00,
+			byte(vm.PUSH1), 0x00,
+			byte(vm.REVERT),
+		}
+	case strings.Contains(name, "log") || strings.Contains(rel, "withLog") || strings.Contains(name, "topic"):
+		sc.targetCode = []byte{
+			byte(vm.PUSH1), 0x42,
+			byte(vm.PUSH1), 0x00,
+			byte(vm.PUSH1), 0x00,
+			byte(vm.LOG1),
+		}
+	case strings.Contains(name, "deep") || strings.Contains(name, "inner") || strings.Contains(name, "nested"):
+		sc.targetCode = []byte{
+			byte(vm.PUSH1), 0x00,
+			byte(vm.PUSH1), 0x00,
+			byte(vm.PUSH1), 0x00,
+			byte(vm.PUSH1), 0x00,
+			byte(vm.PUSH1), 0x00,
+			byte(vm.PUSH1), 0xbb,
+			byte(vm.GAS),
+			byte(vm.CALL),
+		}
+	}
+	return sc
+}
+
+func tracerForFixture(rel string) (string, json.RawMessage, error) {
+	switch {
+	case strings.HasPrefix(rel, "call_tracer_withLog/"):
+		return "callTracer", json.RawMessage(`{"withLog":true}`), nil
+	case strings.HasPrefix(rel, "call_tracer/"):
+		return "callTracer", nil, nil
+	case strings.HasPrefix(rel, "call_tracer_flat/"):
+		return "flatCallTracer", nil, nil
+	case strings.HasPrefix(rel, "prestate_tracer_with_diff_mode/"):
+		return "prestateTracer", json.RawMessage(`{"diffMode":true}`), nil
+	case strings.HasPrefix(rel, "prestate_tracer/"):
+		return "prestateTracer", nil, nil
+	default:
+		return "", nil, fmt.Errorf("unknown tracer fixture directory")
 	}
 }
 
