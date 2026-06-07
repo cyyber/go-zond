@@ -40,7 +40,9 @@ type fixtureScenario struct {
 	targetCode []byte // optional contract bytecode at the recipient address
 	txData     []byte // optional calldata
 	txValue    *big.Int
+	gas        uint64
 	create     bool
+	extraAlloc core.GenesisAlloc
 }
 
 // TestRegenerateFixtures regenerates JSON fixtures under testdata/ for each
@@ -99,8 +101,14 @@ func TestRegenerateFixtures(t *testing.T) {
 				Code:    sc.targetCode,
 			}
 		}
+		for addr, account := range sc.extraAlloc {
+			alloc[addr] = account
+		}
 
-		gas := uint64(100_000)
+		gas := sc.gas
+		if gas == 0 {
+			gas = 100_000
+		}
 		tx := types.NewTx(&types.DynamicFeeTx{
 			ChainID:   chainID,
 			Nonce:     0,
@@ -188,16 +196,179 @@ func collectFixtureScenarios(root string) ([]fixtureScenario, error) {
 	return scenarios, nil
 }
 
+func fixtureAddress(tail byte) common.Address {
+	var addr common.Address
+	addr[len(addr)-1] = tail
+	return addr
+}
+
+func pushBytes(v []byte) []byte {
+	if len(v) == 0 {
+		return []byte{byte(vm.PUSH0)}
+	}
+	if len(v) > 64 {
+		panic("fixture push exceeds QRVM word size")
+	}
+	out := []byte{byte(vm.PUSH1) + byte(len(v)-1)}
+	return append(out, v...)
+}
+
+func pushAddress(addr common.Address) []byte {
+	return pushBytes(addr[:])
+}
+
+func push1(v byte) []byte {
+	return []byte{byte(vm.PUSH1), v}
+}
+
+func seq(parts ...[]byte) []byte {
+	var out []byte
+	for _, part := range parts {
+		out = append(out, part...)
+	}
+	return out
+}
+
+func callContract(addr common.Address) []byte {
+	return seq(
+		push1(0x00), // retSize
+		push1(0x00), // retOffset
+		push1(0x00), // inSize
+		push1(0x00), // inOffset
+		push1(0x00), // value
+		pushAddress(addr),
+		[]byte{byte(vm.GAS), byte(vm.CALL)},
+	)
+}
+
+func delegateCallContract(addr common.Address) []byte {
+	return seq(
+		push1(0x00), // retSize
+		push1(0x00), // retOffset
+		push1(0x00), // inSize
+		push1(0x00), // inOffset
+		pushAddress(addr),
+		[]byte{byte(vm.GAS), byte(vm.DELEGATECALL)},
+	)
+}
+
+func staticCallContract(addr common.Address) []byte {
+	return seq(
+		push1(0x00), // retSize
+		push1(0x00), // retOffset
+		push1(0x00), // inSize
+		push1(0x00), // inOffset
+		pushAddress(addr),
+		[]byte{byte(vm.GAS), byte(vm.STATICCALL)},
+	)
+}
+
+func log1(topic byte) []byte {
+	return []byte{
+		byte(vm.PUSH1), topic,
+		byte(vm.PUSH1), 0x00,
+		byte(vm.PUSH1), 0x00,
+		byte(vm.LOG1),
+	}
+}
+
+func repeatedLogs(n int) []byte {
+	var out []byte
+	for i := 0; i < n; i++ {
+		out = append(out, log1(byte(0x40+i))...)
+	}
+	return append(out, byte(vm.STOP))
+}
+
+func revertCode() []byte {
+	return []byte{
+		byte(vm.PUSH1), 0x00,
+		byte(vm.PUSH1), 0x00,
+		byte(vm.REVERT),
+	}
+}
+
+func sstoreCode(slot, value byte) []byte {
+	return []byte{
+		byte(vm.PUSH1), value,
+		byte(vm.PUSH1), slot,
+		byte(vm.SSTORE),
+	}
+}
+
+func accountWithCode(code []byte) core.GenesisAccount {
+	return core.GenesisAccount{Balance: new(big.Int), Code: code}
+}
+
+func deepCallScenario(sc *fixtureScenario) {
+	const depth = 7
+	var children [depth]common.Address
+	for i := range children {
+		children[i] = fixtureAddress(byte(0xd1 + i))
+	}
+	sc.targetCode = seq(callContract(children[0]), log1(0x21), []byte{byte(vm.STOP)})
+	for i := range children {
+		code := seq(sstoreCode(byte(i+1), byte(0x30+i)), log1(byte(0x30+i)))
+		if i+1 < len(children) {
+			code = seq(callContract(children[i+1]), code)
+		}
+		sc.extraAlloc[children[i]] = accountWithCode(append(code, byte(vm.STOP)))
+	}
+}
+
+func multiContractScenario(sc *fixtureScenario) {
+	var code []byte
+	for i := 0; i < 8; i++ {
+		addr := fixtureAddress(byte(0xb0 + i))
+		code = append(code, callContract(addr)...)
+		sc.extraAlloc[addr] = accountWithCode(repeatedLogs(3))
+	}
+	for i := 0; i < 6; i++ {
+		addr := fixtureAddress(byte(0xc0 + i))
+		code = append(code, callContract(addr)...)
+		sc.extraAlloc[addr] = accountWithCode(revertCode())
+	}
+	for i := 0; i < 4; i++ {
+		child := fixtureAddress(byte(0xe0 + i))
+		grandchild := fixtureAddress(byte(0xf0 + i))
+		code = append(code, callContract(child)...)
+		sc.extraAlloc[child] = accountWithCode(seq(callContract(grandchild), log1(byte(0x70+i)), []byte{byte(vm.STOP)}))
+		sc.extraAlloc[grandchild] = accountWithCode(repeatedLogs(2))
+	}
+	sc.targetCode = append(seq(log1(0x31), code, log1(0x32)), byte(vm.STOP))
+}
+
+func precompileScenario(sc *fixtureScenario) {
+	var code []byte
+	for i := byte(1); i <= 9; i++ {
+		code = append(code, callContract(fixtureAddress(i))...)
+	}
+	for i := byte(1); i <= 4; i++ {
+		code = append(code, staticCallContract(fixtureAddress(i))...)
+	}
+	sc.targetCode = append(seq(code, log1(0x61)), byte(vm.STOP))
+}
+
 func scenarioForFixture(rel string) fixtureScenario {
 	name := strings.TrimSuffix(path.Base(rel), ".json")
 	sc := fixtureScenario{
 		path:    rel,
 		txValue: big.NewInt(0),
+		gas:     500_000,
 		targetCode: []byte{
 			byte(vm.STOP),
 		},
+		extraAlloc: make(core.GenesisAlloc),
 	}
 	switch {
+	case strings.Contains(name, "multi_contracts"):
+		multiContractScenario(&sc)
+	case strings.Contains(name, "multilogs"):
+		sc.targetCode = repeatedLogs(50)
+	case strings.Contains(name, "include_precompiled") || strings.Contains(name, "precompiled"):
+		precompileScenario(&sc)
+	case strings.Contains(name, "deep") || strings.Contains(name, "inner") || strings.Contains(name, "nested"):
+		deepCallScenario(&sc)
 	case strings.Contains(name, "transfer"):
 		sc.txValue = big.NewInt(1000)
 		sc.targetCode = nil
@@ -209,39 +380,13 @@ func scenarioForFixture(rel string) fixtureScenario {
 			byte(vm.RETURN),
 		}
 	case strings.Contains(name, "delegatecall"):
-		sc.targetCode = []byte{
-			byte(vm.PUSH1), 0x00,
-			byte(vm.PUSH1), 0x00,
-			byte(vm.PUSH1), 0x00,
-			byte(vm.PUSH1), 0x00,
-			byte(vm.PUSH1), 0xcc,
-			byte(vm.GAS),
-			byte(vm.DELEGATECALL),
-		}
+		child := fixtureAddress(0xc1)
+		sc.targetCode = seq(delegateCallContract(child), log1(0x52), []byte{byte(vm.STOP)})
+		sc.extraAlloc[child] = accountWithCode(seq(sstoreCode(0x02, 0x77), log1(0x51), []byte{byte(vm.STOP)}))
 	case strings.Contains(name, "revert") || strings.Contains(name, "throw") || strings.Contains(name, "failed"):
-		sc.targetCode = []byte{
-			byte(vm.PUSH1), 0x00,
-			byte(vm.PUSH1), 0x00,
-			byte(vm.REVERT),
-		}
+		sc.targetCode = revertCode()
 	case strings.Contains(name, "log") || strings.Contains(rel, "withLog") || strings.Contains(name, "topic"):
-		sc.targetCode = []byte{
-			byte(vm.PUSH1), 0x42,
-			byte(vm.PUSH1), 0x00,
-			byte(vm.PUSH1), 0x00,
-			byte(vm.LOG1),
-		}
-	case strings.Contains(name, "deep") || strings.Contains(name, "inner") || strings.Contains(name, "nested"):
-		sc.targetCode = []byte{
-			byte(vm.PUSH1), 0x00,
-			byte(vm.PUSH1), 0x00,
-			byte(vm.PUSH1), 0x00,
-			byte(vm.PUSH1), 0x00,
-			byte(vm.PUSH1), 0x00,
-			byte(vm.PUSH1), 0xbb,
-			byte(vm.GAS),
-			byte(vm.CALL),
-		}
+		sc.targetCode = repeatedLogs(2)
 	}
 	return sc
 }
