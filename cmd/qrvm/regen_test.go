@@ -286,7 +286,85 @@ func regenerateLegacyNamedFixtures(t *testing.T, qrvm string, simpleDir string) 
 	}
 	writeReadme := func(dir string) {
 		t.Helper()
+		readmes := map[string]string{
+			filepath.Join("testdata", "3"): `These files exemplify a transition where a transaction (executed on block 5) requests
+the blockhash for block ` + "`1`" + `.
+
+Fixture data is regenerated for 64-byte QRL addresses. Run ` + "`WRITE_FIXTURES=1 go test -run TestRegenerateT8nFixtures ./cmd/qrvm`" + ` to refresh.
+`,
+			filepath.Join("testdata", "4"): `These files exemplify a transition where a transaction (executed on block 5) requests
+the blockhash for block ` + "`4`" + `, but where the hash for that block is missing.
+It's expected that executing these should cause ` + "`exit`" + ` with error code ` + "`4`" + `.
+
+Fixture data is regenerated for 64-byte QRL addresses. Run ` + "`WRITE_FIXTURES=1 go test -run TestRegenerateT8nFixtures ./cmd/qrvm`" + ` to refresh.
+`,
+			filepath.Join("testdata", "8"): `## EIP-2930 testing
+
+This test contains testcases for access-list transactions. The alloc contains
+a small contract that performs two SLOAD operations, plus a funded sender.
+
+Fixture data is regenerated for 64-byte QRL addresses. Run ` + "`WRITE_FIXTURES=1 go test -run TestRegenerateT8nFixtures ./cmd/qrvm`" + ` to refresh.
+`,
+			filepath.Join("testdata", "9"): `## EIP-1559 testing
+
+This test contains an EIP-1559 access-list transaction and exercises warm/cold
+storage access accounting with a regenerated 64-byte QRL address fixture.
+
+Run ` + "`WRITE_FIXTURES=1 go test -run TestRegenerateT8nFixtures ./cmd/qrvm`" + ` to refresh.
+`,
+			filepath.Join("testdata", "10"): `## EIP-1559 gas-limit testing
+
+This test contains EIP-1559 transactions that exercise gas-limit rejection
+behavior.
+
+Fixture data is regenerated for 64-byte QRL addresses. Run ` + "`WRITE_FIXTURES=1 go test -run TestRegenerateT8nFixtures ./cmd/qrvm`" + ` to refresh.
+`,
+			filepath.Join("testdata", "11"): `## Test missing base fee
+
+In this test, ` + "`currentBaseFee`" + ` is missing from the env portion. On a live
+blockchain, the base fee is present in the header and verified as part of
+header validation. In ` + "`qrvm t8n`" + `, there are no full blocks, so it must be
+provided in ` + "`env`" + ` instead. When it is missing, an error is expected.
+
+Fixture data is regenerated for 64-byte QRL addresses. Run ` + "`WRITE_FIXTURES=1 go test -run TestRegenerateT8nFixtures ./cmd/qrvm`" + ` to refresh.
+`,
+			filepath.Join("testdata", "12"): `## Test EIP-1559 balance plus gas cap
+
+This test covers an EIP-1559 consensus case where the sender balance must cover
+both the value transfer and ` + "`max_fee_per_gas * gas_limit`" + `.
+
+Fixture data is regenerated for 64-byte QRL addresses. Run ` + "`WRITE_FIXTURES=1 go test -run TestRegenerateT8nFixtures ./cmd/qrvm`" + ` to refresh.
+`,
+			filepath.Join("testdata", "13"): `## Input transactions in RLP form
+
+This testdata folder demonstrates how transaction input can be provided in RLP
+form. See the README in the ` + "`qrvm`" + ` folder for how this is performed.
+
+Fixture data is regenerated for 64-byte QRL addresses. Run ` + "`WRITE_FIXTURES=1 go test -run TestRegenerateT8nFixtures ./cmd/qrvm`" + ` to refresh.
+`,
+			filepath.Join("testdata", "18"): `# Invalid RLP
+
+This folder contains a sample of invalid RLP, and it's expected that ` + "`t9n`" + `
+handles this properly:
+
+` + "```console" + `
+$ go run . t9n --input.txs=./testdata/18/invalid.rlp --state.fork=Zond
+ERROR(11): rlp: value size exceeds available input length
+` + "```" + `
+
+Run ` + "`WRITE_FIXTURES=1 go test -run TestRegenerateT8nFixtures ./cmd/qrvm`" + ` to refresh.
+`,
+			filepath.Join("testdata", "20"): `# Block building
+
+This test shows how ` + "`b11r`" + ` can be used to assemble an unsealed block.
+
+Fixture data is regenerated for 64-byte QRL addresses. Run ` + "`WRITE_FIXTURES=1 go test -run TestRegenerateT8nFixtures ./cmd/qrvm`" + ` to refresh.
+`,
+		}
 		readme := []byte("Regenerated for 64-byte QRL addresses. Run WRITE_FIXTURES=1 go test -run TestRegenerateT8nFixtures ./cmd/qrvm to refresh.\n")
+		if custom, ok := readmes[dir]; ok {
+			readme = []byte(custom)
+		}
 		for _, name := range []string{"readme.md", "README.md"} {
 			path := filepath.Join(dir, name)
 			if _, err := os.Stat(path); err == nil {
@@ -297,7 +375,7 @@ func regenerateLegacyNamedFixtures(t *testing.T, qrvm string, simpleDir string) 
 		}
 	}
 
-	for _, name := range []string{"1", "3", "4", "8", "9", "10", "11", "12", "13", "24", "25", "26"} {
+	for _, name := range []string{"1"} {
 		dir := filepath.Join("testdata", name)
 		copyFile("alloc.json", filepath.Join(dir, "alloc.json"))
 		copyFile("env.json", filepath.Join(dir, "env.json"))

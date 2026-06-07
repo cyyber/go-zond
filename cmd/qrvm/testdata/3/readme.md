@@ -1,1 +1,2 @@
-Regenerated for 64-byte QRL addresses. Run WRITE_FIXTURES=1 go test -run TestRegenerateT8nFixtures ./cmd/qrvm to refresh.
+These files exemplify a transition where a transaction (executed on block 5) requests
+the blockhash for block `1`. 
