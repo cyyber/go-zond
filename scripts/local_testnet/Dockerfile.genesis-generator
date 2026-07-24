@@ -1,0 +1,83 @@
+# Retain the published generator image as an immutable Python/runtime base,
+# then replace its generator sources and Qrysm tools from exact revisions.
+ARG GENESIS_GO_BUILDER_IMAGE=scratch
+ARG GENESIS_BASE_IMAGE=scratch
+
+FROM ${GENESIS_GO_BUILDER_IMAGE} AS source-builder
+
+ARG QRYSM_GIT_REPO
+ARG QRYSM_GIT_COMMIT
+ARG GENERATOR_GIT_REPO
+ARG GENERATOR_GIT_COMMIT
+
+COPY qrysm-deposit-runtime/main.go /tmp/qrysm-deposit-runtime/main.go
+
+RUN test -n "${QRYSM_GIT_REPO}" && test -n "${QRYSM_GIT_COMMIT}" && \
+    test -n "${GENERATOR_GIT_REPO}" && test -n "${GENERATOR_GIT_COMMIT}" && \
+    printf '%s\n' "${QRYSM_GIT_COMMIT}" | grep -Eq '^[0-9a-f]{40}$' && \
+    printf '%s\n' "${GENERATOR_GIT_COMMIT}" | grep -Eq '^[0-9a-f]{40}$' && \
+    git init /src/qrysm && \
+    git -C /src/qrysm remote add origin "${QRYSM_GIT_REPO}" && \
+    git -C /src/qrysm fetch --depth 1 origin "${QRYSM_GIT_COMMIT}" && \
+    git -C /src/qrysm checkout --detach FETCH_HEAD && \
+    test "$(git -C /src/qrysm rev-parse HEAD)" = "${QRYSM_GIT_COMMIT}" && \
+    git init /src/generator && \
+    git -C /src/generator remote add origin "${GENERATOR_GIT_REPO}" && \
+    git -C /src/generator fetch --depth 1 origin "${GENERATOR_GIT_COMMIT}" && \
+    git -C /src/generator checkout --detach FETCH_HEAD && \
+    test "$(git -C /src/generator rev-parse HEAD)" = "${GENERATOR_GIT_COMMIT}" && \
+    cd /src/qrysm && \
+    GOTOOLCHAIN=local go install -mod=readonly \
+        ./cmd/qrysmctl \
+        ./cmd/staking-deposit-cli/deposit && \
+    GOTOOLCHAIN=local go run -mod=readonly -tags local_testnet_runtime \
+        /tmp/qrysm-deposit-runtime/main.go > /tmp/deposit-runtime.hex
+
+FROM ${GENESIS_BASE_IMAGE}
+
+ARG QRYSM_GIT_REPO
+ARG QRYSM_GIT_COMMIT
+ARG GENERATOR_GIT_REPO
+ARG GENERATOR_GIT_COMMIT
+ARG GENESIS_BASE_IMAGE
+
+USER root
+
+# Reuse the base image's Python environment only when the pinned source has an
+# identical dependency manifest, then replace all generator-controlled files.
+COPY --from=source-builder /src/generator/apps/el-gen/requirements.txt /tmp/source-requirements.txt
+RUN cmp /apps/el-gen/requirements.txt /tmp/source-requirements.txt && \
+    mv /apps/el-gen/.venv /tmp/el-gen-venv && \
+    rm -rf /apps /defaults /config /work/entrypoint.sh && \
+    mkdir -p /apps/el-gen && \
+    mv /tmp/el-gen-venv /apps/el-gen/.venv && \
+    rm /tmp/source-requirements.txt
+
+COPY --from=source-builder /src/generator/apps /apps
+COPY --from=source-builder /src/generator/defaults /defaults
+COPY --from=source-builder /src/generator/config-example /config
+COPY --from=source-builder /src/generator/entrypoint.sh /work/entrypoint.sh
+COPY --from=source-builder /go/bin/qrysmctl /usr/local/bin/qrysmctl
+COPY --from=source-builder /go/bin/deposit /usr/local/bin/deposit
+COPY --from=source-builder /tmp/deposit-runtime.hex /apps/el-gen/deposit-runtime.hex
+COPY genesis_gqrl.py /apps/el-gen/local_genesis_gqrl.py
+
+RUN mv /apps/el-gen/genesis_gqrl.py /apps/el-gen/genesis_gqrl_upstream.py && \
+    mv /apps/el-gen/local_genesis_gqrl.py /apps/el-gen/genesis_gqrl.py && \
+    /apps/el-gen/.venv/bin/pip check && \
+    grep -q 'to_bytes(length=64' /apps/el-gen/genesis_gqrl_upstream.py && \
+    grep -q '"baseFeePerGas": "0x3b9aca00"' /apps/el-gen/genesis_gqrl_upstream.py && \
+    python3 /apps/el-gen/genesis_gqrl.py --self-test && \
+    python3 /apps/el-gen/genesis_gqrl.py --manifest > /apps/el-gen/deposit-manifest.json && \
+    qrysmctl --help >/dev/null && \
+    deposit --help >/dev/null
+
+LABEL org.opencontainers.image.source="${GENERATOR_GIT_REPO}" \
+      org.opencontainers.image.revision="${GENERATOR_GIT_COMMIT}" \
+      org.opencontainers.image.base.name="${GENESIS_BASE_IMAGE}" \
+      io.theqrl.local-testnet.generator.source="${GENERATOR_GIT_REPO}" \
+      io.theqrl.local-testnet.generator.revision="${GENERATOR_GIT_COMMIT}" \
+      io.theqrl.local-testnet.qrysm.source="${QRYSM_GIT_REPO}" \
+      io.theqrl.local-testnet.qrysm.revision="${QRYSM_GIT_COMMIT}" \
+      io.theqrl.local-testnet.deposit-storage-layout="packed-bytes32-pairs-v1" \
+      io.theqrl.local-testnet.role="genesis-generator"
