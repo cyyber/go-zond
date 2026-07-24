@@ -8,32 +8,11 @@ package network
 import (
 	"context"
 	"errors"
-	"fmt"
-	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/theQRL/go-qrl/scripts/testing/e2e/internal/kurtosis"
 )
-
-// State is the sanitized public ready marker. Runtime details remain derived
-// from the exact owned enclave.
-type State struct {
-	Ready bool `json:"ready"`
-}
-
-func (state State) Validate() error {
-	if !state.Ready {
-		return errors.New("network is not ready")
-	}
-	return nil
-}
-
-type Result struct {
-	topology runtimeTopology
-	Ready    bool   `json:"ready"`
-	Message  string `json:"message,omitempty"`
-}
 
 type Environment struct {
 	RPCURL       string
@@ -43,50 +22,37 @@ type Environment struct {
 }
 
 type StartRequest struct {
-	RepoRoot     string
-	NetworkDir   string
-	DockerBin    string
-	StartTimeout time.Duration
+	NetworkDir     string
+	ExecutionImage string
+	StartTimeout   time.Duration
 }
 
-// OwnershipRecord is the sole private lifecycle record. A name-only creation
-// intent prevents replay if Kurtosis loses the create response; the exact UUID
-// is captured as soon as creation returns and retained until destruction is
-// confirmed.
+// OwnershipRecord is the sole private lifecycle record. It always contains the
+// exact enclave identity required for safe destruction.
 type OwnershipRecord struct {
-	NetworkDir string `json:"network_dir"`
-	Name       string `json:"name"`
-	UUID       string `json:"uuid,omitempty"`
+	Name string `json:"name"`
+	UUID string `json:"uuid"`
 }
 
 func (record OwnershipRecord) Validate() error {
-	if !filepath.IsAbs(record.NetworkDir) || filepath.Clean(record.NetworkDir) != record.NetworkDir {
-		return errors.New("invalid ownership directory")
-	}
 	if strings.TrimSpace(record.Name) == "" {
 		return errors.New("ownership enclave name is empty")
 	}
 	if record.UUID == "" {
-		return nil
+		return errors.New("ownership exact enclave UUID is empty")
 	}
-	enclave := kurtosis.EnclaveRef{Name: record.Name, UUID: record.UUID, Owned: true}
+	enclave := kurtosis.EnclaveRef{Name: record.Name, UUID: record.UUID}
 	if enclave.Validate() != nil {
 		return errors.New("ownership enclave identity is invalid")
 	}
 	return nil
 }
 
-func (record OwnershipRecord) OwnedEnclave() (kurtosis.EnclaveRef, error) {
+func (record OwnershipRecord) Enclave() (kurtosis.EnclaveRef, error) {
 	if err := record.Validate(); err != nil {
 		return kurtosis.EnclaveRef{}, err
 	}
-	if record.UUID == "" {
-		return kurtosis.EnclaveRef{}, fmt.Errorf(
-			"enclave creation outcome for %q is ambiguous: exact UUID was not captured",
-			record.Name,
-		)
-	}
-	return kurtosis.EnclaveRef{Name: record.Name, UUID: record.UUID, Owned: true}, nil
+	return kurtosis.EnclaveRef{Name: record.Name, UUID: record.UUID}, nil
 }
 
 type Authenticator interface {
@@ -94,7 +60,7 @@ type Authenticator interface {
 }
 
 type Controller interface {
-	Start(context.Context, StartRequest) (Result, error)
-	Status(context.Context, string) (Result, error)
-	Stop(context.Context, string) (Result, error)
+	Start(context.Context, StartRequest) error
+	Status(context.Context, string) error
+	Stop(context.Context, string) error
 }

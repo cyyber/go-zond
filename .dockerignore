@@ -16,6 +16,5 @@ build/cache
 
 # Local-testnet output can contain JWTs, development keystores, and generated
 # endpoint data. It must not enter an image layer or reusable builder cache.
-scripts/local_testnet/logs
 scripts/testing/e2e/logs
 scripts/testing/e2e/testdata/console/.params.js

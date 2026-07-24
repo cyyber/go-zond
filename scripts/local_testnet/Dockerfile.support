@@ -1,0 +1,138 @@
+# Build every local-testnet support binary from exact source revisions. The
+# beacon, validator, and genesis targets share this stage through BuildKit.
+ARG QRYSM_GO_BUILDER_IMAGE=scratch
+ARG QRYSM_CL_BASE_IMAGE=scratch
+ARG QRYSM_VC_BASE_IMAGE=scratch
+ARG GENESIS_BASE_IMAGE=scratch
+
+FROM ${QRYSM_GO_BUILDER_IMAGE} AS source-builder
+
+ARG QRYSM_GIT_REPO
+ARG QRYSM_GIT_COMMIT
+ARG GENERATOR_GIT_REPO
+ARG GENERATOR_GIT_COMMIT
+ARG QRYSM_CGO_ENABLED=0
+
+RUN test -n "${QRYSM_GIT_REPO}" && \
+    test -n "${QRYSM_GIT_COMMIT}" && \
+    test -n "${GENERATOR_GIT_REPO}" && \
+    test -n "${GENERATOR_GIT_COMMIT}" && \
+    test "$(printf '%s\n%s\n' "${QRYSM_GIT_COMMIT}" "${GENERATOR_GIT_COMMIT}" | \
+        grep -Ec '^[0-9a-f]{40}$')" = 2 && \
+    git init /src/qrysm && \
+    git -C /src/qrysm remote add origin "${QRYSM_GIT_REPO}" && \
+    git -C /src/qrysm fetch --depth 1 origin "${QRYSM_GIT_COMMIT}" && \
+    git -C /src/qrysm checkout --detach FETCH_HEAD && \
+    test "$(git -C /src/qrysm rev-parse HEAD)" = "${QRYSM_GIT_COMMIT}" && \
+    git init /src/generator && \
+    git -C /src/generator remote add origin "${GENERATOR_GIT_REPO}" && \
+    git -C /src/generator fetch --depth 1 origin "${GENERATOR_GIT_COMMIT}" && \
+    git -C /src/generator checkout --detach FETCH_HEAD && \
+    test "$(git -C /src/generator rev-parse HEAD)" = "${GENERATOR_GIT_COMMIT}"
+
+RUN cd /src/qrysm && \
+    source_epoch="$(git show -s --format=%ct HEAD)" && \
+    source_date="$(date -u -d "@${source_epoch}" +%Y-%m-%dT%H:%M:%SZ)" && \
+    version_package='github.com/theQRL/qrysm/runtime/version' && \
+    ldflags="-buildid= -s -w \
+        -X ${version_package}.gitCommit=${QRYSM_GIT_COMMIT} \
+        -X ${version_package}.gitTag=source \
+        -X ${version_package}.buildDate=${source_date} \
+        -X ${version_package}.buildDateUnix=${source_epoch}" && \
+    mkdir -p /out && \
+    CGO_ENABLED="${QRYSM_CGO_ENABLED}" GOTOOLCHAIN=local \
+        go build -mod=readonly -trimpath -buildvcs=false -ldflags="${ldflags}" \
+        -o /out/beacon-chain ./cmd/beacon-chain && \
+    CGO_ENABLED="${QRYSM_CGO_ENABLED}" GOTOOLCHAIN=local \
+        go build -mod=readonly -trimpath -buildvcs=false -ldflags="${ldflags}" \
+        -o /out/validator ./cmd/validator && \
+    GOTOOLCHAIN=local go build -mod=readonly -trimpath -buildvcs=false \
+        -o /out/qrysmctl ./cmd/qrysmctl && \
+    GOTOOLCHAIN=local go build -mod=readonly -trimpath -buildvcs=false \
+        -o /out/deposit ./cmd/staking-deposit-cli/deposit
+
+FROM ${QRYSM_CL_BASE_IMAGE} AS beacon
+
+ARG QRYSM_GIT_REPO
+ARG QRYSM_GIT_COMMIT
+ARG QRYSM_GO_BUILDER_IMAGE
+ARG QRYSM_CL_BASE_IMAGE
+
+COPY --from=source-builder /out/beacon-chain /beacon-chain
+RUN ["/beacon-chain", "--version"]
+
+LABEL org.opencontainers.image.source="${QRYSM_GIT_REPO}" \
+      org.opencontainers.image.revision="${QRYSM_GIT_COMMIT}" \
+      org.opencontainers.image.base.name="${QRYSM_CL_BASE_IMAGE}" \
+      io.theqrl.local-testnet.qrysm.builder="${QRYSM_GO_BUILDER_IMAGE}" \
+      io.theqrl.local-testnet.role="beacon-chain"
+
+ENTRYPOINT ["/beacon-chain"]
+
+FROM ${QRYSM_VC_BASE_IMAGE} AS validator
+
+ARG QRYSM_GIT_REPO
+ARG QRYSM_GIT_COMMIT
+ARG QRYSM_GO_BUILDER_IMAGE
+ARG QRYSM_VC_BASE_IMAGE
+
+COPY --from=source-builder /out/validator /validator
+RUN ["/validator", "--version"]
+
+LABEL org.opencontainers.image.source="${QRYSM_GIT_REPO}" \
+      org.opencontainers.image.revision="${QRYSM_GIT_COMMIT}" \
+      org.opencontainers.image.base.name="${QRYSM_VC_BASE_IMAGE}" \
+      io.theqrl.local-testnet.qrysm.builder="${QRYSM_GO_BUILDER_IMAGE}" \
+      io.theqrl.local-testnet.role="validator"
+
+ENTRYPOINT ["/validator"]
+
+FROM ${GENESIS_BASE_IMAGE} AS genesis
+
+ARG QRYSM_GIT_REPO
+ARG QRYSM_GIT_COMMIT
+ARG GENERATOR_GIT_REPO
+ARG GENERATOR_GIT_COMMIT
+ARG GENESIS_BASE_IMAGE
+
+USER root
+
+# Reuse the pinned image's Python environment only when the corrected canonical
+# source has an identical dependency manifest, then replace its source tree.
+COPY --from=source-builder /src/generator/apps/el-gen/requirements.txt /tmp/source-requirements.txt
+RUN cmp /apps/el-gen/requirements.txt /tmp/source-requirements.txt && \
+    mv /apps/el-gen/.venv /tmp/el-gen-venv && \
+    rm -rf /apps /defaults /config /work/entrypoint.sh && \
+    mkdir -p /apps/el-gen && \
+    mv /tmp/el-gen-venv /apps/el-gen/.venv && \
+    rm /tmp/source-requirements.txt
+
+COPY --from=source-builder /src/generator/apps /apps
+COPY --from=source-builder /src/generator/defaults /defaults
+COPY --from=source-builder /src/generator/config-example /config
+COPY --from=source-builder /src/generator/entrypoint.sh /work/entrypoint.sh
+COPY --from=source-builder /out/qrysmctl /usr/local/bin/qrysmctl
+COPY --from=source-builder /out/deposit /usr/local/bin/deposit
+
+# Exercise the canonical VM64 generator rather than asserting against a local
+# copy. This covers 64-byte precompile addresses, packed deposit storage, the
+# VM64 deposit runtime, and the required base fee.
+RUN printf '%s' \
+      '{"chain_id":1337,"deposit_contract_address":"Q42424242424242424242424242424242424242424242424242424242424242424242424242424242424242424242424242424242424242424242424242424242","genesis_gaslimit":30000000,"genesis_timestamp":0,"el_premine_addrs":{},"additional_preloaded_contracts":{}}' \
+      > /tmp/genesis-config.yaml && \
+    /apps/el-gen/.venv/bin/python /apps/el-gen/genesis_gqrl.py \
+      /tmp/genesis-config.yaml > /tmp/genesis.json && \
+    /apps/el-gen/.venv/bin/python -c \
+      'import hashlib,json; g=json.load(open("/tmp/genesis.json")); a=g["alloc"]["Q"+"42"*64]; s=a["storage"]; c=bytes.fromhex(a["code"][2:]); packed=json.dumps(s,sort_keys=True,separators=(",",":")).encode(); assert len(g["alloc"]) == 257; assert len(c) == 7970; assert hashlib.sha256(c).hexdigest() == "f2db8aa6b661b536a673f8c064bf69478aecee0d863cdfe2ab08b1a7b12af43e"; assert len(s) == 16; assert min(s) == "0x"+"0"*62+"11"; assert max(s) == "0x"+"0"*62+"20"; assert all(len(v) == 130 for v in s.values()); assert hashlib.sha256(packed).hexdigest() == "cb963975975c3e1ee9e66f0cb029100dcaf584a17be8cca80de9692cf94ba4f3"; assert g["baseFeePerGas"] == "0x3b9aca00"' && \
+    /apps/el-gen/.venv/bin/pip check && \
+    qrysmctl --help >/dev/null && \
+    deposit --help >/dev/null && \
+    rm /tmp/genesis-config.yaml /tmp/genesis.json
+
+LABEL org.opencontainers.image.source="${GENERATOR_GIT_REPO}" \
+      org.opencontainers.image.revision="${GENERATOR_GIT_COMMIT}" \
+      org.opencontainers.image.base.name="${GENESIS_BASE_IMAGE}" \
+      io.theqrl.local-testnet.qrysm.source="${QRYSM_GIT_REPO}" \
+      io.theqrl.local-testnet.qrysm.revision="${QRYSM_GIT_COMMIT}" \
+      io.theqrl.local-testnet.deposit-storage-layout="packed-bytes32-pairs-v1" \
+      io.theqrl.local-testnet.role="genesis-generator"

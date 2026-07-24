@@ -45,6 +45,9 @@
 __pycache__/
 *.py[cod]
 
+# Local E2E output may contain funded-account and network material.
+/scripts/testing/e2e/logs/
+
 # binaries
 cmd/abidump/abidump
 cmd/abigen/abigen

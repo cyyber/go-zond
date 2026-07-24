@@ -11,7 +11,7 @@ import (
 	"testing"
 )
 
-func TestNetworkDirectoryAndReadyMarker(t *testing.T) {
+func TestNetworkDirectory(t *testing.T) {
 	parent, linkRoot := t.TempDir(), t.TempDir()
 	link := filepath.Join(linkRoot, "parent")
 	if err := os.Symlink(parent, link); err != nil {
@@ -30,34 +30,55 @@ func TestNetworkDirectoryAndReadyMarker(t *testing.T) {
 			t.Fatalf("%s mode = %v, err=%v", path, info.Mode(), err)
 		}
 	}
-	if err := writeState(networkDir, State{Ready: true}); err != nil {
-		t.Fatal(err)
-	}
-	state, err := loadState(networkDir)
-	if err != nil || !state.Ready {
-		t.Fatalf("state=%+v err=%v", state, err)
-	}
 }
 
-func TestOwnershipMovesFromExclusiveIntentToExactIdentity(t *testing.T) {
+func TestOwnershipPersistsOneExclusiveExactIdentity(t *testing.T) {
 	networkDir, err := ensureNetworkDirectory(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
-	record := OwnershipRecord{NetworkDir: networkDir, Name: "e2e"}
-	if err := createOwnership(record); err != nil {
+	record := OwnershipRecord{
+		Name: enclaveNamePrefix(networkDir) + "0123456789abcdef0123456789abcdef",
+		UUID: strings.Repeat("a", 32),
+	}
+	if err := createOwnership(networkDir, record); err != nil {
 		t.Fatal(err)
 	}
-	if err := createOwnership(record); !errors.Is(err, os.ErrExist) {
-		t.Fatalf("duplicate intent error = %v", err)
-	}
-	record.UUID = strings.Repeat("a", 32)
-	if err := captureOwnership(record); err != nil {
-		t.Fatal(err)
+	if err := createOwnership(networkDir, record); !errors.Is(err, os.ErrExist) {
+		t.Fatalf("duplicate ownership error = %v", err)
 	}
 	loaded, err := loadOwnership(networkDir)
 	if err != nil || loaded != record {
 		t.Fatalf("ownership=%+v err=%v", loaded, err)
+	}
+}
+
+func TestOwnershipCannotBeCopiedToAnotherNetworkDirectory(t *testing.T) {
+	source, err := ensureNetworkDirectory(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	destination, err := ensureNetworkDirectory(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	record := OwnershipRecord{
+		Name: enclaveNamePrefix(source) + "0123456789abcdef0123456789abcdef",
+		UUID: strings.Repeat("a", 32),
+	}
+	if err := createOwnership(source, record); err != nil {
+		t.Fatal(err)
+	}
+	payload, err := os.ReadFile(ownershipPath(source))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := writeExclusive(ownershipPath(destination), payload); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := loadOwnership(destination); err == nil ||
+		!strings.Contains(err.Error(), "does not belong") {
+		t.Fatalf("copied ownership error = %v", err)
 	}
 }
 

@@ -6,7 +6,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -20,8 +19,7 @@ import (
 )
 
 const (
-	defaultNetworkDir = "/tmp/go-qrl-e2e-network"
-	usage             = `Usage:
+	usage = `Usage:
   e2e <start|status|stop> [options]
 
 Manage the separately running E2E network. Tests run independently through
@@ -35,7 +33,6 @@ func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 	manager := network.NewManager()
-	manager.Stdout, manager.Stderr = os.Stdout, os.Stderr
 	if err := run(ctx, os.Args[1:], os.Stdout, os.Stderr, manager); err != nil {
 		fmt.Fprintln(os.Stderr, "e2e:", err)
 		os.Exit(exitCode(err))
@@ -71,16 +68,14 @@ func start(
 	networks network.Controller,
 ) error {
 	var (
-		root       string
-		networkDir = defaultNetworkDir
-		dockerBin  = "docker"
-		timeout    = 150 * time.Minute
+		networkDir     string
+		executionImage = network.DefaultExecutionImage
+		timeout        = 150 * time.Minute
 	)
 	flags := flag.NewFlagSet("e2e start", flag.ContinueOnError)
 	flags.SetOutput(stderr)
-	flags.StringVar(&root, "repo-root", root, "absolute go-qrl checkout root")
 	flags.StringVar(&networkDir, "network-dir", networkDir, "E2E network directory")
-	flags.StringVar(&dockerBin, "docker-bin", dockerBin, "Docker command path")
+	flags.StringVar(&executionImage, "execution-image", executionImage, "execution image reference")
 	flags.DurationVar(&timeout, "timeout", timeout, "network start budget")
 	if err := parse(flags, arguments); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
@@ -88,16 +83,18 @@ func start(
 		}
 		return err
 	}
-	if root == "" {
-		return usageError("--repo-root is required")
+	if networkDir == "" {
+		return usageError("--network-dir is required")
 	}
-	result, runErr := networks.Start(ctx, network.StartRequest{
-		RepoRoot:     root,
-		NetworkDir:   networkDir,
-		DockerBin:    dockerBin,
-		StartTimeout: timeout,
-	})
-	return errors.Join(runErr, writeJSON(stdout, result))
+	if err := networks.Start(ctx, network.StartRequest{
+		NetworkDir:     networkDir,
+		ExecutionImage: executionImage,
+		StartTimeout:   timeout,
+	}); err != nil {
+		return err
+	}
+	_, err := fmt.Fprintln(stdout, "network ready")
+	return err
 }
 
 func operate(
@@ -108,7 +105,7 @@ func operate(
 	stderr io.Writer,
 	networks network.Controller,
 ) error {
-	networkDir := defaultNetworkDir
+	var networkDir string
 	flags := flag.NewFlagSet("e2e "+operation, flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	flags.StringVar(&networkDir, "network-dir", networkDir, "E2E network directory")
@@ -118,16 +115,21 @@ func operate(
 		}
 		return err
 	}
-	var (
-		result network.Result
-		err    error
-	)
-	if operation == "status" {
-		result, err = networks.Status(ctx, networkDir)
-	} else {
-		result, err = networks.Stop(ctx, networkDir)
+	if networkDir == "" {
+		return usageError("--network-dir is required")
 	}
-	return errors.Join(err, writeJSON(stdout, result))
+	if operation == "status" {
+		if err := networks.Status(ctx, networkDir); err != nil {
+			return err
+		}
+		_, err := fmt.Fprintln(stdout, "network ready")
+		return err
+	}
+	if err := networks.Stop(ctx, networkDir); err != nil {
+		return err
+	}
+	_, err := fmt.Fprintln(stdout, "network stopped")
+	return err
 }
 
 func parse(flags *flag.FlagSet, arguments []string) error {
@@ -141,12 +143,6 @@ func parse(flags *flag.FlagSet, arguments []string) error {
 		return usageError("unexpected positional arguments: %v", flags.Args())
 	}
 	return nil
-}
-
-func writeJSON(destination io.Writer, result network.Result) error {
-	encoder := json.NewEncoder(destination)
-	encoder.SetIndent("", "  ")
-	return encoder.Encode(result)
 }
 
 func isHelp(argument string) bool {

@@ -7,20 +7,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
 	"sort"
-	"strconv"
 
 	"github.com/kurtosis-tech/kurtosis/api/golang/core/kurtosis_core_rpc_api_bindings"
-	"github.com/kurtosis-tech/kurtosis/api/golang/core/lib/binding_constructors"
 	"github.com/kurtosis-tech/kurtosis/api/golang/core/lib/enclaves"
+	kurtosisservices "github.com/kurtosis-tech/kurtosis/api/golang/core/lib/services"
 	"github.com/kurtosis-tech/kurtosis/api/golang/core/lib/starlark_run_config"
 	"github.com/kurtosis-tech/kurtosis/api/golang/engine/lib/kurtosis_context"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 )
-
-const maxAPIContainerResponseBytes = 100 * 1024 * 1024
 
 type SDKClient struct {
 	context *kurtosis_context.KurtosisContext
@@ -39,7 +33,7 @@ func (client *SDKClient) CreateEnclave(ctx context.Context, name string) (Enclav
 	if err != nil {
 		return EnclaveRef{}, err
 	}
-	ref := EnclaveRef{Name: enclave.GetEnclaveName(), UUID: string(enclave.GetEnclaveUuid()), Owned: true}
+	ref := EnclaveRef{Name: enclave.GetEnclaveName(), UUID: string(enclave.GetEnclaveUuid())}
 	if err := ref.Validate(); err != nil {
 		return EnclaveRef{}, fmt.Errorf("Kurtosis returned invalid enclave identity: %w", err)
 	}
@@ -88,13 +82,23 @@ func (client *SDKClient) RunRemotePackage(ctx context.Context, ref EnclaveRef, r
 }
 
 func (client *SDKClient) Services(ctx context.Context, ref EnclaveRef) ([]Service, error) {
-	infos, err := client.serviceInfos(ctx, ref)
+	enclave, err := client.enclaveContext(ctx, ref)
 	if err != nil {
 		return nil, err
 	}
-	result := make([]Service, 0, len(infos))
-	for _, info := range infos {
-		service, err := convertServiceInfo(info)
+	contexts, err := enclave.GetServiceContexts(map[string]bool{})
+	if err != nil {
+		return nil, err
+	}
+	// Kurtosis v1.20 GetServiceContexts does not accept a context. Checking
+	// again prevents publishing stale results when the caller was cancelled
+	// while the SDK request was in flight.
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	result := make([]Service, 0, len(contexts))
+	for _, serviceContext := range contexts {
+		service, err := convertServiceContext(serviceContext)
 		if err != nil {
 			return nil, err
 		}
@@ -105,9 +109,6 @@ func (client *SDKClient) Services(ctx context.Context, ref EnclaveRef) ([]Servic
 }
 
 func (client *SDKClient) DestroyEnclave(ctx context.Context, ref EnclaveRef) error {
-	if !ref.Owned {
-		return errors.New("refusing to destroy an enclave not marked as owned")
-	}
 	if err := ref.Validate(); err != nil {
 		return err
 	}
@@ -135,40 +136,6 @@ func (client *SDKClient) enclaveContext(ctx context.Context, ref EnclaveRef) (*e
 	return current, nil
 }
 
-func (client *SDKClient) serviceInfos(ctx context.Context, ref EnclaveRef) (map[string]*kurtosis_core_rpc_api_bindings.ServiceInfo, error) {
-	if err := ctx.Err(); err != nil {
-		return nil, err
-	}
-	if err := ref.Validate(); err != nil {
-		return nil, err
-	}
-	info, err := client.context.GetEnclave(ctx, ref.UUID)
-	if err != nil {
-		return nil, err
-	}
-	if info.GetEnclaveUuid() != ref.UUID || info.GetName() != ref.Name {
-		return nil, fmt.Errorf("enclave identity changed: got %s/%s, want %s/%s", info.GetName(), info.GetEnclaveUuid(), ref.Name, ref.UUID)
-	}
-	host := info.GetApiContainerHostMachineInfo()
-	if host == nil || host.GetIpOnHostMachine() == "" || host.GetGrpcPortOnHostMachine() == 0 {
-		return nil, fmt.Errorf("enclave %s/%s has no API-container host endpoint", ref.Name, ref.UUID)
-	}
-	endpoint := net.JoinHostPort(host.GetIpOnHostMachine(), strconv.FormatUint(uint64(host.GetGrpcPortOnHostMachine()), 10))
-	connection, err := grpc.NewClient(endpoint, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(maxAPIContainerResponseBytes)))
-	if err != nil {
-		return nil, fmt.Errorf("connect to Kurtosis API container %s: %w", endpoint, err)
-	}
-	defer connection.Close()
-	response, err := kurtosis_core_rpc_api_bindings.NewApiContainerServiceClient(connection).GetServices(ctx, binding_constructors.NewGetServicesArgs(map[string]bool{}))
-	if err != nil {
-		return nil, err
-	}
-	if response == nil {
-		return nil, errors.New("Kurtosis GetServices returned a nil response")
-	}
-	return response.GetServiceInfo(), nil
-}
-
 func consumeStarlarkCompletion(stream <-chan *kurtosis_core_rpc_api_bindings.StarlarkRunResponseLine) error {
 	for line := range stream {
 		if finished := line.GetRunFinishedEvent(); finished != nil {
@@ -181,39 +148,22 @@ func consumeStarlarkCompletion(stream <-chan *kurtosis_core_rpc_api_bindings.Sta
 	return errors.New("Kurtosis Starlark response stream closed without a terminal event; response content suppressed")
 }
 
-func convertServiceInfo(info *kurtosis_core_rpc_api_bindings.ServiceInfo) (Service, error) {
-	if info == nil {
-		return Service{}, errors.New("Kurtosis GetServices returned nil service info")
-	}
-	serviceStatus, err := convertServiceStatus(info.GetServiceStatus())
-	if err != nil {
-		return Service{}, fmt.Errorf("service %q/%q: %w", info.GetName(), info.GetServiceUuid(), err)
+func convertServiceContext(serviceContext *kurtosisservices.ServiceContext) (Service, error) {
+	if serviceContext == nil {
+		return Service{}, errors.New("Kurtosis GetServiceContexts returned a nil service context")
 	}
 	return Service{
-		Name: info.GetName(), UUID: info.GetServiceUuid(), Status: serviceStatus,
-		PublicIP: info.GetMaybePublicIpAddr(), PublicPorts: convertAPIPorts(info.GetMaybePublicPorts()),
+		Name:        string(serviceContext.GetServiceName()),
+		UUID:        string(serviceContext.GetServiceUUID()),
+		PublicIP:    serviceContext.GetMaybePublicIPAddress(),
+		PublicPorts: convertSDKPorts(serviceContext.GetPublicPorts()),
 	}, nil
 }
 
-func convertServiceStatus(value kurtosis_core_rpc_api_bindings.ServiceStatus) (ServiceStatus, error) {
-	switch value {
-	case kurtosis_core_rpc_api_bindings.ServiceStatus_RUNNING:
-		return ServiceStatusRunning, nil
-	case kurtosis_core_rpc_api_bindings.ServiceStatus_STOPPED:
-		return ServiceStatusStopped, nil
-	case kurtosis_core_rpc_api_bindings.ServiceStatus_UNKNOWN:
-		return ServiceStatusUnknown, nil
-	default:
-		return "", fmt.Errorf("Kurtosis returned unsupported service status %d", value)
-	}
-}
-
-func convertAPIPorts(ports map[string]*kurtosis_core_rpc_api_bindings.Port) map[string]Port {
+func convertSDKPorts(ports map[string]*kurtosisservices.PortSpec) map[string]Port {
 	result := make(map[string]Port, len(ports))
 	for id, port := range ports {
 		result[id] = Port{Number: uint16(port.GetNumber())}
 	}
 	return result
 }
-
-var _ Client = (*SDKClient)(nil)

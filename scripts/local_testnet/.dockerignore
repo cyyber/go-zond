@@ -1,9 +1,3 @@
-# These builds use scripts/local_testnet as their context. Send only the
-# Dockerfiles and source inputs explicitly copied by the generator build.
+# Support images fetch their pinned sources during the build.
 *
-!Dockerfile.genesis-generator
-!Dockerfile.qrysm-consensus
-!genesis_gqrl.py
-!qrysm-deposit-runtime/
-qrysm-deposit-runtime/*
-!qrysm-deposit-runtime/main.go
+!Dockerfile.support

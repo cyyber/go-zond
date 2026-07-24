@@ -11,9 +11,9 @@ import (
 
 func topologyFixture() []kurtosis.Service {
 	return []kurtosis.Service{
-		{Name: executionServiceName, Status: kurtosis.ServiceStatusRunning, PublicIP: "127.0.0.1", PublicPorts: map[string]kurtosis.Port{rpcPortID: {Number: 18545}, webSocketPortID: {Number: 18546}}},
-		{Name: consensusServiceName, Status: kurtosis.ServiceStatusRunning},
-		{Name: validatorServiceName, Status: kurtosis.ServiceStatusRunning},
+		{Name: executionServiceName, PublicIP: "127.0.0.1", PublicPorts: map[string]kurtosis.Port{rpcPortID: {Number: 18545}, webSocketPortID: {Number: 18546}}},
+		{Name: consensusServiceName},
+		{Name: validatorServiceName},
 	}
 }
 
@@ -29,10 +29,9 @@ func TestDiscoverTopology(t *testing.T) {
 	}
 }
 
-func TestDiscoverTopologyRequiresRunningServicesAndEndpoints(t *testing.T) {
+func TestDiscoverTopologyRequiresServicesAndEndpoints(t *testing.T) {
 	for name, mutate := range map[string]func([]kurtosis.Service){
 		"missing": func(services []kurtosis.Service) { services[1].Name = "helper" },
-		"stopped": func(services []kurtosis.Service) { services[2].Status = kurtosis.ServiceStatusStopped },
 		"port":    func(services []kurtosis.Service) { delete(services[0].PublicPorts, rpcPortID) },
 	} {
 		t.Run(name, func(t *testing.T) {
