@@ -1,0 +1,78 @@
+# Build the consensus clients from an exact Qrysm source revision while using
+# the published images only as immutable runtime filesystems.
+ARG QRYSM_GO_BUILDER_IMAGE=scratch
+ARG QRYSM_CL_BASE_IMAGE=scratch
+ARG QRYSM_VC_BASE_IMAGE=scratch
+
+FROM ${QRYSM_GO_BUILDER_IMAGE} AS qrysm-builder
+
+ARG QRYSM_GIT_REPO
+ARG QRYSM_GIT_COMMIT
+ARG QRYSM_CGO_ENABLED=0
+
+RUN test -n "${QRYSM_GIT_REPO}" && \
+    test -n "${QRYSM_GIT_COMMIT}" && \
+    printf '%s\n' "${QRYSM_GIT_COMMIT}" | grep -Eq '^[0-9a-f]{40}$' && \
+    git init /src/qrysm && \
+    git -C /src/qrysm remote add origin "${QRYSM_GIT_REPO}" && \
+    git -C /src/qrysm fetch --depth 1 origin "${QRYSM_GIT_COMMIT}" && \
+    git -C /src/qrysm checkout --detach FETCH_HEAD && \
+    test "$(git -C /src/qrysm rev-parse HEAD)" = "${QRYSM_GIT_COMMIT}"
+
+RUN cd /src/qrysm && \
+    source_epoch="$(git show -s --format=%ct HEAD)" && \
+    source_date="$(date -u -d "@${source_epoch}" +%Y-%m-%dT%H:%M:%SZ)" && \
+    version_package='github.com/theQRL/qrysm/runtime/version' && \
+    ldflags="-buildid= -s -w \
+        -X ${version_package}.gitCommit=${QRYSM_GIT_COMMIT} \
+        -X ${version_package}.gitTag=source \
+        -X ${version_package}.buildDate=${source_date} \
+        -X ${version_package}.buildDateUnix=${source_epoch}" && \
+    mkdir -p /out && \
+    CGO_ENABLED="${QRYSM_CGO_ENABLED}" GOTOOLCHAIN=local \
+        go build -mod=readonly -trimpath -buildvcs=false -ldflags="${ldflags}" \
+        -o /out/beacon-chain ./cmd/beacon-chain && \
+    CGO_ENABLED="${QRYSM_CGO_ENABLED}" GOTOOLCHAIN=local \
+        go build -mod=readonly -trimpath -buildvcs=false -ldflags="${ldflags}" \
+        -o /out/validator ./cmd/validator
+
+FROM ${QRYSM_CL_BASE_IMAGE} AS beacon
+
+ARG QRYSM_GIT_REPO
+ARG QRYSM_GIT_COMMIT
+ARG QRYSM_GO_BUILDER_IMAGE
+ARG QRYSM_CL_BASE_IMAGE
+
+COPY --from=qrysm-builder /out/beacon-chain /beacon-chain
+
+# Catch missing libraries and runtime mismatches during the image build.
+RUN ["/beacon-chain", "--version"]
+
+LABEL org.opencontainers.image.source="${QRYSM_GIT_REPO}" \
+      org.opencontainers.image.revision="${QRYSM_GIT_COMMIT}" \
+      org.opencontainers.image.base.name="${QRYSM_CL_BASE_IMAGE}" \
+      io.theqrl.local-testnet.qrysm.revision="${QRYSM_GIT_COMMIT}" \
+      io.theqrl.local-testnet.qrysm.builder="${QRYSM_GO_BUILDER_IMAGE}" \
+      io.theqrl.local-testnet.role="beacon-chain"
+
+ENTRYPOINT ["/beacon-chain"]
+
+FROM ${QRYSM_VC_BASE_IMAGE} AS validator
+
+ARG QRYSM_GIT_REPO
+ARG QRYSM_GIT_COMMIT
+ARG QRYSM_GO_BUILDER_IMAGE
+ARG QRYSM_VC_BASE_IMAGE
+
+COPY --from=qrysm-builder /out/validator /validator
+
+RUN ["/validator", "--version"]
+
+LABEL org.opencontainers.image.source="${QRYSM_GIT_REPO}" \
+      org.opencontainers.image.revision="${QRYSM_GIT_COMMIT}" \
+      org.opencontainers.image.base.name="${QRYSM_VC_BASE_IMAGE}" \
+      io.theqrl.local-testnet.qrysm.revision="${QRYSM_GIT_COMMIT}" \
+      io.theqrl.local-testnet.qrysm.builder="${QRYSM_GO_BUILDER_IMAGE}" \
+      io.theqrl.local-testnet.role="validator"
+
+ENTRYPOINT ["/validator"]

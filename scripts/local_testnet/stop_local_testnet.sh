@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
-ENCLAVE_NAME=${1:-local-testnet}
-LOGS_PATH=$SCRIPT_DIR/logs
-LOGS_SUBDIR=$LOGS_PATH/$ENCLAVE_NAME
+SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+REPO_ROOT=$(cd -- "$SCRIPT_DIR/../.." && pwd)
 
-# Delete existing logs directory and make sure parent directory exists.
-rm -rf "$LOGS_SUBDIR" && mkdir -p "$LOGS_PATH"
-kurtosis enclave dump "$ENCLAVE_NAME" "$LOGS_SUBDIR"
-echo "Local testnet logs stored to $LOGS_SUBDIR."
+if (( $# != 0 )); then
+    echo "This compatibility wrapper no longer accepts an enclave name." >&2
+    echo "Set E2E_NETWORK_DIR and run make network-stop." >&2
+    exit 2
+fi
 
-kurtosis enclave rm -f "$ENCLAVE_NAME"
-kurtosis engine stop
-echo "Local testnet stopped."
+# The Go controller validates and destroys only the full UUID recorded in the
+# selected network directory. It deliberately leaves the shared engine alive.
+exec make -C "$REPO_ROOT" network-stop \
+    E2E_NETWORK_DIR="${E2E_NETWORK_DIR:-/tmp/go-qrl-e2e-network}"

@@ -2,11 +2,26 @@
 # with Go source code. If you know what GOPATH is then you probably
 # don't need to bother with make.
 
-.PHONY: gqrl qrvm all test lint fmt clean devtools help
+.PHONY: gqrl qrvm all test lint fmt clean devtools \
+	network-start live-test network-stop help
 
 GOBIN = ./build/bin
 GO ?= latest
 GORUN = go run
+E2E_DIR = scripts/testing/e2e
+E2E_RUNNER = go -C $(E2E_DIR) run ./cmd/e2e
+E2E_GINKGO = go -C $(E2E_DIR) tool ginkgo
+E2E_SUITES ?=
+E2E_NETWORK_DIR ?= /tmp/go-qrl-e2e-network
+E2E_NETWORK_DIR_ABS = $(abspath $(E2E_NETWORK_DIR))
+E2E_TIMEOUT ?= 25m
+empty :=
+space := $(empty) $(empty)
+comma := ,
+E2E_SUITE_LIST = $(strip $(subst $(comma),$(space),$(E2E_SUITES)))
+E2E_SUITE_PACKAGES = $(addprefix ./suites/,$(E2E_SUITE_LIST))
+E2E_SUITE_LABELS = $(subst $(space), || ,$(E2E_SUITE_LIST))
+E2E_DOCKER_BIN ?= docker
 
 #? gqrl: Build gqrl.
 gqrl:
@@ -52,6 +67,37 @@ devtools:
 	env GOBIN= go install ./cmd/abigen
 	@type "hypc" 2> /dev/null || echo 'Please install hypc'
 	@type "protoc" 2> /dev/null || echo 'Please install protoc'
+
+#? network-start: Start a standalone E2E test network without running suites.
+network-start:
+	$(E2E_RUNNER) start \
+		--repo-root "$(CURDIR)" \
+		--network-dir "$(E2E_NETWORK_DIR_ABS)" \
+		--docker-bin "$(E2E_DOCKER_BIN)"
+
+#? live-test: Run selected Ginkgo E2E suites against the already-running network.
+live-test:
+	@test -n "$(E2E_SUITE_LIST)" || { echo "E2E_SUITES must name at least one suite" >&2; exit 2; }
+	E2E_SUITES="$(E2E_SUITES)" \
+	E2E_NETWORK_DIR="$(E2E_NETWORK_DIR_ABS)" \
+	E2E_REPO_ROOT="$(CURDIR)" \
+	$(E2E_GINKGO) \
+		--tags=e2e \
+		--ldflags='-s -w' \
+		--procs=1 \
+		--require-suite \
+		--fail-on-empty \
+		--fail-on-pending \
+		--label-filter='e2e && live && ($(E2E_SUITE_LABELS))' \
+		--timeout="$(E2E_TIMEOUT)" \
+		--poll-progress-after=30s \
+		--poll-progress-interval=30s \
+		$(E2E_SUITE_PACKAGES) \
+		-- -test.run='^TestE2E$$'
+
+#? network-stop: Stop only the exact E2E network recorded in E2E_NETWORK_DIR.
+network-stop:
+	$(E2E_RUNNER) stop --network-dir "$(E2E_NETWORK_DIR_ABS)"
 
 #? help: Get more info on make commands.
 help: Makefile

@@ -41,6 +41,10 @@
 .codex
 .claude
 
+# Python test caches
+__pycache__/
+*.py[cod]
+
 # binaries
 cmd/abidump/abidump
 cmd/abigen/abigen

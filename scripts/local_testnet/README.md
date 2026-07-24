@@ -1,91 +1,98 @@
-# Simple Local Testnet
+# Local test network
 
-These scripts allow for running a small local testnet with a default of 2 gqrl execution clients, 2 beacon nodes, 2 validator clients, and a Clef remote signer using Kurtosis.
-This setup can be useful for testing and development.
+This directory contains the image builder for the independently managed
+qrl-package network used by E2E suites. The built-in network runs one execution
+client, one Qrysm beacon node, one Qrysm validator, and the QRL genesis
+generator in Docker through Kurtosis.
 
-## Installation
-
-1. Install [Docker](https://docs.docker.com/get-docker/). Verify that Docker has been successfully installed by running `sudo docker run hello-world`.
-
-1. Install [Kurtosis](https://docs.kurtosis.com/install/). Verify that Kurtosis has been successfully installed by running `kurtosis version` which should display the version.
-
-1. Install [yq](https://github.com/mikefarah/yq). If you are on Ubuntu, you can install `yq` by running `snap install yq`.
-
-## Starting the testnet
-
-To start a testnet, from the go-qrl root repository:
-```bash
-cd ./scripts/local_testnet
-./start_local_testnet.sh
-```
-
-You will see a list of services running and "Started!" at the end. You can also select your own go-qrl Docker image by specifying it in `network_params.yaml` under the `el_image` key. Full configuration reference for Kurtosis is specified [here](https://github.com/theQRL/qrl-package?tab=readme-ov-file#configuration).
-
-To view all running services:
+Network lifecycle remains separate from test execution:
 
 ```bash
-kurtosis enclave inspect local-testnet
+make network-start
+make live-test E2E_SUITES=<suite>
+make network-stop
 ```
 
-To view the logs:
+The first and third commands can be used without running any tests.
+
+## Requirements
+
+- Docker with a responsive daemon
+- Kurtosis CLI 1.20.0
+- Git
+- Go 1.26
+- Network access for the pinned source revisions, container bases, and
+  qrl-package
+
+The controller has one built-in qrl-package revision and topology. Its compact
+configuration pins every source revision and builder/base image digest. At
+startup it derives one-participant parameters with one fresh ML-DSA-87 prefund
+and withdrawal address.
+
+## Image preparation
+
+`network-start` invokes the generic image builder as a provisioning stage. The
+builder intentionally requires controller-provided output refs, so invoke it
+through the lifecycle target:
 
 ```bash
-kurtosis service logs local-testnet $SERVICE_NAME
+E2E_NETWORK_DIR=/tmp/my-go-qrl-network make network-start
 ```
 
-where `$SERVICE_NAME` is obtained by inspecting the running services above. For example, to view the logs of the first gqrl node, beacon node and validator client:
+It builds:
+
+- go-qrl from the clean current checkout with the exact commit embedded in the
+  binary;
+- beacon and validator binaries from the pinned Qrysm source revision; and
+- the genesis generator and deposit runtime from pinned generator/Qrysm
+  revisions.
+
+Published Qrysm and generator images are used only as digest-pinned runtime
+filesystems. Their older binaries and generator sources are replaced during
+the build. The builder rejects tracked or untracked checkout changes so the
+execution image cannot claim a commit that differs from the repository source.
+
+## Start and inspect
+
+Use a private runtime directory:
 
 ```bash
-kurtosis service logs local-testnet -f el-1-gqrl-qrysm
-kurtosis service logs local-testnet -f cl-1-qrysm-gqrl
-kurtosis service logs local-testnet -f vc-1-gqrl-qrysm
+E2E_NETWORK_DIR=/tmp/my-go-qrl-network make network-start
 ```
 
-If you would like to save the logs, use the command:
+Starting writes one `private/ownership.json`. A name-only creation intent blocks
+replay if Kurtosis loses the create response; the full enclave UUID replaces it
+as soon as creation succeeds. If provisioning then fails, run `network-stop`
+before starting again. A ready network also blocks another start; use `status`
+to inspect it or `network-stop` before rebuilding. Provisioning is never resumed
+or replayed automatically.
+
+Inspect the exact recorded enclave and endpoints:
 
 ```bash
-kurtosis dump $OUTPUT_DIRECTORY
+go -C scripts/testing/e2e run ./cmd/e2e status \
+  --network-dir /tmp/my-go-qrl-network
 ```
 
-This will create a folder named `$OUTPUT_DIRECTORY` in the present working directory that contains all logs and other information. If you want the logs for a particular service and saved to a file named `logs.txt`:
+`network.json` contains only `{"ready":true}`. Status verifies the exact
+recorded enclave, required services and endpoints, advancing chain ID, and
+funded wallet. Enclave ownership, the mutation lock, and secret wallet material
+live below `private/` and must not be shared.
+
+## Stop
 
 ```bash
-kurtosis service logs local-testnet $SERVICE_NAME -a > logs.txt
-```
-where `$SERVICE_NAME` can be viewed by running `kurtosis enclave inspect local-testnet`.
-
-Some testnet parameters can be varied by modifying the `network_params.yaml` file. Kurtosis also comes with a web UI which can be open with `kurtosis web`.
-
-## Attaching a console
-
-To attach a gqrl console to the first execution node:
-
-```bash
-./build/bin/gqrl attach "http://$(kurtosis port print local-testnet el-1-gqrl-qrysm rpc)"
+E2E_NETWORK_DIR=/tmp/my-go-qrl-network make network-stop
 ```
 
-The first account is managed by Clef and can submit transactions without an interactive approval prompt:
+Stop validates the persisted enclave name and full UUID before destroying
+only that enclave. It never stops the shared Kurtosis engine. Raw enclave dumps
+are deliberately not uploadable because they can contain JWTs, keystores, and
+funded-account material.
 
-```js
-qrl.accounts
-qrl.sendTransaction({from: qrl.accounts[0], to: qrl.accounts[0], value: 1})
-```
+`start_local_testnet.sh` and `stop_local_testnet.sh` remain as thin wrappers
+around the same generic Make targets; they contain no second lifecycle
+implementation. Configure them with `E2E_NETWORK_DIR`; the start wrapper also
+accepts `E2E_DOCKER_BIN` through the Make target.
 
-## Stopping the testnet
-
-To stop the testnet, from the go-qrl root repository:
-
-```bash
-cd ./scripts/local_testnet
-./stop_local_testnet.sh
-```
-
-This dumps all service logs to `./logs` before destroying the enclave. You will see "Local testnet stopped." at the end.
-
-## CLI options
-
-The script comes with some CLI options, which can be viewed with `./start_local_testnet.sh -h`. One of the CLI options is to avoid rebuilding go-qrl each time the testnet starts, which can be configured with the command:
-
-```bash
-./start_local_testnet.sh -b false
-```
+See `scripts/testing/e2e/README.md` for suite selection and live coverage.
