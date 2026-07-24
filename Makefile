@@ -3,7 +3,7 @@
 # don't need to bother with make.
 
 .PHONY: gqrl qrvm all test lint fmt clean devtools \
-	network-start live-test network-stop help
+	e2e-unit network-images network-start live-test network-stop help
 
 GOBIN = ./build/bin
 GO ?= latest
@@ -20,8 +20,8 @@ space := $(empty) $(empty)
 comma := ,
 E2E_SUITE_LIST = $(strip $(subst $(comma),$(space),$(E2E_SUITES)))
 E2E_SUITE_PACKAGES = $(addprefix ./suites/,$(E2E_SUITE_LIST))
-E2E_SUITE_LABELS = $(subst $(space), || ,$(E2E_SUITE_LIST))
 E2E_DOCKER_BIN ?= docker
+E2E_EXECUTION_IMAGE ?= local/go-qrl:e2e
 
 #? gqrl: Build gqrl.
 gqrl:
@@ -68,17 +68,26 @@ devtools:
 	@type "hypc" 2> /dev/null || echo 'Please install hypc'
 	@type "protoc" 2> /dev/null || echo 'Please install protoc'
 
+#? e2e-unit: Run unit tests and vet for the isolated E2E module.
+e2e-unit:
+	go -C $(E2E_DIR) test -count=1 ./...
+	go -C $(E2E_DIR) vet ./...
+
+#? network-images: Build the pinned images used by the standalone E2E network.
+network-images:
+	E2E_DOCKER_BIN="$(E2E_DOCKER_BIN)" \
+	E2E_LOCAL_EL_IMAGE="$(E2E_EXECUTION_IMAGE)" \
+	./scripts/local_testnet/build_network_images.sh
+
 #? network-start: Start a standalone E2E test network without running suites.
-network-start:
+network-start: network-images
 	$(E2E_RUNNER) start \
-		--repo-root "$(CURDIR)" \
 		--network-dir "$(E2E_NETWORK_DIR_ABS)" \
-		--docker-bin "$(E2E_DOCKER_BIN)"
+		--execution-image "$(E2E_EXECUTION_IMAGE)"
 
 #? live-test: Run selected Ginkgo E2E suites against the already-running network.
 live-test:
 	@test -n "$(E2E_SUITE_LIST)" || { echo "E2E_SUITES must name at least one suite" >&2; exit 2; }
-	E2E_SUITES="$(E2E_SUITES)" \
 	E2E_NETWORK_DIR="$(E2E_NETWORK_DIR_ABS)" \
 	E2E_REPO_ROOT="$(CURDIR)" \
 	$(E2E_GINKGO) \
@@ -88,7 +97,7 @@ live-test:
 		--require-suite \
 		--fail-on-empty \
 		--fail-on-pending \
-		--label-filter='e2e && live && ($(E2E_SUITE_LABELS))' \
+		--label-filter='e2e && live' \
 		--timeout="$(E2E_TIMEOUT)" \
 		--poll-progress-after=30s \
 		--poll-progress-interval=30s \

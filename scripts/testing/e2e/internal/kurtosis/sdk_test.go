@@ -10,21 +10,40 @@ import (
 
 	"github.com/kurtosis-tech/kurtosis/api/golang/core/kurtosis_core_rpc_api_bindings"
 	"github.com/kurtosis-tech/kurtosis/api/golang/core/lib/binding_constructors"
+	kurtosisservices "github.com/kurtosis-tech/kurtosis/api/golang/core/lib/services"
 )
 
-func TestConvertServiceInfoPreservesLifecycleStatus(t *testing.T) {
-	info := &kurtosis_core_rpc_api_bindings.ServiceInfo{
-		Name: "execution", ServiceUuid: "11111111111111111111111111111111",
-		ServiceStatus:     kurtosis_core_rpc_api_bindings.ServiceStatus_STOPPED,
-		MaybePublicIpAddr: "127.0.0.1",
-		MaybePublicPorts:  map[string]*kurtosis_core_rpc_api_bindings.Port{"rpc": {Number: 18545, TransportProtocol: kurtosis_core_rpc_api_bindings.Port_TCP}},
-	}
-	service, err := convertServiceInfo(info)
+func TestConvertServiceContextPreservesIdentityAndPublicEndpoints(t *testing.T) {
+	serviceContext := kurtosisservices.NewServiceContext(
+		nil,
+		"execution",
+		"11111111111111111111111111111111",
+		"10.0.0.1",
+		nil,
+		"127.0.0.1",
+		map[string]*kurtosisservices.PortSpec{
+			"rpc": kurtosisservices.NewPortSpec(18545, kurtosisservices.TransportProtocol_TCP, ""),
+		},
+		nil,
+		false,
+		nil,
+		false,
+	)
+	service, err := convertServiceContext(serviceContext)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if service.Status != ServiceStatusStopped || service.PublicPorts["rpc"].Number != 18545 {
+	if service.Name != "execution" ||
+		service.UUID != "11111111111111111111111111111111" ||
+		service.PublicIP != "127.0.0.1" ||
+		service.PublicPorts["rpc"].Number != 18545 {
 		t.Fatalf("service = %+v", service)
+	}
+}
+
+func TestConvertServiceContextRejectsNil(t *testing.T) {
+	if _, err := convertServiceContext(nil); err == nil {
+		t.Fatal("nil service context was accepted")
 	}
 }
 

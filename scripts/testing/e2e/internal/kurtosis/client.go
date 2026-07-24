@@ -6,7 +6,6 @@
 package kurtosis
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"net"
@@ -17,9 +16,8 @@ import (
 var uuidPattern = regexp.MustCompile(`^[0-9a-f]{32}$`)
 
 type EnclaveRef struct {
-	Name  string `json:"name"`
-	UUID  string `json:"uuid"`
-	Owned bool   `json:"owned"`
+	Name string `json:"name"`
+	UUID string `json:"uuid"`
 }
 
 func (ref EnclaveRef) Validate() error {
@@ -41,18 +39,9 @@ type Port struct {
 	Number uint16
 }
 
-type ServiceStatus string
-
-const (
-	ServiceStatusRunning ServiceStatus = "RUNNING"
-	ServiceStatusStopped ServiceStatus = "STOPPED"
-	ServiceStatusUnknown ServiceStatus = "UNKNOWN"
-)
-
 type Service struct {
 	Name        string
 	UUID        string
-	Status      ServiceStatus
 	PublicIP    string
 	PublicPorts map[string]Port
 }
@@ -63,13 +52,4 @@ func (service Service) PublicEndpoint(portID, scheme string) (string, bool) {
 		return "", false
 	}
 	return scheme + "://" + net.JoinHostPort(service.PublicIP, strconv.Itoa(int(port.Number))), true
-}
-
-type Client interface {
-	CreateEnclave(context.Context, string) (EnclaveRef, error)
-	GetEnclave(context.Context, string) (EnclaveRef, error)
-	EnclaveExists(context.Context, string) (bool, error)
-	RunRemotePackage(context.Context, EnclaveRef, PackageRun) error
-	Services(context.Context, EnclaveRef) ([]Service, error)
-	DestroyEnclave(context.Context, EnclaveRef) error
 }

@@ -4,38 +4,21 @@
 package network
 
 import (
-	"encoding/json"
 	"strings"
 	"testing"
 )
 
-func TestStateIsOnlyAReadyMarker(t *testing.T) {
-	payload, err := json.Marshal(State{Ready: true})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(payload) != `{"ready":true}` {
-		t.Fatalf("state = %s", payload)
-	}
-	if err := (State{}).Validate(); err == nil {
-		t.Fatal("non-ready state was accepted")
-	}
-}
-
 func TestOwnershipRequiresExactUUIDForDestruction(t *testing.T) {
-	record := OwnershipRecord{NetworkDir: t.TempDir(), Name: "e2e"}
-	if err := record.Validate(); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := record.OwnedEnclave(); err == nil || !strings.Contains(err.Error(), "exact UUID") {
-		t.Fatalf("creation intent error = %v", err)
+	record := OwnershipRecord{Name: "e2e"}
+	if _, err := record.Enclave(); err == nil || !strings.Contains(err.Error(), "exact enclave UUID") {
+		t.Fatalf("incomplete ownership error = %v", err)
 	}
 	record.UUID = strings.Repeat("a", 32)
-	enclave, err := record.OwnedEnclave()
+	enclave, err := record.Enclave()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if enclave.Name != record.Name || enclave.UUID != record.UUID || !enclave.Owned {
+	if enclave.Name != record.Name || enclave.UUID != record.UUID {
 		t.Fatalf("owned enclave = %+v", enclave)
 	}
 }

@@ -22,13 +22,12 @@ func discoverTopology(services []kurtosis.Service) (runtimeTopology, error) {
 		}
 		byName[service.Name] = service
 	}
+	// Kurtosis service contexts do not expose lifecycle status. The network
+	// probe that follows discovery proves readiness by observing chain progress.
 	for role, name := range requiredServices {
-		service, ok := byName[name]
+		_, ok := byName[name]
 		if !ok {
 			return runtimeTopology{}, fmt.Errorf("required %s service %q is missing", role, name)
-		}
-		if service.Status != kurtosis.ServiceStatusRunning {
-			return runtimeTopology{}, fmt.Errorf("required %s service %q is %s, want RUNNING", role, name, service.Status)
 		}
 	}
 	execution := byName[executionServiceName]

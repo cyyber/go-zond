@@ -9,11 +9,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-
-	"github.com/google/renameio"
+	"strings"
 )
 
-func statePath(networkDir string) string   { return filepath.Join(networkDir, "network.json") }
 func privatePath(networkDir string) string { return filepath.Join(networkDir, "private") }
 func ownershipPath(networkDir string) string {
 	return filepath.Join(privatePath(networkDir), "ownership.json")
@@ -27,65 +25,31 @@ func loadOwnership(networkDir string) (OwnershipRecord, error) {
 	if err != nil {
 		return OwnershipRecord{}, err
 	}
-	if record.NetworkDir != networkDir {
-		return OwnershipRecord{}, errors.New("ownership belongs to another network directory")
-	}
-	return record, record.Validate()
+	return record, validateOwnershipDirectory(networkDir, record)
 }
 
-func createOwnership(record OwnershipRecord) error {
+func createOwnership(networkDir string, record OwnershipRecord) error {
+	if err := validateOwnershipDirectory(networkDir, record); err != nil {
+		return err
+	}
+	return writeJSONExclusive(ownershipPath(networkDir), record)
+}
+
+func validateOwnershipDirectory(networkDir string, record OwnershipRecord) error {
 	if err := record.Validate(); err != nil {
 		return err
 	}
-	if record.UUID != "" {
-		return errors.New("ownership must begin as a creation intent")
+	if !strings.HasPrefix(record.Name, enclaveNamePrefix(networkDir)) {
+		return errors.New("ownership enclave name does not belong to this network directory")
 	}
-	return writeJSONExclusive(ownershipPath(record.NetworkDir), record)
+	return nil
 }
 
-func captureOwnership(record OwnershipRecord) error {
-	if err := record.Validate(); err != nil {
+func removeOwnership(networkDir string) error {
+	if err := os.Remove(ownershipPath(networkDir)); err != nil {
 		return err
 	}
-	if record.UUID == "" {
-		return errors.New("captured ownership has no exact enclave UUID")
-	}
-	return writeJSONAtomic(ownershipPath(record.NetworkDir), record)
-}
-
-func removeOwnership(record OwnershipRecord) error {
-	if err := record.Validate(); err != nil {
-		return err
-	}
-	if err := os.Remove(ownershipPath(record.NetworkDir)); err != nil {
-		return err
-	}
-	return syncDirectory(privatePath(record.NetworkDir))
-}
-
-func loadState(networkDir string) (State, error) {
-	state, err := loadJSON[State](statePath(networkDir), "network state")
-	if errors.Is(err, os.ErrNotExist) {
-		return State{}, fmt.Errorf("start the independent E2E network first: %w", err)
-	}
-	if err != nil {
-		return State{}, err
-	}
-	return state, state.Validate()
-}
-
-func writeState(networkDir string, state State) error {
-	if err := state.Validate(); err != nil {
-		return err
-	}
-	return writeJSONAtomic(statePath(networkDir), state)
-}
-
-func removeState(networkDir string) error {
-	if err := os.Remove(statePath(networkDir)); err != nil {
-		return err
-	}
-	return syncDirectory(networkDir)
+	return syncDirectory(privatePath(networkDir))
 }
 
 func loadJSON[T any](path, description string) (T, error) {
@@ -98,17 +62,6 @@ func loadJSON[T any](path, description string) (T, error) {
 		return value, fmt.Errorf("decode %s: %w", description, err)
 	}
 	return value, nil
-}
-
-func writeJSONAtomic(path string, value any) error {
-	payload, err := jsonPayload(value)
-	if err != nil {
-		return err
-	}
-	if err := renameio.WriteFile(path, payload, 0o600); err != nil {
-		return err
-	}
-	return syncDirectory(filepath.Dir(path))
 }
 
 func writeJSONExclusive(path string, value any) error {

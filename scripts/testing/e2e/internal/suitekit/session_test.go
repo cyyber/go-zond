@@ -6,23 +6,16 @@ package suitekit
 import (
 	"context"
 	"errors"
-	"net/http"
-	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
-	"github.com/theQRL/go-qrl/common"
-	"github.com/theQRL/go-qrl/crypto/pqcrypto/wallet"
 	"github.com/theQRL/go-qrl/scripts/testing/e2e/internal/network"
 )
 
-const testSeed = "010000f29f58aff0b00de2844f7e20bd9eeaacc379150043beeb328335817512b29fbb7184da84a092f842b2a06d72a24a5d28"
-
-func TestOpenLiveSession(t *testing.T) {
-	server := httptest.NewServer(http.NotFoundHandler())
-	defer server.Close()
+func TestOpenLiveNetwork(t *testing.T) {
+	const rpcURL = "http://127.0.0.1:18545"
 	networkDir, seedFile := liveNetworkDirectory(t)
 	values := map[string]string{networkDirVariable: networkDir}
 	authenticate := func(
@@ -37,31 +30,27 @@ func TestOpenLiveSession(t *testing.T) {
 			t.Fatal("network lease was not held during authentication")
 		}
 		return network.Environment{
-			RPCURL:       server.URL,
-			GraphQLURL:   server.URL + "/graphql",
+			RPCURL:       rpcURL,
+			GraphQLURL:   rpcURL + "/graphql",
 			WebSocketURL: "ws://127.0.0.1/ws",
 			SeedFile:     seedFile,
 		}, nil
 	}
 
-	session, err := openLiveSession(t.Context(), mapGetenv(values), authenticate)
+	live, err := openLiveNetwork(t.Context(), mapGetenv(values), authenticate)
 	if err != nil {
 		t.Fatal(err)
 	}
-	expectedWallet, err := wallet.RestoreFromSeedHex(testSeed)
-	if err != nil {
+	if live.RPCURL != rpcURL ||
+		live.GraphQLURL != rpcURL+"/graphql" ||
+		live.WebSocketURL != "ws://127.0.0.1/ws" ||
+		live.SeedFile != seedFile {
+		t.Fatalf("live network = %+v", live)
+	}
+	if err := live.Close(); err != nil {
 		t.Fatal(err)
 	}
-	if session.Client == nil || session.Wallet == nil ||
-		session.Sender != common.Address(expectedWallet.GetAddress()) {
-		t.Fatalf("incomplete signing session: %+v", session)
-	}
-	if session.RPCURL != server.URL ||
-		session.GraphQLURL != server.URL+"/graphql" ||
-		session.WebSocketURL != "ws://127.0.0.1/ws" {
-		t.Fatalf("session endpoints = %+v", session)
-	}
-	if err := session.Close(); err != nil {
+	if err := live.Close(); err != nil {
 		t.Fatal(err)
 	}
 	reopened, err := network.AcquireMutationLease(networkDir)
@@ -71,14 +60,14 @@ func TestOpenLiveSession(t *testing.T) {
 	_ = reopened.Close()
 }
 
-func TestOpenLiveSessionReleasesLeaseOnFailure(t *testing.T) {
+func TestOpenLiveNetworkReleasesLeaseOnFailure(t *testing.T) {
 	networkDir, _ := liveNetworkDirectory(t)
 	values := map[string]string{networkDirVariable: networkDir}
 	authenticate := func(context.Context, string) (network.Environment, error) {
 		return network.Environment{}, errors.New("network unavailable")
 	}
 
-	_, err := openLiveSession(t.Context(), mapGetenv(values), authenticate)
+	_, err := openLiveNetwork(t.Context(), mapGetenv(values), authenticate)
 	if err == nil || !strings.Contains(err.Error(), "authenticate live network") {
 		t.Fatalf("authentication error = %v", err)
 	}
@@ -93,10 +82,6 @@ func liveNetworkDirectory(t *testing.T) (string, string) {
 	t.Helper()
 	networkDir := t.TempDir()
 	if err := os.Mkdir(filepath.Join(networkDir, "private"), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	seedFile := filepath.Join(networkDir, "private", "wallet.seed")
-	if err := os.WriteFile(seedFile, []byte(testSeed+"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	canonical, err := filepath.EvalSymlinks(networkDir)
