@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"reflect"
 	"strings"
 	"sync"
 
@@ -364,8 +365,18 @@ func (c *BoundContract) FilterLogs(opts *FilterOpts, name string, query ...[]any
 	if opts == nil {
 		opts = new(FilterOpts)
 	}
-	// Append the event selector to the query parameters and construct the topic set
-	query = append([][]any{{c.abi.Events[name].ID}}, query...)
+	eventDef, ok := c.abi.Events[name]
+	if !ok {
+		return nil, nil, fmt.Errorf("event %q not found", name)
+	}
+	if err := validateEventQuery(eventDef, query); err != nil {
+		return nil, nil, err
+	}
+	// Non-anonymous events start with their signature. Anonymous events omit the
+	// selector, so their first query rule applies to their first indexed input.
+	if !eventDef.Anonymous {
+		query = append([][]any{{eventDef.ID}}, query...)
+	}
 
 	topics, err := abi.MakeTopics(query...)
 	if err != nil {
@@ -413,8 +424,18 @@ func (c *BoundContract) WatchLogs(opts *WatchOpts, name string, query ...[]any) 
 	if opts == nil {
 		opts = new(WatchOpts)
 	}
-	// Append the event selector to the query parameters and construct the topic set
-	query = append([][]any{{c.abi.Events[name].ID}}, query...)
+	eventDef, ok := c.abi.Events[name]
+	if !ok {
+		return nil, nil, fmt.Errorf("event %q not found", name)
+	}
+	if err := validateEventQuery(eventDef, query); err != nil {
+		return nil, nil, err
+	}
+	// Non-anonymous events start with their signature. Anonymous events omit the
+	// selector, so their first query rule applies to their first indexed input.
+	if !eventDef.Anonymous {
+		query = append([][]any{{eventDef.ID}}, query...)
+	}
 
 	topics, err := abi.MakeTopics(query...)
 	if err != nil {
@@ -439,48 +460,253 @@ func (c *BoundContract) WatchLogs(opts *WatchOpts, name string, query ...[]any) 
 
 // UnpackLog unpacks a retrieved log into the provided output structure.
 func (c *BoundContract) UnpackLog(out any, event string, log types.Log) error {
-	// Anonymous events are not supported.
-	if len(log.Topics) == 0 {
-		return errNoEventSignature
+	eventDef, topics, err := c.eventTopics(event, log.Topics)
+	if err != nil {
+		return err
 	}
-	if log.Topics[0] != common.HashToLogTopic(c.abi.Events[event].ID) {
-		return errEventSignatureMismatch
-	}
-	if len(log.Data) > 0 {
-		if err := c.abi.UnpackIntoInterface(out, event, log.Data); err != nil {
+	nonIndexed := eventDef.Inputs.NonIndexed()
+	if len(nonIndexed) > 0 {
+		values, err := nonIndexed.Unpack(log.Data)
+		if err != nil {
+			return err
+		}
+		if err := copyEventValues(out, eventDef.Inputs, false, values); err != nil {
 			return err
 		}
 	}
 	var indexed abi.Arguments
-	for _, arg := range c.abi.Events[event].Inputs {
+	for _, arg := range eventDef.Inputs {
 		if arg.Indexed {
 			indexed = append(indexed, arg)
 		}
 	}
-	return abi.ParseTopics(out, indexed, log.Topics[1:])
+	return copyEventTopics(out, eventDef.Inputs, indexed, topics)
 }
 
 // UnpackLogIntoMap unpacks a retrieved log into the provided map.
 func (c *BoundContract) UnpackLogIntoMap(out map[string]any, event string, log types.Log) error {
-	// Anonymous events are not supported.
-	if len(log.Topics) == 0 {
-		return errNoEventSignature
+	eventDef, topics, err := c.eventTopics(event, log.Topics)
+	if err != nil {
+		return err
 	}
-	if log.Topics[0] != common.HashToLogTopic(c.abi.Events[event].ID) {
-		return errEventSignatureMismatch
+	if out == nil {
+		return errors.New("abi: cannot unpack event into a nil map")
 	}
-	if len(log.Data) > 0 {
-		if err := c.abi.UnpackIntoMap(out, event, log.Data); err != nil {
+	if err := validateEventMapKeys(eventDef); err != nil {
+		return err
+	}
+	nonIndexed := eventDef.Inputs.NonIndexed()
+	if len(nonIndexed) > 0 {
+		if err := nonIndexed.UnpackIntoMap(out, log.Data); err != nil {
 			return err
 		}
 	}
 	var indexed abi.Arguments
-	for _, arg := range c.abi.Events[event].Inputs {
+	for _, arg := range eventDef.Inputs {
 		if arg.Indexed {
 			indexed = append(indexed, arg)
 		}
 	}
-	return abi.ParseTopicsIntoMap(out, indexed, log.Topics[1:])
+	return abi.ParseTopicsIntoMap(out, indexed, topics)
+}
+
+// validateEventQuery checks typed filter values before MakeTopics erases their
+// ABI context. Generated bindings use *big.Int for integer widths without an
+// exact Go scalar type, so relying on MakeTopics alone would accept values that
+// fit a VM64 topic but not the event's declared width (including negative uints).
+// Explicit common.Hash and common.LogTopic values remain supported as raw topic
+// rules, which is also how generated bindings query indexed composite values.
+func validateEventQuery(eventDef abi.Event, query [][]any) error {
+	if err := eventDef.Validate(); err != nil {
+		return err
+	}
+	indexed := make(abi.Arguments, 0, len(eventDef.Inputs))
+	for _, argument := range eventDef.Inputs {
+		if argument.Indexed {
+			indexed = append(indexed, argument)
+		}
+	}
+	if len(query) > len(indexed) {
+		return fmt.Errorf("abi: event %q has %d indexed arguments, got %d topic rules", eventDef.RawName, len(indexed), len(query))
+	}
+	for queryIndex, alternatives := range query {
+		argument := indexed[queryIndex]
+		for alternativeIndex, rule := range alternatives {
+			switch rule.(type) {
+			case common.Hash, common.LogTopic:
+				continue // Explicit precomputed topic.
+			}
+			if _, err := (abi.Arguments{{Name: argument.Name, Type: argument.Type}}).Pack(rule); err != nil {
+				return fmt.Errorf("abi: invalid topic rule %d for indexed event argument %q (alternative %d): %w", queryIndex, argument.Name, alternativeIndex, err)
+			}
+		}
+	}
+	return nil
+}
+
+// validateEventMapKeys rejects event schemas which a map cannot represent
+// without losing information. Struct decoding remains available for duplicate
+// inputs because it can pair fields by occurrence and ABI tag. NewEvent gives
+// unnamed inputs stable argN names, so those remain valid map keys.
+func validateEventMapKeys(eventDef abi.Event) error {
+	seen := make(map[string]struct{}, len(eventDef.Inputs))
+	for _, argument := range eventDef.Inputs {
+		name := argument.Name
+		if _, exists := seen[name]; exists {
+			return fmt.Errorf("abi: duplicate event argument name %q cannot be unpacked into a map", name)
+		}
+		seen[name] = struct{}{}
+	}
+	return nil
+}
+
+// eventTopics resolves an ABI event and removes the signature topic for
+// non-anonymous events. Anonymous events use every log topic as indexed data.
+func (c *BoundContract) eventTopics(name string, topics []common.LogTopic) (abi.Event, []common.LogTopic, error) {
+	eventDef, ok := c.abi.Events[name]
+	if !ok {
+		return abi.Event{}, nil, fmt.Errorf("event %q not found", name)
+	}
+	if err := eventDef.Validate(); err != nil {
+		return abi.Event{}, nil, err
+	}
+	if eventDef.Anonymous {
+		return eventDef, topics, nil
+	}
+	if len(topics) == 0 {
+		return abi.Event{}, nil, errNoEventSignature
+	}
+	if topics[0] != common.HashToLogTopic(eventDef.ID) {
+		return abi.Event{}, nil, errEventSignatureMismatch
+	}
+	return eventDef, topics[1:], nil
+}
+
+// copyEventValues assigns decoded non-indexed event values to their generated
+// struct fields. Event structs carry tags for every input (indexed and
+// non-indexed), so the generic ABI tuple copier cannot be used on only the
+// non-indexed subset without treating the other tags as errors.
+func copyEventValues(out any, arguments abi.Arguments, indexed bool, values []any) error {
+	destination := reflect.ValueOf(out)
+	if !destination.IsValid() || destination.Kind() != reflect.Ptr || destination.IsNil() || destination.Elem().Kind() != reflect.Struct {
+		return errors.New("abi: event output must be a non-nil pointer to a struct")
+	}
+	expected := 0
+	for _, argument := range arguments {
+		if argument.Indexed == indexed {
+			expected++
+		}
+	}
+	if expected != len(values) {
+		return fmt.Errorf("abi: event argument/value count mismatch: %d arguments, %d values", expected, len(values))
+	}
+	destination = destination.Elem()
+	fieldIndices, err := eventFieldIndices(destination.Type(), arguments)
+	if err != nil {
+		return err
+	}
+	valueIndex := 0
+	for argumentIndex, argument := range arguments {
+		if argument.Indexed != indexed {
+			continue
+		}
+		if err := setEventValue(destination.Field(fieldIndices[argumentIndex]), values[valueIndex]); err != nil {
+			return fmt.Errorf("abi: cannot unmarshal event field %q: %w", argument.Name, err)
+		}
+		valueIndex++
+	}
+	return nil
+}
+
+func eventFieldIndices(typ reflect.Type, arguments abi.Arguments) ([]int, error) {
+	indices := make([]int, len(arguments))
+	usedFields := make(map[int]bool)
+	for i, argument := range arguments {
+		fieldIndex, err := eventFieldIndex(typ, argument.Name, usedFields)
+		if err != nil {
+			return nil, err
+		}
+		usedFields[fieldIndex] = true
+		indices[i] = fieldIndex
+	}
+	return indices, nil
+}
+
+// copyEventTopics decodes indexed values into a temporary struct and then
+// copies them through the full event-input mapping. Decoding the indexed and
+// non-indexed subsets directly into the destination would restart duplicate
+// ABI-name occurrence counting for each subset and overwrite the first field.
+func copyEventTopics(out any, arguments, indexed abi.Arguments, topics []common.LogTopic) error {
+	fields := make([]reflect.StructField, len(indexed))
+	for i, argument := range indexed {
+		fieldType := argument.Type.GetType()
+		switch argument.Type.T {
+		case abi.StringTy, abi.BytesTy, abi.SliceTy, abi.ArrayTy, abi.TupleTy:
+			fieldType = reflect.TypeFor[common.Hash]()
+		}
+		fields[i] = reflect.StructField{
+			Name: fmt.Sprintf("Topic%d", i),
+			Type: fieldType,
+			Tag:  reflect.StructTag(fmt.Sprintf(`abi:%q`, argument.Name)),
+		}
+	}
+	temporary := reflect.New(reflect.StructOf(fields))
+	if err := abi.ParseTopics(temporary.Interface(), indexed, topics); err != nil {
+		return err
+	}
+	values := make([]any, len(indexed))
+	for i := range values {
+		values[i] = temporary.Elem().Field(i).Interface()
+	}
+	return copyEventValues(out, arguments, true, values)
+}
+
+// eventFieldIndex prefers explicit ABI tags and falls back to the historical
+// camel-case convention for handwritten event structs without tags. Tracking
+// used fields also gives duplicate ABI names stable occurrence-based pairing.
+func eventFieldIndex(typ reflect.Type, name string, used map[int]bool) (int, error) {
+	for i := 0; i < typ.NumField(); i++ {
+		field := typ.Field(i)
+		if field.PkgPath != "" || used[i] {
+			continue
+		}
+		if tag, ok := field.Tag.Lookup("abi"); ok && tag == name {
+			return i, nil
+		}
+	}
+	wanted := abi.ToCamelCase(name)
+	if wanted == "" {
+		return 0, errors.New("abi: purely underscored event field cannot unpack to struct")
+	}
+	if field, ok := typ.FieldByName(wanted); ok && len(field.Index) == 1 && !used[field.Index[0]] {
+		if tag, tagged := field.Tag.Lookup("abi"); !tagged || tag == name {
+			return field.Index[0], nil
+		}
+	}
+	return 0, fmt.Errorf("abi: struct field for event argument %q not found", name)
+}
+
+// setEventValue delegates recursive tuple/slice/array conversion to the ABI
+// package while turning its legacy panic-on-conversion API into a normal error.
+func setEventValue(destination reflect.Value, value any) (err error) {
+	if !destination.CanSet() {
+		return fmt.Errorf("destination %s cannot be set", destination.Type())
+	}
+	if value == nil {
+		destination.SetZero()
+		return nil
+	}
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			err = fmt.Errorf("%v", recovered)
+		}
+	}()
+	converted := reflect.ValueOf(abi.ConvertType(value, reflect.New(destination.Type()).Interface()))
+	if converted.Kind() != reflect.Ptr || converted.IsNil() {
+		return fmt.Errorf("conversion returned %s, want pointer to %s", converted.Type(), destination.Type())
+	}
+	destination.Set(converted.Elem())
+	return nil
 }
 
 // ensureContext is a helper method to ensure a context is not nil, even if the

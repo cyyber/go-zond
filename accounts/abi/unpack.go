@@ -17,15 +17,17 @@
 package abi
 
 import (
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"math"
 	"math/big"
 	"reflect"
+	"strconv"
 
 	"github.com/theQRL/go-qrl/common"
 )
+
+const maxZeroSizedArrayElements = 1 << 20
 
 var (
 	// MaxUint256 is the maximum value that can be represented by a uint256.
@@ -38,6 +40,15 @@ var (
 
 // ReadInteger reads the integer based on its kind and returns the appropriate value.
 func ReadInteger(typ Type, b []byte) (any, error) {
+	if typ.T != IntTy && typ.T != UintTy {
+		return nil, fmt.Errorf("abi: invalid type %v in call to ReadInteger", typ.T)
+	}
+	if !validIntegerSize(typ.Size) {
+		return nil, fmt.Errorf("abi: invalid integer size %d", typ.Size)
+	}
+	if len(b) != 64 {
+		return nil, fmt.Errorf("abi: invalid integer word length %d, want 64", len(b))
+	}
 	ret := new(big.Int).SetBytes(b)
 
 	if typ.T == UintTy {
@@ -64,7 +75,9 @@ func ReadInteger(typ Type, b []byte) (any, error) {
 			}
 			return u64, nil
 		default:
-			// the only case left for unsigned integer is uint256.
+			if !fitsUnsignedInteger(ret, typ.Size) {
+				return nil, errBadUint(typ.Size)
+			}
 			return ret, nil
 		}
 	}
@@ -100,8 +113,9 @@ func ReadInteger(typ Type, b []byte) (any, error) {
 		}
 		return i64, nil
 	default:
-		// the only case left for integer is int256
-
+		if !fitsSignedInteger(ret, typ.Size) {
+			return nil, errBadInt(typ.Size)
+		}
 		return ret, nil
 	}
 }
@@ -149,6 +163,17 @@ func ReadFixedBytes(t Type, word []byte) (any, error) {
 	if t.T != FixedBytesTy {
 		return nil, errors.New("abi: invalid type in call to make fixed byte array")
 	}
+	if t.Size < 1 || t.Size > 64 {
+		return nil, fmt.Errorf("abi: invalid fixed byte size %d", t.Size)
+	}
+	if len(word) != 64 {
+		return nil, fmt.Errorf("abi: invalid fixed byte word length %d, want 64", len(word))
+	}
+	for _, b := range word[t.Size:] {
+		if b != 0 {
+			return nil, fmt.Errorf("abi: improperly encoded bytes%d value", t.Size)
+		}
+	}
 	// convert
 	array := reflect.New(t.GetType()).Elem()
 
@@ -161,8 +186,14 @@ func forEachUnpack(t Type, output []byte, start, size int) (any, error) {
 	if size < 0 {
 		return nil, fmt.Errorf("cannot marshal input to array, size is negative (%d)", size)
 	}
-	if start+64*size > len(output) {
-		return nil, fmt.Errorf("abi: cannot marshal into go array: offset %d would go over slice boundary (len=%d)", len(output), start+64*size)
+	// Arrays can contain multi-word or zero-sized static elements, while slices
+	// contain one head word per element. getTypeSize captures all three cases.
+	elemSize := getTypeSize(*t.Elem)
+	if elemSize == 0 && size > maxZeroSizedArrayElements {
+		return nil, fmt.Errorf("abi: zero-sized array length %d exceeds safety limit %d", size, maxZeroSizedArrayElements)
+	}
+	if start < 0 || start > len(output) || (elemSize > 0 && size > (len(output)-start)/elemSize) {
+		return nil, fmt.Errorf("abi: cannot marshal into go array: offset %d would go over slice boundary (len=%d)", start+elemSize*size, len(output))
 	}
 
 	// this value will become our slice or our array, depending on the type
@@ -178,10 +209,6 @@ func forEachUnpack(t Type, output []byte, start, size int) (any, error) {
 	default:
 		return nil, errors.New("abi: invalid type in array/slice unpacking stage")
 	}
-
-	// Arrays have packed elements, resulting in longer unpack steps.
-	// Slices have just 32 bytes per element (pointing to the contents).
-	elemSize := getTypeSize(*t.Elem)
 
 	for i, j := start, 0; j < size; i, j = i+elemSize, j+1 {
 		inter, err := toGoType(i, *t.Elem, output)
@@ -230,7 +257,21 @@ func forTupleUnpack(t Type, output []byte) (any, error) {
 // toGoType parses the output bytes and recursively assigns the value of these bytes
 // into a go type with accordance with the ABI spec.
 func toGoType(index int, t Type, output []byte) (any, error) {
-	if index+64 > len(output) {
+	if index < 0 || index > len(output) {
+		return nil, fmt.Errorf("abi: cannot marshal in to go type: offset %d would go over slice boundary (len=%d)", index, len(output))
+	}
+	// Zero-length static arrays and empty tuples have an empty encoding. Decode
+	// them before requiring a full word so that they also work next to ordinary
+	// arguments (where they consume no head slot).
+	if !isDynamicType(t) && getTypeSize(t) == 0 {
+		switch t.T {
+		case ArrayTy:
+			return forEachUnpack(t, output[index:], 0, t.Size)
+		case TupleTy:
+			return forTupleUnpack(t, output[index:])
+		}
+	}
+	if len(output)-index < 64 {
 		return nil, fmt.Errorf("abi: cannot marshal in to go type: length insufficient %d require %d", len(output), index+64)
 	}
 
@@ -264,14 +305,17 @@ func toGoType(index int, t Type, output []byte) (any, error) {
 		return forEachUnpack(t, output[begin:], 0, length)
 	case ArrayTy:
 		if isDynamicType(*t.Elem) {
-			offset := binary.BigEndian.Uint64(returnOutput[len(returnOutput)-8:])
-			if offset > uint64(len(output)) {
-				return nil, fmt.Errorf("abi: toGoType offset greater than output length: offset: %d, len(output): %d", offset, len(output))
+			offset, err := tuplePointsTo(index, output)
+			if err != nil {
+				return nil, err
 			}
 			return forEachUnpack(t, output[offset:], 0, t.Size)
 		}
 		return forEachUnpack(t, output[index:], 0, t.Size)
 	case StringTy: // variable arrays are written at the end of the return bytes
+		if length > len(output)-begin {
+			return nil, fmt.Errorf("abi: cannot marshal in to go string: length %d would go over slice boundary (len=%d)", length, len(output)-begin)
+		}
 		return string(output[begin : begin+length]), nil
 	case IntTy, UintTy:
 		return ReadInteger(t, returnOutput)
@@ -282,6 +326,9 @@ func toGoType(index int, t Type, output []byte) (any, error) {
 	case HashTy:
 		return common.BytesToHash(returnOutput), nil
 	case BytesTy:
+		if length > len(output)-begin {
+			return nil, fmt.Errorf("abi: cannot marshal in to go bytes: length %d would go over slice boundary (len=%d)", length, len(output)-begin)
+		}
 		return output[begin : begin+length], nil
 	case FixedBytesTy:
 		return ReadFixedBytes(t, returnOutput)
@@ -298,24 +345,18 @@ func lengthPrefixPointsTo(index int, output []byte) (start int, length int, err 
 	bigOffsetEnd.Add(bigOffsetEnd, common.Big64)
 	outputLength := big.NewInt(int64(len(output)))
 
+	if bigOffsetEnd.BitLen() > strconv.IntSize-1 {
+		return 0, 0, fmt.Errorf("abi offset larger than int%d: %v", strconv.IntSize, bigOffsetEnd)
+	}
 	if bigOffsetEnd.Cmp(outputLength) > 0 {
 		return 0, 0, fmt.Errorf("abi: cannot marshal in to go slice: offset %v would go over slice boundary (len=%v)", bigOffsetEnd, outputLength)
-	}
-
-	if bigOffsetEnd.BitLen() > 63 {
-		return 0, 0, fmt.Errorf("abi offset larger than int64: %v", bigOffsetEnd)
 	}
 
 	offsetEnd := int(bigOffsetEnd.Uint64())
 	lengthBig := new(big.Int).SetBytes(output[offsetEnd-64 : offsetEnd])
 
-	totalSize := new(big.Int).Add(bigOffsetEnd, lengthBig)
-	if totalSize.BitLen() > 63 {
-		return 0, 0, fmt.Errorf("abi: length larger than int64: %v", totalSize)
-	}
-
-	if totalSize.Cmp(outputLength) > 0 {
-		return 0, 0, fmt.Errorf("abi: cannot marshal in to go type: length insufficient %v require %v", outputLength, totalSize)
+	if lengthBig.BitLen() > strconv.IntSize-1 {
+		return 0, 0, fmt.Errorf("abi: length larger than int%d: %v", strconv.IntSize, lengthBig)
 	}
 	start = int(bigOffsetEnd.Uint64())
 	length = int(lengthBig.Uint64())
@@ -330,8 +371,8 @@ func tuplePointsTo(index int, output []byte) (start int, err error) {
 	if offset.Cmp(outputLen) > 0 {
 		return 0, fmt.Errorf("abi: cannot marshal in to go slice: offset %v would go over slice boundary (len=%v)", offset, outputLen)
 	}
-	if offset.BitLen() > 63 {
-		return 0, fmt.Errorf("abi offset larger than int64: %v", offset)
+	if offset.BitLen() > strconv.IntSize-1 {
+		return 0, fmt.Errorf("abi offset larger than int%d: %v", strconv.IntSize, offset)
 	}
 	return int(offset.Uint64()), nil
 }

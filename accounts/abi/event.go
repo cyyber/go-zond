@@ -45,6 +45,11 @@ type Event struct {
 	Inputs    Arguments
 	str       string
 
+	// declarationIndex records the one-based position of this event in
+	// compiler-produced ABI JSON. It keeps topic lookup deterministic when
+	// inherited ABI entries repeat the same canonical signature.
+	declarationIndex int
+
 	// Sig contains the string signature according to the ABI spec.
 	// e.g.	 event foo(uint32 a, int b) = "foo(uint32,int256)"
 	// Please note that "int" is substitute for its canonical representation "int256"
@@ -54,6 +59,8 @@ type Event struct {
 	// abi definition to identify event names and types.
 	ID common.Hash
 }
+
+const maxEventTopics = 4
 
 // NewEvent creates a new Event.
 // It sanitizes the input arguments to remove unnamed arguments.
@@ -96,6 +103,32 @@ func NewEvent(name, rawName string, anonymous bool, inputs Arguments) Event {
 		Sig:       sig,
 		ID:        id,
 	}
+}
+
+// Validate checks that the event can be represented by the VM LOG opcodes.
+// Non-anonymous events reserve one of the four topic positions for their
+// signature, while anonymous events may use all four for indexed arguments.
+func (e Event) Validate() error {
+	maxIndexed := maxEventTopics
+	eventKind := "anonymous"
+	if !e.Anonymous {
+		maxIndexed--
+		eventKind = "non-anonymous"
+	}
+	indexed := 0
+	for _, input := range e.Inputs {
+		if input.Indexed {
+			indexed++
+		}
+	}
+	if indexed > maxIndexed {
+		name := e.RawName
+		if name == "" {
+			name = e.Name
+		}
+		return fmt.Errorf("abi: %s event %q has %d indexed arguments, maximum is %d", eventKind, name, indexed, maxIndexed)
+	}
+	return nil
 }
 
 func (e Event) String() string {

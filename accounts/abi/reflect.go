@@ -53,6 +53,9 @@ func ConvertType(in any, proto any) any {
 // indirect recursively dereferences the value until it either gets the value
 // or finds a big.Int
 func indirect(v reflect.Value) reflect.Value {
+	if !v.IsValid() || (v.Kind() == reflect.Ptr && v.IsNil()) {
+		return v
+	}
 	if v.Kind() == reflect.Ptr && v.Elem().Type() != reflect.TypeFor[big.Int]() {
 		return indirect(v.Elem())
 	}
@@ -100,6 +103,15 @@ func mustArrayToByteSlice(value reflect.Value) reflect.Value {
 // set is a bit more lenient when it comes to assignment and doesn't force an as
 // strict ruleset as bare `reflect` does.
 func set(dst, src reflect.Value) error {
+	if !dst.IsValid() {
+		return errors.New("abi: cannot unmarshal into a nil destination")
+	}
+	if !src.IsValid() || (src.Kind() == reflect.Ptr && src.IsNil()) {
+		return errors.New("abi: cannot unmarshal a nil value")
+	}
+	if dst.Kind() == reflect.Ptr && dst.IsNil() && dst.Type().Elem() != reflect.TypeFor[big.Int]() {
+		return fmt.Errorf("abi: cannot unmarshal into nil pointer %v", dst.Type())
+	}
 	dstType, srcType := dst.Type(), src.Type()
 	switch {
 	case dstType.Kind() == reflect.Interface && dst.Elem().IsValid() && (dst.Elem().Type().Kind() == reflect.Ptr || dst.Elem().CanSet()):
@@ -159,6 +171,9 @@ func setArray(dst, src reflect.Value) error {
 }
 
 func setStruct(dst, src reflect.Value) error {
+	if dst.NumField() < src.NumField() {
+		return fmt.Errorf("abi: destination struct has %d fields, need %d", dst.NumField(), src.NumField())
+	}
 	for i := 0; i < src.NumField(); i++ {
 		srcField := src.Field(i)
 		dstField := dst.Field(i)
@@ -261,4 +276,70 @@ func mapArgNamesToStructFields(argNames []string, value reflect.Value) (map[stri
 		}
 	}
 	return abi2struct, nil
+}
+
+// mapTupleRawNamesToStructFields maps every tuple component occurrence to one
+// concrete struct field. A map keyed by the ABI name cannot represent tuples
+// such as (data,_data,data), because all three names normalize to Data and ABI
+// component names are not required to be unique. Generated structs resolve
+// these collisions as Data, Data0, Data1; explicit abi tags are matched to
+// duplicate names in stable declaration order.
+func mapTupleRawNamesToStructFields(argNames []string, value reflect.Value) ([][]int, error) {
+	if value.Kind() != reflect.Struct {
+		return nil, fmt.Errorf("abi: cannot map tuple fields onto %v", value.Type())
+	}
+	typ := value.Type()
+	mapped := make([][]int, len(argNames))
+	usedFields := make(map[string]bool)
+
+	// Explicit tags take precedence. When a tuple contains duplicate raw names,
+	// successive tagged fields map to successive unmatched occurrences.
+	for fieldIndex := range typ.NumField() {
+		field := typ.Field(fieldIndex)
+		if field.PkgPath != "" { // unexported
+			continue
+		}
+		tagName, ok := field.Tag.Lookup("abi")
+		if !ok {
+			continue
+		}
+		if tagName == "" {
+			return nil, fmt.Errorf("struct: abi tag in '%s' is empty", field.Name)
+		}
+		match := -1
+		for argIndex, argName := range argNames {
+			if mapped[argIndex] == nil && argName == tagName {
+				match = argIndex
+				break
+			}
+		}
+		if match == -1 {
+			return nil, fmt.Errorf("struct: abi tag '%s' defined but not found in abi", tagName)
+		}
+		mapped[match] = []int{fieldIndex}
+		usedFields[fmt.Sprint(mapped[match])] = true
+	}
+
+	// Reproduce the collision resolution used by NewType and abigen. Resolve
+	// names for every occurrence, including those already mapped by tags, so
+	// suffix numbering remains stable.
+	usedNames := make(map[string]bool)
+	for argIndex, argName := range argNames {
+		name := ToCamelCase(argName)
+		if name == "" {
+			return nil, errors.New("abi: purely underscored tuple field is not supported")
+		}
+		name = ResolveNameConflict(name, func(candidate string) bool { return usedNames[candidate] })
+		usedNames[name] = true
+		if mapped[argIndex] != nil {
+			continue
+		}
+		field, ok := typ.FieldByName(name)
+		if !ok || field.PkgPath != "" || usedFields[fmt.Sprint(field.Index)] {
+			return nil, fmt.Errorf("abi: field %s for tuple component %d not found in %v", name, argIndex, typ)
+		}
+		mapped[argIndex] = field.Index
+		usedFields[fmt.Sprint(field.Index)] = true
+	}
+	return mapped, nil
 }

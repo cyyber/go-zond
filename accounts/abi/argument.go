@@ -79,10 +79,15 @@ func (arguments Arguments) isTuple() bool {
 // Unpack performs the operation hexdata -> Go format.
 func (arguments Arguments) Unpack(data []byte) ([]any, error) {
 	if len(data) == 0 {
-		if len(arguments.NonIndexed()) != 0 {
-			return nil, errors.New("abi: attempting to unmarshal an empty string while arguments are expected")
+		for _, arg := range arguments.NonIndexed() {
+			if getTypeSize(arg.Type) != 0 {
+				return nil, errors.New("abi: attempting to unmarshal an empty string while arguments are expected")
+			}
 		}
-		return make([]any, 0), nil
+		if len(arguments.NonIndexed()) == 0 {
+			return make([]any, 0), nil
+		}
+		return arguments.UnpackValues(data)
 	}
 	return arguments.UnpackValues(data)
 }
@@ -93,13 +98,7 @@ func (arguments Arguments) UnpackIntoMap(v map[string]any, data []byte) error {
 	if v == nil {
 		return errors.New("abi: cannot unpack into a nil map")
 	}
-	if len(data) == 0 {
-		if len(arguments.NonIndexed()) != 0 {
-			return errors.New("abi: attempting to unmarshal an empty string while arguments are expected")
-		}
-		return nil // Nothing to unmarshal, return
-	}
-	marshalledValues, err := arguments.UnpackValues(data)
+	marshalledValues, err := arguments.Unpack(data)
 	if err != nil {
 		return err
 	}
@@ -112,13 +111,18 @@ func (arguments Arguments) UnpackIntoMap(v map[string]any, data []byte) error {
 // Copy performs the operation go format -> provided struct.
 func (arguments Arguments) Copy(v any, values []any) error {
 	// make sure the passed value is arguments pointer
-	if reflect.Ptr != reflect.ValueOf(v).Kind() {
+	value := reflect.ValueOf(v)
+	if !value.IsValid() || value.Kind() != reflect.Ptr {
 		return fmt.Errorf("abi: Unpack(non-pointer %T)", v)
 	}
+	if value.IsNil() {
+		return fmt.Errorf("abi: Unpack(nil %T)", v)
+	}
+	expected := len(arguments.NonIndexed())
+	if len(values) != expected {
+		return fmt.Errorf("abi: argument/value count mismatch: want %d, got %d", expected, len(values))
+	}
 	if len(values) == 0 {
-		if len(arguments.NonIndexed()) != 0 {
-			return errors.New("abi: attempting to copy no values while arguments are expected")
-		}
 		return nil // Nothing to copy, return
 	}
 	if arguments.isTuple() {
@@ -132,7 +136,13 @@ func (arguments Arguments) copyAtomic(v any, marshalledValues any) error {
 	dst := reflect.ValueOf(v).Elem()
 	src := reflect.ValueOf(marshalledValues)
 
+	if src.IsValid() && src.Type().AssignableTo(dst.Type()) {
+		return set(dst, src)
+	}
 	if dst.Kind() == reflect.Struct {
+		if dst.NumField() == 0 {
+			return fmt.Errorf("abi: cannot unmarshal atomic value into empty struct %v", dst.Type())
+		}
 		return set(dst.Field(0), src)
 	}
 	return set(dst, src)
@@ -182,6 +192,9 @@ func (arguments Arguments) copyTuple(v any, marshalledValues []any) error {
 // without supplying a struct to unpack into. Instead, this method returns a list containing the
 // values. An atomic argument will be a list with one element.
 func (arguments Arguments) UnpackValues(data []byte) ([]any, error) {
+	if len(data)%64 != 0 {
+		return nil, fmt.Errorf("abi: improperly formatted data: length %d is not a multiple of 64", len(data))
+	}
 	var (
 		retval      = make([]any, 0)
 		virtualArgs = 0

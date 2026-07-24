@@ -22,9 +22,13 @@ package bind
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"go/format"
+	"go/token"
 	"regexp"
+	"sort"
+	"strconv"
 	"strings"
 	"text/template"
 	"unicode"
@@ -74,11 +78,169 @@ func isKeyWord(arg string) bool {
 	return true
 }
 
+var predeclaredGoIdentifiers = map[string]bool{
+	"any": true, "bool": true, "byte": true, "comparable": true,
+	"complex64": true, "complex128": true, "error": true,
+	"float32": true, "float64": true,
+	"int": true, "int8": true, "int16": true, "int32": true, "int64": true,
+	"rune": true, "string": true,
+	"uint": true, "uint8": true, "uint16": true, "uint32": true, "uint64": true, "uintptr": true,
+	"true": true, "false": true, "iota": true, "nil": true,
+	"append": true, "cap": true, "clear": true, "close": true, "complex": true,
+	"copy": true, "delete": true, "imag": true, "len": true, "make": true,
+	"max": true, "min": true, "new": true, "panic": true, "print": true,
+	"println": true, "real": true, "recover": true,
+}
+
+func contractPackageNames(contract string) []string {
+	return []string{
+		contract,
+		contract + "MetaData", contract + "ABI", contract + "Bin", contract + "FuncSigs",
+		contract + "Caller", contract + "Transactor", contract + "Filterer",
+		contract + "Session", contract + "CallerSession", contract + "TransactorSession",
+		contract + "Raw", contract + "CallerRaw", contract + "TransactorRaw",
+		"Deploy" + contract,
+		"New" + contract, "New" + contract + "Caller", "New" + contract + "Transactor", "New" + contract + "Filterer",
+		"bind" + contract,
+	}
+}
+
+func identifierSet(names ...string) map[string]bool {
+	set := make(map[string]bool, len(names))
+	for _, name := range names {
+		set[name] = true
+	}
+	return set
+}
+
+func generatedIdentifierBase(name, fallback string, index int) string {
+	if name == "" || name == "_" || isKeyWord(name) || predeclaredGoIdentifiers[name] || !token.IsIdentifier(name) {
+		return fmt.Sprintf("%s%d", fallback, index)
+	}
+	return name
+}
+
+func resolveGeneratedIdentifier(name, fallback string, index int, conflicts func(string) bool) string {
+	base := generatedIdentifierBase(name, fallback, index)
+	for suffix := -1; ; suffix++ {
+		candidate := base
+		if suffix >= 0 {
+			candidate = fmt.Sprintf("%s%d", base, suffix)
+		}
+		if !conflicts(candidate) {
+			return candidate
+		}
+	}
+}
+
+func normalizeConstructorInputs(inputs abi.Arguments, libs map[string]string, contract string) abi.Arguments {
+	normalized := append(abi.Arguments(nil), inputs...)
+	// Constructor arguments are in scope throughout the generated deployment
+	// body. Reserve packages, locals and generated contract declarations used
+	// there; otherwise a perfectly valid ABI name such as "bind" or
+	// "ContractMetaData" shadows the identifier and produces uncompilable Go.
+	used := identifierSet(
+		"auth", "backend", "parsed", "err", "address", "tx", "contract",
+		"bind", "common", "errors",
+		contract, contract+"MetaData", contract+"Bin",
+		contract+"Caller", contract+"Transactor", contract+"Filterer",
+	)
+	for _, library := range libs {
+		if name := decapitalise(library); name != "" {
+			used[name+"Addr"] = true
+		}
+		if name := abi.ToCamelCase(library); name != "" {
+			used["Deploy"+name] = true
+		}
+	}
+	if len(libs) > 0 {
+		used["strings"] = true
+	}
+	for i := range normalized {
+		name := resolveGeneratedIdentifier(normalized[i].Name, "arg", i, func(candidate string) bool { return used[candidate] })
+		normalized[i].Name = name
+		used[name] = true
+	}
+	return normalized
+}
+
+func normalizeMethodInputs(inputs abi.Arguments, contract string, outputCount int, usesABI bool) abi.Arguments {
+	normalized := append(abi.Arguments(nil), inputs...)
+	used := identifierSet("opts", "out", "err", "outstruct", "_"+contract)
+	if usesABI {
+		// Constant methods with outputs call abi.ConvertType in their generated
+		// body, where an input parameter named "abi" would shadow the package.
+		used["abi"] = true
+	}
+	for i := 0; i < outputCount; i++ {
+		used[fmt.Sprintf("out%d", i)] = true
+	}
+	for i := range normalized {
+		name := resolveGeneratedIdentifier(normalized[i].Name, "arg", i, func(candidate string) bool { return used[candidate] })
+		normalized[i].Name = name
+		used[name] = true
+	}
+	return normalized
+}
+
+func normalizeMethodOutputs(outputs abi.Arguments) abi.Arguments {
+	normalized := append(abi.Arguments(nil), outputs...)
+	used := make(map[string]bool)
+	for i := range normalized {
+		if normalized[i].Name == "" {
+			continue
+		}
+		base := abi.ToCamelCase(normalized[i].Name)
+		name := resolveGeneratedIdentifier(base, "Ret", i, func(candidate string) bool { return used[candidate] })
+		normalized[i].Name = name
+		used[name] = true
+	}
+	return normalized
+}
+
+func normalizeEventInputs(inputs abi.Arguments, contract string) abi.Arguments {
+	normalized := append(abi.Arguments(nil), inputs...)
+	usedVariables := identifierSet("opts", "sink", "logs", "sub", "err", "event", "quit", "log", "_"+contract)
+	usedFields := identifierSet("Raw")
+	for i := range normalized {
+		indexed := normalized[i].Indexed
+		name := resolveGeneratedIdentifier(normalized[i].Name, "arg", i, func(candidate string) bool {
+			if usedVariables[candidate] || usedFields[abi.ToCamelCase(candidate)] {
+				return true
+			}
+			return indexed && (usedVariables[candidate+"Rule"] || usedVariables[candidate+"Item"])
+		})
+		normalized[i].Name = name
+		usedVariables[name] = true
+		usedFields[abi.ToCamelCase(name)] = true
+		if indexed {
+			usedVariables[name+"Rule"] = true
+			usedVariables[name+"Item"] = true
+		}
+	}
+	return normalized
+}
+
+func resolveEventIdentifier(name, contract string, events, packageNames map[string]bool) string {
+	if name == "" || name == "_" || !token.IsIdentifier(name) {
+		name = "Event"
+	}
+	return resolveGeneratedIdentifier(name, "Event", 0, func(candidate string) bool {
+		return events[candidate] || packageNames[contract+candidate] || packageNames[contract+candidate+"Iterator"]
+	})
+}
+
 // Bind generates a Go wrapper around a contract ABI. This wrapper isn't meant
 // to be used as is in client code, but rather as an intermediate struct which
 // enforces compile time type safety and naming convention as opposed to having to
 // manually maintain hard coded strings that break on runtime.
 func Bind(types []string, abis []string, bytecodes []string, fsigs []map[string]string, pkg string, libs map[string]string, aliases map[string]string) (string, error) {
+	if len(types) != len(abis) {
+		return "", fmt.Errorf("binding type/ABI count mismatch: %d types, %d ABIs", len(types), len(abis))
+	}
+	if len(types) != len(bytecodes) {
+		return "", fmt.Errorf("binding type/bytecode count mismatch: %d types, %d bytecodes", len(types), len(bytecodes))
+	}
 	var (
 		// contracts is the map of each individual contract requested binding
 		contracts = make(map[string]*tmplContract)
@@ -88,20 +250,43 @@ func Bind(types []string, abis []string, bytecodes []string, fsigs []map[string]
 
 		// isLib is the map used to flag each encountered library as such
 		isLib = make(map[string]struct{})
+
+		// packageNames tracks every top-level identifier emitted by the template.
+		// Tuple and event types share this namespace with contract wrappers,
+		// metadata variables and constructors, so resolving only against other
+		// tuples is insufficient.
+		packageNames  = make(map[string]bool)
+		contractTypes = make([]string, len(types))
 	)
+	for i, rawType := range types {
+		contractType := abi.ToCamelCase(rawType)
+		if contractType == "" || contractType == "_" || !token.IsIdentifier(contractType) {
+			return "", fmt.Errorf("invalid binding type name %q", rawType)
+		}
+		contractTypes[i] = contractType
+		for _, name := range contractPackageNames(contractType) {
+			if packageNames[name] {
+				return "", fmt.Errorf("binding type %q generates duplicate top-level identifier %q", rawType, name)
+			}
+			packageNames[name] = true
+		}
+	}
 	for i := range types {
 		// Parse the actual ABI to generate the binding for
 		qrvmABI, err := abi.JSON(strings.NewReader(abis[i]))
 		if err != nil {
 			return "", err
 		}
-		// Strip any whitespace from the JSON ABI
-		strippedABI := strings.Map(func(r rune) rune {
-			if unicode.IsSpace(r) {
-				return -1
-			}
-			return r
-		}, abis[i])
+		if err := rejectFunctionTypes(types[i], qrvmABI); err != nil {
+			return "", err
+		}
+		// Compact structural whitespace without changing whitespace embedded in
+		// JSON strings such as internalType names or source-level identifiers.
+		var compactABI bytes.Buffer
+		if err := json.Compact(&compactABI, []byte(abis[i])); err != nil {
+			return "", fmt.Errorf("compact ABI for %q: %w", types[i], err)
+		}
+		strippedABI := compactABI.String()
 
 		// Extract the call and transact methods; events, struct definitions; and sort them alphabetically
 		var (
@@ -118,15 +303,34 @@ func Bind(types []string, abis []string, bytecodes []string, fsigs []map[string]
 			callIdentifiers     = make(map[string]bool)
 			transactIdentifiers = make(map[string]bool)
 			eventIdentifiers    = make(map[string]bool)
+			sessionIdentifiers  = identifierSet("Contract", "CallOpts", "TransactOpts")
 		)
+		// Every ordinary method is emitted on the combined Session type, even
+		// though caller and transactor methods otherwise have separate receiver
+		// types. Reserve the generated session fields and special entrypoints in
+		// that shared namespace so Bind cannot emit duplicate declarations.
+		if qrvmABI.HasFallback() {
+			sessionIdentifiers["Fallback"] = true
+		}
+		if qrvmABI.HasReceive() {
+			sessionIdentifiers["Receive"] = true
+		}
 
-		for _, input := range qrvmABI.Constructor.Inputs {
+		constructor := qrvmABI.Constructor
+		constructor.Inputs = normalizeConstructorInputs(constructor.Inputs, libs, contractTypes[i])
+		for _, input := range constructor.Inputs {
 			if hasStruct(input.Type) {
-				bindStructType(input.Type, structs)
+				bindStructType(input.Type, structs, packageNames)
 			}
 		}
 
-		for _, original := range qrvmABI.Methods {
+		methodNames := make([]string, 0, len(qrvmABI.Methods))
+		for name := range qrvmABI.Methods {
+			methodNames = append(methodNames, name)
+		}
+		sort.Strings(methodNames)
+		for _, name := range methodNames {
+			original := qrvmABI.Methods[name]
 			// Normalize the method for capital cases and non-anonymous inputs/outputs
 			normalized := original
 			normalizedName := abi.ToCamelCase(alias(aliases, original.Name))
@@ -143,30 +347,38 @@ func Bind(types []string, abis []string, bytecodes []string, fsigs []map[string]
 					return ok
 				})
 			}
+			if normalizedName == "" || !token.IsIdentifier(normalizedName) {
+				return "", fmt.Errorf("method %q generates invalid Go identifier %q, use --alias for renaming", original.Name, normalizedName)
+			}
 			if identifiers[normalizedName] {
 				return "", fmt.Errorf("duplicated identifier \"%s\"(normalized \"%s\"), use --alias for renaming", original.Name, normalizedName)
 			}
+			if sessionIdentifiers[normalizedName] {
+				return "", fmt.Errorf("method %q generates duplicate session identifier %q, use --alias for renaming", original.Name, normalizedName)
+			}
 			identifiers[normalizedName] = true
+			sessionIdentifiers[normalizedName] = true
 
 			normalized.Name = normalizedName
 			normalized.Inputs = make([]abi.Argument, len(original.Inputs))
 			copy(normalized.Inputs, original.Inputs)
-			for j, input := range normalized.Inputs {
-				if input.Name == "" || isKeyWord(input.Name) {
-					normalized.Inputs[j].Name = fmt.Sprintf("arg%d", j)
-				}
+			normalized.Inputs = normalizeMethodInputs(
+				normalized.Inputs,
+				contractTypes[i],
+				len(original.Outputs),
+				original.IsConstant() && len(original.Outputs) > 0,
+			)
+			for _, input := range normalized.Inputs {
 				if hasStruct(input.Type) {
-					bindStructType(input.Type, structs)
+					bindStructType(input.Type, structs, packageNames)
 				}
 			}
 			normalized.Outputs = make([]abi.Argument, len(original.Outputs))
 			copy(normalized.Outputs, original.Outputs)
-			for j, output := range normalized.Outputs {
-				if output.Name != "" {
-					normalized.Outputs[j].Name = abi.ToCamelCase(output.Name)
-				}
+			normalized.Outputs = normalizeMethodOutputs(normalized.Outputs)
+			for _, output := range normalized.Outputs {
 				if hasStruct(output.Type) {
-					bindStructType(output.Type, structs)
+					bindStructType(output.Type, structs, packageNames)
 				}
 			}
 			// Append the methods to the call or transact lists
@@ -176,11 +388,13 @@ func Bind(types []string, abis []string, bytecodes []string, fsigs []map[string]
 				transacts[original.Name] = &tmplMethod{Original: original, Normalized: normalized, Structured: structured(original.Outputs)}
 			}
 		}
-		for _, original := range qrvmABI.Events {
-			// Skip anonymous events as they don't support explicit filtering
-			if original.Anonymous {
-				continue
-			}
+		eventNames := make([]string, 0, len(qrvmABI.Events))
+		for name := range qrvmABI.Events {
+			eventNames = append(eventNames, name)
+		}
+		sort.Strings(eventNames)
+		for _, name := range eventNames {
+			original := qrvmABI.Events[name]
 			// Normalize the event for capital cases and non-anonymous outputs
 			normalized := original
 
@@ -194,34 +408,32 @@ func Bind(types []string, abis []string, bytecodes []string, fsigs []map[string]
 					return ok
 				})
 			}
-			if eventIdentifiers[normalizedName] {
-				return "", fmt.Errorf("duplicated identifier \"%s\"(normalized \"%s\"), use --alias for renaming", original.Name, normalizedName)
-			}
+			normalizedName = resolveEventIdentifier(normalizedName, contractTypes[i], eventIdentifiers, packageNames)
 			eventIdentifiers[normalizedName] = true
+			packageNames[contractTypes[i]+normalizedName] = true
+			packageNames[contractTypes[i]+normalizedName+"Iterator"] = true
 			normalized.Name = normalizedName
 
-			used := make(map[string]bool)
 			normalized.Inputs = make([]abi.Argument, len(original.Inputs))
 			copy(normalized.Inputs, original.Inputs)
-			for j, input := range normalized.Inputs {
-				if input.Name == "" || isKeyWord(input.Name) {
-					normalized.Inputs[j].Name = fmt.Sprintf("arg%d", j)
-				}
-				// Event is a bit special, we need to define event struct in binding,
-				// ensure there is no camel-case-style name conflict.
-				for index := 0; ; index++ {
-					if !used[abi.ToCamelCase(normalized.Inputs[j].Name)] {
-						used[abi.ToCamelCase(normalized.Inputs[j].Name)] = true
-						break
-					}
-					normalized.Inputs[j].Name = fmt.Sprintf("%s%d", normalized.Inputs[j].Name, index)
-				}
+			normalized.Inputs = normalizeEventInputs(normalized.Inputs, contractTypes[i])
+			for _, input := range normalized.Inputs {
 				if hasStruct(input.Type) {
-					bindStructType(input.Type, structs)
+					bindStructType(input.Type, structs, packageNames)
 				}
 			}
-			// Append the event to the accumulator list
-			events[original.Name] = &tmplEvent{Original: original, Normalized: normalized}
+			// Preserve the original ABI names alongside their normalized Go names.
+			// Generated event structs use these pairs to add abi tags, which keeps
+			// decoding correct when a name is a Go keyword or normalizes to the same
+			// identifier as another event field.
+			inputs := make([]*tmplEventField, len(original.Inputs))
+			for i := range original.Inputs {
+				inputs[i] = &tmplEventField{Original: original.Inputs[i], Normalized: normalized.Inputs[i]}
+			}
+			// Append the event to the accumulator list. Anonymous events can still
+			// be filtered by contract address and indexed topics; they simply omit
+			// the event signature topic.
+			events[original.Name] = &tmplEvent{Original: original, Normalized: normalized, Inputs: inputs}
 		}
 		// Add two special fallback functions if they exist
 		if qrvmABI.HasFallback() {
@@ -231,10 +443,10 @@ func Bind(types []string, abis []string, bytecodes []string, fsigs []map[string]
 			receive = &tmplMethod{Original: qrvmABI.Receive}
 		}
 		contracts[types[i]] = &tmplContract{
-			Type:        abi.ToCamelCase(types[i]),
-			InputABI:    strings.ReplaceAll(strippedABI, "\"", "\\\""),
+			Type:        contractTypes[i],
+			InputABI:    strippedABI,
 			InputBin:    strings.TrimPrefix(strings.TrimSpace(bytecodes[i]), "0x"),
-			Constructor: qrvmABI.Constructor,
+			Constructor: constructor,
 			Calls:       calls,
 			Transacts:   transacts,
 			Fallback:    fallback,
@@ -277,10 +489,13 @@ func Bind(types []string, abis []string, bytecodes []string, fsigs []map[string]
 	buffer := new(bytes.Buffer)
 
 	funcs := map[string]any{
-		"bindtype":      bindType,
-		"bindtopictype": bindTopicType,
-		"capitalise":    abi.ToCamelCase,
-		"decapitalise":  decapitalise,
+		"bindtype":          bindType,
+		"bindtopictype":     bindTopicType,
+		"bindtopicruletype": bindTopicRuleType,
+		"bindeventtag":      bindEventTag,
+		"quote":             strconv.Quote,
+		"capitalise":        abi.ToCamelCase,
+		"decapitalise":      decapitalise,
 	}
 	tmpl := template.Must(template.New("").Funcs(funcs).Parse(tmplSource))
 	if err := tmpl.Execute(buffer, data); err != nil {
@@ -311,7 +526,10 @@ func bindBasicType(kind abi.Type) string {
 	case abi.BytesTy:
 		return "[]byte"
 	case abi.FunctionTy:
-		return "[24]byte"
+		// Bind rejects FunctionTy before template execution. Keep this panic as
+		// a defensive assertion so a new generation path cannot silently revive
+		// the inherited 24-byte Ethereum representation on VM64.
+		panic("bind: unsupported ABI function type reached code generation")
 	default:
 		// string, bool types
 		return kind.String()
@@ -319,12 +537,12 @@ func bindBasicType(kind abi.Type) string {
 }
 
 // bindType converts hyperion types to Go ones. Since there is no clear mapping
-// from all Hyperion types to Go ones (e.g. uint17), those that cannot be exactly
-// mapped will use an upscaled type (e.g. BigDecimal).
+// from all Hyperion types to Go ones (e.g. uint24), those that cannot be exactly
+// mapped use *big.Int.
 func bindType(kind abi.Type, structs map[string]*tmplStruct) string {
 	switch kind.T {
 	case abi.TupleTy:
-		return structs[kind.TupleRawName].Name
+		return structs[bindStructTypeID(kind)].Name
 	case abi.ArrayTy:
 		return fmt.Sprintf("[%d]", kind.Size) + bindType(*kind.Elem, structs)
 	case abi.SliceTy:
@@ -334,30 +552,38 @@ func bindType(kind abi.Type, structs map[string]*tmplStruct) string {
 	}
 }
 
-// bindTopicType converts a Hyperion topic type to a Go one. It is almost the same
-// functionality as for simple types, but dynamic types get converted to hashes.
+// bindTopicType converts a Hyperion topic type to a Go one. Indexed values that
+// cannot be reconstructed from a topic are exposed as their encoding hash.
 func bindTopicType(kind abi.Type, structs map[string]*tmplStruct) string {
-	bound := bindType(kind, structs)
-
-	// todo(rjl493456442) according hyperion documentation, indexed event
-	// parameters that are not value types i.e. arrays and structs are not
-	// stored directly but instead a keccak256-hash of an encoding is stored.
-	//
-	// We only convert strings and bytes to hash, still need to deal with
-	// array(both fixed-size and dynamic-size) and struct.
-	if bound == "string" || bound == "[]byte" {
-		bound = "common.Hash"
+	switch kind.T {
+	case abi.StringTy, abi.BytesTy, abi.SliceTy, abi.ArrayTy, abi.TupleTy:
+		return "common.Hash"
+	default:
+		return bindType(kind, structs)
 	}
-	return bound
+}
+
+// bindTopicRuleType converts an indexed filter value to the type accepted by
+// abi.MakeTopics. Strings and bytes remain preimages because MakeTopics hashes
+// them. Arrays, slices, and tuples require a caller-supplied topic because
+// their indexed encoding cannot be reconstructed by the generic ABI encoder,
+// so callers provide the canonical Keccak-256 digest.
+func bindTopicRuleType(kind abi.Type, structs map[string]*tmplStruct) string {
+	switch kind.T {
+	case abi.SliceTy, abi.ArrayTy, abi.TupleTy:
+		return "common.Hash"
+	default:
+		return bindType(kind, structs)
+	}
 }
 
 // bindStructType converts a Hyperion tuple type to a Go one and records the mapping
 // in the given map. Notably, this function will resolve and record nested struct
 // recursively.
-func bindStructType(kind abi.Type, structs map[string]*tmplStruct) string {
+func bindStructType(kind abi.Type, structs map[string]*tmplStruct, packageNames map[string]bool) string {
 	switch kind.T {
 	case abi.TupleTy:
-		id := kind.TupleRawName
+		id := bindStructTypeID(kind)
 		if s, exist := structs[id]; exist {
 			return s.Name
 		}
@@ -370,9 +596,10 @@ func bindStructType(kind abi.Type, structs map[string]*tmplStruct) string {
 			name = abi.ResolveNameConflict(name, func(s string) bool { return names[s] })
 			names[name] = true
 			fields = append(fields, &tmplField{
-				Type:    bindStructType(*elem, structs),
-				Name:    name,
-				SolKind: *elem,
+				Type:         bindStructType(*elem, structs, packageNames),
+				Name:         name,
+				OriginalName: kind.TupleRawNames[i],
+				SolKind:      *elem,
 			})
 		}
 		name := kind.TupleRawName
@@ -380,6 +607,11 @@ func bindStructType(kind abi.Type, structs map[string]*tmplStruct) string {
 			name = fmt.Sprintf("Struct%d", len(structs))
 		}
 		name = abi.ToCamelCase(name)
+		if name == "" {
+			name = fmt.Sprintf("Struct%d", len(structs))
+		}
+		name = abi.ResolveNameConflict(name, func(candidate string) bool { return packageNames[candidate] })
+		packageNames[name] = true
 
 		structs[id] = &tmplStruct{
 			Name:   name,
@@ -387,12 +619,115 @@ func bindStructType(kind abi.Type, structs map[string]*tmplStruct) string {
 		}
 		return name
 	case abi.ArrayTy:
-		return fmt.Sprintf("[%d]", kind.Size) + bindStructType(*kind.Elem, structs)
+		return fmt.Sprintf("[%d]", kind.Size) + bindStructType(*kind.Elem, structs, packageNames)
 	case abi.SliceTy:
-		return "[]" + bindStructType(*kind.Elem, structs)
+		return "[]" + bindStructType(*kind.Elem, structs, packageNames)
 	default:
 		return bindBasicType(kind)
 	}
+}
+
+// bindStructTypeID returns the identity used to deduplicate generated tuple
+// declarations. The reflected structural type is always part of the identity:
+// Solidity permits the same source name in different contracts, and removing
+// dots from internalType can also collapse distinct names (A.B and AB). Reuse
+// is safe only when both the normalized source identity and complete field
+// structure match.
+func bindStructTypeID(kind abi.Type) string {
+	var identity strings.Builder
+	appendBindTypeIdentity(&identity, kind)
+	return identity.String()
+}
+
+// appendBindTypeIdentity records both ABI structure and original component
+// names recursively. Reflected Go shapes alone are insufficient: names such as
+// data and _data normalize to the same exported field but require distinct ABI
+// tags in generated bindings.
+func appendBindTypeIdentity(identity *strings.Builder, kind abi.Type) {
+	switch kind.T {
+	case abi.TupleTy:
+		identity.WriteString("tuple(")
+		identity.WriteString(strconv.Quote(kind.TupleRawName))
+		for i, elem := range kind.TupleElems {
+			identity.WriteByte(';')
+			identity.WriteString(strconv.Quote(kind.TupleRawNames[i]))
+			identity.WriteByte(':')
+			appendBindTypeIdentity(identity, *elem)
+		}
+		identity.WriteByte(')')
+	case abi.ArrayTy:
+		fmt.Fprintf(identity, "array[%d](", kind.Size)
+		appendBindTypeIdentity(identity, *kind.Elem)
+		identity.WriteByte(')')
+	case abi.SliceTy:
+		identity.WriteString("slice(")
+		appendBindTypeIdentity(identity, *kind.Elem)
+		identity.WriteByte(')')
+	default:
+		identity.WriteString(strconv.Quote(kind.String()))
+	}
+}
+
+// bindEventTag returns a quoted Go struct tag pairing a generated event field
+// with its original ABI name. strconv.Quote keeps unusual, but validly parsed,
+// ABI names from producing invalid Go source.
+func bindEventTag(name string) string {
+	return strconv.Quote("abi:" + strconv.Quote(name))
+}
+
+// rejectFunctionTypes prevents bindings from exposing the inherited Ethereum
+// representation of a function value. On VM64 a function value combines a
+// 64-byte address and a four-byte selector, so its 68 bytes cannot fit in one
+// 64-byte ABI word. Function values need an explicit protocol representation
+// before they can be safely generated.
+func rejectFunctionTypes(contract string, parsed abi.ABI) error {
+	unsupported := func(location string, arguments abi.Arguments) error {
+		for _, argument := range arguments {
+			if hasFunctionType(argument.Type) {
+				return fmt.Errorf("binding %q: %s %q uses unsupported ABI function type: a VM64 function value is 68 bytes (64-byte address plus 4-byte selector) and cannot fit in one 64-byte ABI word", contract, location, argument.Name)
+			}
+		}
+		return nil
+	}
+	if err := unsupported("constructor input", parsed.Constructor.Inputs); err != nil {
+		return err
+	}
+	for _, method := range parsed.Methods {
+		if err := unsupported(fmt.Sprintf("method %q input", method.RawName), method.Inputs); err != nil {
+			return err
+		}
+		if err := unsupported(fmt.Sprintf("method %q output", method.RawName), method.Outputs); err != nil {
+			return err
+		}
+	}
+	for _, event := range parsed.Events {
+		if err := unsupported(fmt.Sprintf("event %q input", event.RawName), event.Inputs); err != nil {
+			return err
+		}
+	}
+	for _, abiError := range parsed.Errors {
+		if err := unsupported(fmt.Sprintf("error %q input", abiError.Name), abiError.Inputs); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// hasFunctionType finds function values nested under arrays, slices or tuples.
+func hasFunctionType(kind abi.Type) bool {
+	switch kind.T {
+	case abi.FunctionTy:
+		return true
+	case abi.ArrayTy, abi.SliceTy:
+		return hasFunctionType(*kind.Elem)
+	case abi.TupleTy:
+		for _, element := range kind.TupleElems {
+			if hasFunctionType(*element) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // alias returns an alias of the given string based on the aliasing rules

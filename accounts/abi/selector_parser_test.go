@@ -20,17 +20,26 @@ import (
 	"fmt"
 	"log"
 	"reflect"
+	"strings"
 	"testing"
 )
+
+type selectorTupleExpectation struct {
+	suffix     string
+	components []ArgumentMarshaling
+}
 
 func TestParseSelector(t *testing.T) {
 	t.Parallel()
 	mkType := func(types ...any) []ArgumentMarshaling {
-		var result []ArgumentMarshaling
+		result := make([]ArgumentMarshaling, 0, len(types))
 		for i, typeOrComponents := range types {
 			name := fmt.Sprintf("name%d", i)
 			if typeName, ok := typeOrComponents.(string); ok {
 				result = append(result, ArgumentMarshaling{name, typeName, typeName, nil, false})
+			} else if tuple, ok := typeOrComponents.(selectorTupleExpectation); ok {
+				typeName := "tuple" + tuple.suffix
+				result = append(result, ArgumentMarshaling{name, typeName, typeName, tuple.components, false})
 			} else if components, ok := typeOrComponents.([]ArgumentMarshaling); ok {
 				result = append(result, ArgumentMarshaling{name, "tuple", "tuple", components, false})
 			} else if components, ok := typeOrComponents.([][]ArgumentMarshaling); ok {
@@ -40,6 +49,9 @@ func TestParseSelector(t *testing.T) {
 			}
 		}
 		return result
+	}
+	tupleArray := func(suffix string, components []ArgumentMarshaling) selectorTupleExpectation {
+		return selectorTupleExpectation{suffix: suffix, components: components}
 	}
 	tests := []struct {
 		input string
@@ -60,6 +72,27 @@ func TestParseSelector(t *testing.T) {
 			mkType([][]ArgumentMarshaling{mkType("uint256", "uint256")}, "bytes32[]")},
 		{"singleArrayNestWithArrayAndArray((uint256[],address[2],uint8[4][][5])[],bytes32[])", "singleArrayNestWithArrayAndArray",
 			mkType([][]ArgumentMarshaling{mkType("uint256[]", "address[2]", "uint8[4][][5]")}, "bytes32[]")},
+		{"emptyTuple(())", "emptyTuple", mkType(mkType())},
+		{"emptyTupleArrays((),()[2][])", "emptyTupleArrays",
+			mkType(mkType(), tupleArray("[2][]", mkType()))},
+		{"fixedTupleArray((uint256,address)[2])", "fixedTupleArray",
+			mkType(tupleArray("[2]", mkType("uint256", "address")))},
+		{"tupleDimensions((uint256,address)[][3],(bytes32,bool)[2][],(uint8)[2][3])", "tupleDimensions",
+			mkType(
+				tupleArray("[][3]", mkType("uint256", "address")),
+				tupleArray("[2][]", mkType("bytes32", "bool")),
+				tupleArray("[2][3]", mkType("uint8")),
+			)},
+		{"nestedFixedTupleArray(((uint256,address)[2],bytes32)[3])", "nestedFixedTupleArray",
+			mkType(tupleArray("[3]", mkType(
+				tupleArray("[2]", mkType("uint256", "address")),
+				"bytes32",
+			)))},
+		{"nestedMixedTupleArrays(((uint256,bool)[][2],(address,bytes64)[3][])[4][])", "nestedMixedTupleArrays",
+			mkType(tupleArray("[4][]", mkType(
+				tupleArray("[][2]", mkType("uint256", "bool")),
+				tupleArray("[3][]", mkType("address", "bytes64")),
+			)))},
 	}
 	for i, tt := range tests {
 		selector, err := ParseSelector(tt.input)
@@ -77,4 +110,83 @@ func TestParseSelector(t *testing.T) {
 			t.Errorf("test %d: unexpected args: '%v' != '%v'", i, selector.Inputs, tt.args)
 		}
 	}
+}
+
+func TestParseSelectorRejectsLiteralTupleKeyword(t *testing.T) {
+	t.Parallel()
+
+	for _, selector := range []string{"f(tuple)", "f(tuple[])", "f(tuple[2])"} {
+		selector := selector
+		t.Run(selector, func(t *testing.T) {
+			t.Parallel()
+			if _, err := ParseSelector(selector); err == nil {
+				t.Fatalf("ParseSelector(%q) unexpectedly accepted ABI-JSON tuple keyword", selector)
+			}
+		})
+	}
+	if _, err := ParseSelector("f(())"); err != nil {
+		t.Fatalf("ParseSelector parenthesized empty tuple: %v", err)
+	}
+}
+
+func TestParseSelectorNestingLimit(t *testing.T) {
+	t.Parallel()
+
+	nested := func(levels int, close bool) string {
+		selector := "deep(" + strings.Repeat("(", levels) + "uint512"
+		if close {
+			selector += strings.Repeat(")", levels) + ")"
+		}
+		return selector
+	}
+
+	t.Run("boundary", func(t *testing.T) {
+		t.Parallel()
+		defer func() {
+			if recovered := recover(); recovered != nil {
+				t.Fatalf("ParseSelector(valid nesting boundary) panicked: %v", recovered)
+			}
+		}()
+		if _, err := ParseSelector(nested(maxABITypeNesting, true)); err != nil {
+			t.Fatalf("ParseSelector(valid nesting boundary): %v", err)
+		}
+	})
+
+	for name, selector := range map[string]string{
+		"over-limit": nested(maxABITypeNesting+1, true),
+		"malformed":  nested(maxABITypeNesting+1, false),
+	} {
+		name, selector := name, selector
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			defer func() {
+				if recovered := recover(); recovered != nil {
+					t.Fatalf("ParseSelector(%s) panicked: %v", name, recovered)
+				}
+			}()
+			if _, err := ParseSelector(selector); err == nil || !strings.Contains(err.Error(), "nesting exceeds safety limit") {
+				t.Fatalf("ParseSelector(%s) error = %v, want nesting-limit error", name, err)
+			}
+		})
+	}
+}
+
+func FuzzParseSelectorNeverPanics(f *testing.F) {
+	for _, selector := range []string{
+		"noargs()",
+		"nested(((uint512,address)[2],bytes64)[][3])",
+		"deep(" + strings.Repeat("(", maxABITypeNesting+1) + "uint512" + strings.Repeat(")", maxABITypeNesting+1) + ")",
+		"broken(" + strings.Repeat("(", maxABITypeNesting+1),
+	} {
+		f.Add(selector)
+	}
+	f.Fuzz(func(t *testing.T, selector string) {
+		selector = selector[:min(len(selector), 4096)]
+		defer func() {
+			if recovered := recover(); recovered != nil {
+				t.Fatalf("ParseSelector(%q) panicked: %v", selector, recovered)
+			}
+		}()
+		_, _ = ParseSelector(selector)
+	})
 }

@@ -55,14 +55,23 @@ type tmplMethod struct {
 type tmplEvent struct {
 	Original   abi.Event // Original event as parsed by the abi package
 	Normalized abi.Event // Normalized version of the parsed fields
+	Inputs     []*tmplEventField
+}
+
+// tmplEventField pairs an original ABI event argument with the normalized
+// argument used to generate a valid and collision-free Go field name.
+type tmplEventField struct {
+	Original   abi.Argument
+	Normalized abi.Argument
 }
 
 // tmplField is a wrapper around a struct field with binding language
 // struct type definition and relative filed name.
 type tmplField struct {
-	Type    string   // Field type representation depends on target binding language
-	Name    string   // Field name converted from the raw user-defined field name
-	SolKind abi.Type // Raw abi type information
+	Type         string   // Field type representation depends on target binding language
+	Name         string   // Field name converted from the raw user-defined field name
+	OriginalName string   // Original ABI component name used for tuple field mapping
+	SolKind      abi.Type // Raw abi type information
 }
 
 // tmplStruct is a wrapper around an abi.tuple and contains an auto-generated
@@ -111,14 +120,14 @@ var (
 	// {{.Name}} is an auto generated low-level Go binding around an user-defined struct.
 	type {{.Name}} struct {
 	{{range $field := .Fields}}
-	{{$field.Name}} {{$field.Type}}{{end}}
+	{{$field.Name}} {{$field.Type}} {{bindeventtag $field.OriginalName}}{{end}}
 	}
 {{end}}
 
 {{range $contract := .Contracts}}
 	// {{.Type}}MetaData contains all meta data concerning the {{.Type}} contract.
 	var {{.Type}}MetaData = &bind.MetaData{
-		ABI: "{{.InputABI}}",
+			ABI: {{quote .InputABI}},
 		{{if $contract.FuncSigs -}}
 		Sigs: map[string]string{
 			{{range $strsig, $binsig := .FuncSigs}}"{{$binsig}}": "{{$strsig}}",
@@ -484,15 +493,15 @@ var (
 		}
 
 		// {{$contract.Type}}{{.Normalized.Name}} represents a {{.Normalized.Name}} event raised by the {{$contract.Type}} contract.
-		type {{$contract.Type}}{{.Normalized.Name}} struct { {{range .Normalized.Inputs}}
-			{{capitalise .Name}} {{if .Indexed}}{{bindtopictype .Type $structs}}{{else}}{{bindtype .Type $structs}}{{end}}; {{end}}
+		type {{$contract.Type}}{{.Normalized.Name}} struct { {{range .Inputs}}
+			{{capitalise .Normalized.Name}} {{if .Normalized.Indexed}}{{bindtopictype .Normalized.Type $structs}}{{else}}{{bindtype .Normalized.Type $structs}}{{end}} {{bindeventtag .Original.Name}}; {{end}}
 			Raw types.Log // Blockchain specific contextual infos
 		}
 
 		// Filter{{.Normalized.Name}} is a free log retrieval operation binding the contract event 0x{{printf "%x" .Original.ID}}.
 		//
 		// Hyperion: {{.Original.String}}
- 		func (_{{$contract.Type}} *{{$contract.Type}}Filterer) Filter{{.Normalized.Name}}(opts *bind.FilterOpts{{range .Normalized.Inputs}}{{if .Indexed}}, {{.Name}} []{{bindtype .Type $structs}}{{end}}{{end}}) (*{{$contract.Type}}{{.Normalized.Name}}Iterator, error) {
+		func (_{{$contract.Type}} *{{$contract.Type}}Filterer) Filter{{.Normalized.Name}}(opts *bind.FilterOpts{{range .Normalized.Inputs}}{{if .Indexed}}, {{.Name}} []{{bindtopicruletype .Type $structs}}{{end}}{{end}}) (*{{$contract.Type}}{{.Normalized.Name}}Iterator, error) {
 			{{range .Normalized.Inputs}}
 			{{if .Indexed}}var {{.Name}}Rule []any
 			for _, {{.Name}}Item := range {{.Name}} {
@@ -509,7 +518,7 @@ var (
 		// Watch{{.Normalized.Name}} is a free log subscription operation binding the contract event 0x{{printf "%x" .Original.ID}}.
 		//
 		// Hyperion: {{.Original.String}}
-		func (_{{$contract.Type}} *{{$contract.Type}}Filterer) Watch{{.Normalized.Name}}(opts *bind.WatchOpts, sink chan<- *{{$contract.Type}}{{.Normalized.Name}}{{range .Normalized.Inputs}}{{if .Indexed}}, {{.Name}} []{{bindtype .Type $structs}}{{end}}{{end}}) (event.Subscription, error) {
+		func (_{{$contract.Type}} *{{$contract.Type}}Filterer) Watch{{.Normalized.Name}}(opts *bind.WatchOpts, sink chan<- *{{$contract.Type}}{{.Normalized.Name}}{{range .Normalized.Inputs}}{{if .Indexed}}, {{.Name}} []{{bindtopicruletype .Type $structs}}{{end}}{{end}}) (event.Subscription, error) {
 			{{range .Normalized.Inputs}}
 			{{if .Indexed}}var {{.Name}}Rule []any
 			for _, {{.Name}}Item := range {{.Name}} {

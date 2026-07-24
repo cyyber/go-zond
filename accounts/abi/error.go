@@ -30,6 +30,11 @@ type Error struct {
 	Inputs Arguments
 	str    string
 
+	// declarationIndex records the one-based position of this error in
+	// compiler-produced ABI JSON. It keeps selector lookup deterministic when
+	// inherited ABI entries repeat the same canonical signature.
+	declarationIndex int
+
 	// Sig contains the string signature according to the ABI spec.
 	// e.g. error foo(uint32 a, int b) = "foo(uint32,int256)"
 	// Please note that "int" is substitute for its canonical representation "int256"

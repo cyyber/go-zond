@@ -109,7 +109,7 @@ var methods = map[string]Method{
 	"nestedArray":         NewMethod("nestedArray", "nestedArray", Function, "", []Argument{{"a", Uint256ArrNested, false}, {"b", AddressArr, false}}, nil),
 	"nestedArray2":        NewMethod("nestedArray2", "nestedArray2", Function, "", []Argument{{"a", Uint8ArrNested, false}}, nil),
 	"nestedSlice":         NewMethod("nestedSlice", "nestedSlice", Function, "", []Argument{{"a", Uint8SliceNested, false}}, nil),
-	"receive":             NewMethod("receive", "receive", Function, "payable", []Argument{{"memo", Bytes, false}}, []Argument{}),
+	"receive":             newMethod("receive", "receive", Function, "payable", false, true, []Argument{{"memo", Bytes, false}}, []Argument{}),
 	"fixedArrStr":         NewMethod("fixedArrStr", "fixedArrStr", Function, "view", []Argument{{"str", String, false}, {"fixedArr", Uint256Arr2, false}}, nil),
 	"fixedArrBytes":       NewMethod("fixedArrBytes", "fixedArrBytes", Function, "view", []Argument{{"bytes", Bytes, false}, {"fixedArr", Uint256Arr2, false}}, nil),
 	"mixedArrStr":         NewMethod("mixedArrStr", "mixedArrStr", Function, "view", []Argument{{"str", String, false}, {"fixedArr", Uint256Arr2, false}, {"dynArr", Uint256Arr, false}}, nil),
@@ -314,6 +314,61 @@ func TestCustomErrors(t *testing.T) {
 		}
 	}
 	check("MyError", "MyError(uint256)")
+}
+
+func TestCustomErrorUnpackIntoInterface(t *testing.T) {
+	t.Parallel()
+	const (
+		errorName  = "MyError"
+		definition = `[{"inputs":[{"internalType":"address","name":"sender","type":"address"},{"internalType":"uint512","name":"balance","type":"uint512"},{"internalType":"bytes64","name":"tag","type":"bytes64"},{"internalType":"string","name":"reason","type":"string"}],"name":"MyError","type":"error"}]`
+	)
+	parsed, err := JSON(strings.NewReader(definition))
+	if err != nil {
+		t.Fatal(err)
+	}
+	type MyError struct {
+		Sender  common.Address
+		Balance *big.Int
+		Tag     [64]byte
+		Reason  string
+	}
+
+	var sender common.Address
+	for i := range sender {
+		sender[i] = byte(i*7 + 3)
+	}
+	balance := new(big.Int).Lsh(big.NewInt(1), 511)
+	balance.Add(balance, big.NewInt(0x1234))
+	var tag [64]byte
+	for i := range tag {
+		tag[i] = byte(0x80 + i)
+	}
+	reason := strings.Repeat("vm64-error-", 13)
+
+	encoded, err := parsed.Errors[errorName].Inputs.Pack(sender, balance, tag, reason)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(encoded)%64 != 0 {
+		t.Fatalf("encoded custom error length %d is not aligned to a 64-byte ABI word", len(encoded))
+	}
+
+	var result MyError
+	if err := parsed.UnpackIntoInterface(&result, errorName, encoded); err != nil {
+		t.Fatal(err)
+	}
+	if result.Sender != sender {
+		t.Errorf("sender mismatch: want %x, got %x", sender, result.Sender)
+	}
+	if result.Balance == nil || result.Balance.Cmp(balance) != 0 {
+		t.Errorf("balance mismatch: want %v, got %v", balance, result.Balance)
+	}
+	if result.Tag != tag {
+		t.Errorf("tag mismatch: want %x, got %x", tag, result.Tag)
+	}
+	if result.Reason != reason {
+		t.Errorf("reason mismatch: want %q, got %q", reason, result.Reason)
+	}
 }
 
 func TestMultiPack(t *testing.T) {

@@ -176,6 +176,10 @@ func TestCalldataDecoding(t *testing.T) {
 			"00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
 		// sam with illegal bool byte (tampered copy of samOK).
 		samBadBool,
+		// send(uint256) with bits above 256 set in the 64-byte slot: exceeds
+		// the declared uint256 width.
+		"a52c101e" + "FFffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff" +
+			"FFffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
 	} {
 		_, err := parseCallData(common.Hex2Bytes(hexdata), jsondata)
 		if err == nil {
@@ -186,8 +190,8 @@ func TestCalldataDecoding(t *testing.T) {
 	for i, hexdata := range []string{
 		samOK,
 		sendOK,
-		// sendOK with high bits set in the uint256 slot (still a valid encoding).
-		"a52c101e" + "FFffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff" +
+		// send(MaxUint256): the largest canonical uint256 value.
+		"a52c101e" + "0000000000000000000000000000000000000000000000000000000000000000" +
 			"FFffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
 		compareOK,
 		issueOK,

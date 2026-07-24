@@ -142,7 +142,7 @@ var unpackTests = []unpackTest{
 		err:  "abi: cannot unmarshal uint32 in to uint16",
 	},
 	{
-		def:  `[{"type": "uint17"}]`,
+		def:  `[{"type": "uint24"}]`,
 		enc:  z32 + "0000000000000000000000000000000000000000000000000000000000000001",
 		want: uint16(0),
 		err:  "abi: cannot unmarshal *big.Int in to uint16",
@@ -154,7 +154,7 @@ var unpackTests = []unpackTest{
 		err:  "abi: cannot unmarshal int32 in to int16",
 	},
 	{
-		def:  `[{"type": "int17"}]`,
+		def:  `[{"type": "int24"}]`,
 		enc:  z32 + "0000000000000000000000000000000000000000000000000000000000000001",
 		want: int16(0),
 		err:  "abi: cannot unmarshal *big.Int in to int16",
@@ -1042,72 +1042,87 @@ func TestUnpackTuple(t *testing.T) {
 
 func TestOOMMaliciousInput(t *testing.T) {
 	t.Parallel()
-	oomTests := []unpackTest{
+	word := func(value *big.Int) []byte {
+		encoded := make([]byte, 64)
+		value.FillBytes(encoded)
+		return encoded
+	}
+	join := func(values ...*big.Int) []byte {
+		var encoded []byte
+		for _, value := range values {
+			encoded = append(encoded, word(value)...)
+		}
+		return encoded
+	}
+	large := func(bit uint) *big.Int { return new(big.Int).Lsh(big.NewInt(1), bit) }
+	platformTooLarge := large(uint(strconv.IntSize - 1))
+	largeInRangeBit := uint(strconv.IntSize - 2)
+	if largeInRangeBit > 40 {
+		largeInRangeBit = 40
+	}
+	oomTests := []struct {
+		name string
+		data []byte
+		want string
+	}{
 		{
-			def: `[{"type": "uint8[]"}]`,
-			enc: "0000000000000000000000000000000000000000000000000000000000000020" + // offset
-				"0000000000000000000000000000000000000000000000000000000000000003" + // num elems
-				"0000000000000000000000000000000000000000000000000000000000000001" + // elem 1
-				"0000000000000000000000000000000000000000000000000000000000000002", // elem 2
+			name: "truncated three-element array",
+			data: join(big.NewInt(64), big.NewInt(3), big.NewInt(1), big.NewInt(2)),
+			want: "would go over slice boundary",
 		},
-		{ // Length larger than 64 bits
-			def: `[{"type": "uint8[]"}]`,
-			enc: "0000000000000000000000000000000000000000000000000000000000000020" + // offset
-				"00ffffffffffffffffffffffffffffffffffffffffffffff0000000000000002" + // num elems
-				"0000000000000000000000000000000000000000000000000000000000000001" + // elem 1
-				"0000000000000000000000000000000000000000000000000000000000000002", // elem 2
+		{
+			name: "length wider than int64",
+			data: join(big.NewInt(64), large(200), big.NewInt(1), big.NewInt(2)),
+			want: "length larger than int",
 		},
-		{ // Offset very large (over 64 bits)
-			def: `[{"type": "uint8[]"}]`,
-			enc: "00ffffffffffffffffffffffffffffffffffffffffffffff0000000000000020" + // offset
-				"0000000000000000000000000000000000000000000000000000000000000002" + // num elems
-				"0000000000000000000000000000000000000000000000000000000000000001" + // elem 1
-				"0000000000000000000000000000000000000000000000000000000000000002", // elem 2
+		{
+			name: "offset wider than int64",
+			data: join(large(200), big.NewInt(2), big.NewInt(1), big.NewInt(2)),
+			want: "offset larger than int",
 		},
-		{ // Offset very large (below 64 bits)
-			def: `[{"type": "uint8[]"}]`,
-			enc: "0000000000000000000000000000000000000000000000007ffffffffff00020" + // offset
-				"0000000000000000000000000000000000000000000000000000000000000002" + // num elems
-				"0000000000000000000000000000000000000000000000000000000000000001" + // elem 1
-				"0000000000000000000000000000000000000000000000000000000000000002", // elem 2
+		{
+			name: "offset wider than platform int",
+			data: join(platformTooLarge, big.NewInt(2)),
+			want: "offset larger than int",
 		},
-		{ // Offset negative (as 64 bit)
-			def: `[{"type": "uint8[]"}]`,
-			enc: "000000000000000000000000000000000000000000000000f000000000000020" + // offset
-				"0000000000000000000000000000000000000000000000000000000000000002" + // num elems
-				"0000000000000000000000000000000000000000000000000000000000000001" + // elem 1
-				"0000000000000000000000000000000000000000000000000000000000000002", // elem 2
+		{
+			name: "length wider than platform int",
+			data: join(big.NewInt(64), platformTooLarge),
+			want: "length larger than int",
 		},
-
-		{ // Negative length
-			def: `[{"type": "uint8[]"}]`,
-			enc: "0000000000000000000000000000000000000000000000000000000000000020" + // offset
-				"000000000000000000000000000000000000000000000000f000000000000002" + // num elems
-				"0000000000000000000000000000000000000000000000000000000000000001" + // elem 1
-				"0000000000000000000000000000000000000000000000000000000000000002", // elem 2
+		{
+			name: "large in-range offset beyond payload",
+			data: join(large(largeInRangeBit), big.NewInt(2), big.NewInt(1), big.NewInt(2)),
+			want: "would go over slice boundary",
 		},
-		{ // Very large length
-			def: `[{"type": "uint8[]"}]`,
-			enc: "0000000000000000000000000000000000000000000000000000000000000020" + // offset
-				"0000000000000000000000000000000000000000000000007fffffffff000002" + // num elems
-				"0000000000000000000000000000000000000000000000000000000000000001" + // elem 1
-				"0000000000000000000000000000000000000000000000000000000000000002", // elem 2
+		{
+			name: "high-bit uint64 offset",
+			data: join(new(big.Int).SetUint64(0xf000000000000040), big.NewInt(2), big.NewInt(1), big.NewInt(2)),
+			want: "offset larger than int",
+		},
+		{
+			name: "high-bit uint64 length",
+			data: join(big.NewInt(64), new(big.Int).SetUint64(0xf000000000000002), big.NewInt(1), big.NewInt(2)),
+			want: "length larger than int",
+		},
+		{
+			name: "large in-range length beyond payload",
+			data: join(big.NewInt(64), large(largeInRangeBit), big.NewInt(1), big.NewInt(2)),
+			want: "would go over slice boundary",
 		},
 	}
-	for i, test := range oomTests {
-		def := fmt.Sprintf(`[{ "name" : "method", "type": "function", "outputs": %s}]`, test.def)
-		abi, err := JSON(strings.NewReader(def))
-		if err != nil {
-			t.Fatalf("invalid ABI definition %s: %v", def, err)
-		}
-		encb, err := hex.DecodeString(test.enc)
-		if err != nil {
-			t.Fatalf("invalid hex: %s", test.enc)
-		}
-		_, err = abi.Methods["method"].Outputs.UnpackValues(encb)
-		if err == nil {
-			t.Fatalf("Expected error on malicious input, test %d", i)
-		}
+	for _, test := range oomTests {
+		t.Run(test.name, func(t *testing.T) {
+			def := `[{"name":"method","type":"function","outputs":[{"type":"uint8[]"}]}]`
+			abi, err := JSON(strings.NewReader(def))
+			if err != nil {
+				t.Fatalf("invalid ABI definition %s: %v", def, err)
+			}
+			_, err = abi.Methods["method"].Outputs.UnpackValues(test.data)
+			if err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("malicious VM64 input error=%v, want error containing %q", err, test.want)
+			}
+		})
 	}
 }
 

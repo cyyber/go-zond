@@ -38,16 +38,21 @@ func packBytesSlice(bytes []byte, l int) []byte {
 func packElement(t Type, reflectValue reflect.Value) ([]byte, error) {
 	switch t.T {
 	case UintTy:
+		val := packNumValue(reflectValue)
 		// make sure to not pack a negative value into a uint type.
-		if reflectValue.Kind() == reflect.Ptr {
-			val := new(big.Int).Set(reflectValue.Interface().(*big.Int))
-			if val.Sign() == -1 {
-				return nil, errInvalidSign
-			}
+		if val.Sign() == -1 {
+			return nil, errInvalidSign
 		}
-		return packNum(reflectValue), nil
+		if !fitsUnsignedInteger(val, t.Size) {
+			return nil, errBadUint(t.Size)
+		}
+		return math.U512Bytes(val), nil
 	case IntTy:
-		return packNum(reflectValue), nil
+		val := packNumValue(reflectValue)
+		if !fitsSignedInteger(val, t.Size) {
+			return nil, errBadInt(t.Size)
+		}
+		return math.U512Bytes(val), nil
 	case StringTy:
 		return packBytesSlice([]byte(reflectValue.String()), reflectValue.Len()), nil
 	case AddressTy:
@@ -82,16 +87,22 @@ func packElement(t Type, reflectValue reflect.Value) ([]byte, error) {
 	}
 }
 
-// packNum packs the given number (using the reflect value) and will cast it to appropriate number representation.
-func packNum(value reflect.Value) []byte {
+// packNumValue extracts the numeric value behind the given reflect value as a
+// big integer.
+func packNumValue(value reflect.Value) *big.Int {
 	switch kind := value.Kind(); kind {
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		return math.U512Bytes(new(big.Int).SetUint64(value.Uint()))
+		return new(big.Int).SetUint64(value.Uint())
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		return math.U512Bytes(big.NewInt(value.Int()))
+		return big.NewInt(value.Int())
 	case reflect.Ptr:
-		return math.U512Bytes(new(big.Int).Set(value.Interface().(*big.Int)))
+		return new(big.Int).Set(value.Interface().(*big.Int))
 	default:
 		panic("abi: fatal error")
 	}
+}
+
+// packNum packs the given number (using the reflect value) and will cast it to appropriate number representation.
+func packNum(value reflect.Value) []byte {
+	return math.U512Bytes(packNumValue(value))
 }

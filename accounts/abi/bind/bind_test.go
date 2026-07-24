@@ -22,11 +22,40 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/theQRL/go-qrl/common"
 )
+
+const indexedCompositeTopicsABI = `[
+	{"anonymous":false,"inputs":[{"indexed":true,"name":"indexedString","type":"string"},{"indexed":true,"name":"indexedBytes","type":"bytes"},{"indexed":true,"name":"indexedSlice","type":"uint512[]"}],"name":"DynamicIndexed","type":"event"},
+	{"anonymous":false,"inputs":[{"indexed":true,"name":"indexedArray","type":"bytes64[2]"},{"components":[{"name":"amount","type":"uint512"},{"name":"recipient","type":"address"}],"indexed":true,"internalType":"struct IndexedCompositeTopics.Record","name":"indexedTuple","type":"tuple"},{"indexed":true,"name":"indexedAddress","type":"address"}],"name":"StructuredIndexed","type":"event"},
+	{"anonymous":false,"inputs":[{"indexed":true,"name":"indexedFixedBytes","type":"bytes64"}],"name":"FixedIndexed","type":"event"}
+]`
+
+var bindTestDeclarations = map[string]string{
+	"IndexedCompositeTopics": `
+		type indexedTopicRecordingFilterer struct {
+			filtered []qrl.FilterQuery
+			watched  []qrl.FilterQuery
+		}
+
+		func (filterer *indexedTopicRecordingFilterer) FilterLogs(_ context.Context, query qrl.FilterQuery) ([]types.Log, error) {
+			filterer.filtered = append(filterer.filtered, query)
+			return nil, nil
+		}
+
+		func (filterer *indexedTopicRecordingFilterer) SubscribeFilterLogs(_ context.Context, query qrl.FilterQuery, _ chan<- types.Log) (qrl.Subscription, error) {
+			filterer.watched = append(filterer.watched, query)
+			return event.NewSubscription(func(quit <-chan struct{}) error {
+				<-quit
+				return nil
+			}), nil
+		}
+	`,
+}
 
 var bindTests = []struct {
 	name     string
@@ -135,9 +164,9 @@ var bindTests = []struct {
 		`
 			"fmt"
 			"math/big"
-			"reflect"
 
 			"github.com/theQRL/go-qrl/common"
+			"github.com/theQRL/go-qrl/core/types"
 		`,
 		`
 			if e, err := NewEventChecker(common.Address{}, nil); e == nil || err != nil {
@@ -186,10 +215,14 @@ var bindTests = []struct {
 				arg0  := oit.Event.Arg0    // Make sure unnamed arguments are handled correctly
 				arg1  := oit.Event.Arg1    // Make sure unnamed arguments are handled correctly
 				fmt.Println(arg0, arg1)
-			}
-			// Run a tiny reflection test to ensure disallowed methods don't appear
-			if _, ok := reflect.TypeOf(&EventChecker{}).MethodByName("FilterAnonymous"); ok {
-			t.Errorf("binding has disallowed method (FilterAnonymous)")
+
+				// Anonymous events expose the same generated filter, watch and parse
+				// APIs; their BoundContract implementation omits the signature topic.
+				ait, err := e.FilterAnonymous(nil)
+				anonymousSink := make(chan *EventCheckerAnonymous)
+				anonymousSub, err := e.WatchAnonymous(nil, anonymousSink)
+				anonymousEvent, err := e.ParseAnonymous(types.Log{})
+				fmt.Println(ait, anonymousSub, anonymousEvent, err)
 			}
 		`,
 		nil,
@@ -1040,34 +1073,6 @@ var bindTests = []struct {
 		nil,
 	},
 	{
-		`CallbackParam`,
-		`
-			contract FunctionPointerTest {
-				function test(function(uint256) external callback) external {
-					callback(1);
-				}
-			}
-		`,
-		[]string{`608060405234801561000f575f80fd5b5061024a8061001d5f395ff3fe608060405234801561000f575f80fd5b5060043610610029575f3560e01c8063d7a5aba21461002d575b5f80fd5b61004760048036038101906100429190610161565b610049565b005b818160016040518263ffffffff1660e01b815260040161006991906101db565b5f604051808303815f87803b158015610080575f80fd5b505af1158015610092573d5f803e3d5ffd5b505050505050565b5f80fd5b5f7fffffffffffffffffffffffffffffffffffffffffffffffff000000000000000082169050919050565b5f6100d38261009e565b9050919050565b6100e3816100c9565b81146100ed575f80fd5b50565b5f813590506100fe816100da565b92915050565b5f8160201c9050919050565b5f8160401c9050919050565b5f8061012783610110565b925063ffffffff8316905061013b83610104565b9150915091565b5f8061015661015185856100f0565b61011c565b915091509250929050565b5f80602083850312156101775761017661009a565b5b5f61018485828601610142565b92509250509250929050565b5f819050919050565b5f819050919050565b5f819050919050565b5f6101c56101c06101bb84610190565b6101a2565b610199565b9050919050565b6101d5816101ab565b82525050565b5f6020820190506101ee5f8301846101cc565b9291505056fea264697066735822122079b8deb9359e34c2904b5fc67d1190a6f0c72f03695d9f679a391f03d46906cd64687970637822302e312e302d63692e323032352e322e31372b636f6d6d69742e32333263333034320053`},
-		[]string{`[{"inputs":[{"internalType":"function (uint256) external","name":"callback","type":"function"}],"name":"test","outputs":[],"stateMutability":"nonpayable","type":"function"}]`},
-		`
-			"strings"
-		`,
-		`
-			if strings.Compare("test(function)", CallbackParamFuncSigs["d7a5aba2"]) != 0 {
-				t.Fatalf("")
-			}
-		`,
-		[]map[string]string{
-			{
-				"test(function)": "d7a5aba2",
-			},
-		},
-		nil,
-		nil,
-		nil,
-	},
-	{
 		`Tuple`,
 		`
 		pragma experimental ABIEncoderV2;
@@ -1902,17 +1907,331 @@ var bindTests = []struct {
 			}
 		`,
 	},
+	{
+		name:     "IndexedCompositeTopics",
+		contract: ``,
+		bytecode: []string{``},
+		abi:      []string{indexedCompositeTopicsABI},
+		imports: `
+				"context"
+				"math/big"
+
+				qrl "github.com/theQRL/go-qrl"
+				"github.com/theQRL/go-qrl/accounts/abi"
+				"github.com/theQRL/go-qrl/common"
+				"github.com/theQRL/go-qrl/core/types"
+				"github.com/theQRL/go-qrl/event"
+			`,
+		tester: `
+				topicType, err := abi.NewType("uint512[]", "", nil)
+				if err != nil {
+					t.Fatalf("NewType: %v", err)
+				}
+				value := []*big.Int{big.NewInt(1), new(big.Int).Lsh(big.NewInt(1), 511)}
+				digest, err := abi.MakeTopicHash(topicType, value)
+				if err != nil {
+					t.Fatalf("MakeTopicHash: %v", err)
+				}
+				topic, err := abi.MakeTopic(topicType, value)
+				if err != nil {
+					t.Fatalf("MakeTopic: %v", err)
+				}
+				if got := common.HashToLogTopic(digest); got != topic {
+					t.Fatalf("HashToLogTopic(MakeTopicHash) = %x, want %x", got, topic)
+				}
+
+				filterer := new(indexedTopicRecordingFilterer)
+				binding, err := NewIndexedCompositeTopicsFilterer(common.Address{}, filterer)
+				if err != nil {
+					t.Fatalf("NewIndexedCompositeTopicsFilterer: %v", err)
+				}
+				iterator, err := binding.FilterDynamicIndexed(nil, nil, nil, []common.Hash{digest})
+				if err != nil {
+					t.Fatalf("FilterDynamicIndexed: %v", err)
+				}
+				if err := iterator.Close(); err != nil {
+					t.Fatalf("close filter iterator: %v", err)
+				}
+				subscription, err := binding.WatchDynamicIndexed(nil, make(chan *IndexedCompositeTopicsDynamicIndexed, 1), nil, nil, []common.Hash{digest})
+				if err != nil {
+					t.Fatalf("WatchDynamicIndexed: %v", err)
+				}
+				subscription.Unsubscribe()
+
+				queries := map[string][]qrl.FilterQuery{
+					"FilterDynamicIndexed": filterer.filtered,
+					"WatchDynamicIndexed":  filterer.watched,
+				}
+				for method, captured := range queries {
+					if len(captured) != 1 {
+						t.Fatalf("%s captured %d queries, want one", method, len(captured))
+					}
+					topics := captured[0].Topics
+					if len(topics) != 4 || len(topics[0]) != 1 || len(topics[1]) != 0 || len(topics[2]) != 0 || len(topics[3]) != 1 {
+						t.Fatalf("%s topics shape = %#v", method, topics)
+					}
+					if topics[3][0] != topic {
+						t.Fatalf("%s composite topic = %x, want MakeTopic %x", method, topics[3][0], topic)
+					}
+				}
+			`,
+	},
+	{
+		name:     "BodyScopeShadow",
+		contract: ``,
+		bytecode: []string{"__$body_scope_shadow_lib$__", "00"},
+		abi:      []string{bodyScopeShadowABI, "[]"},
+		imports: `
+			"math/big"
+
+			"github.com/theQRL/go-qrl/common"
+		`,
+		tester: `
+			binding, _ := NewBodyScopeShadow(common.Address{}, nil)
+			if false {
+				result, err := binding.Inspect(nil, big.NewInt(1))
+				_ = result.Abi
+				_ = result.Value
+				err = binding.Ping(nil, big.NewInt(2))
+				_, err = binding.Write(nil, big.NewInt(3))
+				_ = err
+			}
+		`,
+		libs:  map[string]string{"body_scope_shadow_lib": "ShadowLib"},
+		types: []string{"BodyScopeShadow", "ShadowLib"},
+	},
+	{
+		name:     "ReservedIdentifiers",
+		contract: ``,
+		bytecode: []string{"00"},
+		abi:      []string{reservedIdentifierABI},
+		tester:   ``,
+	},
+}
+
+func TestBindIndexedCompositeTopicTypes(t *testing.T) {
+	code, err := Bind(
+		[]string{"IndexedCompositeTopics"},
+		[]string{indexedCompositeTopicsABI},
+		[]string{""},
+		nil,
+		"bindtest",
+		nil,
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("failed to generate binding: %v", err)
+	}
+	normalizedCode := strings.Join(strings.Fields(code), " ")
+
+	for _, want := range []string{
+		"IndexedString common.Hash",
+		"IndexedBytes common.Hash",
+		"IndexedSlice common.Hash",
+		"IndexedArray common.Hash",
+		"IndexedTuple common.Hash",
+		"IndexedAddress common.Address",
+		"IndexedFixedBytes [64]byte",
+		"indexedString []string",
+		"indexedBytes [][]byte",
+		"indexedSlice []common.Hash",
+		"indexedArray []common.Hash",
+		"indexedTuple []common.Hash",
+		"indexedAddress []common.Address",
+		"indexedFixedBytes [][64]byte",
+	} {
+		if !strings.Contains(normalizedCode, want) {
+			t.Errorf("generated binding does not contain %q", want)
+		}
+	}
+}
+
+func TestBindLegacyMethodClassification(t *testing.T) {
+	const contractABI = `[
+		{"constant":true,"inputs":[{"name":"owner","type":"address"}],"name":"balanceOf","outputs":[{"name":"balance","type":"uint512"}],"type":"function"},
+		{"constant":true,"inputs":[],"name":"name","outputs":[{"name":"","type":"string"}],"type":"function"},
+		{"constant":false,"inputs":[{"name":"recipient","type":"address"},{"name":"amount","type":"uint512"}],"name":"transfer","outputs":[{"name":"","type":"bool"}],"type":"function"},
+		{"payable":true,"inputs":[],"name":"deposit","outputs":[],"type":"function"}
+	]`
+	code, err := Bind([]string{"LegacyToken"}, []string{contractABI}, []string{""}, nil, "bindtest", nil, nil)
+	if err != nil {
+		t.Fatalf("generate realistic legacy binding: %v", err)
+	}
+	for _, declaration := range []string{
+		"func (_LegacyToken *LegacyTokenCaller) BalanceOf(",
+		"func (_LegacyToken *LegacyTokenCaller) Name(",
+		"func (_LegacyToken *LegacyTokenTransactor) Transfer(",
+		"func (_LegacyToken *LegacyTokenTransactor) Deposit(",
+	} {
+		if !strings.Contains(code, declaration) {
+			t.Errorf("legacy binding is missing %q", declaration)
+		}
+	}
+	for _, declaration := range []string{
+		"func (_LegacyToken *LegacyTokenTransactor) BalanceOf(",
+		"func (_LegacyToken *LegacyTokenTransactor) Name(",
+		"func (_LegacyToken *LegacyTokenCaller) Transfer(",
+		"func (_LegacyToken *LegacyTokenCaller) Deposit(",
+	} {
+		if strings.Contains(code, declaration) {
+			t.Errorf("legacy binding generated method in the wrong caller/transactor set: %q", declaration)
+		}
+	}
+}
+
+func TestBindRejectsMismatchedInputs(t *testing.T) {
+	tests := []struct {
+		name      string
+		types     []string
+		abis      []string
+		bytecodes []string
+		want      string
+	}{
+		{
+			name:      "ABIs",
+			types:     []string{"First", "Second"},
+			abis:      []string{"[]"},
+			bytecodes: []string{"", ""},
+			want:      "binding type/ABI count mismatch: 2 types, 1 ABIs",
+		},
+		{
+			name:      "bytecodes",
+			types:     []string{"Only"},
+			abis:      []string{"[]"},
+			bytecodes: nil,
+			want:      "binding type/bytecode count mismatch: 1 types, 0 bytecodes",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := Bind(test.types, test.abis, test.bytecodes, nil, "bindtest", nil, nil)
+			if err == nil || err.Error() != test.want {
+				t.Fatalf("Bind() error = %v, want %q", err, test.want)
+			}
+		})
+	}
+}
+
+func TestBindRejectsVM64FunctionValues(t *testing.T) {
+	tests := []struct {
+		name string
+		abi  string
+	}{
+		{
+			name: "direct method input",
+			abi:  `[{"inputs":[{"name":"callback","type":"function"}],"name":"call","outputs":[],"stateMutability":"nonpayable","type":"function"}]`,
+		},
+		{
+			name: "nested tuple array",
+			abi:  `[{"inputs":[{"components":[{"name":"callbacks","type":"function[]"}],"name":"config","type":"tuple"}],"name":"configure","outputs":[],"stateMutability":"nonpayable","type":"function"}]`,
+		},
+		{
+			name: "event input",
+			abi:  `[{"anonymous":false,"inputs":[{"indexed":false,"name":"callback","type":"function"}],"name":"Configured","type":"event"}]`,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			code, err := Bind([]string{"FunctionValue"}, []string{test.abi}, []string{""}, nil, "bindtest", nil, nil)
+			if err == nil {
+				t.Fatalf("Bind() unexpectedly generated code containing stale function representation: %s", code)
+			}
+			for _, want := range []string{"unsupported ABI function type", "68 bytes", "64-byte ABI word"} {
+				if !strings.Contains(err.Error(), want) {
+					t.Fatalf("Bind() error %q does not contain %q", err, want)
+				}
+			}
+		})
+	}
+}
+
+func TestBindAnonymousTupleStructuralIdentity(t *testing.T) {
+	contractABI := `[
+		{"inputs":[{"components":[{"name":"amount","type":"uint512"}],"name":"value","type":"tuple"}],"name":"first","outputs":[],"stateMutability":"pure","type":"function"},
+		{"inputs":[{"components":[{"name":"recipient","type":"address"},{"name":"memo","type":"bytes64"}],"name":"value","type":"tuple"}],"name":"second","outputs":[],"stateMutability":"pure","type":"function"},
+		{"inputs":[{"components":[{"name":"amount","type":"uint512"}],"name":"value","type":"tuple"}],"name":"third","outputs":[],"stateMutability":"pure","type":"function"}
+	]`
+	code, err := Bind([]string{"AnonymousTuples"}, []string{contractABI}, []string{""}, nil, "bindtest", nil, nil)
+	if err != nil {
+		t.Fatalf("Bind() failed: %v", err)
+	}
+	for i := 0; i < 25; i++ {
+		repeated, err := Bind([]string{"AnonymousTuples"}, []string{contractABI}, []string{""}, nil, "bindtest", nil, nil)
+		if err != nil {
+			t.Fatalf("repeated Bind() %d failed: %v", i, err)
+		}
+		if repeated != code {
+			t.Fatalf("repeated Bind() %d produced nondeterministic anonymous tuple names", i)
+		}
+	}
+	if got := strings.Count(code, "type Struct"); got != 2 {
+		t.Fatalf("generated %d anonymous tuple declarations, want two structural shapes\n%s", got, code)
+	}
+	normalized := strings.Join(strings.Fields(code), " ")
+	for _, want := range []string{"Amount *big.Int", "Recipient common.Address", "Memo [64]byte"} {
+		if !strings.Contains(normalized, want) {
+			t.Fatalf("generated binding does not contain %q\n%s", want, code)
+		}
+	}
+}
+
+func TestBindGeneratesTaggedAnonymousEvents(t *testing.T) {
+	contractABI := `[
+		{"anonymous":false,"inputs":[{"indexed":true,"name":"range","type":"uint512"},{"indexed":true,"name":"_msg","type":"uint512"},{"indexed":true,"name":"msg","type":"uint512"},{"indexed":false,"name":"type","type":"uint512"},{"indexed":false,"name":"_value","type":"uint512"}],"name":"Normalized","type":"event"},
+		{"anonymous":true,"inputs":[{"indexed":true,"name":"range","type":"address"},{"indexed":false,"name":"type","type":"bytes64"}],"name":"Anonymous","type":"event"}
+	]`
+	code, err := Bind([]string{"EventNames"}, []string{contractABI}, []string{""}, nil, "bindtest", nil, nil)
+	if err != nil {
+		t.Fatalf("Bind() failed: %v", err)
+	}
+	normalized := strings.Join(strings.Fields(code), " ")
+	for _, want := range []string{
+		`Arg0 *big.Int "abi:\"range\""`,
+		`Msg *big.Int "abi:\"_msg\""`,
+		`Msg0 *big.Int "abi:\"msg\""`,
+		`Arg3 *big.Int "abi:\"type\""`,
+		`Value *big.Int "abi:\"_value\""`,
+		"FilterAnonymous",
+		"WatchAnonymous",
+		"ParseAnonymous",
+	} {
+		if !strings.Contains(normalized, want) {
+			t.Fatalf("generated binding does not contain %q\n%s", want, code)
+		}
+	}
+}
+
+func TestBindInterleavedDuplicateEventTags(t *testing.T) {
+	const contractABI = `[{"anonymous":false,"inputs":[
+		{"indexed":false,"name":"duplicate","type":"bytes64"},
+		{"indexed":true,"name":"duplicate","type":"uint512"},
+		{"indexed":false,"name":"","type":"uint64"},
+		{"indexed":true,"name":"","type":"address"}
+	],"name":"Interleaved","type":"event"}]`
+	code, err := Bind([]string{"DuplicateEvents"}, []string{contractABI}, []string{""}, nil, "bindtest", nil, nil)
+	if err != nil {
+		t.Fatalf("generate interleaved duplicate-name event binding: %v", err)
+	}
+	for name, count := range map[string]int{
+		"duplicate": 2,
+		"arg2":      1,
+		"arg3":      1,
+	} {
+		tag := strconv.Quote(`abi:"` + name + `"`)
+		if got := strings.Count(code, tag); got != count {
+			t.Errorf("generated binding tag %s count=%d, want %d", tag, got, count)
+		}
+	}
+	for _, method := range []string{"FilterInterleaved", "WatchInterleaved", "ParseInterleaved"} {
+		if !strings.Contains(code, method) {
+			t.Errorf("generated binding is missing %s", method)
+		}
+	}
 }
 
 // Tests that packages generated by the binder can be successfully compiled and
 // the requested tester run against it.
 func TestGolangBindings(t *testing.T) {
-	// TODO: Re-enable after go-qrllib exposes wallet SignDeterministic through
-	// the normal github.com/theQRL/go-qrllib module path. This test compiles
-	// generated bindings inside a standalone temporary module, and Go does not
-	// apply dependency-module replace directives transitively. While this PR
-	// depends on a temporary fork replace for go-qrllib, keep this disabled.
-	t.Skip("temporarily disabled until go-qrllib wallet SignDeterministic is available without a fork replace")
 
 	// Skip the test if no Go command can be found
 	gocmd := runtime.GOROOT() + "/bin/go"
@@ -1945,17 +2264,19 @@ func TestGolangBindings(t *testing.T) {
 			}
 			// Generate the test file with the injected test code
 			code := fmt.Sprintf(`
-			package bindtest
+				package bindtest
 
-			import (
-				"testing"
-				%s
-			)
+				import (
+					"testing"
+					%s
+				)
 
-			func Test%s(t *testing.T) {
 				%s
-			}
-		`, tt.imports, tt.name, tt.tester)
+
+				func Test%s(t *testing.T) {
+					%s
+				}
+			`, tt.imports, bindTestDeclarations[tt.name], tt.name, tt.tester)
 			if err := os.WriteFile(filepath.Join(pkg, strings.ToLower(tt.name)+"_test.go"), []byte(code), 0600); err != nil {
 				t.Fatalf("test %d: failed to write tests: %v", i, err)
 			}
@@ -1989,5 +2310,13 @@ func TestGolangBindings(t *testing.T) {
 	cmd.Dir = pkg
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("failed to vet generated bindings: %v\n%s", err, out)
+	}
+	// Run the generated composite-topic fixture as a behavioral integration
+	// check. The other generated testers may execute legacy pre-VM64 bytecode,
+	// so they intentionally remain compile-only.
+	runner := exec.Command(gocmd, "test", "-run", "^TestIndexedCompositeTopics$", "-count=1", "./...")
+	runner.Dir = pkg
+	if out, err := runner.CombinedOutput(); err != nil {
+		t.Fatalf("generated composite topic integration failed: %v\n%s", err, out)
 	}
 }

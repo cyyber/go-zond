@@ -104,7 +104,7 @@ func TestTypeRegexp(t *testing.T) {
 			A int64 `json:"a"`
 		}{}), stringKind: "(int64)",
 			TupleElems: []*Type{{T: IntTy, Size: 64, stringKind: "int64"}}, TupleRawNames: []string{"a"}}},
-		{"tuple with long name", []ArgumentMarshaling{{Name: "aTypicalParamName", Type: "int64"}}, Type{T: TupleTy, TupleType: reflect.TypeOf(struct {
+		{"tuple", []ArgumentMarshaling{{Name: "aTypicalParamName", Type: "int64"}}, Type{T: TupleTy, TupleType: reflect.TypeOf(struct {
 			ATypicalParamName int64 `json:"aTypicalParamName"`
 		}{}), stringKind: "(int64)",
 			TupleElems: []*Type{{T: IntTy, Size: 64, stringKind: "int64"}}, TupleRawNames: []string{"aTypicalParamName"}}},
@@ -201,7 +201,7 @@ func TestTypeCheck(t *testing.T) {
 		{"int232", nil, big.NewInt(1), ""},
 		{"int240", nil, big.NewInt(1), ""},
 		{"int248", nil, big.NewInt(1), ""},
-		{"uint30", nil, uint8(1), "abi: cannot use uint8 as type ptr as argument"},
+		{"uint24", nil, uint8(1), "abi: cannot use uint8 as type ptr as argument"},
 		{"uint8", nil, uint16(1), "abi: cannot use uint16 as type uint8 as argument"},
 		{"uint8", nil, uint32(1), "abi: cannot use uint32 as type uint8 as argument"},
 		{"uint8", nil, uint64(1), "abi: cannot use uint64 as type uint8 as argument"},
@@ -270,8 +270,8 @@ func TestTypeCheck(t *testing.T) {
 		{"string", nil, []byte{}, "abi: cannot use slice as type string as argument"},
 		{"bytes32[]", nil, [][32]byte{{}}, ""},
 		{"function", nil, [common.AddressLength + 4]byte{}, ""},
-		// Addresses are 64 bytes. `bytesN` caps at 32 so there's no fixed-bytes
-		// alias for an Address anymore; only the `address` ABI type matches.
+		// Addresses and bytes64 are both 64-byte arrays, so either representation
+		// is assignable at the Go reflection boundary.
 		{"address", nil, [64]byte{}, ""},
 		{"address", nil, common.Address{}, ""},
 		{"bytes32[]]", nil, "", "invalid arg type in abi"},

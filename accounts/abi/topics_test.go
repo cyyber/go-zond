@@ -254,11 +254,10 @@ type int256Struct struct {
 	Int256Value *big.Int
 }
 
-// hashStruct receives the indexed keccak256 hash of a dynamic type. Topics
-// are 64 bytes; the reconstructed value uses the full LogTopic slot (hash
-// right-aligned in the low 32 bytes).
+// hashStruct receives the indexed Keccak-256 hash of a dynamic type. The hash
+// occupies the left-aligned bytes32 portion of the 64-byte VM64 topic.
 type hashStruct struct {
-	HashValue common.LogTopic
+	HashValue common.Hash
 }
 
 // funcStruct mirrors the Solidity `function` type, which is address followed
@@ -288,7 +287,10 @@ func setupTopicsTests() []topicTest {
 	bytesType, _ := NewType("bytes5", "", nil)
 	int8Type, _ := NewType("int8", "", nil)
 	int256Type, _ := NewType("int256", "", nil)
-	tupleType, _ := NewType("tuple(int256,int8)", "", nil)
+	tupleType, _ := NewType("tuple", "struct Topics.Pair", []ArgumentMarshaling{
+		{Name: "amount", Type: "uint512"},
+		{Name: "recipient", Type: "address"},
+	})
 	stringType, _ := NewType("string", "", nil)
 	funcType, _ := NewType("function", "", nil)
 	hashTopic := func(hash []byte) common.LogTopic {
@@ -357,10 +359,10 @@ func setupTopicsTests() []topicTest {
 			args: args{
 				createObj: func() any { return &hashStruct{} },
 				resultObj: func() any {
-					return &hashStruct{hashTopic(crypto.Keccak256([]byte("stringtopic")))}
+					return &hashStruct{crypto.Keccak256Hash([]byte("stringtopic"))}
 				},
 				resultMap: func() map[string]any {
-					return map[string]any{"hashValue": hashTopic(crypto.Keccak256([]byte("stringtopic")))}
+					return map[string]any{"hashValue": crypto.Keccak256Hash([]byte("stringtopic"))}
 				},
 				fields: Arguments{Argument{
 					Name:    "hashValue",
@@ -429,19 +431,25 @@ func setupTopicsTests() []topicTest {
 			wantErr: true,
 		},
 		{
-			name: "error on tuple in topic reconstruction",
+			name: "support tuple hash",
 			args: args{
-				createObj: func() any { return &tupleType },
-				resultObj: func() any { return &tupleType },
-				resultMap: func() map[string]any { return make(map[string]any) },
+				createObj: func() any { return &hashStruct{} },
+				resultObj: func() any {
+					return &hashStruct{HashValue: crypto.Keccak256Hash([]byte("tupletopic"))}
+				},
+				resultMap: func() map[string]any {
+					return map[string]any{"hashValue": crypto.Keccak256Hash([]byte("tupletopic"))}
+				},
 				fields: Arguments{Argument{
-					Name:    "tupletype",
+					Name:    "hashValue",
 					Type:    tupleType,
 					Indexed: true,
 				}},
-				topics: []common.LogTopic{{0}},
+				topics: []common.LogTopic{
+					hashTopic(crypto.Keccak256([]byte("tupletopic"))),
+				},
 			},
-			wantErr: true,
+			wantErr: false,
 		},
 		{
 			name: "error on improper encoded function",

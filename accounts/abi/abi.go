@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"io"
 	"math/big"
+	"strings"
 
 	"github.com/theQRL/go-qrl/common"
 	"github.com/theQRL/go-qrl/crypto"
@@ -83,22 +84,37 @@ func (abi ABI) Pack(name string, args ...any) ([]byte, error) {
 }
 
 func (abi ABI) getArguments(name string, data []byte) (Arguments, error) {
-	// since there can't be naming collisions with contracts and events,
-	// we need to decide whether we're calling a method or an event
-	var args Arguments
-	if method, ok := abi.Methods[name]; ok {
+	method, hasMethod := abi.Methods[name]
+	event, hasEvent := abi.Events[name]
+	abiError, hasError := abi.Errors[name]
+
+	var matches []string
+	if hasMethod {
+		matches = append(matches, "method")
+	}
+	if hasEvent {
+		matches = append(matches, "event")
+	}
+	if hasError {
+		matches = append(matches, "error")
+	}
+	if len(matches) == 0 {
+		return nil, fmt.Errorf("abi: could not locate named method, event or error: %s", name)
+	}
+	if len(matches) > 1 {
+		return nil, fmt.Errorf("abi: name %q is ambiguous between %s", name, strings.Join(matches, " and "))
+	}
+
+	if hasMethod {
 		if len(data)%64 != 0 {
 			return nil, fmt.Errorf("abi: improperly formatted output: %q - Bytes: %+v", data, data)
 		}
-		args = method.Outputs
+		return method.Outputs, nil
 	}
-	if event, ok := abi.Events[name]; ok {
-		args = event.Inputs
+	if hasEvent {
+		return event.Inputs, nil
 	}
-	if args == nil {
-		return nil, fmt.Errorf("abi: could not locate named method or event: %s", name)
-	}
-	return args, nil
+	return abiError.Inputs, nil
 }
 
 // Unpack unpacks the output according to the abi specification.
@@ -146,6 +162,10 @@ func (abi *ABI) UnmarshalJSON(data []byte) error {
 		// "nonpayable" or "payable".
 		StateMutability string
 
+		// Deprecated status indicators emitted by legacy compilers.
+		Constant bool
+		Payable  bool
+
 		// Event relevant indicator represents the event is
 		// declared as anonymous.
 		Anonymous bool
@@ -156,20 +176,29 @@ func (abi *ABI) UnmarshalJSON(data []byte) error {
 	abi.Methods = make(map[string]Method)
 	abi.Events = make(map[string]Event)
 	abi.Errors = make(map[string]Error)
-	for _, field := range fields {
+	methodSelectors := make(map[[4]byte]string)
+	errorSelectors := make(map[[4]byte]string)
+	for fieldIndex, field := range fields {
 		switch field.Type {
 		case "constructor":
-			abi.Constructor = NewMethod("", "", Constructor, field.StateMutability, field.Inputs, nil)
+			abi.Constructor = newMethod("", "", Constructor, field.StateMutability, field.Constant, field.Payable, field.Inputs, nil)
 		case "function":
 			name := ResolveNameConflict(field.Name, func(s string) bool { _, ok := abi.Methods[s]; return ok })
-			abi.Methods[name] = NewMethod(name, field.Name, Function, field.StateMutability, field.Inputs, field.Outputs)
+			method := newMethod(name, field.Name, Function, field.StateMutability, field.Constant, field.Payable, field.Inputs, field.Outputs)
+			var selector [4]byte
+			copy(selector[:], method.ID)
+			if previous, ok := methodSelectors[selector]; ok && previous != method.Sig {
+				return fmt.Errorf("abi: function selector collision between %q and %q: %#x", previous, method.Sig, selector)
+			}
+			methodSelectors[selector] = method.Sig
+			abi.Methods[name] = method
 		case "fallback":
 			// New introduced function type in v0.6.0, check more detail
 			// here https://solidity.readthedocs.io/en/v0.6.0/contracts.html#fallback-function
 			if abi.HasFallback() {
 				return errors.New("only single fallback is allowed")
 			}
-			abi.Fallback = NewMethod("", "", Fallback, field.StateMutability, nil, nil)
+			abi.Fallback = newMethod("", "", Fallback, field.StateMutability, field.Constant, field.Payable, nil, nil)
 		case "receive":
 			// New introduced function type in v0.6.0, check more detail
 			// here https://solidity.readthedocs.io/en/v0.6.0/contracts.html#fallback-function
@@ -179,14 +208,39 @@ func (abi *ABI) UnmarshalJSON(data []byte) error {
 			if field.StateMutability != "payable" {
 				return errors.New("the statemutability of receive can only be payable")
 			}
-			abi.Receive = NewMethod("", "", Receive, field.StateMutability, nil, nil)
+			abi.Receive = newMethod("", "", Receive, field.StateMutability, field.Constant, field.Payable, nil, nil)
 		case "event":
 			name := ResolveNameConflict(field.Name, func(s string) bool { _, ok := abi.Events[s]; return ok })
-			abi.Events[name] = NewEvent(name, field.Name, field.Anonymous, field.Inputs)
+			event := NewEvent(name, field.Name, field.Anonymous, field.Inputs)
+			event.declarationIndex = fieldIndex + 1
+			if err := event.Validate(); err != nil {
+				return err
+			}
+			abi.Events[name] = event
 		case "error":
-			// Errors cannot be overloaded or overridden but are inherited,
-			// no need to resolve the name conflict here.
-			abi.Errors[field.Name] = NewError(field.Name, field.Inputs)
+			// Referenced or inherited errors can appear more than once in
+			// compiler-produced ABI JSON. Keep every definition with the same
+			// canonical signature addressable. Argument names, tuple component
+			// labels, and internal type metadata do not affect its selector.
+			if field.Name == "Error" || field.Name == "Panic" {
+				return fmt.Errorf("abi: custom error name %q is reserved", field.Name)
+			}
+			abiError := NewError(field.Name, field.Inputs)
+			abiError.declarationIndex = fieldIndex + 1
+			var selector [4]byte
+			copy(selector[:], abiError.ID[:4])
+			if selector == ([4]byte{}) || selector == ([4]byte{0xff, 0xff, 0xff, 0xff}) {
+				return fmt.Errorf("abi: custom error %q uses reserved selector %#x", abiError.Sig, selector)
+			}
+			if previous, ok := errorSelectors[selector]; ok {
+				if previous != abiError.Sig {
+					return fmt.Errorf("abi: custom error selector collision between %q and %q: %#x", previous, abiError.Sig, selector)
+				}
+			} else {
+				errorSelectors[selector] = abiError.Sig
+			}
+			name := ResolveNameConflict(field.Name, func(s string) bool { _, ok := abi.Errors[s]; return ok })
+			abi.Errors[name] = abiError
 		default:
 			return fmt.Errorf("abi: could not recognize type %v of field %v", field.Type, field.Name)
 		}
@@ -200,10 +254,20 @@ func (abi *ABI) MethodById(sigdata []byte) (*Method, error) {
 	if len(sigdata) < 4 {
 		return nil, fmt.Errorf("data too short (%d bytes) for abi method lookup", len(sigdata))
 	}
-	for _, method := range abi.Methods {
+	var (
+		match    Method
+		matchKey string
+		found    bool
+	)
+	for key, method := range abi.Methods {
 		if bytes.Equal(method.ID, sigdata[:4]) {
-			return &method, nil
+			if !found || key < matchKey {
+				match, matchKey, found = method, key, true
+			}
 		}
+	}
+	if found {
+		return &match, nil
 	}
 	return nil, fmt.Errorf("no method with id: %#x", sigdata[:4])
 }
@@ -211,10 +275,25 @@ func (abi *ABI) MethodById(sigdata []byte) (*Method, error) {
 // EventByID looks an event up by its topic hash in the
 // ABI and returns nil if none found.
 func (abi *ABI) EventByID(topic common.Hash) (*Event, error) {
-	for _, event := range abi.Events {
+	var (
+		match    Event
+		matchKey string
+		found    bool
+	)
+	for key, event := range abi.Events {
 		if bytes.Equal(event.ID.Bytes(), topic.Bytes()) {
-			return &event, nil
+			// JSON-decoded events retain their declaration position. For
+			// hand-built ABI values, declarationIndex is zero and the map key
+			// provides a deterministic fallback.
+			if !found ||
+				(event.declarationIndex > 0 && (match.declarationIndex == 0 || event.declarationIndex < match.declarationIndex)) ||
+				(event.declarationIndex == match.declarationIndex && key < matchKey) {
+				match, matchKey, found = event, key, true
+			}
 		}
+	}
+	if found {
+		return &match, nil
 	}
 	return nil, fmt.Errorf("no event with id: %#x", topic.Hex())
 }
@@ -222,10 +301,25 @@ func (abi *ABI) EventByID(topic common.Hash) (*Event, error) {
 // ErrorByID looks up an error by the 4-byte id,
 // returns nil if none found.
 func (abi *ABI) ErrorByID(sigdata [4]byte) (*Error, error) {
-	for _, errABI := range abi.Errors {
+	var (
+		match    Error
+		matchKey string
+		found    bool
+	)
+	for key, errABI := range abi.Errors {
 		if bytes.Equal(errABI.ID[:4], sigdata[:]) {
-			return &errABI, nil
+			// JSON-decoded errors retain their declaration position. For
+			// hand-built ABI values, declarationIndex is zero and the map key
+			// provides a deterministic fallback.
+			if !found ||
+				(errABI.declarationIndex > 0 && (match.declarationIndex == 0 || errABI.declarationIndex < match.declarationIndex)) ||
+				(errABI.declarationIndex == match.declarationIndex && key < matchKey) {
+				match, matchKey, found = errABI, key, true
+			}
 		}
+	}
+	if found {
+		return &match, nil
 	}
 	return nil, fmt.Errorf("no error with id: %#x", sigdata[:])
 }
