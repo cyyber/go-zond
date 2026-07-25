@@ -10,6 +10,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/theQRL/go-qrl/scripts/testing/e2e/internal/kurtosis"
 )
 
 func privatePath(networkDir string) string { return filepath.Join(networkDir, "private") }
@@ -17,29 +19,35 @@ func ownershipPath(networkDir string) string {
 	return filepath.Join(privatePath(networkDir), "ownership.json")
 }
 
-func loadOwnership(networkDir string) (OwnershipRecord, error) {
+func loadOwnership(networkDir string) (kurtosis.EnclaveRef, error) {
 	if err := validatePrivateDirectory(networkDir); err != nil {
-		return OwnershipRecord{}, err
+		return kurtosis.EnclaveRef{}, err
 	}
-	record, err := loadJSON[OwnershipRecord](ownershipPath(networkDir), "ownership")
+	enclave, err := loadJSON[kurtosis.EnclaveRef](ownershipPath(networkDir), "ownership")
 	if err != nil {
-		return OwnershipRecord{}, err
+		return kurtosis.EnclaveRef{}, err
 	}
-	return record, validateOwnershipDirectory(networkDir, record)
+	return enclave, validateOwnershipDirectory(networkDir, enclave)
 }
 
-func createOwnership(networkDir string, record OwnershipRecord) error {
-	if err := validateOwnershipDirectory(networkDir, record); err != nil {
+func createOwnership(networkDir string, enclave kurtosis.EnclaveRef) error {
+	if err := validateOwnershipDirectory(networkDir, enclave); err != nil {
 		return err
 	}
-	return writeJSONExclusive(ownershipPath(networkDir), record)
+	return writeJSONExclusive(ownershipPath(networkDir), enclave)
 }
 
-func validateOwnershipDirectory(networkDir string, record OwnershipRecord) error {
-	if err := record.Validate(); err != nil {
-		return err
+func validateOwnershipDirectory(networkDir string, enclave kurtosis.EnclaveRef) error {
+	if enclave.Name == "" {
+		return errors.New("ownership enclave name is empty")
 	}
-	if !strings.HasPrefix(record.Name, enclaveNamePrefix(networkDir)) {
+	if enclave.UUID == "" {
+		return errors.New("ownership exact enclave UUID is empty")
+	}
+	if err := enclave.Validate(); err != nil {
+		return fmt.Errorf("ownership enclave identity is invalid: %w", err)
+	}
+	if !strings.HasPrefix(enclave.Name, enclaveNamePrefix(networkDir)) {
 		return errors.New("ownership enclave name does not belong to this network directory")
 	}
 	return nil

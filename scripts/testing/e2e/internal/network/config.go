@@ -14,8 +14,8 @@ import (
 )
 
 const (
-	packageLocator  = "github.com/rgeraldes24/qrl-package@1f31cd03dbe2061225701ea79d956cfeceaf91db"
-	expectedChainID = "0x539"
+	packageLocator  = "github.com/rgeraldes24/qrl-package@3892c3d2596403c080424d9e8fc99ff172483fe0"
+	expectedChainID = 1337
 	prefundBalance  = "2000000QRL"
 
 	consensusImage = "local/qrysm-beacon:8b80fa0c3f5a"
@@ -59,7 +59,7 @@ func effectiveParameters(address, executionImage string) (string, error) {
 			"use_remote_signer": false,
 		}},
 		"network_params": map[string]any{
-			"preset": "mainnet", "network_id": "1337",
+			"preset": "mainnet", "network_id": fmt.Sprint(expectedChainID),
 			"seconds_per_slot": 5, "slots_per_epoch": 128,
 			"execution_follow_distance": 8,
 			"prefunded_accounts":        map[string]any{address: map[string]any{"balance": prefundBalance}},
@@ -67,7 +67,6 @@ func effectiveParameters(address, executionImage string) (string, error) {
 			"light_kdf_enabled":         true,
 		},
 		"qrl_genesis_generator_params": map[string]any{"image": genesisImage},
-		"additional_services":          []any{},
 	}
 	payload, err := json.Marshal(parameters)
 	if err != nil {

@@ -19,19 +19,23 @@ type kurtosisClient interface {
 	GetEnclave(context.Context, string) (kurtosis.EnclaveRef, error)
 	EnclaveExists(context.Context, string) (bool, error)
 	RunRemotePackage(context.Context, kurtosis.EnclaveRef, kurtosis.PackageRun) error
-	Services(context.Context, kurtosis.EnclaveRef) ([]kurtosis.Service, error)
+	Services(context.Context, kurtosis.EnclaveRef) (map[string]kurtosis.Service, error)
 	DestroyEnclave(context.Context, kurtosis.EnclaveRef) error
 }
 
 type Manager struct {
-	newClient func() (kurtosisClient, error)
-	probe     func(context.Context, probeRequest) error
+	newClient                func() (kurtosisClient, error)
+	probe                    func(context.Context, probeRequest) error
+	createRecoveryTimeout    time.Duration
+	createRecoveryPollPeriod time.Duration
 }
 
 func NewManager() *Manager {
 	return &Manager{
-		newClient: func() (kurtosisClient, error) { return kurtosis.NewSDKClient() },
-		probe:     probeNetwork,
+		newClient:                func() (kurtosisClient, error) { return kurtosis.NewSDKClient() },
+		probe:                    probeNetwork,
+		createRecoveryTimeout:    15 * time.Second,
+		createRecoveryPollPeriod: 250 * time.Millisecond,
 	}
 }
 
@@ -40,43 +44,31 @@ func (manager *Manager) Start(ctx context.Context, request StartRequest) error {
 	if err != nil {
 		return err
 	}
-	request.NetworkDir = networkDir
 	mutation, err := acquireMutationLease(networkDir)
 	if err != nil {
 		return err
 	}
 	defer mutation.Close()
-	if request.StartTimeout <= 0 {
-		request.StartTimeout = 150 * time.Minute
-	}
-	startCtx, cancel := context.WithTimeout(ctx, request.StartTimeout)
-	defer cancel()
 
 	ownershipExists, err := pathExists(ownershipPath(networkDir))
 	if err != nil {
 		return err
 	}
 	if ownershipExists {
-		ownership, loadErr := loadOwnership(networkDir)
+		_, loadErr := loadOwnership(networkDir)
 		if loadErr != nil {
 			return loadErr
-		}
-		if _, ownershipErr := ownership.Enclave(); ownershipErr != nil {
-			return ownershipErr
 		}
 		return errors.New("network already exists or provisioning is incomplete; use status or network-stop")
 	}
 
-	walletAddress, err := ensureWallet(privatePath(networkDir))
+	walletAddress, err := ensureWallet(networkDir)
 	if err != nil {
 		return fmt.Errorf("prepare private E2E wallet: %w", err)
 	}
 	client, err := manager.newClient()
 	if err != nil {
 		return fmt.Errorf("connect to Kurtosis engine: %w", err)
-	}
-	if request.ExecutionImage == "" {
-		request.ExecutionImage = DefaultExecutionImage
 	}
 	parameters, err := effectiveParameters(walletAddress, request.ExecutionImage)
 	if err != nil {
@@ -86,160 +78,150 @@ func (manager *Manager) Start(ctx context.Context, request StartRequest) error {
 	if err != nil {
 		return fmt.Errorf("create unique Kurtosis enclave name: %w", err)
 	}
-	enclave, err := client.CreateEnclave(startCtx, name)
-	if err != nil {
-		return recoverAmbiguousCreation(startCtx, client, networkDir, name, err)
+	enclave, createErr := client.CreateEnclave(ctx, name)
+	if createErr != nil {
+		enclave, err = manager.recoverAmbiguousCreation(client, name, createErr)
+		if err != nil {
+			return err
+		}
 	}
-	if enclave.Name != name || enclave.Validate() != nil {
-		cleanupErr := cleanupCreatedEnclave(client, enclave)
-		return errors.Join(
-			errors.New("Kurtosis returned an unexpected enclave identity"),
-			wrapCleanupError(cleanupErr),
-		)
+	if err := retainCreatedEnclave(client, networkDir, name, enclave); err != nil {
+		return err
 	}
-	ownership := OwnershipRecord{Name: enclave.Name, UUID: enclave.UUID}
-	if err := createOwnership(networkDir, ownership); err != nil {
-		cleanupErr := cleanupCreatedEnclave(client, enclave)
-		return errors.Join(
-			fmt.Errorf("persist exact enclave ownership: %w", err),
-			wrapCleanupError(cleanupErr),
+	if err := ctx.Err(); err != nil {
+		if createErr != nil {
+			return errors.Join(
+				fmt.Errorf(
+					"create Kurtosis enclave %q returned an error; recovered exact ownership for network-stop: %w",
+					name,
+					createErr,
+				),
+				fmt.Errorf("caller context is no longer usable: %w", err),
+			)
+		}
+		return fmt.Errorf(
+			"Kurtosis enclave was created; exact ownership was retained for network-stop: %w",
+			err,
 		)
 	}
 
-	if err := client.RunRemotePackage(startCtx, enclave, kurtosis.PackageRun{
+	if err := client.RunRemotePackage(ctx, enclave, kurtosis.PackageRun{
 		Locator:          packageLocator,
 		SerializedParams: parameters,
 	}); err != nil {
 		return fmt.Errorf("run pinned qrl-package; network ownership was retained for network-stop: %w", err)
 	}
 
-	var runtime runtimeTopology
-	if err := waitUntil(startCtx, 2*time.Second, func(attempt context.Context) error {
-		services, err := client.Services(attempt, enclave)
-		if err != nil {
-			return err
-		}
-		discovered, err := discoverTopology(services)
-		if err != nil {
-			return err
-		}
-		runtime = discovered
-		return nil
-	}); err != nil {
-		return fmt.Errorf("discover qrl-package topology; network ownership was retained for network-stop: %w", err)
-	}
-	if err := waitUntil(startCtx, 2*time.Second, func(attempt context.Context) error {
-		return manager.probe(attempt, probeRequest{
-			RPCURL:  runtime.RPCURL,
-			Address: walletAddress, ExpectedChainID: expectedChainID,
-		})
+	if err := waitUntil(ctx, 2*time.Second, func(attempt context.Context) error {
+		_, err := manager.inspectEnclave(attempt, client, enclave, networkDir)
+		return err
 	}); err != nil {
 		return fmt.Errorf("wait for network readiness; network ownership was retained for network-stop: %w", err)
 	}
 	return nil
 }
 
-func recoverAmbiguousCreation(
-	ctx context.Context,
+func (manager *Manager) recoverAmbiguousCreation(
 	client kurtosisClient,
-	networkDir,
 	name string,
 	createErr error,
-) error {
-	enclave, lookupErr := client.GetEnclave(ctx, name)
-	if lookupErr != nil {
-		return errors.Join(
+) (kurtosis.EnclaveRef, error) {
+	recoveryCtx, cancel := context.WithTimeout(context.Background(), manager.createRecoveryTimeout)
+	defer cancel()
+	var enclave kurtosis.EnclaveRef
+	if lookupErr := waitUntil(recoveryCtx, manager.createRecoveryPollPeriod, func(attempt context.Context) error {
+		var err error
+		enclave, err = client.GetEnclave(attempt, name)
+		return err
+	}); lookupErr != nil {
+		return kurtosis.EnclaveRef{}, errors.Join(
 			fmt.Errorf("create Kurtosis enclave %q: %w", name, createErr),
 			fmt.Errorf("recover ambiguous creation by name: %w", lookupErr),
 		)
 	}
-	if enclave.Name != name || enclave.Validate() != nil {
+	return enclave, nil
+}
+
+func retainCreatedEnclave(
+	client kurtosisClient,
+	networkDir,
+	expectedName string,
+	enclave kurtosis.EnclaveRef,
+) error {
+	if enclave.Name != expectedName || enclave.Validate() != nil {
+		cleanupErr := cleanupCreatedEnclave(client, enclave)
 		return errors.Join(
-			fmt.Errorf("create Kurtosis enclave %q: %w", name, createErr),
-			errors.New("Kurtosis returned an unexpected recovered enclave identity"),
+			errors.New("Kurtosis returned an unexpected enclave identity"),
+			wrapCleanupError(cleanupErr),
 		)
 	}
-	if err := createOwnership(networkDir, OwnershipRecord{
-		Name: enclave.Name,
-		UUID: enclave.UUID,
-	}); err != nil {
+	if err := createOwnership(networkDir, enclave); err != nil {
+		cleanupErr := cleanupCreatedEnclave(client, enclave)
 		return errors.Join(
-			fmt.Errorf("create Kurtosis enclave %q: %w", name, createErr),
-			fmt.Errorf("persist recovered exact enclave ownership: %w", err),
+			fmt.Errorf("persist exact enclave ownership: %w", err),
+			wrapCleanupError(cleanupErr),
 		)
 	}
-	return fmt.Errorf(
-		"create Kurtosis enclave %q returned an error; recovered exact ownership for network-stop: %w",
-		name,
-		createErr,
-	)
+	return nil
 }
 
 func (manager *Manager) Status(ctx context.Context, requestedDir string) error {
-	_, err := manager.status(ctx, requestedDir)
+	_, err := manager.inspect(ctx, requestedDir)
 	return err
 }
 
-func (manager *Manager) status(ctx context.Context, requestedDir string) (runtimeTopology, error) {
+func (manager *Manager) inspect(ctx context.Context, requestedDir string) (Environment, error) {
 	networkDir, err := canonicalExistingDirectory(requestedDir, "network directory")
 	if err != nil {
-		return runtimeTopology{}, err
+		return Environment{}, err
 	}
 	ownershipExists, err := pathExists(ownershipPath(networkDir))
 	if err != nil {
-		return runtimeTopology{}, err
+		return Environment{}, err
 	}
 	if !ownershipExists {
-		return runtimeTopology{}, errors.New("network is not running")
+		return Environment{}, errors.New("network is not running")
 	}
-	ownership, err := loadOwnership(networkDir)
+	enclave, err := loadOwnership(networkDir)
 	if err != nil {
-		return runtimeTopology{}, err
-	}
-	enclave, err := ownership.Enclave()
-	if err != nil {
-		return runtimeTopology{}, err
+		return Environment{}, err
 	}
 	client, err := manager.newClient()
 	if err != nil {
-		return runtimeTopology{}, err
+		return Environment{}, err
 	}
+	return manager.inspectEnclave(ctx, client, enclave, networkDir)
+}
+
+func (manager *Manager) inspectEnclave(
+	ctx context.Context,
+	client kurtosisClient,
+	enclave kurtosis.EnclaveRef,
+	networkDir string,
+) (Environment, error) {
 	services, err := client.Services(ctx, enclave)
 	if err != nil {
-		return runtimeTopology{}, err
+		return Environment{}, err
 	}
-	runtime, err := discoverTopology(services)
+	seedFile := walletSeedPath(networkDir)
+	environment, err := discoverEnvironment(services, seedFile)
 	if err != nil {
-		return runtimeTopology{}, err
+		return Environment{}, err
 	}
-	walletAddress, err := validateWalletSeed(walletSeedPath(networkDir))
+	walletAddress, err := validateWalletSeed(seedFile)
 	if err != nil {
-		return runtimeTopology{}, fmt.Errorf("validate private wallet: %w", err)
+		return Environment{}, fmt.Errorf("validate private wallet: %w", err)
 	}
 	if err = manager.probe(ctx, probeRequest{
-		RPCURL: runtime.RPCURL, Address: walletAddress, ExpectedChainID: expectedChainID,
+		RPCURL: environment.RPCURL, Address: walletAddress,
 	}); err != nil {
-		return runtimeTopology{}, err
+		return Environment{}, err
 	}
-	return runtime, nil
+	return environment, nil
 }
 
 func (manager *Manager) Authenticate(ctx context.Context, networkDir string) (Environment, error) {
-	canonicalNetworkDir, err := canonicalExistingDirectory(networkDir, "network directory")
-	if err != nil {
-		return Environment{}, err
-	}
-	runtime, err := manager.status(ctx, canonicalNetworkDir)
-	if err != nil {
-		return Environment{}, err
-	}
-	environment := Environment{
-		RPCURL:       runtime.RPCURL,
-		GraphQLURL:   runtime.GraphQLURL,
-		WebSocketURL: runtime.WebSocketURL,
-		SeedFile:     walletSeedPath(canonicalNetworkDir),
-	}
-	return environment, nil
+	return manager.inspect(ctx, networkDir)
 }
 
 func (manager *Manager) Stop(ctx context.Context, requestedDir string) error {
@@ -260,15 +242,11 @@ func (manager *Manager) Stop(ctx context.Context, requestedDir string) error {
 	if !ownershipExists {
 		return nil
 	}
-	ownership, err := loadOwnership(networkDir)
+	enclave, err := loadOwnership(networkDir)
 	if err != nil {
 		return err
 	}
 	client, err := manager.newClient()
-	if err != nil {
-		return err
-	}
-	enclave, err := ownership.Enclave()
 	if err != nil {
 		return err
 	}
@@ -344,11 +322,8 @@ func waitUntil(ctx context.Context, interval time.Duration, operation func(conte
 		select {
 		case <-ctx.Done():
 			timer.Stop()
-			return fmt.Errorf("readiness deadline reached after: %v: %w", last, ctx.Err())
+			return fmt.Errorf("last attempt: %v: %w", last, ctx.Err())
 		case <-timer.C:
 		}
 	}
 }
-
-var _ Authenticator = (*Manager)(nil)
-var _ Controller = (*Manager)(nil)

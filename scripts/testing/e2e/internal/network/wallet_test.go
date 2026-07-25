@@ -5,18 +5,20 @@ package network
 
 import (
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 )
 
 func TestEnsureWalletCreatesAndReusesPrivateSeed(t *testing.T) {
-	dir := t.TempDir()
-	wallet, err := ensureWallet(dir)
+	networkDir, err := ensureNetworkDirectory(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
-	seedPath := filepath.Join(dir, seedName)
+	wallet, err := ensureWallet(networkDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	seedPath := walletSeedPath(networkDir)
 	seed, err := os.ReadFile(seedPath)
 	if err != nil {
 		t.Fatal(err)
@@ -25,7 +27,7 @@ func TestEnsureWalletCreatesAndReusesPrivateSeed(t *testing.T) {
 	if err != nil || !info.Mode().IsRegular() || info.Mode().Perm() != 0o600 || info.Mode()&os.ModeSymlink != 0 {
 		t.Fatalf("private seed metadata = %v, %v", info, err)
 	}
-	again, err := ensureWallet(dir)
+	again, err := ensureWallet(networkDir)
 	if err != nil || again != wallet {
 		t.Fatalf("reused wallet = %+v, %v", again, err)
 	}
@@ -36,11 +38,14 @@ func TestEnsureWalletCreatesAndReusesPrivateSeed(t *testing.T) {
 }
 
 func TestEnsureWalletRejectsInvalidExistingSeed(t *testing.T) {
-	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, seedName), []byte("invalid\n"), 0o600); err != nil {
+	networkDir, err := ensureNetworkDirectory(t.TempDir())
+	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := ensureWallet(dir); err == nil || !strings.Contains(err.Error(), "restore existing wallet") {
+	if err := os.WriteFile(walletSeedPath(networkDir), []byte("invalid\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ensureWallet(networkDir); err == nil || !strings.Contains(err.Error(), "restore existing wallet") {
 		t.Fatalf("invalid-seed error = %v", err)
 	}
 }

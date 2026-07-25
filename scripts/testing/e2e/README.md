@@ -10,6 +10,7 @@ Network lifecycle and suite execution remain separate:
 ```bash
 make e2e-unit
 make network-start
+make network-status
 make live-test E2E_SUITES=<suite>
 make network-stop
 ```
@@ -36,8 +37,7 @@ E2E_NETWORK_DIR=/tmp/my-go-qrl-network make network-stop
 Inspect readiness without running a suite:
 
 ```bash
-go -C scripts/testing/e2e run ./cmd/e2e status \
-  --network-dir /tmp/my-go-qrl-network
+E2E_NETWORK_DIR=/tmp/my-go-qrl-network make network-status
 ```
 
 Status is deliberately pass/fail: it prints `network ready` only after
@@ -50,13 +50,20 @@ destroys only that full recorded identity and leaves the shared Kurtosis engine
 running. Never upload the runtime directory, qrl-package output, or raw enclave
 dumps.
 
+The network temporarily runs
+`rgeraldes24/qrl-package@3892c3d2596403c080424d9e8fc99ff172483fe0`,
+whose fork metadata supports remote execution. The pin omits only the later
+Clef automation commit because this topology has remote signing disabled. Move
+it to `cyyber/qrl-package` once that metadata lands there.
+
 ## Suite runner
 
 `E2E_SUITES` is required and accepts comma-separated suite directory names.
 Each name maps to `./suites/<name>`; package selection is the single source of
-suite identity. Ginkgo labels describe capabilities, not package names. Every
-live spec must carry `e2e` and `live`; additional useful labels include `slow`,
-`serial`, and `mutates-chain`.
+suite identity. Ginkgo labels describe capabilities, not package names. Put
+`e2e` and `live` once on the suite's top-level Ginkgo container so its specs
+inherit them; additional useful labels include `slow`, `serial`, and
+`mutates-chain`.
 
 Create `scripts/testing/e2e/suites/<suite>` with a `TestE2E` bootstrap, then run:
 

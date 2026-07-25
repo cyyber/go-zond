@@ -29,6 +29,12 @@ make live-test.
 
 var errUsage = errors.New("invalid arguments")
 
+type controller interface {
+	Start(context.Context, network.StartRequest) error
+	Status(context.Context, string) error
+	Stop(context.Context, string) error
+}
+
 func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
@@ -44,7 +50,7 @@ func run(
 	arguments []string,
 	stdout,
 	stderr io.Writer,
-	networks network.Controller,
+	networks controller,
 ) error {
 	if len(arguments) == 0 || isHelp(arguments[0]) {
 		_, err := fmt.Fprint(stdout, usage)
@@ -65,7 +71,7 @@ func start(
 	arguments []string,
 	stdout,
 	stderr io.Writer,
-	networks network.Controller,
+	networks controller,
 ) error {
 	var (
 		networkDir     string
@@ -86,10 +92,11 @@ func start(
 	if networkDir == "" {
 		return usageError("--network-dir is required")
 	}
-	if err := networks.Start(ctx, network.StartRequest{
+	startCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	if err := networks.Start(startCtx, network.StartRequest{
 		NetworkDir:     networkDir,
 		ExecutionImage: executionImage,
-		StartTimeout:   timeout,
 	}); err != nil {
 		return err
 	}
@@ -103,7 +110,7 @@ func operate(
 	arguments []string,
 	stdout,
 	stderr io.Writer,
-	networks network.Controller,
+	networks controller,
 ) error {
 	var networkDir string
 	flags := flag.NewFlagSet("e2e "+operation, flag.ContinueOnError)

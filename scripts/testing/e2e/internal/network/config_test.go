@@ -23,14 +23,22 @@ func TestEffectiveParametersUseRequestedExecutionAndFixedSupportImages(t *testin
 	participant := parameters["participants"].([]any)[0].(map[string]any)
 	network := parameters["network_params"].(map[string]any)
 	prefund := network["prefunded_accounts"].(map[string]any)[address].(map[string]any)
+	serializedNetworkID, networkIDIsString := network["network_id"].(string)
 	if participant["el_image"] != executionImage ||
 		participant["cl_image"] != consensusImage ||
 		participant["vc_image"] != validatorImage ||
 		parameters["qrl_genesis_generator_params"].(map[string]any)["image"] != genesisImage ||
-		network["network_id"] != "1337" ||
+		!networkIDIsString ||
+		serializedNetworkID != "1337" ||
 		network["withdrawal_address"] != address ||
 		prefund["balance"] != prefundBalance {
 		t.Fatalf("parameters = %#v", parameters)
+	}
+	if _, exists := parameters["additional_services"]; exists {
+		t.Fatalf("redundant additional_services was serialized: %#v", parameters)
+	}
+	if packageLocator != "github.com/rgeraldes24/qrl-package@3892c3d2596403c080424d9e8fc99ff172483fe0" {
+		t.Fatalf("package locator = %q", packageLocator)
 	}
 }
 

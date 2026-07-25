@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"strings"
 	"time"
 
 	"github.com/theQRL/go-qrl/common"
@@ -18,7 +17,7 @@ import (
 const chainAdvancementWindow = 30 * time.Second
 
 type probeRequest struct {
-	RPCURL, Address, ExpectedChainID string
+	RPCURL, Address string
 }
 
 func probeNetwork(ctx context.Context, request probeRequest) error {
@@ -26,22 +25,19 @@ func probeNetwork(ctx context.Context, request probeRequest) error {
 	if err != nil {
 		return errors.New("signer readiness requires a valid wallet address")
 	}
-	expectedChainID, ok := parseChainID(request.ExpectedChainID)
-	if !ok {
-		return errors.New("expected chain ID is invalid")
-	}
 	client, err := qrlclient.DialContext(ctx, request.RPCURL)
 	if err != nil {
 		return fmt.Errorf("dial RPC: %w", err)
 	}
 	defer client.Close()
 
-	chainID, err := client.ChainID(ctx)
+	actualChainID, err := client.ChainID(ctx)
 	if err != nil {
 		return fmt.Errorf("read chain ID: %w", err)
 	}
-	if chainID.Cmp(expectedChainID) != 0 {
-		return fmt.Errorf("chain ID %s differs from expected %s", chainID, expectedChainID)
+	expected := big.NewInt(expectedChainID)
+	if actualChainID.Cmp(expected) != 0 {
+		return fmt.Errorf("chain ID %s differs from expected %s", actualChainID, expected)
 	}
 	firstBlock, err := client.BlockNumber(ctx)
 	if err != nil {
@@ -77,14 +73,4 @@ func probeNetwork(ctx context.Context, request probeRequest) error {
 			}
 		}
 	}
-}
-
-func parseChainID(value string) (*big.Int, bool) {
-	value = strings.TrimSpace(value)
-	base := 10
-	if strings.HasPrefix(strings.ToLower(value), "0x") {
-		base, value = 16, value[2:]
-	}
-	parsed, ok := new(big.Int).SetString(value, base)
-	return parsed, ok && parsed.Sign() >= 0
 }

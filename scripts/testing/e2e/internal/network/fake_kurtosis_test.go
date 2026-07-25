@@ -6,7 +6,7 @@ package network
 import (
 	"context"
 	"fmt"
-	"slices"
+	"maps"
 
 	"github.com/theQRL/go-qrl/scripts/testing/e2e/internal/kurtosis"
 )
@@ -14,10 +14,12 @@ import (
 type fakeKurtosis struct {
 	Enclave           kurtosis.EnclaveRef
 	Runs              []kurtosis.PackageRun
-	ServiceList       []kurtosis.Service
+	ServiceMap        map[string]kurtosis.Service
 	Calls             []string
 	CreateError       error
 	CreateAfterError  bool
+	CreateCallback    func()
+	GetFailures       int
 	RunError          error
 	DestroyError      error
 	DestroyAfterError bool
@@ -26,6 +28,9 @@ type fakeKurtosis struct {
 
 func (fake *fakeKurtosis) CreateEnclave(_ context.Context, name string) (kurtosis.EnclaveRef, error) {
 	fake.Calls = append(fake.Calls, "create:"+name)
+	if fake.CreateCallback != nil {
+		fake.CreateCallback()
+	}
 	if fake.CreateError != nil {
 		if fake.CreateAfterError && fake.Enclave.Name == "" {
 			fake.Enclave.Name = name
@@ -38,8 +43,15 @@ func (fake *fakeKurtosis) CreateEnclave(_ context.Context, name string) (kurtosi
 	return fake.Enclave, nil
 }
 
-func (fake *fakeKurtosis) GetEnclave(_ context.Context, identifier string) (kurtosis.EnclaveRef, error) {
+func (fake *fakeKurtosis) GetEnclave(ctx context.Context, identifier string) (kurtosis.EnclaveRef, error) {
 	fake.Calls = append(fake.Calls, "get:"+identifier)
+	if err := ctx.Err(); err != nil {
+		return kurtosis.EnclaveRef{}, err
+	}
+	if fake.GetFailures > 0 {
+		fake.GetFailures--
+		return kurtosis.EnclaveRef{}, fmt.Errorf("enclave %q not visible yet", identifier)
+	}
 	if identifier != fake.Enclave.Name && identifier != fake.Enclave.UUID {
 		return kurtosis.EnclaveRef{}, fmt.Errorf("enclave %q not found", identifier)
 	}
@@ -64,9 +76,14 @@ func (fake *fakeKurtosis) EnclaveExists(_ context.Context, uuid string) (bool, e
 func (fake *fakeKurtosis) Services(
 	_ context.Context,
 	ref kurtosis.EnclaveRef,
-) ([]kurtosis.Service, error) {
+) (map[string]kurtosis.Service, error) {
 	fake.Calls = append(fake.Calls, "services:"+ref.UUID)
-	return slices.Clone(fake.ServiceList), nil
+	services := maps.Clone(fake.ServiceMap)
+	for name, service := range services {
+		service.PublicPorts = maps.Clone(service.PublicPorts)
+		services[name] = service
+	}
+	return services, nil
 }
 
 func (fake *fakeKurtosis) DestroyEnclave(_ context.Context, ref kurtosis.EnclaveRef) error {
