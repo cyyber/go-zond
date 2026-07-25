@@ -417,9 +417,8 @@ func (qrvm *QRVM) create(caller ContractRef, codeAndHash *codeAndHash, gas uint6
 	}
 
 	// When an error was returned by the QRVM or when setting the creation code
-	// above we revert to the snapshot and consume any gas remaining. Additionally
-	// when we're in homestead this also counts for code storage gas errors.
-	if err != nil && (err != ErrCodeStoreOutOfGas) {
+	// above we revert to the snapshot and consume any gas remaining.
+	if err != nil {
 		qrvm.StateDB.RevertToSnapshot(snapshot)
 		if err != ErrExecutionReverted {
 			contract.UseGas(contract.Gas)
