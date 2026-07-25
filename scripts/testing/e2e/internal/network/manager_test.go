@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -29,17 +28,18 @@ func newManagerFixture(t *testing.T) managerFixture {
 		t.Fatal(err)
 	}
 	client := &fakeKurtosis{
-		Enclave:     kurtosis.EnclaveRef{UUID: strings.Repeat("a", 32)},
-		ServiceList: topologyFixture(),
+		Enclave:    kurtosis.EnclaveRef{UUID: strings.Repeat("a", 32)},
+		ServiceMap: topologyFixture(),
 	}
 	manager := NewManager()
 	manager.newClient = func() (kurtosisClient, error) { return client, nil }
 	manager.probe = func(context.Context, probeRequest) error { return nil }
+	manager.createRecoveryTimeout = 25 * time.Millisecond
+	manager.createRecoveryPollPeriod = time.Millisecond
 	return managerFixture{
 		manager: manager, client: client, networkDir: networkDir,
 		request: StartRequest{
 			NetworkDir: networkDir, ExecutionImage: "local/go-qrl:test",
-			StartTimeout: time.Minute,
 		},
 	}
 }
@@ -52,9 +52,6 @@ func TestStartPersistsExactOwnershipAndRefusesStaleReuse(t *testing.T) {
 	ownership, err := loadOwnership(fixture.networkDir)
 	if err != nil || ownership.UUID != fixture.client.Enclave.UUID {
 		t.Fatalf("ownership=%+v err=%v", ownership, err)
-	}
-	if _, err := os.Stat(filepath.Join(fixture.networkDir, "network.json")); !errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("public network state exists: %v", err)
 	}
 	if err := fixture.manager.Start(context.Background(), fixture.request); err == nil ||
 		!strings.Contains(err.Error(), "already exists") {
@@ -69,6 +66,7 @@ func TestStartPersistsExactOwnershipAndRefusesStaleReuse(t *testing.T) {
 		t.Fatalf("network was reprovisioned: %v", fixture.client.Calls)
 	}
 	if len(fixture.client.Runs) != 1 ||
+		fixture.client.Runs[0].Locator != packageLocator ||
 		!strings.Contains(fixture.client.Runs[0].SerializedParams, `"el_image":"local/go-qrl:test"`) {
 		t.Fatalf("package runs = %+v", fixture.client.Runs)
 	}
@@ -112,15 +110,13 @@ func TestAmbiguousCreateRecoversAndPersistsExactOwnership(t *testing.T) {
 	fixture := newManagerFixture(t)
 	fixture.client.CreateError = errors.New("create response lost")
 	fixture.client.CreateAfterError = true
-	if err := fixture.manager.Start(context.Background(), fixture.request); err == nil ||
-		!strings.Contains(err.Error(), "recovered exact ownership") {
-		t.Fatalf("ambiguous create error = %v", err)
+	if err := fixture.manager.Start(context.Background(), fixture.request); err != nil {
+		t.Fatalf("recover ambiguous create: %v", err)
 	}
 	record, err := loadOwnership(fixture.networkDir)
 	if err != nil || record.UUID != fixture.client.Enclave.UUID {
 		t.Fatalf("recovered ownership=%+v err=%v", record, err)
 	}
-	fixture.client.CreateError = nil
 	if err := fixture.manager.Start(context.Background(), fixture.request); err == nil ||
 		!strings.Contains(err.Error(), "already exists") {
 		t.Fatalf("ambiguous restart error = %v", err)
@@ -128,8 +124,72 @@ func TestAmbiguousCreateRecoversAndPersistsExactOwnership(t *testing.T) {
 	if err := fixture.manager.Stop(context.Background(), fixture.networkDir); err != nil {
 		t.Fatal(err)
 	}
-	if countCalls(fixture.client.Calls, "create:") != 1 || !fixture.client.Destroyed {
+	if countCalls(fixture.client.Calls, "create:") != 1 ||
+		countCalls(fixture.client.Calls, "run:") != 1 ||
+		!fixture.client.Destroyed {
 		t.Fatalf("unsafe ambiguous handling: %v", fixture.client.Calls)
+	}
+}
+
+func TestAmbiguousCreateWaitsForEnclavePublication(t *testing.T) {
+	fixture := newManagerFixture(t)
+	fixture.client.CreateError = errors.New("create response lost")
+	fixture.client.CreateAfterError = true
+	fixture.client.GetFailures = 1
+
+	if err := fixture.manager.Start(context.Background(), fixture.request); err != nil {
+		t.Fatalf("recover delayed enclave publication: %v", err)
+	}
+	if countCalls(fixture.client.Calls, "get:") != 2 ||
+		countCalls(fixture.client.Calls, "run:") != 1 {
+		t.Fatalf("ambiguous creation was not retried safely: %v", fixture.client.Calls)
+	}
+	record, err := loadOwnership(fixture.networkDir)
+	if err != nil || record.UUID != fixture.client.Enclave.UUID {
+		t.Fatalf("recovered ownership=%+v err=%v", record, err)
+	}
+}
+
+func TestAmbiguousCreateUsesIndependentRecoveryContext(t *testing.T) {
+	fixture := newManagerFixture(t)
+	fixture.client.CreateError = errors.New("create response lost")
+	fixture.client.CreateAfterError = true
+	ctx, cancel := context.WithCancel(context.Background())
+	fixture.client.CreateCallback = cancel
+
+	err := fixture.manager.Start(ctx, fixture.request)
+	if !errors.Is(err, context.Canceled) ||
+		!strings.Contains(err.Error(), "recovered exact ownership") {
+		t.Fatalf("ambiguous canceled create error = %v", err)
+	}
+	record, loadErr := loadOwnership(fixture.networkDir)
+	if loadErr != nil || record.UUID != fixture.client.Enclave.UUID {
+		t.Fatalf("recovered ownership=%+v err=%v", record, loadErr)
+	}
+	if countCalls(fixture.client.Calls, "get:") != 1 ||
+		countCalls(fixture.client.Calls, "run:") != 0 {
+		t.Fatalf("recovery did not isolate cancellation: %v", fixture.client.Calls)
+	}
+}
+
+func TestAmbiguousCreateCleansUpWhenOwnershipCannotBePersisted(t *testing.T) {
+	fixture := newManagerFixture(t)
+	fixture.client.CreateError = errors.New("create response lost")
+	fixture.client.CreateAfterError = true
+	fixture.client.CreateCallback = func() {
+		if err := writeExclusive(ownershipPath(fixture.networkDir), []byte("{}\n")); err != nil {
+			t.Errorf("create conflicting ownership: %v", err)
+		}
+	}
+
+	err := fixture.manager.Start(context.Background(), fixture.request)
+	if err == nil || !strings.Contains(err.Error(), "persist exact enclave ownership") {
+		t.Fatalf("persistence error = %v", err)
+	}
+	if !fixture.client.Destroyed ||
+		countCalls(fixture.client.Calls, "destroy:") != 1 ||
+		countCalls(fixture.client.Calls, "run:") != 0 {
+		t.Fatalf("recovered enclave was orphaned: %v", fixture.client.Calls)
 	}
 }
 

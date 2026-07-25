@@ -26,10 +26,11 @@ source and Go build layers.
 - Git; and
 - network access for the digest-pinned bases and exact source revisions.
 
-The build rejects a dirty go-qrl checkout because the execution image embeds
-the current Git commit. Builder and runtime bases are pinned by digest in
-`docker-bake.hcl`. Source repositories are fetched at exact 40-character
-commits by `Dockerfile.support`.
+The build rejects a dirty go-qrl checkout because the execution binary and
+image metadata embed the current Git commit. Support images retain the pinned
+upstream provenance declared in `Dockerfile.support`. Builder and runtime bases
+are pinned by digest in `docker-bake.hcl`, and source repositories are fetched
+at exact 40-character commits.
 
 The genesis source is
 `cyyber/qrl-genesis-generator@360410c72353c3a337f078018b36877dbbe40799`,
@@ -43,8 +44,9 @@ post-`cyyber/main` commits fix validator aggregation/REST error handling and a
 stale Zond protobuf descriptor. Replace the fork locator once those focused
 fixes land in `cyyber/qrysm`.
 
-The execution-image name can be overridden without changing the pinned support
-images:
+Support-image tags include their pinned source revisions so concurrent
+worktrees cannot silently replace each other's Qrysm or genesis inputs. Only
+the execution-image name is configurable:
 
 ```bash
 make network-images E2E_EXECUTION_IMAGE=local/go-qrl:mine

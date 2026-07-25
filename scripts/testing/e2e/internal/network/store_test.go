@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/theQRL/go-qrl/scripts/testing/e2e/internal/kurtosis"
 )
 
 func TestNetworkDirectory(t *testing.T) {
@@ -32,12 +34,25 @@ func TestNetworkDirectory(t *testing.T) {
 	}
 }
 
+func TestOwnershipRequiresExactUUIDForDestruction(t *testing.T) {
+	networkDir := t.TempDir()
+	enclave := kurtosis.EnclaveRef{Name: enclaveNamePrefix(networkDir) + "attempt"}
+	if err := validateOwnershipDirectory(networkDir, enclave); err == nil ||
+		!strings.Contains(err.Error(), "exact enclave UUID") {
+		t.Fatalf("incomplete ownership error = %v", err)
+	}
+	enclave.UUID = strings.Repeat("a", 32)
+	if err := validateOwnershipDirectory(networkDir, enclave); err != nil {
+		t.Fatalf("valid ownership = %+v, err=%v", enclave, err)
+	}
+}
+
 func TestOwnershipPersistsOneExclusiveExactIdentity(t *testing.T) {
 	networkDir, err := ensureNetworkDirectory(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
-	record := OwnershipRecord{
+	record := kurtosis.EnclaveRef{
 		Name: enclaveNamePrefix(networkDir) + "0123456789abcdef0123456789abcdef",
 		UUID: strings.Repeat("a", 32),
 	}
@@ -62,7 +77,7 @@ func TestOwnershipCannotBeCopiedToAnotherNetworkDirectory(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	record := OwnershipRecord{
+	record := kurtosis.EnclaveRef{
 		Name: enclaveNamePrefix(source) + "0123456789abcdef0123456789abcdef",
 		UUID: strings.Repeat("a", 32),
 	}

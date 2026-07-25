@@ -1,17 +1,5 @@
-variable "E2E_LOCAL_EL_IMAGE" {
+variable "E2E_EXECUTION_IMAGE" {
   default = "local/go-qrl:e2e"
-}
-
-variable "E2E_LOCAL_CL_IMAGE" {
-  default = "local/qrysm-beacon:8b80fa0c3f5a"
-}
-
-variable "E2E_LOCAL_VC_IMAGE" {
-  default = "local/qrysm-validator:8b80fa0c3f5a"
-}
-
-variable "E2E_LOCAL_GENESIS_IMAGE" {
-  default = "local/qrl-genesis-generator:360410c72353-8b80fa0c3f5a"
 }
 
 variable "GO_QRL_COMMIT" {
@@ -22,10 +10,6 @@ group "network" {
   targets = ["execution", "beacon", "validator", "genesis"]
 }
 
-group "support" {
-  targets = ["beacon", "validator", "genesis"]
-}
-
 target "_local" {
   output = ["type=docker"]
 }
@@ -34,7 +18,10 @@ target "execution" {
   inherits   = ["_local"]
   context    = "."
   dockerfile = "Dockerfile"
-  tags       = [E2E_LOCAL_EL_IMAGE]
+  tags       = [E2E_EXECUTION_IMAGE]
+  labels = {
+    "io.theqrl.local-testnet.role" = "execution-client"
+  }
   args = {
     COMMIT               = GO_QRL_COMMIT
     GO_BUILDER_IMAGE     = "golang:1.25-alpine@sha256:56961d79ea8129efddcc0b8643fd8a5416b4e6228cfd477e3fd61deb2672c587"
@@ -61,17 +48,17 @@ target "_support" {
 target "beacon" {
   inherits = ["_support"]
   target   = "beacon"
-  tags     = [E2E_LOCAL_CL_IMAGE]
+  tags     = ["local/qrysm-beacon:8b80fa0c3f5a"]
 }
 
 target "validator" {
   inherits = ["_support"]
   target   = "validator"
-  tags     = [E2E_LOCAL_VC_IMAGE]
+  tags     = ["local/qrysm-validator:8b80fa0c3f5a"]
 }
 
 target "genesis" {
   inherits = ["_support"]
   target   = "genesis"
-  tags     = [E2E_LOCAL_GENESIS_IMAGE]
+  tags     = ["local/qrl-genesis-generator:360410c72353-8b80fa0c3f5a"]
 }

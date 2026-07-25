@@ -59,7 +59,7 @@ func TestProbeNetworkRequiresAdvancingFundedChain(t *testing.T) {
 	defer server.Close()
 	address := "Q" + strings.Repeat("b", 128)
 	if err := probeNetwork(context.Background(), probeRequest{
-		RPCURL: server.URL, Address: address, ExpectedChainID: "0x539",
+		RPCURL: server.URL, Address: address,
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -80,7 +80,6 @@ func TestProbeNetworkRejectsWrongChainAndEmptyWallet(t *testing.T) {
 			defer server.Close()
 			err := probeNetwork(context.Background(), probeRequest{
 				RPCURL: server.URL, Address: "Q" + strings.Repeat("c", 128),
-				ExpectedChainID: "0x539",
 			})
 			if err == nil {
 				t.Fatal("invalid network was accepted")
@@ -97,7 +96,6 @@ func TestProbeNetworkHonorsCallerDeadline(t *testing.T) {
 	defer cancel()
 	err := probeNetwork(ctx, probeRequest{
 		RPCURL: server.URL, Address: "Q" + strings.Repeat("d", 128),
-		ExpectedChainID: "0x539",
 	})
 	if !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("deadline error = %v", err)

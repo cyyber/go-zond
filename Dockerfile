@@ -35,7 +35,6 @@ ARG VERSION=""
 ARG BUILDNUM=""
 
 LABEL org.opencontainers.image.revision="$COMMIT" \
-      io.theqrl.local-testnet.role="execution-client" \
       commit="$COMMIT" \
       version="$VERSION" \
       buildnum="$BUILDNUM"

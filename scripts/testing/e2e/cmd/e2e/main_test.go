@@ -17,14 +17,16 @@ import (
 )
 
 type recordingNetworks struct {
-	startRequest network.StartRequest
-	statusDir    string
-	stopDir      string
-	statusErr    error
+	startRequest  network.StartRequest
+	startDeadline time.Time
+	statusDir     string
+	stopDir       string
+	statusErr     error
 }
 
-func (networks *recordingNetworks) Start(_ context.Context, request network.StartRequest) error {
+func (networks *recordingNetworks) Start(ctx context.Context, request network.StartRequest) error {
 	networks.startRequest = request
+	networks.startDeadline, _ = ctx.Deadline()
 	return nil
 }
 
@@ -52,9 +54,11 @@ func TestRunNetworkCommands(t *testing.T) {
 	}
 	request := networks.startRequest
 	if request.NetworkDir != networkDir ||
-		request.ExecutionImage != "local/go-qrl:test" ||
-		request.StartTimeout != 17*time.Minute {
+		request.ExecutionImage != "local/go-qrl:test" {
 		t.Fatalf("start request = %+v", request)
+	}
+	if remaining := time.Until(networks.startDeadline); remaining <= 16*time.Minute || remaining > 17*time.Minute {
+		t.Fatalf("start deadline remaining = %s", remaining)
 	}
 	if stdout.String() != "network ready\n" {
 		t.Fatalf("start output = %q", stdout.String())

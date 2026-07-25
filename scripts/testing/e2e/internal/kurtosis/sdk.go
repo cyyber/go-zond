@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"sort"
 
 	"github.com/kurtosis-tech/kurtosis/api/golang/core/kurtosis_core_rpc_api_bindings"
 	"github.com/kurtosis-tech/kurtosis/api/golang/core/lib/enclaves"
@@ -81,7 +80,7 @@ func (client *SDKClient) RunRemotePackage(ctx context.Context, ref EnclaveRef, r
 	return consumeStarlarkCompletion(stream)
 }
 
-func (client *SDKClient) Services(ctx context.Context, ref EnclaveRef) ([]Service, error) {
+func (client *SDKClient) Services(ctx context.Context, ref EnclaveRef) (map[string]Service, error) {
 	enclave, err := client.enclaveContext(ctx, ref)
 	if err != nil {
 		return nil, err
@@ -96,15 +95,14 @@ func (client *SDKClient) Services(ctx context.Context, ref EnclaveRef) ([]Servic
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	result := make([]Service, 0, len(contexts))
-	for _, serviceContext := range contexts {
+	result := make(map[string]Service, len(contexts))
+	for name, serviceContext := range contexts {
 		service, err := convertServiceContext(serviceContext)
 		if err != nil {
 			return nil, err
 		}
-		result = append(result, service)
+		result[string(name)] = service
 	}
-	sort.Slice(result, func(i, j int) bool { return result[i].Name < result[j].Name })
 	return result, nil
 }
 
@@ -153,17 +151,15 @@ func convertServiceContext(serviceContext *kurtosisservices.ServiceContext) (Ser
 		return Service{}, errors.New("Kurtosis GetServiceContexts returned a nil service context")
 	}
 	return Service{
-		Name:        string(serviceContext.GetServiceName()),
-		UUID:        string(serviceContext.GetServiceUUID()),
 		PublicIP:    serviceContext.GetMaybePublicIPAddress(),
 		PublicPorts: convertSDKPorts(serviceContext.GetPublicPorts()),
 	}, nil
 }
 
-func convertSDKPorts(ports map[string]*kurtosisservices.PortSpec) map[string]Port {
-	result := make(map[string]Port, len(ports))
+func convertSDKPorts(ports map[string]*kurtosisservices.PortSpec) map[string]uint16 {
+	result := make(map[string]uint16, len(ports))
 	for id, port := range ports {
-		result[id] = Port{Number: uint16(port.GetNumber())}
+		result[id] = uint16(port.GetNumber())
 	}
 	return result
 }

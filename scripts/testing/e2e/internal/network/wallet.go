@@ -21,14 +21,11 @@ func walletSeedPath(networkDir string) string {
 	return filepath.Join(privatePath(networkDir), seedName)
 }
 
-func ensureWallet(dir string) (string, error) {
-	if err := os.MkdirAll(dir, 0o700); err != nil {
+func ensureWallet(networkDir string) (string, error) {
+	if err := validatePrivateDirectory(networkDir); err != nil {
 		return "", err
 	}
-	if err := os.Chmod(dir, 0o700); err != nil {
-		return "", err
-	}
-	seedPath := filepath.Join(dir, seedName)
+	seedPath := walletSeedPath(networkDir)
 	if _, err := os.Lstat(seedPath); err == nil {
 		return validateWalletSeed(seedPath)
 	} else if !errors.Is(err, os.ErrNotExist) {

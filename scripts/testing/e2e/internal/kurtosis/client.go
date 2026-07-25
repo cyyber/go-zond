@@ -35,21 +35,15 @@ type PackageRun struct {
 	SerializedParams string
 }
 
-type Port struct {
-	Number uint16
-}
-
 type Service struct {
-	Name        string
-	UUID        string
 	PublicIP    string
-	PublicPorts map[string]Port
+	PublicPorts map[string]uint16
 }
 
 func (service Service) PublicEndpoint(portID, scheme string) (string, bool) {
 	port, ok := service.PublicPorts[portID]
-	if !ok || service.PublicIP == "" || port.Number == 0 {
+	if !ok || service.PublicIP == "" || port == 0 {
 		return "", false
 	}
-	return scheme + "://" + net.JoinHostPort(service.PublicIP, strconv.Itoa(int(port.Number))), true
+	return scheme + "://" + net.JoinHostPort(service.PublicIP, strconv.Itoa(int(port))), true
 }

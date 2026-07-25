@@ -13,7 +13,7 @@ import (
 	kurtosisservices "github.com/kurtosis-tech/kurtosis/api/golang/core/lib/services"
 )
 
-func TestConvertServiceContextPreservesIdentityAndPublicEndpoints(t *testing.T) {
+func TestConvertServiceContextPreservesPublicEndpoints(t *testing.T) {
 	serviceContext := kurtosisservices.NewServiceContext(
 		nil,
 		"execution",
@@ -33,10 +33,8 @@ func TestConvertServiceContextPreservesIdentityAndPublicEndpoints(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if service.Name != "execution" ||
-		service.UUID != "11111111111111111111111111111111" ||
-		service.PublicIP != "127.0.0.1" ||
-		service.PublicPorts["rpc"].Number != 18545 {
+	if service.PublicIP != "127.0.0.1" ||
+		service.PublicPorts["rpc"] != 18545 {
 		t.Fatalf("service = %+v", service)
 	}
 }

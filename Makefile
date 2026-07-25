@@ -3,7 +3,7 @@
 # don't need to bother with make.
 
 .PHONY: gqrl qrvm all test lint fmt clean devtools \
-	e2e-unit network-images network-start live-test network-stop help
+	e2e-unit network-images network-start network-status live-test network-stop help
 
 GOBIN = ./build/bin
 GO ?= latest
@@ -76,7 +76,7 @@ e2e-unit:
 #? network-images: Build the pinned images used by the standalone E2E network.
 network-images:
 	E2E_DOCKER_BIN="$(E2E_DOCKER_BIN)" \
-	E2E_LOCAL_EL_IMAGE="$(E2E_EXECUTION_IMAGE)" \
+	E2E_EXECUTION_IMAGE="$(E2E_EXECUTION_IMAGE)" \
 	./scripts/local_testnet/build_network_images.sh
 
 #? network-start: Start a standalone E2E test network without running suites.
@@ -85,14 +85,16 @@ network-start: network-images
 		--network-dir "$(E2E_NETWORK_DIR_ABS)" \
 		--execution-image "$(E2E_EXECUTION_IMAGE)"
 
+#? network-status: Check whether the standalone E2E network is ready.
+network-status:
+	$(E2E_RUNNER) status --network-dir "$(E2E_NETWORK_DIR_ABS)"
+
 #? live-test: Run selected Ginkgo E2E suites against the already-running network.
 live-test:
 	@test -n "$(E2E_SUITE_LIST)" || { echo "E2E_SUITES must name at least one suite" >&2; exit 2; }
 	E2E_NETWORK_DIR="$(E2E_NETWORK_DIR_ABS)" \
-	E2E_REPO_ROOT="$(CURDIR)" \
 	$(E2E_GINKGO) \
 		--tags=e2e \
-		--ldflags='-s -w' \
 		--procs=1 \
 		--require-suite \
 		--fail-on-empty \
