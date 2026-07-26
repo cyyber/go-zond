@@ -11,14 +11,14 @@ Network lifecycle and suite execution remain separate:
 make e2e-unit
 make network-start
 make network-status
-make live-test E2E_SUITES=<suite>
+make live-test E2E_PACKAGES=./suites/<suite>
 make network-stop
 ```
 
 Starting a network never runs tests. Running tests never creates or destroys a
 network.
 
-The Make interface has one required suite selector, `E2E_SUITES`, and three
+The Make interface has one required package selector, `E2E_PACKAGES`, and three
 optional overrides: `E2E_NETWORK_DIR`, `E2E_TIMEOUT`, and
 `E2E_EXECUTION_IMAGE`. The lifecycle targets normalize `E2E_NETWORK_DIR` to an
 absolute path before passing it to the Go commands.
@@ -40,7 +40,7 @@ Use one private runtime directory for the complete lifecycle:
 ```bash
 E2E_NETWORK_DIR=/tmp/my-go-qrl-network make network-start
 E2E_NETWORK_DIR=/tmp/my-go-qrl-network \
-  make live-test E2E_SUITES=<suite>
+  make live-test E2E_PACKAGES=./suites/<suite>
 E2E_NETWORK_DIR=/tmp/my-go-qrl-network make network-stop
 ```
 
@@ -66,14 +66,20 @@ support-image references are defined once in
 
 ## Suite runner
 
-`E2E_SUITES` is required and accepts comma-separated suite directory names.
-Each name maps to `./suites/<name>`; package selection is the single source of
-suite identity.
+`E2E_PACKAGES` is required and accepts one or more space-separated Go package
+paths relative to this module. Package selection is the single source of suite
+identity.
+
+Quote the value when selecting multiple suites:
+
+```bash
+make live-test E2E_PACKAGES='./suites/goabi ./suites/commands'
+```
 
 Create `scripts/testing/e2e/suites/<suite>` with a `TestE2E` bootstrap, then run:
 
 ```bash
-make live-test E2E_SUITES=<suite>
+make live-test E2E_PACKAGES=./suites/<suite>
 ```
 
 Call `suitekit.OpenLiveNetwork(ctx)` to authenticate the shared network and

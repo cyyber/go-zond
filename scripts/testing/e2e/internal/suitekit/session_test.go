@@ -8,9 +8,9 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/require"
 	"github.com/theQRL/go-qrl/scripts/testing/e2e/internal/network"
 )
 
@@ -21,9 +21,7 @@ func TestOpenLiveNetwork(t *testing.T) {
 		_ context.Context,
 		requestedNetwork string,
 	) (network.Environment, error) {
-		if requestedNetwork != networkDir {
-			t.Fatalf("inspect path = %q", requestedNetwork)
-		}
+		require.Equal(t, networkDir, requestedNetwork)
 		if competing, err := network.AcquireMutationLease(networkDir); err == nil {
 			_ = competing.Close()
 			t.Fatal("network lease was not held during inspection")
@@ -37,25 +35,15 @@ func TestOpenLiveNetwork(t *testing.T) {
 	}
 
 	live, err := openLiveNetwork(t.Context(), networkDir, inspect)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if live.RPCURL != rpcURL ||
-		live.GraphQLURL != rpcURL+"/graphql" ||
-		live.WebSocketURL != "ws://127.0.0.1/ws" ||
-		live.SeedFile != seedFile {
-		t.Fatalf("live network = %+v", live)
-	}
-	if err := live.Close(); err != nil {
-		t.Fatal(err)
-	}
-	if err := live.Close(); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
+	require.Equal(t, rpcURL, live.RPCURL)
+	require.Equal(t, rpcURL+"/graphql", live.GraphQLURL)
+	require.Equal(t, "ws://127.0.0.1/ws", live.WebSocketURL)
+	require.Equal(t, seedFile, live.SeedFile)
+	require.NoError(t, live.Close())
+	require.NoError(t, live.Close())
 	reopened, err := network.AcquireMutationLease(networkDir)
-	if err != nil {
-		t.Fatalf("session leaked network lease: %v", err)
-	}
+	require.NoError(t, err, "session leaked network lease")
 	_ = reopened.Close()
 }
 
@@ -66,21 +54,15 @@ func TestOpenLiveNetworkReleasesLeaseOnFailure(t *testing.T) {
 	}
 
 	_, err := openLiveNetwork(t.Context(), networkDir, inspect)
-	if err == nil || !strings.Contains(err.Error(), "inspect live network") {
-		t.Fatalf("authentication error = %v", err)
-	}
+	require.ErrorContains(t, err, "inspect live network")
 	reopened, err := network.AcquireMutationLease(networkDir)
-	if err != nil {
-		t.Fatalf("failure leaked network lease: %v", err)
-	}
+	require.NoError(t, err, "failure leaked network lease")
 	_ = reopened.Close()
 }
 
 func liveNetworkDirectory(t *testing.T) (string, string) {
 	t.Helper()
 	networkDir := t.TempDir()
-	if err := os.Chmod(networkDir, 0o700); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.Chmod(networkDir, 0o700))
 	return networkDir, filepath.Join(networkDir, "wallet.seed")
 }

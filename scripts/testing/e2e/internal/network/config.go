@@ -18,7 +18,6 @@ const (
 	prefundBalance  = "2000000QRL"
 
 	consensusImage = "qrledger/qrysm:beacon-chain-8b80fa0c3f5a"
-	validatorImage = "qrledger/qrysm:validator-8b80fa0c3f5a"
 	genesisImage   = "qrledger/qrysm:qrl-genesis-generator-360410c72353-8b80fa0c3f5a"
 
 	executionServiceName = "el-1-gqrl-qrysm"
@@ -36,18 +35,13 @@ func effectiveParameters(address, executionImage string) (string, error) {
 	}
 	parameters := map[string]any{
 		"participants": []any{map[string]any{
-			"el_type": "gqrl", "el_image": executionImage,
+			"el_image":        executionImage,
 			"el_extra_params": []any{"--graphql", "--graphql.vhosts=*"},
-			"cl_type":         "qrysm", "cl_image": consensusImage,
-			"cl_extra_params":   []any{"--min-sync-peers=0", "--minimum-peers-per-subnet=0"},
-			"vc_type":           "qrysm",
-			"vc_image":          validatorImage,
-			"count":             1,
-			"use_remote_signer": false,
+			"cl_image":        consensusImage,
+			"cl_extra_params": []any{"--min-sync-peers=0", "--minimum-peers-per-subnet=0"},
 		}},
 		"network_params": map[string]any{
-			"preset": "mainnet", "network_id": fmt.Sprint(expectedChainID),
-			"seconds_per_slot": 5, "slots_per_epoch": 128,
+			"network_id": fmt.Sprint(expectedChainID), "seconds_per_slot": 5,
 			"execution_follow_distance": 8,
 			"prefunded_accounts":        map[string]any{address: map[string]any{"balance": prefundBalance}},
 			"withdrawal_address":        address,

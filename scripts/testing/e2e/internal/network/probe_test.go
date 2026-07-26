@@ -5,13 +5,13 @@ package network
 
 import (
 	"context"
-	"errors"
 	"net/http/httptest"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
 	"github.com/theQRL/go-qrl/rpc"
 )
 
@@ -46,9 +46,7 @@ func (service *probeService) GetBalance(address, _ string) string {
 func newProbeServer(t *testing.T, service *probeService) *httptest.Server {
 	t.Helper()
 	server := rpc.NewServer()
-	if err := server.RegisterName("qrl", service); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, server.RegisterName("qrl", service))
 	t.Cleanup(server.Stop)
 	return httptest.NewServer(server)
 }
@@ -58,14 +56,11 @@ func TestProbeNetworkRequiresAdvancingFundedChain(t *testing.T) {
 	server := newProbeServer(t, service)
 	defer server.Close()
 	address := "Q" + strings.Repeat("b", 128)
-	if err := probeNetwork(context.Background(), server.URL, address); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, probeNetwork(context.Background(), server.URL, address))
 	service.mu.Lock()
 	defer service.mu.Unlock()
-	if service.blockCalls < 2 || !strings.EqualFold(service.address, address) {
-		t.Fatalf("block calls=%d address=%q", service.blockCalls, service.address)
-	}
+	require.GreaterOrEqual(t, service.blockCalls, 2)
+	require.True(t, strings.EqualFold(service.address, address))
 }
 
 func TestProbeNetworkRejectsWrongChainAndEmptyWallet(t *testing.T) {
@@ -81,9 +76,7 @@ func TestProbeNetworkRejectsWrongChainAndEmptyWallet(t *testing.T) {
 				server.URL,
 				"Q"+strings.Repeat("c", 128),
 			)
-			if err == nil {
-				t.Fatal("invalid network was accepted")
-			}
+			require.Error(t, err)
 		})
 	}
 }
@@ -95,7 +88,7 @@ func TestProbeNetworkHonorsCallerDeadline(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
 	err := probeNetwork(ctx, server.URL, "Q"+strings.Repeat("d", 128))
-	if !errors.Is(err, context.DeadlineExceeded) {
-		t.Fatalf("deadline error = %v", err)
-	}
+	require.ErrorIs(t, err, context.DeadlineExceeded)
+	require.ErrorContains(t, err, "chain advancement probe interrupted")
+	require.ErrorContains(t, err, "block number remains at 1")
 }
