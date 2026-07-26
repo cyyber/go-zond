@@ -3,24 +3,14 @@
 # don't need to bother with make.
 
 .PHONY: gqrl qrvm all test lint fmt clean devtools \
-	e2e-unit network-images network-start network-status live-test network-stop help
+	e2e-unit network-image network-start network-status live-test network-stop help
 
 GOBIN = ./build/bin
-GO ?= latest
 GORUN = go run
-E2E_DIR = scripts/testing/e2e
-E2E_RUNNER = go -C $(E2E_DIR) run ./cmd/e2e
-E2E_GINKGO = go -C $(E2E_DIR) tool ginkgo
-E2E_SUITES ?=
-E2E_NETWORK_DIR ?= /tmp/go-qrl-e2e-network
-E2E_NETWORK_DIR_ABS = $(abspath $(E2E_NETWORK_DIR))
+E2E_GO = go -C scripts/testing/e2e
+override E2E_NETWORK_DIR := $(abspath $(or $(strip $(E2E_NETWORK_DIR)),/tmp/go-qrl-e2e-network))
 E2E_TIMEOUT ?= 25m
-empty :=
-space := $(empty) $(empty)
 comma := ,
-E2E_SUITE_LIST = $(strip $(subst $(comma),$(space),$(E2E_SUITES)))
-E2E_SUITE_PACKAGES = $(addprefix ./suites/,$(E2E_SUITE_LIST))
-E2E_DOCKER_BIN ?= docker
 E2E_EXECUTION_IMAGE ?= local/go-qrl:e2e
 
 #? gqrl: Build gqrl.
@@ -70,45 +60,51 @@ devtools:
 
 #? e2e-unit: Run unit tests and vet for the isolated E2E module.
 e2e-unit:
-	go -C $(E2E_DIR) test -count=1 ./...
-	go -C $(E2E_DIR) vet ./...
+	$(E2E_GO) test -count=1 ./...
+	$(E2E_GO) vet ./...
 
-#? network-images: Build the pinned images used by the standalone E2E network.
-network-images:
-	E2E_DOCKER_BIN="$(E2E_DOCKER_BIN)" \
-	E2E_EXECUTION_IMAGE="$(E2E_EXECUTION_IMAGE)" \
-	./scripts/local_testnet/build_network_images.sh
+#? network-image: Build the go-qrl execution image used by the E2E network.
+network-image:
+	@status="$$(git status --porcelain=v1 --untracked-files=all)"; \
+	if [ -n "$$status" ]; then \
+		echo "Refusing to build an unattestable network image from a dirty checkout." >&2; \
+		echo "$$status" >&2; \
+		exit 1; \
+	fi
+	docker build \
+		--build-arg "COMMIT=$$(git rev-parse HEAD)" \
+		--tag "$(E2E_EXECUTION_IMAGE)" \
+		.
 
 #? network-start: Start a standalone E2E test network without running suites.
-network-start: network-images
-	$(E2E_RUNNER) start \
-		--network-dir "$(E2E_NETWORK_DIR_ABS)" \
+network-start: network-image
+	$(E2E_GO) run ./cmd/e2e start \
+		--network-dir "$(E2E_NETWORK_DIR)" \
 		--execution-image "$(E2E_EXECUTION_IMAGE)"
 
 #? network-status: Check whether the standalone E2E network is ready.
 network-status:
-	$(E2E_RUNNER) status --network-dir "$(E2E_NETWORK_DIR_ABS)"
+	$(E2E_GO) run ./cmd/e2e status --network-dir "$(E2E_NETWORK_DIR)"
 
 #? live-test: Run selected Ginkgo E2E suites against the already-running network.
 live-test:
-	@test -n "$(E2E_SUITE_LIST)" || { echo "E2E_SUITES must name at least one suite" >&2; exit 2; }
-	E2E_NETWORK_DIR="$(E2E_NETWORK_DIR_ABS)" \
-	$(E2E_GINKGO) \
+	@test -n "$(strip $(subst $(comma), ,$(E2E_SUITES)))" || { echo "E2E_SUITES must name at least one suite" >&2; exit 2; }
+	E2E_NETWORK_DIR="$(E2E_NETWORK_DIR)" \
+	$(E2E_GO) tool ginkgo \
 		--tags=e2e \
 		--procs=1 \
 		--require-suite \
 		--fail-on-empty \
 		--fail-on-pending \
-		--label-filter='e2e && live' \
 		--timeout="$(E2E_TIMEOUT)" \
 		--poll-progress-after=30s \
 		--poll-progress-interval=30s \
-		$(E2E_SUITE_PACKAGES) \
+		$(addprefix ./suites/,$(strip $(subst $(comma), ,$(E2E_SUITES)))) \
 		-- -test.run='^TestE2E$$'
 
 #? network-stop: Stop only the exact E2E network recorded in E2E_NETWORK_DIR.
 network-stop:
-	$(E2E_RUNNER) stop --network-dir "$(E2E_NETWORK_DIR_ABS)"
+	$(E2E_GO) run ./cmd/e2e stop --network-dir "$(E2E_NETWORK_DIR)"
 
 #? help: Get more info on make commands.
 help: Makefile

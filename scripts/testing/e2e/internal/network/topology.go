@@ -5,24 +5,23 @@ package network
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/theQRL/go-qrl/scripts/testing/e2e/internal/kurtosis"
 )
 
+type Environment struct {
+	RPCURL       string
+	GraphQLURL   string
+	WebSocketURL string
+	SeedFile     string
+}
+
 func discoverEnvironment(
-	services map[string]kurtosis.Service,
+	execution kurtosis.Service,
 	seedFile string,
 ) (Environment, error) {
 	// Kurtosis service contexts do not expose lifecycle status. The network
 	// probe that follows discovery proves readiness by observing chain progress.
-	for role, name := range requiredServices {
-		_, ok := services[name]
-		if !ok {
-			return Environment{}, fmt.Errorf("required %s service %q is missing", role, name)
-		}
-	}
-	execution := services[executionServiceName]
 	rpcURL, ok := execution.PublicEndpoint(rpcPortID, "http")
 	if !ok {
 		return Environment{}, fmt.Errorf(
@@ -41,7 +40,7 @@ func discoverEnvironment(
 	}
 	return Environment{
 		RPCURL:       rpcURL,
-		GraphQLURL:   strings.TrimRight(rpcURL, "/") + graphQLPath,
+		GraphQLURL:   rpcURL + graphQLPath,
 		WebSocketURL: webSocketURL,
 		SeedFile:     seedFile,
 	}, nil

@@ -44,37 +44,10 @@ func TestEffectiveParametersUseRequestedExecutionAndFixedSupportImages(t *testin
 
 func TestEffectiveParametersRejectInvalidInputs(t *testing.T) {
 	address := "Q" + strings.Repeat("a", 128)
-	if _, err := effectiveParameters("0x01", DefaultExecutionImage); err == nil {
+	if _, err := effectiveParameters("0x01", testExecutionImage); err == nil {
 		t.Fatal("invalid wallet address was accepted")
 	}
 	if _, err := effectiveParameters(address, ""); err == nil {
 		t.Fatal("empty execution image was accepted")
-	}
-}
-
-func TestNetworkIDIsStableAndDirectorySpecific(t *testing.T) {
-	first := networkID("/tmp/network-a")
-	if first != networkID("/tmp/network-a") {
-		t.Fatal("network ID is not stable")
-	}
-	if first == networkID("/tmp/network-b") {
-		t.Fatal("different network directories share a network ID")
-	}
-}
-
-func TestEnclaveNamesAreUniqueAndDirectoryBound(t *testing.T) {
-	const networkDir = "/tmp/network-a"
-	first, err := newEnclaveName(networkDir)
-	if err != nil {
-		t.Fatal(err)
-	}
-	second, err := newEnclaveName(networkDir)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if first == second ||
-		!strings.HasPrefix(first, enclaveNamePrefix(networkDir)) ||
-		!strings.HasPrefix(second, enclaveNamePrefix(networkDir)) {
-		t.Fatalf("enclave names = %q, %q", first, second)
 	}
 }

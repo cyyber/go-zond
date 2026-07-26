@@ -15,16 +15,11 @@ import (
 	qrlwallet "github.com/theQRL/go-qrl/crypto/pqcrypto/wallet"
 )
 
-const seedName = "wallet.seed"
-
 func walletSeedPath(networkDir string) string {
-	return filepath.Join(privatePath(networkDir), seedName)
+	return filepath.Join(networkDir, "wallet.seed")
 }
 
 func ensureWallet(networkDir string) (string, error) {
-	if err := validatePrivateDirectory(networkDir); err != nil {
-		return "", err
-	}
 	seedPath := walletSeedPath(networkDir)
 	if _, err := os.Lstat(seedPath); err == nil {
 		return validateWalletSeed(seedPath)

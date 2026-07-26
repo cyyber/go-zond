@@ -14,18 +14,34 @@ import (
 	"github.com/theQRL/go-qrl/scripts/testing/e2e/internal/kurtosis"
 )
 
-func privatePath(networkDir string) string { return filepath.Join(networkDir, "private") }
+var errOwnershipAbsent = errors.New("ownership record is absent")
+
 func ownershipPath(networkDir string) string {
-	return filepath.Join(privatePath(networkDir), "ownership.json")
+	return filepath.Join(networkDir, "ownership.json")
 }
 
 func loadOwnership(networkDir string) (kurtosis.EnclaveRef, error) {
-	if err := validatePrivateDirectory(networkDir); err != nil {
+	if _, err := os.Lstat(filepath.Join(networkDir, "private", "ownership.json")); err == nil {
+		return kurtosis.EnclaveRef{}, errors.New(
+			"legacy network ownership detected; run network-stop with the previous revision before upgrading",
+		)
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return kurtosis.EnclaveRef{}, fmt.Errorf("inspect legacy network ownership: %w", err)
+	}
+	path := ownershipPath(networkDir)
+	if _, err := os.Lstat(path); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return kurtosis.EnclaveRef{}, errOwnershipAbsent
+		}
 		return kurtosis.EnclaveRef{}, err
 	}
-	enclave, err := loadJSON[kurtosis.EnclaveRef](ownershipPath(networkDir), "ownership")
+	payload, err := os.ReadFile(path)
 	if err != nil {
-		return kurtosis.EnclaveRef{}, err
+		return kurtosis.EnclaveRef{}, fmt.Errorf("read existing ownership: %w", err)
+	}
+	var enclave kurtosis.EnclaveRef
+	if err := json.Unmarshal(payload, &enclave); err != nil {
+		return kurtosis.EnclaveRef{}, fmt.Errorf("decode ownership: %w", err)
 	}
 	return enclave, validateOwnershipDirectory(networkDir, enclave)
 }
@@ -34,16 +50,14 @@ func createOwnership(networkDir string, enclave kurtosis.EnclaveRef) error {
 	if err := validateOwnershipDirectory(networkDir, enclave); err != nil {
 		return err
 	}
-	return writeJSONExclusive(ownershipPath(networkDir), enclave)
+	payload, err := json.MarshalIndent(enclave, "", "  ")
+	if err != nil {
+		return err
+	}
+	return writeExclusive(ownershipPath(networkDir), append(payload, '\n'))
 }
 
 func validateOwnershipDirectory(networkDir string, enclave kurtosis.EnclaveRef) error {
-	if enclave.Name == "" {
-		return errors.New("ownership enclave name is empty")
-	}
-	if enclave.UUID == "" {
-		return errors.New("ownership exact enclave UUID is empty")
-	}
 	if err := enclave.Validate(); err != nil {
 		return fmt.Errorf("ownership enclave identity is invalid: %w", err)
 	}
@@ -54,38 +68,7 @@ func validateOwnershipDirectory(networkDir string, enclave kurtosis.EnclaveRef) 
 }
 
 func removeOwnership(networkDir string) error {
-	if err := os.Remove(ownershipPath(networkDir)); err != nil {
-		return err
-	}
-	return syncDirectory(privatePath(networkDir))
-}
-
-func loadJSON[T any](path, description string) (T, error) {
-	var value T
-	payload, err := os.ReadFile(path)
-	if err != nil {
-		return value, err
-	}
-	if err := json.Unmarshal(payload, &value); err != nil {
-		return value, fmt.Errorf("decode %s: %w", description, err)
-	}
-	return value, nil
-}
-
-func writeJSONExclusive(path string, value any) error {
-	payload, err := jsonPayload(value)
-	if err != nil {
-		return err
-	}
-	return writeExclusive(path, payload)
-}
-
-func jsonPayload(value any) ([]byte, error) {
-	payload, err := json.MarshalIndent(value, "", "  ")
-	if err != nil {
-		return nil, err
-	}
-	return append(payload, '\n'), nil
+	return os.Remove(ownershipPath(networkDir))
 }
 
 func writeExclusive(path string, payload []byte) error {
@@ -96,16 +79,14 @@ func writeExclusive(path string, payload []byte) error {
 	}
 	temporary := file.Name()
 	defer os.Remove(temporary)
+	defer file.Close()
 	if err := file.Chmod(0o600); err != nil {
-		file.Close()
 		return err
 	}
 	if _, err := file.Write(payload); err != nil {
-		file.Close()
 		return err
 	}
 	if err := file.Sync(); err != nil {
-		file.Close()
 		return err
 	}
 	if err := file.Close(); err != nil {
@@ -126,11 +107,11 @@ func syncDirectory(path string) error {
 	return directory.Sync()
 }
 
-func canonicalExistingDirectory(path, description string) (string, error) {
+func canonicalNetworkDirectory(path string) (string, error) {
 	if path == "" || !filepath.IsAbs(path) {
-		return "", fmt.Errorf("%s must be an absolute path", description)
+		return "", errors.New("network directory must be an absolute path")
 	}
-	resolved, err := filepath.EvalSymlinks(filepath.Clean(path))
+	resolved, err := filepath.EvalSymlinks(path)
 	if err != nil {
 		return "", err
 	}
@@ -139,48 +120,23 @@ func canonicalExistingDirectory(path, description string) (string, error) {
 		return "", err
 	}
 	if !info.IsDir() {
-		return "", fmt.Errorf("%s must be a directory", description)
+		return "", errors.New("network directory must be a directory")
 	}
-	return filepath.Clean(resolved), nil
+	if info.Mode().Perm() != 0o700 {
+		return "", errors.New("network directory must have 0700 permissions")
+	}
+	return resolved, nil
 }
 
 func ensureNetworkDirectory(path string) (string, error) {
 	if path == "" || !filepath.IsAbs(path) {
 		return "", errors.New("network directory must be an absolute path")
 	}
-	if err := os.MkdirAll(filepath.Clean(path), 0o700); err != nil {
+	if err := os.MkdirAll(path, 0o700); err != nil {
 		return "", err
 	}
-	networkDir, err := canonicalExistingDirectory(path, "network directory")
-	if err != nil {
+	if err := os.Chmod(path, 0o700); err != nil {
 		return "", err
 	}
-	if err := os.Chmod(networkDir, 0o700); err != nil {
-		return "", err
-	}
-	privateDir := privatePath(networkDir)
-	if info, err := os.Lstat(privateDir); err == nil {
-		if info.Mode()&os.ModeSymlink != 0 || !info.IsDir() {
-			return "", errors.New("private network state must be a non-symlink directory")
-		}
-	} else if !errors.Is(err, os.ErrNotExist) {
-		return "", err
-	} else if err := os.Mkdir(privateDir, 0o700); err != nil {
-		return "", err
-	}
-	if err := os.Chmod(privateDir, 0o700); err != nil {
-		return "", err
-	}
-	return networkDir, nil
-}
-
-func validatePrivateDirectory(networkDir string) error {
-	info, err := os.Lstat(privatePath(networkDir))
-	if err != nil {
-		return err
-	}
-	if info.Mode()&os.ModeSymlink != 0 || !info.IsDir() || info.Mode().Perm() != 0o700 {
-		return errors.New("private network state must be a non-symlink 0700 directory")
-	}
-	return nil
+	return canonicalNetworkDirectory(path)
 }

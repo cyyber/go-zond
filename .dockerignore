@@ -14,5 +14,6 @@ build/cache
 .codex
 .runtime
 
-# Local E2E output may contain funded-account and network material.
-scripts/testing/e2e/logs
+# The execution image does not contain the separate E2E module or its private
+# runtime output.
+scripts/testing/e2e

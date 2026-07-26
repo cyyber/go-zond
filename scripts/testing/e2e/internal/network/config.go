@@ -4,7 +4,6 @@
 package network
 
 import (
-	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -18,26 +17,14 @@ const (
 	expectedChainID = 1337
 	prefundBalance  = "2000000QRL"
 
-	consensusImage = "local/qrysm-beacon:8b80fa0c3f5a"
-	validatorImage = "local/qrysm-validator:8b80fa0c3f5a"
-	genesisImage   = "local/qrl-genesis-generator:360410c72353-8b80fa0c3f5a"
+	consensusImage = "qrledger/qrysm:beacon-chain-8b80fa0c3f5a"
+	validatorImage = "qrledger/qrysm:validator-8b80fa0c3f5a"
+	genesisImage   = "qrledger/qrysm:qrl-genesis-generator-360410c72353-8b80fa0c3f5a"
 
 	executionServiceName = "el-1-gqrl-qrysm"
-	consensusServiceName = "cl-1-qrysm-gqrl"
-	validatorServiceName = "vc-1-gqrl-qrysm"
 	rpcPortID            = "rpc"
 	webSocketPortID      = "ws"
 	graphQLPath          = "/graphql"
-)
-
-const DefaultExecutionImage = "local/go-qrl:e2e"
-
-var (
-	requiredServices = map[string]string{
-		"execution": executionServiceName,
-		"consensus": consensusServiceName,
-		"validator": validatorServiceName,
-	}
 )
 
 func effectiveParameters(address, executionImage string) (string, error) {
@@ -73,9 +60,4 @@ func effectiveParameters(address, executionImage string) (string, error) {
 		return "", err
 	}
 	return string(payload), nil
-}
-
-func networkID(networkDir string) string {
-	digest := sha256.Sum256([]byte(networkDir))
-	return fmt.Sprintf("%x", digest[:6])
 }

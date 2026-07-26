@@ -18,12 +18,22 @@ make network-stop
 Starting a network never runs tests. Running tests never creates or destroys a
 network.
 
+The Make interface has one required suite selector, `E2E_SUITES`, and three
+optional overrides: `E2E_NETWORK_DIR`, `E2E_TIMEOUT`, and
+`E2E_EXECUTION_IMAGE`. The lifecycle targets normalize `E2E_NETWORK_DIR` to an
+absolute path before passing it to the Go commands.
+
 ## Live network
 
 The built-in configuration starts a real qrl-package network with one go-qrl
 execution client, one Qrysm beacon node, one Qrysm validator, and one QRL
-genesis generator. Requirements are Docker with Buildx, Kurtosis 1.20.0, Git,
-and Go 1.26.
+genesis generator. The required Go and Kurtosis versions are declared in
+[`go.mod`](go.mod); Docker and Git are also required.
+
+`network-start` first builds the current clean go-qrl checkout. Build the image
+without starting a network with `make network-image`. The root
+[`Dockerfile`](../../../Dockerfile) pins its builder and runtime bases by
+digest. The organization-published support images are consumed directly.
 
 Use one private runtime directory for the complete lifecycle:
 
@@ -50,20 +60,15 @@ destroys only that full recorded identity and leaves the shared Kurtosis engine
 running. Never upload the runtime directory, qrl-package output, or raw enclave
 dumps.
 
-The network temporarily runs
-`rgeraldes24/qrl-package@3892c3d2596403c080424d9e8fc99ff172483fe0`,
-whose fork metadata supports remote execution. The pin omits only the later
-Clef automation commit because this topology has remote signing disabled. Move
-it to `cyyber/qrl-package` once that metadata lands there.
+The qrl-package locator is commit-pinned and the organization-published
+support-image references are defined once in
+[`internal/network/config.go`](internal/network/config.go).
 
 ## Suite runner
 
 `E2E_SUITES` is required and accepts comma-separated suite directory names.
 Each name maps to `./suites/<name>`; package selection is the single source of
-suite identity. Ginkgo labels describe capabilities, not package names. Put
-`e2e` and `live` once on the suite's top-level Ginkgo container so its specs
-inherit them; additional useful labels include `slow`, `serial`, and
-`mutates-chain`.
+suite identity.
 
 Create `scripts/testing/e2e/suites/<suite>` with a `TestE2E` bootstrap, then run:
 
@@ -76,7 +81,7 @@ hold its mutation lease. It exposes RPC, GraphQL, and WebSocket endpoints plus
 the funded seed path. Each suite owns the clients, wallets, consoles, or command
 processes it needs. Close the live network handle when the suite finishes.
 
-Prefer Ginkgo `Serial` specs with `SpecContext`, `By`, `DeferCleanup`, and
-explicit timeouts over another custom runner. Keep state-changing scenarios
-rerunnable through fresh contracts and current nonces. Do not start or stop the
-network from a suite hook.
+Prefer Ginkgo specs with `SpecContext`, `By`, `DeferCleanup`, and explicit
+timeouts over another custom runner. Keep state-changing scenarios rerunnable
+through fresh contracts and current nonces. Do not start or stop the network
+from a suite hook.
