@@ -5,47 +5,36 @@ package network
 
 import (
 	"os"
-	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestEnsureWalletCreatesAndReusesPrivateSeed(t *testing.T) {
 	networkDir, err := ensureNetworkDirectory(t.TempDir())
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	wallet, err := ensureWallet(networkDir)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	seedPath := walletSeedPath(networkDir)
 	seed, err := os.ReadFile(seedPath)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	info, err := os.Lstat(seedPath)
-	if err != nil || !info.Mode().IsRegular() || info.Mode().Perm() != 0o600 || info.Mode()&os.ModeSymlink != 0 {
-		t.Fatalf("private seed metadata = %v, %v", info, err)
-	}
+	require.NoError(t, err)
+	require.True(t, info.Mode().IsRegular())
+	require.Equal(t, os.FileMode(0o600), info.Mode().Perm())
+	require.Zero(t, info.Mode()&os.ModeSymlink)
 	again, err := ensureWallet(networkDir)
-	if err != nil || again != wallet {
-		t.Fatalf("reused wallet = %+v, %v", again, err)
-	}
-	reused, _ := os.ReadFile(seedPath)
-	if string(reused) != string(seed) {
-		t.Fatal("wallet reuse replaced the seed")
-	}
+	require.NoError(t, err)
+	require.Equal(t, wallet, again)
+	reused, err := os.ReadFile(seedPath)
+	require.NoError(t, err)
+	require.Equal(t, seed, reused, "wallet reuse replaced the seed")
 }
 
 func TestEnsureWalletRejectsInvalidExistingSeed(t *testing.T) {
 	networkDir, err := ensureNetworkDirectory(t.TempDir())
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(walletSeedPath(networkDir), []byte("invalid\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := ensureWallet(networkDir); err == nil || !strings.Contains(err.Error(), "restore existing wallet") {
-		t.Fatalf("invalid-seed error = %v", err)
-	}
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(walletSeedPath(networkDir), []byte("invalid\n"), 0o600))
+	_, err = ensureWallet(networkDir)
+	require.ErrorContains(t, err, "restore existing wallet")
 }

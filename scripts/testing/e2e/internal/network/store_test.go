@@ -4,107 +4,72 @@
 package network
 
 import (
-	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/require"
 	"github.com/theQRL/go-qrl/scripts/testing/e2e/internal/kurtosis"
 )
 
 func TestNetworkDirectory(t *testing.T) {
 	parent, linkRoot := t.TempDir(), t.TempDir()
 	link := filepath.Join(linkRoot, "parent")
-	if err := os.Symlink(parent, link); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.Symlink(parent, link))
 	networkDir, err := ensureNetworkDirectory(filepath.Join(link, "network"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !filepath.IsAbs(networkDir) || strings.Contains(networkDir, linkRoot) {
-		t.Fatalf("network directory was not canonicalized: %s", networkDir)
-	}
+	require.NoError(t, err)
+	require.True(t, filepath.IsAbs(networkDir))
+	require.NotContains(t, networkDir, linkRoot)
 	info, err := os.Stat(networkDir)
-	if err != nil || !info.IsDir() || info.Mode().Perm() != 0o700 {
-		t.Fatalf("%s mode = %v, err=%v", networkDir, info.Mode(), err)
-	}
+	require.NoError(t, err)
+	require.True(t, info.IsDir())
+	require.Equal(t, os.FileMode(0o700), info.Mode().Perm())
 }
 
 func TestOwnershipRequiresExactUUIDForDestruction(t *testing.T) {
 	networkDir := t.TempDir()
 	enclave := kurtosis.EnclaveRef{Name: enclaveNamePrefix(networkDir) + "attempt"}
-	if err := validateOwnershipDirectory(networkDir, enclave); err == nil ||
-		!strings.Contains(err.Error(), "UUID") {
-		t.Fatalf("incomplete ownership error = %v", err)
-	}
+	require.ErrorContains(t, validateOwnershipDirectory(networkDir, enclave), "UUID")
 	enclave.UUID = strings.Repeat("a", 32)
-	if err := validateOwnershipDirectory(networkDir, enclave); err != nil {
-		t.Fatalf("valid ownership = %+v, err=%v", enclave, err)
-	}
+	require.NoError(t, validateOwnershipDirectory(networkDir, enclave))
 }
 
 func TestOwnershipPersistsOneExclusiveExactIdentity(t *testing.T) {
-	networkDir, err := ensureNetworkDirectory(t.TempDir())
-	if err != nil {
-		t.Fatal(err)
-	}
+	networkDir := t.TempDir()
 	record := kurtosis.EnclaveRef{
 		Name: enclaveNamePrefix(networkDir) + "0123456789abcdef0123456789abcdef",
 		UUID: strings.Repeat("a", 32),
 	}
-	if err := createOwnership(networkDir, record); err != nil {
-		t.Fatal(err)
-	}
-	if err := createOwnership(networkDir, record); !errors.Is(err, os.ErrExist) {
-		t.Fatalf("duplicate ownership error = %v", err)
-	}
+	require.NoError(t, createOwnership(networkDir, record))
+	require.ErrorIs(t, createOwnership(networkDir, record), os.ErrExist)
 	loaded, err := loadOwnership(networkDir)
-	if err != nil || loaded != record {
-		t.Fatalf("ownership=%+v err=%v", loaded, err)
-	}
+	require.NoError(t, err)
+	require.Equal(t, record, loaded)
 }
 
 func TestOwnershipCannotBeCopiedToAnotherNetworkDirectory(t *testing.T) {
-	source, err := ensureNetworkDirectory(t.TempDir())
-	if err != nil {
-		t.Fatal(err)
-	}
-	destination, err := ensureNetworkDirectory(t.TempDir())
-	if err != nil {
-		t.Fatal(err)
-	}
+	source, destination := t.TempDir(), t.TempDir()
 	record := kurtosis.EnclaveRef{
 		Name: enclaveNamePrefix(source) + "0123456789abcdef0123456789abcdef",
 		UUID: strings.Repeat("a", 32),
 	}
-	if err := createOwnership(source, record); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, createOwnership(source, record))
 	payload, err := os.ReadFile(ownershipPath(source))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := writeExclusive(ownershipPath(destination), payload); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := loadOwnership(destination); err == nil ||
-		!strings.Contains(err.Error(), "does not belong") {
-		t.Fatalf("copied ownership error = %v", err)
-	}
+	require.NoError(t, err)
+	require.NoError(t, writeExclusive(ownershipPath(destination), payload))
+	_, err = loadOwnership(destination)
+	require.ErrorContains(t, err, "does not belong")
 }
 
-func TestExclusiveWriteDoesNotReplaceExistingSecret(t *testing.T) {
+func TestExclusiveWriteCreatesOnePrivateFile(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "secret")
-	if err := writeExclusive(path, []byte("first\n")); err != nil {
-		t.Fatal(err)
-	}
-	if err := writeExclusive(path, []byte("second\n")); !errors.Is(err, os.ErrExist) {
-		t.Fatalf("replacement error = %v", err)
-	}
+	require.NoError(t, writeExclusive(path, []byte("first\n")))
+	require.ErrorIs(t, writeExclusive(path, []byte("second\n")), os.ErrExist)
 	contents, err := os.ReadFile(path)
-	if err != nil || string(contents) != "first\n" {
-		t.Fatalf("exclusive content = %q, err=%v", contents, err)
-	}
+	require.NoError(t, err)
+	require.Equal(t, "first\n", string(contents))
+	info, err := os.Stat(path)
+	require.NoError(t, err)
+	require.Equal(t, os.FileMode(0o600), info.Mode().Perm())
 }

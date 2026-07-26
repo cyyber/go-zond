@@ -44,7 +44,7 @@ func probeNetwork(ctx context.Context, rpcURL, walletAddress string) error {
 	}
 	advancementCtx, cancel := context.WithTimeout(ctx, chainAdvancementWindow)
 	defer cancel()
-	if err := waitUntil(advancementCtx, 500*time.Millisecond, func(attempt context.Context) error {
+	if err := retryUntil(advancementCtx, 500*time.Millisecond, 2*time.Second, func(attempt context.Context) error {
 		block, err := client.BlockNumber(attempt)
 		if err != nil {
 			return fmt.Errorf("read advancing block number: %w", err)
@@ -55,7 +55,7 @@ func probeNetwork(ctx context.Context, rpcURL, walletAddress string) error {
 		return nil
 	}); err != nil {
 		if ctx.Err() != nil {
-			return context.Cause(ctx)
+			return fmt.Errorf("chain advancement probe interrupted: %w", err)
 		}
 		return fmt.Errorf(
 			"chain did not advance beyond block %d within %s: %w",

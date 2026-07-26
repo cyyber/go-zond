@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/cenkalti/backoff/v7"
 	"github.com/theQRL/go-qrl/scripts/testing/e2e/internal/kurtosis"
 )
 
@@ -24,19 +25,26 @@ type kurtosisClient interface {
 	DestroyEnclave(context.Context, kurtosis.EnclaveRef) error
 }
 
+type Environment struct {
+	RPCURL       string
+	GraphQLURL   string
+	WebSocketURL string
+	SeedFile     string
+}
+
 type Manager struct {
-	newClient                func() (kurtosisClient, error)
-	probe                    func(context.Context, string, string) error
-	createRecoveryTimeout    time.Duration
-	createRecoveryPollPeriod time.Duration
+	newClient             func() (kurtosisClient, error)
+	probe                 func(context.Context, string, string) error
+	createRecoveryTimeout time.Duration
+	createRecoveryInitial time.Duration
 }
 
 func NewManager() *Manager {
 	return &Manager{
-		newClient:                func() (kurtosisClient, error) { return kurtosis.NewSDKClient() },
-		probe:                    probeNetwork,
-		createRecoveryTimeout:    15 * time.Second,
-		createRecoveryPollPeriod: 250 * time.Millisecond,
+		newClient:             func() (kurtosisClient, error) { return kurtosis.NewSDKClient() },
+		probe:                 probeNetwork,
+		createRecoveryTimeout: 15 * time.Second,
+		createRecoveryInitial: 250 * time.Millisecond,
 	}
 }
 
@@ -101,7 +109,7 @@ func (manager *Manager) Start(ctx context.Context, requestedDir, executionImage 
 		return fmt.Errorf("run pinned qrl-package; network ownership was retained for network-stop: %w", err)
 	}
 
-	if err := waitUntil(ctx, 2*time.Second, func(attempt context.Context) error {
+	if err := retryUntil(ctx, 500*time.Millisecond, 2*time.Second, func(attempt context.Context) error {
 		_, err := manager.inspectEnclave(attempt, client, enclave, networkDir)
 		return err
 	}); err != nil {
@@ -118,7 +126,7 @@ func (manager *Manager) recoverAmbiguousCreation(
 	recoveryCtx, cancel := context.WithTimeout(context.Background(), manager.createRecoveryTimeout)
 	defer cancel()
 	var enclave kurtosis.EnclaveRef
-	if lookupErr := waitUntil(recoveryCtx, manager.createRecoveryPollPeriod, func(attempt context.Context) error {
+	if lookupErr := retryUntil(recoveryCtx, manager.createRecoveryInitial, time.Second, func(attempt context.Context) error {
 		var err error
 		enclave, err = client.GetEnclave(attempt, name)
 		return err
@@ -181,10 +189,28 @@ func (manager *Manager) inspectEnclave(
 	if err != nil {
 		return Environment{}, err
 	}
+	rpcURL, ok := execution.PublicEndpoint(rpcPortID, "http")
+	if !ok {
+		return Environment{}, fmt.Errorf(
+			"execution service %q lacks public RPC port %q",
+			executionServiceName,
+			rpcPortID,
+		)
+	}
+	webSocketURL, ok := execution.PublicEndpoint(webSocketPortID, "ws")
+	if !ok {
+		return Environment{}, fmt.Errorf(
+			"execution service %q lacks public WebSocket port %q",
+			executionServiceName,
+			webSocketPortID,
+		)
+	}
 	seedFile := walletSeedPath(networkDir)
-	environment, err := discoverEnvironment(execution, seedFile)
-	if err != nil {
-		return Environment{}, err
+	environment := Environment{
+		RPCURL:       rpcURL,
+		GraphQLURL:   rpcURL + graphQLPath,
+		WebSocketURL: webSocketURL,
+		SeedFile:     seedFile,
 	}
 	walletAddress, err := validateWalletSeed(seedFile)
 	if err != nil {
@@ -244,20 +270,15 @@ func newEnclaveName(canonicalNetworkDir string) string {
 	return fmt.Sprintf("%s%x", enclaveNamePrefix(canonicalNetworkDir), suffix)
 }
 
-func waitUntil(ctx context.Context, interval time.Duration, operation func(context.Context) error) error {
-	var last error
-	for {
-		if err := operation(ctx); err == nil {
-			return nil
-		} else {
-			last = err
-		}
-		timer := time.NewTimer(interval)
-		select {
-		case <-ctx.Done():
-			timer.Stop()
-			return fmt.Errorf("last attempt: %v: %w", last, ctx.Err())
-		case <-timer.C:
-		}
-	}
+func retryUntil(ctx context.Context, initial, maximum time.Duration, operation func(context.Context) error) error {
+	policy := backoff.NewExponentialBackOff()
+	policy.InitialInterval = initial
+	policy.MaxInterval = maximum
+	_, err := backoff.Retry(
+		ctx,
+		func() (struct{}, error) { return struct{}{}, operation(ctx) },
+		backoff.WithBackOff(policy),
+		backoff.WithMaxElapsedTime(0),
+	)
+	return err
 }

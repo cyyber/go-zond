@@ -5,8 +5,10 @@ go 1.26.0
 tool github.com/onsi/ginkgo/v2/ginkgo
 
 require (
+	github.com/cenkalti/backoff/v7 v7.0.0
 	github.com/gofrs/flock v0.13.0
 	github.com/kurtosis-tech/kurtosis/api/golang v1.20.0
+	github.com/stretchr/testify v1.11.1
 	github.com/theQRL/go-qrl v0.0.0
 )
 
@@ -53,7 +55,6 @@ require (
 	github.com/sorairolake/lzip-go v0.3.8 // indirect
 	github.com/spf13/afero v1.15.0 // indirect
 	github.com/stretchr/objx v0.5.2 // indirect
-	github.com/stretchr/testify v1.11.1 // indirect
 	github.com/theQRL/go-qrllib v0.8.0 // indirect
 	github.com/tklauser/go-sysconf v0.3.12 // indirect
 	github.com/tklauser/numcpus v0.6.1 // indirect

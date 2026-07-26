@@ -10,7 +10,6 @@ GORUN = go run
 E2E_GO = go -C scripts/testing/e2e
 override E2E_NETWORK_DIR := $(abspath $(or $(strip $(E2E_NETWORK_DIR)),/tmp/go-qrl-e2e-network))
 E2E_TIMEOUT ?= 25m
-comma := ,
 E2E_EXECUTION_IMAGE ?= local/go-qrl:e2e
 
 #? gqrl: Build gqrl.
@@ -88,7 +87,7 @@ network-status:
 
 #? live-test: Run selected Ginkgo E2E suites against the already-running network.
 live-test:
-	@test -n "$(strip $(subst $(comma), ,$(E2E_SUITES)))" || { echo "E2E_SUITES must name at least one suite" >&2; exit 2; }
+	@test -n "$(strip $(E2E_PACKAGES))" || { echo "E2E_PACKAGES must name at least one suite package" >&2; exit 2; }
 	E2E_NETWORK_DIR="$(E2E_NETWORK_DIR)" \
 	$(E2E_GO) tool ginkgo \
 		--tags=e2e \
@@ -99,7 +98,7 @@ live-test:
 		--timeout="$(E2E_TIMEOUT)" \
 		--poll-progress-after=30s \
 		--poll-progress-interval=30s \
-		$(addprefix ./suites/,$(strip $(subst $(comma), ,$(E2E_SUITES)))) \
+		$(strip $(E2E_PACKAGES)) \
 		-- -test.run='^TestE2E$$'
 
 #? network-stop: Stop only the exact E2E network recorded in E2E_NETWORK_DIR.

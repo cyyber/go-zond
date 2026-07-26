@@ -4,33 +4,24 @@
 package network
 
 import (
-	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestMutationLeaseContendsAndReopens(t *testing.T) {
 	networkDir, err := ensureNetworkDirectory(t.TempDir())
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	first, err := AcquireMutationLease(networkDir)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	if second, err := AcquireMutationLease(networkDir); err == nil {
 		_ = second.Close()
 		t.Fatal("concurrent lease was acquired")
-	} else if !strings.Contains(err.Error(), "already in progress") {
-		t.Fatalf("contention error = %v", err)
+	} else {
+		require.ErrorContains(t, err, "already in progress")
 	}
-	if err := first.Close(); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, first.Close())
 	reopened, err := AcquireMutationLease(networkDir)
-	if err != nil {
-		t.Fatalf("reopen lease: %v", err)
-	}
-	if err := reopened.Close(); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err, "reopen lease")
+	require.NoError(t, reopened.Close())
 }

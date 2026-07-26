@@ -21,13 +21,6 @@ func ownershipPath(networkDir string) string {
 }
 
 func loadOwnership(networkDir string) (kurtosis.EnclaveRef, error) {
-	if _, err := os.Lstat(filepath.Join(networkDir, "private", "ownership.json")); err == nil {
-		return kurtosis.EnclaveRef{}, errors.New(
-			"legacy network ownership detected; run network-stop with the previous revision before upgrading",
-		)
-	} else if !errors.Is(err, os.ErrNotExist) {
-		return kurtosis.EnclaveRef{}, fmt.Errorf("inspect legacy network ownership: %w", err)
-	}
 	path := ownershipPath(networkDir)
 	if _, err := os.Lstat(path); err != nil {
 		if errors.Is(err, os.ErrNotExist) {
@@ -72,39 +65,17 @@ func removeOwnership(networkDir string) error {
 }
 
 func writeExclusive(path string, payload []byte) error {
-	directory := filepath.Dir(path)
-	file, err := os.CreateTemp(directory, "."+filepath.Base(path)+"-*")
+	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 	if err != nil {
-		return err
-	}
-	temporary := file.Name()
-	defer os.Remove(temporary)
-	defer file.Close()
-	if err := file.Chmod(0o600); err != nil {
 		return err
 	}
 	if _, err := file.Write(payload); err != nil {
-		return err
-	}
-	if err := file.Sync(); err != nil {
-		return err
+		return errors.Join(err, file.Close(), os.Remove(path))
 	}
 	if err := file.Close(); err != nil {
-		return err
+		return errors.Join(err, os.Remove(path))
 	}
-	if err := os.Link(temporary, path); err != nil {
-		return err
-	}
-	return syncDirectory(directory)
-}
-
-func syncDirectory(path string) error {
-	directory, err := os.Open(path)
-	if err != nil {
-		return err
-	}
-	defer directory.Close()
-	return directory.Sync()
+	return nil
 }
 
 func canonicalNetworkDirectory(path string) (string, error) {
