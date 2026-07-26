@@ -42,7 +42,7 @@
 .claude
 
 # Local E2E output may contain funded-account and network material.
-/scripts/testing/e2e/logs/
+/testing/endtoend/logs/
 
 # binaries
 cmd/abidump/abidump

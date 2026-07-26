@@ -15,7 +15,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/theQRL/go-qrl/scripts/testing/e2e/internal/network"
+	"github.com/theQRL/go-qrl/testing/endtoend/internal/network"
 )
 
 const usage = `Usage:

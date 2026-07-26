@@ -18,21 +18,29 @@ make network-stop
 Starting a network never runs tests. Running tests never creates or destroys a
 network.
 
-The Make interface has one required package selector, `E2E_PACKAGES`, and three
-optional overrides: `E2E_NETWORK_DIR`, `E2E_TIMEOUT`, and
-`E2E_EXECUTION_IMAGE`. The lifecycle targets normalize `E2E_NETWORK_DIR` to an
-absolute path before passing it to the Go commands.
+The Make interface has one required package selector, `E2E_PACKAGES`, and five
+optional overrides: `E2E_NETWORK_DIR`, `E2E_NETWORK_TIMEOUT`,
+`E2E_SUITE_TIMEOUT`, `E2E_EXECUTION_IMAGE`, and `E2E_REQUIRE_CLEAN`.
+`E2E_NETWORK_TIMEOUT` bounds provisioning; `E2E_SUITE_TIMEOUT` bounds Ginkgo
+execution. The lifecycle targets normalize `E2E_NETWORK_DIR` to an absolute path
+before passing it to the Go commands.
 
 ## Live network
 
-The built-in configuration starts a real qrl-package network with one go-qrl
-execution client, one Qrysm beacon node, one Qrysm validator, and one QRL
-genesis generator. The required Go and Kurtosis versions are declared in
-[`go.mod`](go.mod); Docker and Git are also required.
+The deliberately minimal configuration starts a real qrl-package network with
+one go-qrl execution client, one Qrysm beacon node, one Qrysm validator, one
+funded wallet, and one QRL genesis generator. Multi-node, Clef, explorer, and
+transaction-spammer topologies are outside this minimal profile. They can be
+added later as separate network profiles with suites that target them. The
+required Go and Kurtosis versions are declared in [`go.mod`](go.mod); Docker and
+Git are also required. A local Kurtosis 1.20 engine must already be running;
+the lifecycle command connects to it but does not install or start it.
 
-`network-start` first builds the current clean go-qrl checkout. Build the image
-without starting a network with `make network-image`. The root
-[`Dockerfile`](../../../Dockerfile) pins its builder and runtime bases by
+`network-start` first builds the current go-qrl working tree. Clean builds embed
+the full commit; dirty builds embed `working-tree-<short-commit>` and print a
+warning. Set `E2E_REQUIRE_CLEAN=1` to reject dirty builds. Build the image without
+starting a network with `make network-image`. The root
+[`Dockerfile`](../../Dockerfile) pins its builder and runtime bases by
 digest. The organization-published support images are consumed directly.
 
 Use one private runtime directory for the complete lifecycle:
@@ -50,13 +58,14 @@ Inspect readiness without running a suite:
 E2E_NETWORK_DIR=/tmp/my-go-qrl-network make network-status
 ```
 
-Status is deliberately pass/fail: it prints `network ready` only after
-authenticating the recorded enclave and probing the advancing funded chain.
-Unavailable or incomplete networks return a non-zero exit status.
+Status is deliberately pass/fail: it prints `network ready` only after resolving
+the directory's deterministic enclave slot and probing the advancing funded
+chain. Unavailable or incomplete networks return a non-zero exit status.
 
-The runtime directory contains only private lifecycle data: the exact enclave
-name and UUID, the funded wallet seed, and a mutation lock. `network-stop`
-destroys only that full recorded identity and leaves the shared Kurtosis engine
+The runtime directory contains only the funded wallet seed and a mutation lock.
+The enclave name is a deterministic 192-bit digest of the canonical directory;
+each lifecycle command resolves its current UUID from Kurtosis. `network-stop`
+destroys that UUID, confirms its absence, and leaves the shared Kurtosis engine
 running. Never upload the runtime directory, qrl-package output, or raw enclave
 dumps.
 
@@ -76,7 +85,7 @@ Quote the value when selecting multiple suites:
 make live-test E2E_PACKAGES='./suites/goabi ./suites/commands'
 ```
 
-Create `scripts/testing/e2e/suites/<suite>` with a `TestE2E` bootstrap, then run:
+Create `testing/endtoend/suites/<suite>` with a `TestE2E` bootstrap, then run:
 
 ```bash
 make live-test E2E_PACKAGES=./suites/<suite>

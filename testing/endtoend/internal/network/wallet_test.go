@@ -5,6 +5,7 @@ package network
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -37,4 +38,16 @@ func TestEnsureWalletRejectsInvalidExistingSeed(t *testing.T) {
 	require.NoError(t, os.WriteFile(walletSeedPath(networkDir), []byte("invalid\n"), 0o600))
 	_, err = ensureWallet(networkDir)
 	require.ErrorContains(t, err, "restore existing wallet")
+}
+
+func TestExclusiveWriteCreatesOnePrivateFile(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "secret")
+	require.NoError(t, writeExclusive(path, []byte("first\n")))
+	require.ErrorIs(t, writeExclusive(path, []byte("second\n")), os.ErrExist)
+	contents, err := os.ReadFile(path)
+	require.NoError(t, err)
+	require.Equal(t, "first\n", string(contents))
+	info, err := os.Stat(path)
+	require.NoError(t, err)
+	require.Equal(t, os.FileMode(0o600), info.Mode().Perm())
 }

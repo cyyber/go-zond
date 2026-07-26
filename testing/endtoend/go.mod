@@ -1,4 +1,4 @@
-module github.com/theQRL/go-qrl/scripts/testing/e2e
+module github.com/theQRL/go-qrl/testing/endtoend
 
 go 1.26.0
 
@@ -76,4 +76,4 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace github.com/theQRL/go-qrl => ../../..
+replace github.com/theQRL/go-qrl => ../..

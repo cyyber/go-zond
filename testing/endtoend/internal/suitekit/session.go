@@ -11,7 +11,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/theQRL/go-qrl/scripts/testing/e2e/internal/network"
+	"github.com/theQRL/go-qrl/testing/endtoend/internal/network"
 )
 
 const networkDirVariable = "E2E_NETWORK_DIR"

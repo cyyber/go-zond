@@ -16,4 +16,4 @@ build/cache
 
 # The execution image does not contain the separate E2E module or its private
 # runtime output.
-scripts/testing/e2e
+testing/endtoend
