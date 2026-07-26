@@ -59,8 +59,5 @@ func ensureNetworkDirectory(path string) (string, error) {
 	if err := os.MkdirAll(path, 0o700); err != nil {
 		return "", err
 	}
-	if err := os.Chmod(path, 0o700); err != nil {
-		return "", err
-	}
 	return canonicalNetworkDirectory(path)
 }

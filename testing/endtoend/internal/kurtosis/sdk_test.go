@@ -74,6 +74,48 @@ func TestFindExactEnclaveDistinguishesAbsenceIdentityAndAmbiguity(t *testing.T) 
 	}, EnclaveRef{}, "multiple running")
 }
 
+func TestDestroyStillExistsChecksUUIDAndDeterministicName(t *testing.T) {
+	const (
+		name        = "go-qrl-e2e-slot"
+		uuid        = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+		replacement = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+	)
+	ref := EnclaveRef{Name: name, UUID: uuid}
+	info := func(name, uuid string) *engine_bindings.EnclaveInfo {
+		return &engine_bindings.EnclaveInfo{Name: name, EnclaveUuid: uuid}
+	}
+	for _, test := range []struct {
+		name    string
+		running map[string]*engine_bindings.EnclaveInfo
+		want    bool
+		wantErr string
+	}{
+		{"absent", map[string]*engine_bindings.EnclaveInfo{}, false, ""},
+		{"original UUID remains", map[string]*engine_bindings.EnclaveInfo{
+			uuid: info(name, uuid),
+		}, true, ""},
+		{"same-name replacement remains", map[string]*engine_bindings.EnclaveInfo{
+			replacement: info(name, replacement),
+		}, true, ""},
+		{"unrelated enclave remains", map[string]*engine_bindings.EnclaveInfo{
+			replacement: info("another-slot", replacement),
+		}, false, ""},
+		{"nil original identity", map[string]*engine_bindings.EnclaveInfo{
+			uuid: nil,
+		}, false, "nil identity"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			exists, err := destroyStillExists(test.running, ref)
+			require.Equal(t, test.want, exists)
+			if test.wantErr == "" {
+				require.NoError(t, err)
+			} else {
+				require.ErrorContains(t, err, test.wantErr)
+			}
+		})
+	}
+}
+
 func TestReconcileDestroy(t *testing.T) {
 	destroyErr := errors.New("destroy response lost")
 	inspectErr := errors.New("enclave listing failed")

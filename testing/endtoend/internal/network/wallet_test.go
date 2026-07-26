@@ -12,7 +12,7 @@ import (
 )
 
 func TestEnsureWalletCreatesAndReusesPrivateSeed(t *testing.T) {
-	networkDir, err := ensureNetworkDirectory(t.TempDir())
+	networkDir, err := ensureNetworkDirectory(filepath.Join(t.TempDir(), "network"))
 	require.NoError(t, err)
 	wallet, err := ensureWallet(networkDir)
 	require.NoError(t, err)
@@ -33,7 +33,7 @@ func TestEnsureWalletCreatesAndReusesPrivateSeed(t *testing.T) {
 }
 
 func TestEnsureWalletRejectsInvalidExistingSeed(t *testing.T) {
-	networkDir, err := ensureNetworkDirectory(t.TempDir())
+	networkDir, err := ensureNetworkDirectory(filepath.Join(t.TempDir(), "network"))
 	require.NoError(t, err)
 	require.NoError(t, os.WriteFile(walletSeedPath(networkDir), []byte("invalid\n"), 0o600))
 	_, err = ensureWallet(networkDir)

@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"net"
 	"strconv"
+	"time"
 
 	"github.com/kurtosis-tech/kurtosis/api/golang/core/kurtosis_core_rpc_api_bindings"
 	"github.com/kurtosis-tech/kurtosis/api/golang/core/lib/enclaves"
@@ -40,6 +41,8 @@ func (service Service) PublicEndpoint(portID, scheme string) (string, bool) {
 type SDKClient struct {
 	context *kurtosis_context.KurtosisContext
 }
+
+const destroyConfirmationTimeout = 15 * time.Second
 
 func NewSDKClient() (*SDKClient, error) {
 	ctx, err := kurtosis_context.NewKurtosisContextFromLocalEngine()
@@ -152,15 +155,34 @@ func (client *SDKClient) Service(ctx context.Context, ref EnclaveRef, name strin
 }
 
 func (client *SDKClient) DestroyEnclave(ctx context.Context, ref EnclaveRef) error {
+	if _, err := newEnclaveRef(ref.Name, ref.UUID); err != nil {
+		return err
+	}
 	destroyErr := client.context.DestroyEnclave(ctx, ref.UUID)
-	enclaves, inspectErr := client.context.GetEnclaves(ctx)
+	confirmCtx, cancel := context.WithTimeout(context.Background(), destroyConfirmationTimeout)
+	defer cancel()
+	enclaves, inspectErr := client.context.GetEnclaves(confirmCtx)
 	var exists bool
 	if inspectErr == nil && enclaves == nil {
 		inspectErr = errors.New("Kurtosis returned a nil enclave listing")
 	} else if inspectErr == nil {
-		_, exists = enclaves.GetEnclavesByUuid()[ref.UUID]
+		exists, inspectErr = destroyStillExists(enclaves.GetEnclavesByUuid(), ref)
 	}
 	return reconcileDestroy(destroyErr, inspectErr, exists)
+}
+
+func destroyStillExists(
+	running map[string]*engine_bindings.EnclaveInfo,
+	ref EnclaveRef,
+) (bool, error) {
+	if info, found := running[ref.UUID]; found {
+		if info == nil {
+			return false, fmt.Errorf("Kurtosis returned nil identity for enclave UUID %q", ref.UUID)
+		}
+		return true, nil
+	}
+	_, found, err := findExactEnclave(running, ref.Name)
+	return found, err
 }
 
 func reconcileDestroy(destroyErr, inspectErr error, exists bool) error {
@@ -177,6 +199,9 @@ func (client *SDKClient) enclaveContext(ctx context.Context, ref EnclaveRef) (*e
 	current, err := client.context.GetEnclaveContext(ctx, ref.UUID)
 	if err != nil {
 		return nil, err
+	}
+	if current == nil {
+		return nil, errors.New("Kurtosis returned a nil enclave context")
 	}
 	if string(current.GetEnclaveUuid()) != ref.UUID || current.GetEnclaveName() != ref.Name {
 		return nil, fmt.Errorf("enclave identity changed: got %s/%s, want %s/%s", current.GetEnclaveName(), current.GetEnclaveUuid(), ref.Name, ref.UUID)
