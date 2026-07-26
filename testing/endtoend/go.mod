@@ -1,6 +1,6 @@
 module github.com/theQRL/go-qrl/testing/endtoend
 
-go 1.26.0
+go 1.26.5
 
 tool github.com/onsi/ginkgo/v2/ginkgo
 

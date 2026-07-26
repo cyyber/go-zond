@@ -25,8 +25,18 @@ func TestNetworkDirectoryIsPrivateCanonicalDirectory(t *testing.T) {
 	require.Equal(t, os.FileMode(0o700), info.Mode().Perm())
 }
 
+func TestEnsureNetworkDirectoryRejectsWithoutChangingExistingPermissions(t *testing.T) {
+	networkDir := t.TempDir()
+	require.NoError(t, os.Chmod(networkDir, 0o755))
+	_, err := ensureNetworkDirectory(networkDir)
+	require.ErrorContains(t, err, "0700 permissions")
+	info, statErr := os.Stat(networkDir)
+	require.NoError(t, statErr)
+	require.Equal(t, os.FileMode(0o755), info.Mode().Perm())
+}
+
 func TestMutationLeaseContendsAndReopens(t *testing.T) {
-	networkDir, err := ensureNetworkDirectory(t.TempDir())
+	networkDir, err := ensureNetworkDirectory(filepath.Join(t.TempDir(), "network"))
 	require.NoError(t, err)
 	first, err := AcquireMutationLease(networkDir)
 	require.NoError(t, err)

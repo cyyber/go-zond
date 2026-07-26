@@ -65,9 +65,14 @@ chain. Unavailable or incomplete networks return a non-zero exit status.
 The runtime directory contains only the funded wallet seed and a mutation lock.
 The enclave name is a deterministic 192-bit digest of the canonical directory;
 each lifecycle command resolves its current UUID from Kurtosis. `network-stop`
-destroys that UUID, confirms its absence, and leaves the shared Kurtosis engine
-running. Never upload the runtime directory, qrl-package output, or raw enclave
-dumps.
+destroys that UUID, independently confirms that neither the UUID nor its
+deterministic name remains, and leaves the shared Kurtosis engine running. A
+create error is never adopted as success; run `network-stop` before retrying
+because the deterministic slot may have been created despite a lost response.
+If a normal runtime directory was deleted, `network-stop` recreates its private
+slot directory. Existing directories must already have `0700` permissions; the
+tool never changes permissions on a supplied path. Never upload the runtime
+directory, qrl-package output, or raw enclave dumps.
 
 The qrl-package locator is commit-pinned and the organization-published
 support-image references are defined once in

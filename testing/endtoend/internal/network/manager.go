@@ -31,18 +31,14 @@ type Environment struct {
 }
 
 type Manager struct {
-	newClient             func() (kurtosisClient, error)
-	probe                 func(context.Context, string, string) error
-	createRecoveryTimeout time.Duration
-	createRecoveryInitial time.Duration
+	newClient func() (kurtosisClient, error)
+	probe     func(context.Context, string, string) error
 }
 
 func NewManager() *Manager {
 	return &Manager{
-		newClient:             func() (kurtosisClient, error) { return kurtosis.NewSDKClient() },
-		probe:                 probeNetwork,
-		createRecoveryTimeout: 15 * time.Second,
-		createRecoveryInitial: 250 * time.Millisecond,
+		newClient: func() (kurtosisClient, error) { return kurtosis.NewSDKClient() },
+		probe:     probeNetwork,
 	}
 }
 
@@ -76,12 +72,13 @@ func (manager *Manager) Start(ctx context.Context, requestedDir, executionImage 
 	if err != nil {
 		return fmt.Errorf("prepare qrl-package parameters: %w", err)
 	}
-	enclave, createErr := client.CreateEnclave(ctx, name)
-	if createErr != nil {
-		enclave, err = manager.recoverAmbiguousCreation(client, name, createErr)
-		if err != nil {
-			return err
-		}
+	enclave, err := client.CreateEnclave(ctx, name)
+	if err != nil {
+		return fmt.Errorf(
+			"create Kurtosis enclave %q; its deterministic slot may remain for network-stop: %w",
+			name,
+			err,
+		)
 	}
 	if enclave.Name != name || enclave.UUID == "" {
 		return errors.Join(
@@ -90,16 +87,6 @@ func (manager *Manager) Start(ctx context.Context, requestedDir, executionImage 
 		)
 	}
 	if err := ctx.Err(); err != nil {
-		if createErr != nil {
-			return errors.Join(
-				fmt.Errorf(
-					"create Kurtosis enclave %q returned an error; recovered its deterministic slot for network-stop: %w",
-					name,
-					createErr,
-				),
-				fmt.Errorf("caller context is no longer usable: %w", err),
-			)
-		}
 		return fmt.Errorf(
 			"Kurtosis enclave was created; its deterministic slot remains for network-stop: %w",
 			err,
@@ -117,36 +104,6 @@ func (manager *Manager) Start(ctx context.Context, requestedDir, executionImage 
 		return fmt.Errorf("wait for network readiness; network slot remains for network-stop: %w", err)
 	}
 	return nil
-}
-
-func (manager *Manager) recoverAmbiguousCreation(
-	client kurtosisClient,
-	name string,
-	createErr error,
-) (kurtosis.EnclaveRef, error) {
-	recoveryCtx, cancel := context.WithTimeout(context.Background(), manager.createRecoveryTimeout)
-	defer cancel()
-	var enclave kurtosis.EnclaveRef
-	if lookupErr := retryUntil(recoveryCtx, manager.createRecoveryInitial, time.Second, func(attempt context.Context) error {
-		var (
-			found bool
-			err   error
-		)
-		enclave, found, err = client.LookupEnclave(attempt, name)
-		if err != nil {
-			return err
-		}
-		if !found {
-			return fmt.Errorf("Kurtosis enclave %q is not visible yet", name)
-		}
-		return nil
-	}); lookupErr != nil {
-		return kurtosis.EnclaveRef{}, errors.Join(
-			fmt.Errorf("create Kurtosis enclave %q: %w", name, createErr),
-			fmt.Errorf("recover ambiguous creation by name: %w", lookupErr),
-		)
-	}
-	return enclave, nil
 }
 
 func (manager *Manager) Inspect(ctx context.Context, requestedDir string) (Environment, error) {
@@ -212,7 +169,7 @@ func (manager *Manager) inspectEnclave(
 }
 
 func (manager *Manager) Stop(ctx context.Context, requestedDir string) error {
-	networkDir, err := canonicalNetworkDirectory(requestedDir)
+	networkDir, err := ensureNetworkDirectory(requestedDir)
 	if err != nil {
 		return err
 	}

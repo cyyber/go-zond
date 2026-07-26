@@ -7,6 +7,8 @@ import (
 	"context"
 	"encoding/hex"
 	"errors"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -25,7 +27,7 @@ type managerFixture struct {
 
 func newManagerFixture(t *testing.T) managerFixture {
 	t.Helper()
-	networkDir, err := ensureNetworkDirectory(t.TempDir())
+	networkDir, err := ensureNetworkDirectory(filepath.Join(t.TempDir(), "network"))
 	require.NoError(t, err)
 	client := &fakeKurtosis{
 		Enclave: kurtosis.EnclaveRef{UUID: strings.Repeat("a", 32)},
@@ -37,7 +39,6 @@ func newManagerFixture(t *testing.T) managerFixture {
 	manager := NewManager()
 	manager.newClient = func() (kurtosisClient, error) { return client, nil }
 	manager.probe = func(context.Context, string, string) error { return nil }
-	manager.createRecoveryTimeout, manager.createRecoveryInitial = 25*time.Millisecond, time.Millisecond
 	return managerFixture{manager, client, networkDir}
 }
 
@@ -59,6 +60,7 @@ func TestStartOwnsOneDeterministicSlot(t *testing.T) {
 	require.Equal(t, 1, fixture.client.Runs)
 	require.Equal(t, packageLocator, fixture.client.RunLocator)
 	require.Contains(t, fixture.client.RunParameters, `"el_image":"local/go-qrl:test"`)
+	require.Equal(t, fixture.client.Enclave, fixture.client.RunRef)
 
 	environment, err := fixture.manager.Inspect(t.Context(), fixture.networkDir)
 	require.NoError(t, err)
@@ -66,6 +68,7 @@ func TestStartOwnsOneDeterministicSlot(t *testing.T) {
 	require.Equal(t, "http://127.0.0.1:18545/graphql", environment.GraphQLURL)
 	require.Equal(t, "ws://127.0.0.1:18546", environment.WebSocketURL)
 	require.Equal(t, walletSeedPath(fixture.networkDir), environment.SeedFile)
+	require.Equal(t, fixture.client.Enclave, fixture.client.ServiceRef)
 
 	require.ErrorContains(t, fixture.manager.Start(t.Context(), fixture.networkDir, testExecutionImage), "already exists")
 	require.Equal(t, 1, fixture.client.Creates)
@@ -136,39 +139,21 @@ func TestProvisioningFailureLeavesStoppableSlot(t *testing.T) {
 	require.NoError(t, fixture.manager.Stop(t.Context(), fixture.networkDir))
 	require.False(t, fixture.client.Exists)
 	require.Equal(t, 1, fixture.client.Destroys)
+	require.Equal(t, fixture.client.Enclave, fixture.client.DestroyRef)
 }
 
-func TestAmbiguousCreateRecovery(t *testing.T) {
-	t.Run("published slot", func(t *testing.T) {
-		fixture := newManagerFixture(t)
-		fixture.client.CreateError = errors.New("create response lost")
-		fixture.client.CreateAfterError = true
-		fixture.client.CreateCallback = func() { fixture.client.RecoveryFailures = 1 }
-		require.NoError(t, fixture.manager.Start(t.Context(), fixture.networkDir, testExecutionImage))
-		require.Equal(t, 3, fixture.client.Lookups) // preflight plus two recovery attempts
-		require.Equal(t, 1, fixture.client.Runs)
-	})
-	t.Run("independent recovery context", func(t *testing.T) {
-		fixture := newManagerFixture(t)
-		fixture.client.CreateError = errors.New("create response lost")
-		fixture.client.CreateAfterError = true
-		ctx, cancel := context.WithCancel(t.Context())
-		fixture.client.CreateCallback = cancel
-		err := fixture.manager.Start(ctx, fixture.networkDir, testExecutionImage)
-		require.ErrorIs(t, err, context.Canceled)
-		require.ErrorContains(t, err, "recovered its deterministic slot")
-		require.True(t, fixture.client.Exists)
-		require.Equal(t, 2, fixture.client.Lookups)
-		require.Zero(t, fixture.client.Runs)
-	})
-	t.Run("unresolved", func(t *testing.T) {
-		fixture := newManagerFixture(t)
-		fixture.client.CreateError = errors.New("create failed")
-		err := fixture.manager.Start(t.Context(), fixture.networkDir, testExecutionImage)
-		require.ErrorContains(t, err, "recover ambiguous creation")
-		require.False(t, fixture.client.Exists)
-		require.Zero(t, fixture.client.Runs)
-	})
+func TestCreateFailureNeverAdoptsTheDeterministicSlot(t *testing.T) {
+	fixture := newManagerFixture(t)
+	fixture.client.CreateError = errors.New("create response lost")
+	fixture.client.CreateAfterError = true
+	err := fixture.manager.Start(t.Context(), fixture.networkDir, testExecutionImage)
+	require.ErrorContains(t, err, "may remain for network-stop")
+	require.True(t, fixture.client.Exists)
+	require.Zero(t, fixture.client.Runs)
+
+	fixture.client.CreateError = nil
+	require.NoError(t, fixture.manager.Stop(t.Context(), fixture.networkDir))
+	require.Equal(t, fixture.client.Enclave, fixture.client.DestroyRef)
 }
 
 func TestUnexpectedCreatedIdentityIsCleanedUp(t *testing.T) {
@@ -211,8 +196,51 @@ func TestStopReconcilesDestroyOutcomes(t *testing.T) {
 		require.NoError(t, fixture.manager.Start(t.Context(), fixture.networkDir, testExecutionImage))
 		fixture.client.DestroyError = errors.New("destroy response lost")
 		fixture.client.DestroyAfterError = true
-		require.NoError(t, fixture.manager.Stop(t.Context(), fixture.networkDir))
+		require.ErrorContains(t, fixture.manager.Stop(t.Context(), fixture.networkDir), "destroy response lost")
 		require.False(t, fixture.client.Exists)
+		require.NoError(t, fixture.manager.Stop(t.Context(), fixture.networkDir))
 		require.Equal(t, 1, fixture.client.Destroys)
 	})
+}
+
+func TestStopUsesTheLatestExactNameLookup(t *testing.T) {
+	fixture := newManagerFixture(t)
+	fixture.client.Enclave = kurtosis.EnclaveRef{
+		Name: enclaveName(fixture.networkDir),
+		UUID: strings.Repeat("b", 32),
+	}
+	fixture.client.Exists = true
+	require.NoError(t, fixture.manager.Stop(t.Context(), fixture.networkDir))
+	require.Equal(t, fixture.client.Enclave, fixture.client.DestroyRef)
+}
+
+func TestStopRecreatesAMissingNormalSlotDirectory(t *testing.T) {
+	fixture := newManagerFixture(t)
+	fixture.client.Enclave.Name = enclaveName(fixture.networkDir)
+	fixture.client.Exists = true
+	require.NoError(t, os.RemoveAll(fixture.networkDir))
+
+	require.NoError(t, fixture.manager.Stop(t.Context(), fixture.networkDir))
+	info, err := os.Stat(fixture.networkDir)
+	require.NoError(t, err)
+	require.Equal(t, os.FileMode(0o700), info.Mode().Perm())
+	require.Equal(t, fixture.client.Enclave, fixture.client.DestroyRef)
+}
+
+func TestStartHoldsMutationLeaseThroughPackageExecution(t *testing.T) {
+	fixture := newManagerFixture(t)
+	fixture.client.RunStarted = make(chan struct{})
+	fixture.client.RunRelease = make(chan struct{})
+	startResult := make(chan error, 1)
+	go func() {
+		startResult <- fixture.manager.Start(t.Context(), fixture.networkDir, testExecutionImage)
+	}()
+	<-fixture.client.RunStarted
+
+	err := fixture.manager.Stop(t.Context(), fixture.networkDir)
+	require.ErrorContains(t, err, "already in progress")
+	require.Zero(t, fixture.client.Destroys)
+
+	close(fixture.client.RunRelease)
+	require.NoError(t, <-startResult)
 }

@@ -15,17 +15,14 @@ type fakeKurtosis struct {
 	ExecutionService                                 kurtosis.Service
 	CreateError, LookupError, RunError, DestroyError error
 	CreateAfterError, DestroyAfterError, Exists      bool
-	CreateCallback                                   func()
-	RecoveryFailures                                 int
 	Creates, Lookups, Runs, Destroys                 int
 	RunLocator, RunParameters                        string
+	RunRef, ServiceRef, DestroyRef                   kurtosis.EnclaveRef
+	RunStarted, RunRelease                           chan struct{}
 }
 
 func (fake *fakeKurtosis) CreateEnclave(_ context.Context, name string) (kurtosis.EnclaveRef, error) {
 	fake.Creates++
-	if fake.CreateCallback != nil {
-		fake.CreateCallback()
-	}
 	if fake.CreateError != nil {
 		if fake.CreateAfterError && fake.Enclave.Name == "" {
 			fake.Enclave.Name = name
@@ -48,23 +45,31 @@ func (fake *fakeKurtosis) LookupEnclave(ctx context.Context, name string) (kurto
 	if fake.LookupError != nil {
 		return kurtosis.EnclaveRef{}, false, fake.LookupError
 	}
-	if fake.RecoveryFailures > 0 {
-		fake.RecoveryFailures--
-		return kurtosis.EnclaveRef{}, false, fmt.Errorf("enclave %q is not visible yet", name)
-	}
 	if !fake.Exists || name != fake.Enclave.Name {
 		return kurtosis.EnclaveRef{}, false, nil
 	}
 	return fake.Enclave, true, nil
 }
 
-func (fake *fakeKurtosis) RunRemotePackage(_ context.Context, _ kurtosis.EnclaveRef, locator, parameters string) error {
+func (fake *fakeKurtosis) RunRemotePackage(ctx context.Context, ref kurtosis.EnclaveRef, locator, parameters string) error {
 	fake.Runs++
+	fake.RunRef = ref
 	fake.RunLocator, fake.RunParameters = locator, parameters
+	if fake.RunStarted != nil {
+		close(fake.RunStarted)
+	}
+	if fake.RunRelease != nil {
+		select {
+		case <-fake.RunRelease:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
 	return fake.RunError
 }
 
-func (fake *fakeKurtosis) Service(_ context.Context, _ kurtosis.EnclaveRef, name string) (kurtosis.Service, error) {
+func (fake *fakeKurtosis) Service(_ context.Context, ref kurtosis.EnclaveRef, name string) (kurtosis.Service, error) {
+	fake.ServiceRef = ref
 	if name != executionServiceName {
 		return kurtosis.Service{}, fmt.Errorf("service %q not found", name)
 	}
@@ -73,10 +78,10 @@ func (fake *fakeKurtosis) Service(_ context.Context, _ kurtosis.EnclaveRef, name
 
 func (fake *fakeKurtosis) DestroyEnclave(_ context.Context, ref kurtosis.EnclaveRef) error {
 	fake.Destroys++
+	fake.DestroyRef = ref
 	if fake.DestroyError != nil {
 		if fake.DestroyAfterError {
 			fake.Exists = false
-			return nil
 		}
 		return fake.DestroyError
 	}
