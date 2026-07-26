@@ -58,9 +58,7 @@ func TestProbeNetworkRequiresAdvancingFundedChain(t *testing.T) {
 	server := newProbeServer(t, service)
 	defer server.Close()
 	address := "Q" + strings.Repeat("b", 128)
-	if err := probeNetwork(context.Background(), probeRequest{
-		RPCURL: server.URL, Address: address,
-	}); err != nil {
+	if err := probeNetwork(context.Background(), server.URL, address); err != nil {
 		t.Fatal(err)
 	}
 	service.mu.Lock()
@@ -78,9 +76,11 @@ func TestProbeNetworkRejectsWrongChainAndEmptyWallet(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			server := newProbeServer(t, service)
 			defer server.Close()
-			err := probeNetwork(context.Background(), probeRequest{
-				RPCURL: server.URL, Address: "Q" + strings.Repeat("c", 128),
-			})
+			err := probeNetwork(
+				context.Background(),
+				server.URL,
+				"Q"+strings.Repeat("c", 128),
+			)
 			if err == nil {
 				t.Fatal("invalid network was accepted")
 			}
@@ -94,9 +94,7 @@ func TestProbeNetworkHonorsCallerDeadline(t *testing.T) {
 	defer server.Close()
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
-	err := probeNetwork(ctx, probeRequest{
-		RPCURL: server.URL, Address: "Q" + strings.Repeat("d", 128),
-	})
+	err := probeNetwork(ctx, server.URL, "Q"+strings.Repeat("d", 128))
 	if !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("deadline error = %v", err)
 	}

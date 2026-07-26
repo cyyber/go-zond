@@ -6,15 +6,14 @@ package network
 import (
 	"context"
 	"fmt"
-	"maps"
 
 	"github.com/theQRL/go-qrl/scripts/testing/e2e/internal/kurtosis"
 )
 
 type fakeKurtosis struct {
 	Enclave           kurtosis.EnclaveRef
-	Runs              []kurtosis.PackageRun
-	ServiceMap        map[string]kurtosis.Service
+	Runs              []packageRun
+	ExecutionService  kurtosis.Service
 	Calls             []string
 	CreateError       error
 	CreateAfterError  bool
@@ -24,6 +23,10 @@ type fakeKurtosis struct {
 	DestroyError      error
 	DestroyAfterError bool
 	Destroyed         bool
+}
+
+type packageRun struct {
+	Locator, SerializedParams string
 }
 
 func (fake *fakeKurtosis) CreateEnclave(_ context.Context, name string) (kurtosis.EnclaveRef, error) {
@@ -61,29 +64,26 @@ func (fake *fakeKurtosis) GetEnclave(ctx context.Context, identifier string) (ku
 func (fake *fakeKurtosis) RunRemotePackage(
 	_ context.Context,
 	ref kurtosis.EnclaveRef,
-	run kurtosis.PackageRun,
+	locator,
+	parameters string,
 ) error {
 	fake.Calls = append(fake.Calls, "run:"+ref.UUID)
-	fake.Runs = append(fake.Runs, run)
+	fake.Runs = append(fake.Runs, packageRun{
+		Locator: locator, SerializedParams: parameters,
+	})
 	return fake.RunError
 }
 
-func (fake *fakeKurtosis) EnclaveExists(_ context.Context, uuid string) (bool, error) {
-	fake.Calls = append(fake.Calls, "exists:"+uuid)
-	return uuid == fake.Enclave.UUID && !fake.Destroyed, nil
-}
-
-func (fake *fakeKurtosis) Services(
+func (fake *fakeKurtosis) Service(
 	_ context.Context,
 	ref kurtosis.EnclaveRef,
-) (map[string]kurtosis.Service, error) {
-	fake.Calls = append(fake.Calls, "services:"+ref.UUID)
-	services := maps.Clone(fake.ServiceMap)
-	for name, service := range services {
-		service.PublicPorts = maps.Clone(service.PublicPorts)
-		services[name] = service
+	name string,
+) (kurtosis.Service, error) {
+	fake.Calls = append(fake.Calls, "service:"+ref.UUID+":"+name)
+	if name != executionServiceName {
+		return kurtosis.Service{}, fmt.Errorf("service %q not found", name)
 	}
-	return services, nil
+	return fake.ExecutionService, nil
 }
 
 func (fake *fakeKurtosis) DestroyEnclave(_ context.Context, ref kurtosis.EnclaveRef) error {
@@ -91,6 +91,9 @@ func (fake *fakeKurtosis) DestroyEnclave(_ context.Context, ref kurtosis.Enclave
 	if fake.DestroyError != nil {
 		if fake.DestroyAfterError {
 			fake.Destroyed = true
+		}
+		if fake.Destroyed {
+			return nil
 		}
 		return fake.DestroyError
 	}

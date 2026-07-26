@@ -17,22 +17,24 @@ import (
 )
 
 type recordingNetworks struct {
-	startRequest  network.StartRequest
+	startDir      string
+	startImage    string
 	startDeadline time.Time
-	statusDir     string
+	inspectDir    string
 	stopDir       string
-	statusErr     error
+	inspectErr    error
 }
 
-func (networks *recordingNetworks) Start(ctx context.Context, request network.StartRequest) error {
-	networks.startRequest = request
+func (networks *recordingNetworks) Start(ctx context.Context, directory, image string) error {
+	networks.startDir = directory
+	networks.startImage = image
 	networks.startDeadline, _ = ctx.Deadline()
 	return nil
 }
 
-func (networks *recordingNetworks) Status(_ context.Context, directory string) error {
-	networks.statusDir = directory
-	return networks.statusErr
+func (networks *recordingNetworks) Inspect(_ context.Context, directory string) (network.Environment, error) {
+	networks.inspectDir = directory
+	return network.Environment{}, networks.inspectErr
 }
 
 func (networks *recordingNetworks) Stop(_ context.Context, directory string) error {
@@ -52,10 +54,9 @@ func TestRunNetworkCommands(t *testing.T) {
 	}, &stdout, &stderr, networks); err != nil {
 		t.Fatal(err)
 	}
-	request := networks.startRequest
-	if request.NetworkDir != networkDir ||
-		request.ExecutionImage != "local/go-qrl:test" {
-		t.Fatalf("start request = %+v", request)
+	if networks.startDir != networkDir ||
+		networks.startImage != "local/go-qrl:test" {
+		t.Fatalf("start directory/image = %q/%q", networks.startDir, networks.startImage)
 	}
 	if remaining := time.Until(networks.startDeadline); remaining <= 16*time.Minute || remaining > 17*time.Minute {
 		t.Fatalf("start deadline remaining = %s", remaining)
@@ -77,15 +78,12 @@ func TestRunNetworkCommands(t *testing.T) {
 	if stdout.String() != "network stopped\n" {
 		t.Fatalf("stop output = %q", stdout.String())
 	}
-	if networks.statusDir != networkDir || networks.stopDir != networkDir {
-		t.Fatalf("status = %q, stop = %q", networks.statusDir, networks.stopDir)
+	if networks.inspectDir != networkDir || networks.stopDir != networkDir {
+		t.Fatalf("status = %q, stop = %q", networks.inspectDir, networks.stopDir)
 	}
 	err := run(t.Context(), []string{"network", "status"}, io.Discard, io.Discard, networks)
-	if exitCode(err) != 2 {
-		t.Fatalf("invalid command error = %v, exit code = %d", err, exitCode(err))
-	}
-	if exitCode(context.Canceled) != 130 {
-		t.Fatal("canceled command did not use exit code 130")
+	if err == nil {
+		t.Fatal("invalid command succeeded")
 	}
 }
 
@@ -93,13 +91,23 @@ func TestRunRequiresNetworkDirectoryAndDoesNotPrintFailedStatus(t *testing.T) {
 	networks := new(recordingNetworks)
 	var stdout bytes.Buffer
 	err := run(t.Context(), []string{"status"}, &stdout, io.Discard, networks)
-	if exitCode(err) != 2 || !strings.Contains(err.Error(), "--network-dir is required") {
-		t.Fatalf("missing directory error = %v, exit code = %d", err, exitCode(err))
+	if err == nil || !strings.Contains(err.Error(), "--network-dir is required") {
+		t.Fatalf("missing directory error = %v", err)
+	}
+	err = run(
+		t.Context(),
+		[]string{"start", "--network-dir", t.TempDir()},
+		&stdout,
+		io.Discard,
+		networks,
+	)
+	if err == nil || !strings.Contains(err.Error(), "--execution-image is required") {
+		t.Fatalf("missing execution image error = %v", err)
 	}
 
-	networks.statusErr = errors.New("network is not running")
+	networks.inspectErr = errors.New("network is not running")
 	err = run(t.Context(), []string{"status", "--network-dir", t.TempDir()}, &stdout, io.Discard, networks)
-	if !errors.Is(err, networks.statusErr) || stdout.Len() != 0 {
+	if !errors.Is(err, networks.inspectErr) || stdout.Len() != 0 {
 		t.Fatalf("failed status error = %v, output = %q", err, stdout.String())
 	}
 }

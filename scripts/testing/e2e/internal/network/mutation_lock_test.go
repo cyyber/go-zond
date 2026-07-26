@@ -17,9 +17,6 @@ func TestMutationLeaseContendsAndReopens(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if first.NetworkDir() != networkDir {
-		t.Fatalf("lease directory = %q, want %q", first.NetworkDir(), networkDir)
-	}
 	if second, err := AcquireMutationLease(networkDir); err == nil {
 		_ = second.Close()
 		t.Fatal("concurrent lease was acquired")

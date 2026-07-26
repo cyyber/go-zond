@@ -4,46 +4,14 @@
 package kurtosis
 
 import (
+	"errors"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/kurtosis-tech/kurtosis/api/golang/core/kurtosis_core_rpc_api_bindings"
 	"github.com/kurtosis-tech/kurtosis/api/golang/core/lib/binding_constructors"
-	kurtosisservices "github.com/kurtosis-tech/kurtosis/api/golang/core/lib/services"
 )
-
-func TestConvertServiceContextPreservesPublicEndpoints(t *testing.T) {
-	serviceContext := kurtosisservices.NewServiceContext(
-		nil,
-		"execution",
-		"11111111111111111111111111111111",
-		"10.0.0.1",
-		nil,
-		"127.0.0.1",
-		map[string]*kurtosisservices.PortSpec{
-			"rpc": kurtosisservices.NewPortSpec(18545, kurtosisservices.TransportProtocol_TCP, ""),
-		},
-		nil,
-		false,
-		nil,
-		false,
-	)
-	service, err := convertServiceContext(serviceContext)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if service.PublicIP != "127.0.0.1" ||
-		service.PublicPorts["rpc"] != 18545 {
-		t.Fatalf("service = %+v", service)
-	}
-}
-
-func TestConvertServiceContextRejectsNil(t *testing.T) {
-	if _, err := convertServiceContext(nil); err == nil {
-		t.Fatal("nil service context was accepted")
-	}
-}
 
 func TestConsumeStarlarkCompletionSuppressesSecretBearingTranscript(t *testing.T) {
 	const secret = "seed-that-must-never-reach-errors"
@@ -69,5 +37,39 @@ func TestConsumeStarlarkCompletionSuppressesSecretBearingTranscript(t *testing.T
 	close(success)
 	if err := consumeStarlarkCompletion(success); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestReconcileDestroy(t *testing.T) {
+	destroyErr := errors.New("destroy response lost")
+	inspectErr := errors.New("enclave listing failed")
+	for name, test := range map[string]struct {
+		destroyErr, inspectErr error
+		exists                 bool
+		wantError              bool
+		wantDestroyCause       bool
+		wantInspectCause       bool
+	}{
+		"successful destroy":          {},
+		"lost response but absent":    {destroyErr: destroyErr},
+		"already absent":              {destroyErr: errors.New("not found")},
+		"destroy rejected and exists": {destroyErr: destroyErr, exists: true, wantError: true, wantDestroyCause: true},
+		"inspection failed": {
+			destroyErr: destroyErr, inspectErr: inspectErr,
+			wantError: true, wantDestroyCause: true, wantInspectCause: true,
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			err := reconcileDestroy(test.destroyErr, test.inspectErr, test.exists)
+			if (err != nil) != test.wantError {
+				t.Fatalf("error = %v, want error = %t", err, test.wantError)
+			}
+			if test.wantDestroyCause && !errors.Is(err, test.destroyErr) {
+				t.Fatalf("error %v does not preserve destroy cause", err)
+			}
+			if test.wantInspectCause && !errors.Is(err, test.inspectErr) {
+				t.Fatalf("error %v does not preserve inspection cause", err)
+			}
+		})
 	}
 }

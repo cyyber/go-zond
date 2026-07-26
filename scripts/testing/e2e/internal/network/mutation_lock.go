@@ -11,26 +11,14 @@ import (
 	"github.com/gofrs/flock"
 )
 
-// MutationLease is the non-blocking cross-process lock shared by network
-// lifecycle commands and live suites.
-type MutationLease struct {
-	networkDir string
-	lock       *flock.Flock
-}
-
-func AcquireMutationLease(networkDir string) (*MutationLease, error) {
-	canonical, err := canonicalExistingDirectory(networkDir, "network directory")
+// AcquireMutationLease takes the non-blocking cross-process lock shared by
+// network lifecycle commands and live suites.
+func AcquireMutationLease(networkDir string) (*flock.Flock, error) {
+	canonical, err := canonicalNetworkDirectory(networkDir)
 	if err != nil {
 		return nil, err
 	}
-	return acquireMutationLease(canonical)
-}
-
-func acquireMutationLease(networkDir string) (*MutationLease, error) {
-	if err := validatePrivateDirectory(networkDir); err != nil {
-		return nil, err
-	}
-	lock := flock.New(filepath.Join(privatePath(networkDir), "mutation.lock"))
+	lock := flock.New(filepath.Join(canonical, "mutation.lock"))
 	locked, err := lock.TryLock()
 	if err != nil {
 		return nil, fmt.Errorf("acquire network mutation lease: %w", err)
@@ -39,19 +27,5 @@ func acquireMutationLease(networkDir string) (*MutationLease, error) {
 		_ = lock.Close()
 		return nil, errors.New("network mutation is already in progress")
 	}
-	return &MutationLease{networkDir: networkDir, lock: lock}, nil
-}
-
-func (lease *MutationLease) NetworkDir() string {
-	if lease == nil {
-		return ""
-	}
-	return lease.networkDir
-}
-
-func (lease *MutationLease) Close() error {
-	if lease == nil || lease.lock == nil {
-		return nil
-	}
-	return lease.lock.Close()
+	return lock, nil
 }

@@ -16,16 +16,12 @@ import (
 
 const chainAdvancementWindow = 30 * time.Second
 
-type probeRequest struct {
-	RPCURL, Address string
-}
-
-func probeNetwork(ctx context.Context, request probeRequest) error {
-	address, err := common.NewAddressFromString(request.Address)
+func probeNetwork(ctx context.Context, rpcURL, walletAddress string) error {
+	address, err := common.NewAddressFromString(walletAddress)
 	if err != nil {
 		return errors.New("signer readiness requires a valid wallet address")
 	}
-	client, err := qrlclient.DialContext(ctx, request.RPCURL)
+	client, err := qrlclient.DialContext(ctx, rpcURL)
 	if err != nil {
 		return fmt.Errorf("dial RPC: %w", err)
 	}
@@ -46,31 +42,34 @@ func probeNetwork(ctx context.Context, request probeRequest) error {
 	if firstBlock == 0 {
 		return errors.New("chain has not produced a post-genesis block")
 	}
-	ticker := time.NewTicker(500 * time.Millisecond)
-	defer ticker.Stop()
-	deadline := time.NewTimer(chainAdvancementWindow)
-	defer deadline.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return context.Cause(ctx)
-		case <-deadline.C:
-			return fmt.Errorf("chain did not advance beyond block %d within %s", firstBlock, chainAdvancementWindow)
-		case <-ticker.C:
-			block, err := client.BlockNumber(ctx)
-			if err != nil {
-				return fmt.Errorf("read advancing block number: %w", err)
-			}
-			if block > firstBlock {
-				balance, err := client.BalanceAt(ctx, address, nil)
-				if err != nil {
-					return fmt.Errorf("read E2E wallet balance: %w", err)
-				}
-				if balance.Sign() <= 0 {
-					return fmt.Errorf("E2E wallet %s has no balance", request.Address)
-				}
-				return nil
-			}
+	advancementCtx, cancel := context.WithTimeout(ctx, chainAdvancementWindow)
+	defer cancel()
+	if err := waitUntil(advancementCtx, 500*time.Millisecond, func(attempt context.Context) error {
+		block, err := client.BlockNumber(attempt)
+		if err != nil {
+			return fmt.Errorf("read advancing block number: %w", err)
 		}
+		if block <= firstBlock {
+			return fmt.Errorf("block number remains at %d", block)
+		}
+		return nil
+	}); err != nil {
+		if ctx.Err() != nil {
+			return context.Cause(ctx)
+		}
+		return fmt.Errorf(
+			"chain did not advance beyond block %d within %s: %w",
+			firstBlock,
+			chainAdvancementWindow,
+			err,
+		)
 	}
+	balance, err := client.BalanceAt(ctx, address, nil)
+	if err != nil {
+		return fmt.Errorf("read E2E wallet balance: %w", err)
+	}
+	if balance.Sign() <= 0 {
+		return fmt.Errorf("E2E wallet %s has no balance", walletAddress)
+	}
+	return nil
 }
