@@ -10,30 +10,18 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"regexp"
 	"strconv"
 
 	"github.com/kurtosis-tech/kurtosis/api/golang/core/kurtosis_core_rpc_api_bindings"
 	"github.com/kurtosis-tech/kurtosis/api/golang/core/lib/enclaves"
 	"github.com/kurtosis-tech/kurtosis/api/golang/core/lib/starlark_run_config"
+	engine_bindings "github.com/kurtosis-tech/kurtosis/api/golang/engine/kurtosis_engine_rpc_api_bindings"
 	"github.com/kurtosis-tech/kurtosis/api/golang/engine/lib/kurtosis_context"
 )
 
-var uuidPattern = regexp.MustCompile(`^[0-9a-f]{32}$`)
-
 type EnclaveRef struct {
-	Name string `json:"name"`
-	UUID string `json:"uuid"`
-}
-
-func (ref EnclaveRef) Validate() error {
-	if ref.Name == "" {
-		return errors.New("enclave name is empty")
-	}
-	if !uuidPattern.MatchString(ref.UUID) {
-		return fmt.Errorf("enclave UUID %q is not a full 32-character lowercase UUID", ref.UUID)
-	}
-	return nil
+	Name string
+	UUID string
 }
 
 type Service struct {
@@ -66,23 +54,51 @@ func (client *SDKClient) CreateEnclave(ctx context.Context, name string) (Enclav
 	if err != nil {
 		return EnclaveRef{}, err
 	}
-	ref := EnclaveRef{Name: enclave.GetEnclaveName(), UUID: string(enclave.GetEnclaveUuid())}
-	if err := ref.Validate(); err != nil {
-		return EnclaveRef{}, fmt.Errorf("Kurtosis returned invalid enclave identity: %w", err)
-	}
-	return ref, nil
+	return newEnclaveRef(enclave.GetEnclaveName(), string(enclave.GetEnclaveUuid()))
 }
 
-func (client *SDKClient) GetEnclave(ctx context.Context, identifier string) (EnclaveRef, error) {
-	info, err := client.context.GetEnclave(ctx, identifier)
+// LookupEnclave resolves one currently running enclave by its exact name.
+// Absence is returned separately from engine and identity failures.
+func (client *SDKClient) LookupEnclave(ctx context.Context, name string) (EnclaveRef, bool, error) {
+	running, err := client.context.GetEnclaves(ctx)
 	if err != nil {
-		return EnclaveRef{}, err
+		return EnclaveRef{}, false, fmt.Errorf("list running Kurtosis enclaves: %w", err)
 	}
-	ref := EnclaveRef{Name: info.GetName(), UUID: info.GetEnclaveUuid()}
-	if err := ref.Validate(); err != nil {
-		return EnclaveRef{}, fmt.Errorf("Kurtosis returned invalid enclave identity: %w", err)
+	if running == nil {
+		return EnclaveRef{}, false, errors.New("Kurtosis returned a nil enclave listing")
 	}
-	return ref, nil
+	return findExactEnclave(running.GetEnclavesByUuid(), name)
+}
+
+func newEnclaveRef(name, uuid string) (EnclaveRef, error) {
+	if name == "" || uuid == "" {
+		return EnclaveRef{}, errors.New("Kurtosis returned an empty enclave identity")
+	}
+	return EnclaveRef{Name: name, UUID: uuid}, nil
+}
+
+func findExactEnclave(
+	running map[string]*engine_bindings.EnclaveInfo,
+	name string,
+) (EnclaveRef, bool, error) {
+	var match *engine_bindings.EnclaveInfo
+	for _, info := range running {
+		if info == nil || info.GetName() != name {
+			continue
+		}
+		if match != nil {
+			return EnclaveRef{}, false, fmt.Errorf(
+				"multiple running Kurtosis enclaves have exact name %q",
+				name,
+			)
+		}
+		match = info
+	}
+	if match == nil {
+		return EnclaveRef{}, false, nil
+	}
+	ref, err := newEnclaveRef(match.GetName(), match.GetEnclaveUuid())
+	return ref, err == nil, err
 }
 
 func (client *SDKClient) RunRemotePackage(
@@ -136,28 +152,12 @@ func (client *SDKClient) Service(ctx context.Context, ref EnclaveRef, name strin
 }
 
 func (client *SDKClient) DestroyEnclave(ctx context.Context, ref EnclaveRef) error {
-	if err := ref.Validate(); err != nil {
-		return err
-	}
-	var destroyErr error
-	current, err := client.GetEnclave(ctx, ref.UUID)
-	switch {
-	case err != nil:
-		destroyErr = err
-	case current.Name != ref.Name || current.UUID != ref.UUID:
-		destroyErr = fmt.Errorf(
-			"enclave identity changed: got %s/%s, want %s/%s",
-			current.Name,
-			current.UUID,
-			ref.Name,
-			ref.UUID,
-		)
-	default:
-		destroyErr = client.context.DestroyEnclave(ctx, ref.UUID)
-	}
+	destroyErr := client.context.DestroyEnclave(ctx, ref.UUID)
 	enclaves, inspectErr := client.context.GetEnclaves(ctx)
 	var exists bool
-	if inspectErr == nil {
+	if inspectErr == nil && enclaves == nil {
+		inspectErr = errors.New("Kurtosis returned a nil enclave listing")
+	} else if inspectErr == nil {
 		_, exists = enclaves.GetEnclavesByUuid()[ref.UUID]
 	}
 	return reconcileDestroy(destroyErr, inspectErr, exists)
@@ -165,18 +165,15 @@ func (client *SDKClient) DestroyEnclave(ctx context.Context, ref EnclaveRef) err
 
 func reconcileDestroy(destroyErr, inspectErr error, exists bool) error {
 	if inspectErr != nil {
-		return errors.Join(destroyErr, fmt.Errorf("confirm owned enclave destruction: %w", inspectErr))
+		return errors.Join(destroyErr, fmt.Errorf("confirm enclave destruction: %w", inspectErr))
 	}
 	if exists {
-		return errors.Join(destroyErr, errors.New("owned enclave still exists after destruction"))
+		return errors.Join(destroyErr, errors.New("enclave still exists after destruction"))
 	}
 	return nil
 }
 
 func (client *SDKClient) enclaveContext(ctx context.Context, ref EnclaveRef) (*enclaves.EnclaveContext, error) {
-	if err := ref.Validate(); err != nil {
-		return nil, err
-	}
 	current, err := client.context.GetEnclaveContext(ctx, ref.UUID)
 	if err != nil {
 		return nil, err

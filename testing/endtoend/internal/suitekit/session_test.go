@@ -11,7 +11,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"github.com/theQRL/go-qrl/scripts/testing/e2e/internal/network"
+	"github.com/theQRL/go-qrl/testing/endtoend/internal/network"
 )
 
 func TestOpenLiveNetwork(t *testing.T) {

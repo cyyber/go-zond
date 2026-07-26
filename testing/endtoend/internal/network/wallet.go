@@ -64,3 +64,17 @@ func validateWalletSeed(path string) (string, error) {
 	address := common.Address(wallet.GetAddress()).Hex()
 	return address, nil
 }
+
+func writeExclusive(path string, payload []byte) error {
+	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if err != nil {
+		return err
+	}
+	if _, err := file.Write(payload); err != nil {
+		return errors.Join(err, file.Close(), os.Remove(path))
+	}
+	if err := file.Close(); err != nil {
+		return errors.Join(err, os.Remove(path))
+	}
+	return nil
+}

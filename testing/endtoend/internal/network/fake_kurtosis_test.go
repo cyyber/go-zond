@@ -1,0 +1,87 @@
+// Copyright 2026 The go-qrl Authors
+// This file is part of the go-qrl library.
+
+package network
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/theQRL/go-qrl/testing/endtoend/internal/kurtosis"
+)
+
+type fakeKurtosis struct {
+	Enclave                                          kurtosis.EnclaveRef
+	ExecutionService                                 kurtosis.Service
+	CreateError, LookupError, RunError, DestroyError error
+	CreateAfterError, DestroyAfterError, Exists      bool
+	CreateCallback                                   func()
+	RecoveryFailures                                 int
+	Creates, Lookups, Runs, Destroys                 int
+	RunLocator, RunParameters                        string
+}
+
+func (fake *fakeKurtosis) CreateEnclave(_ context.Context, name string) (kurtosis.EnclaveRef, error) {
+	fake.Creates++
+	if fake.CreateCallback != nil {
+		fake.CreateCallback()
+	}
+	if fake.CreateError != nil {
+		if fake.CreateAfterError && fake.Enclave.Name == "" {
+			fake.Enclave.Name = name
+		}
+		fake.Exists = fake.CreateAfterError
+		return kurtosis.EnclaveRef{}, fake.CreateError
+	}
+	if fake.Enclave.Name == "" {
+		fake.Enclave.Name = name
+	}
+	fake.Exists = true
+	return fake.Enclave, nil
+}
+
+func (fake *fakeKurtosis) LookupEnclave(ctx context.Context, name string) (kurtosis.EnclaveRef, bool, error) {
+	fake.Lookups++
+	if err := ctx.Err(); err != nil {
+		return kurtosis.EnclaveRef{}, false, err
+	}
+	if fake.LookupError != nil {
+		return kurtosis.EnclaveRef{}, false, fake.LookupError
+	}
+	if fake.RecoveryFailures > 0 {
+		fake.RecoveryFailures--
+		return kurtosis.EnclaveRef{}, false, fmt.Errorf("enclave %q is not visible yet", name)
+	}
+	if !fake.Exists || name != fake.Enclave.Name {
+		return kurtosis.EnclaveRef{}, false, nil
+	}
+	return fake.Enclave, true, nil
+}
+
+func (fake *fakeKurtosis) RunRemotePackage(_ context.Context, _ kurtosis.EnclaveRef, locator, parameters string) error {
+	fake.Runs++
+	fake.RunLocator, fake.RunParameters = locator, parameters
+	return fake.RunError
+}
+
+func (fake *fakeKurtosis) Service(_ context.Context, _ kurtosis.EnclaveRef, name string) (kurtosis.Service, error) {
+	if name != executionServiceName {
+		return kurtosis.Service{}, fmt.Errorf("service %q not found", name)
+	}
+	return fake.ExecutionService, nil
+}
+
+func (fake *fakeKurtosis) DestroyEnclave(_ context.Context, ref kurtosis.EnclaveRef) error {
+	fake.Destroys++
+	if fake.DestroyError != nil {
+		if fake.DestroyAfterError {
+			fake.Exists = false
+			return nil
+		}
+		return fake.DestroyError
+	}
+	fake.Exists = false
+	return nil
+}
+
+var _ kurtosisClient = (*fakeKurtosis)(nil)

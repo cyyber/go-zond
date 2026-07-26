@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"github.com/theQRL/go-qrl/scripts/testing/e2e/internal/network"
+	"github.com/theQRL/go-qrl/testing/endtoend/internal/network"
 )
 
 type recordingNetworks struct {

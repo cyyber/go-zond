@@ -25,6 +25,7 @@ func TestEffectiveParametersUseRequestedExecutionAndFixedSupportImages(t *testin
 	prefund := network["prefunded_accounts"].(map[string]any)[address].(map[string]any)
 	require.Equal(t, executionImage, participant["el_image"])
 	require.Equal(t, consensusImage, participant["cl_image"])
+	require.Equal(t, validatorImage, participant["vc_image"])
 	require.Equal(t, genesisImage, parameters["qrl_genesis_generator_params"].(map[string]any)["image"])
 	require.Equal(t, "1337", network["network_id"])
 	require.Equal(t, address, network["withdrawal_address"])
@@ -35,7 +36,6 @@ func TestEffectiveParametersUseRequestedExecutionAndFixedSupportImages(t *testin
 		"el_type",
 		"cl_type",
 		"vc_type",
-		"vc_image",
 		"count",
 		"use_remote_signer",
 	} {

@@ -18,6 +18,7 @@ const (
 	prefundBalance  = "2000000QRL"
 
 	consensusImage = "qrledger/qrysm:beacon-chain-8b80fa0c3f5a"
+	validatorImage = "qrledger/qrysm:validator-8b80fa0c3f5a"
 	genesisImage   = "qrledger/qrysm:qrl-genesis-generator-360410c72353-8b80fa0c3f5a"
 
 	executionServiceName = "el-1-gqrl-qrysm"
@@ -39,6 +40,7 @@ func effectiveParameters(address, executionImage string) (string, error) {
 			"el_extra_params": []any{"--graphql", "--graphql.vhosts=*"},
 			"cl_image":        consensusImage,
 			"cl_extra_params": []any{"--min-sync-peers=0", "--minimum-peers-per-subnet=0"},
+			"vc_image":        validatorImage,
 		}},
 		"network_params": map[string]any{
 			"network_id": fmt.Sprint(expectedChainID), "seconds_per_slot": 5,

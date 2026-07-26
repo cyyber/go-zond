@@ -7,9 +7,10 @@
 
 GOBIN = ./build/bin
 GORUN = go run
-E2E_GO = go -C scripts/testing/e2e
+E2E_GO = go -C testing/endtoend
 override E2E_NETWORK_DIR := $(abspath $(or $(strip $(E2E_NETWORK_DIR)),/tmp/go-qrl-e2e-network))
-E2E_TIMEOUT ?= 25m
+E2E_NETWORK_TIMEOUT ?= 150m
+E2E_SUITE_TIMEOUT ?= 25m
 E2E_EXECUTION_IMAGE ?= local/go-qrl:e2e
 
 #? gqrl: Build gqrl.
@@ -64,14 +65,19 @@ e2e-unit:
 
 #? network-image: Build the go-qrl execution image used by the E2E network.
 network-image:
-	@status="$$(git status --porcelain=v1 --untracked-files=all)"; \
+	@status="$$(git status --porcelain=v1 --untracked-files=all)" || exit 1; \
+	revision="$$(git rev-parse HEAD)" || exit 1; \
 	if [ -n "$$status" ]; then \
-		echo "Refusing to build an unattestable network image from a dirty checkout." >&2; \
-		echo "$$status" >&2; \
-		exit 1; \
-	fi
+		if [ "$${E2E_REQUIRE_CLEAN:-0}" = "1" ]; then \
+			echo "E2E_REQUIRE_CLEAN=1 refuses a dirty execution-image build." >&2; \
+			echo "$$status" >&2; \
+			exit 1; \
+		fi; \
+		revision="working-tree-$$(git rev-parse --short=12 HEAD)"; \
+		echo "Building dirty execution image with revision $$revision." >&2; \
+	fi; \
 	docker build \
-		--build-arg "COMMIT=$$(git rev-parse HEAD)" \
+		--build-arg "COMMIT=$$revision" \
 		--tag "$(E2E_EXECUTION_IMAGE)" \
 		.
 
@@ -79,7 +85,8 @@ network-image:
 network-start: network-image
 	$(E2E_GO) run ./cmd/e2e start \
 		--network-dir "$(E2E_NETWORK_DIR)" \
-		--execution-image "$(E2E_EXECUTION_IMAGE)"
+		--execution-image "$(E2E_EXECUTION_IMAGE)" \
+		--timeout "$(E2E_NETWORK_TIMEOUT)"
 
 #? network-status: Check whether the standalone E2E network is ready.
 network-status:
@@ -95,13 +102,13 @@ live-test:
 		--require-suite \
 		--fail-on-empty \
 		--fail-on-pending \
-		--timeout="$(E2E_TIMEOUT)" \
+		--timeout="$(E2E_SUITE_TIMEOUT)" \
 		--poll-progress-after=30s \
 		--poll-progress-interval=30s \
 		$(strip $(E2E_PACKAGES)) \
 		-- -test.run='^TestE2E$$'
 
-#? network-stop: Stop only the exact E2E network recorded in E2E_NETWORK_DIR.
+#? network-stop: Stop the deterministic E2E network slot for E2E_NETWORK_DIR.
 network-stop:
 	$(E2E_GO) run ./cmd/e2e stop --network-dir "$(E2E_NETWORK_DIR)"
 
