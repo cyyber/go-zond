@@ -67,7 +67,7 @@ func (manager *Manager) Start(ctx context.Context, options StartOptions) error {
 	if found, err := client.EnclaveExists(ctx, options.EnclaveName); err != nil {
 		return fmt.Errorf("resolve development network: %w", err)
 	} else if found {
-		return errors.New("network already exists or provisioning is incomplete; use status or network-stop")
+		return errors.New("network already exists or provisioning is incomplete; use network-stop before retrying")
 	}
 
 	wallet, err := devnet.UnsafeDevelopmentWallet()

@@ -38,11 +38,6 @@ func (networks *recordingNetworks) Start(_ context.Context, options network.Star
 	return nil
 }
 
-func (networks *recordingNetworks) Inspect(_ context.Context, name string) (network.Environment, error) {
-	networks.call = "status:" + name
-	return network.Environment{}, nil
-}
-
 func (networks *recordingNetworks) Stop(_ context.Context, name string) error {
 	networks.call = "stop:" + name
 	return nil
@@ -66,7 +61,6 @@ func TestRun(t *testing.T) {
 			},
 			[]byte(`{"custom":true}`),
 		},
-		{"status", "network ready\n", "status:" + enclaveName, []string{"status", "--enclave-name", enclaveName}, nil},
 		{"stop", "network stopped\n", "stop:" + enclaveName, []string{"stop", "--enclave-name", enclaveName}, nil},
 	} {
 		t.Run(test.name, func(t *testing.T) {

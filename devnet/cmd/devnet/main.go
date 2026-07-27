@@ -33,7 +33,6 @@ import (
 
 type controller interface {
 	Start(context.Context, network.StartOptions) error
-	Inspect(context.Context, string) (network.Environment, error)
 	Stop(context.Context, string) error
 }
 
@@ -56,7 +55,7 @@ func run(
 ) error {
 	if len(arguments) == 0 ||
 		len(arguments) == 1 && (arguments[0] == "-h" || arguments[0] == "--help") {
-		_, err := fmt.Fprintln(stdout, "Usage: devnet <start|status|stop> [options]")
+		_, err := fmt.Fprintln(stdout, "Usage: devnet <start|stop> [options]")
 		return err
 	}
 
@@ -84,7 +83,7 @@ func run(
 			"complete JSON qrl-package parameters; omit for the built-in single-node profile",
 		)
 		flags.DurationVar(&timeout, "timeout", 30*time.Minute, "network start budget")
-	case "status", "stop":
+	case "stop":
 	default:
 		return fmt.Errorf("unknown command %q", command)
 	}
@@ -119,10 +118,6 @@ func run(
 			ExecutionImage: executionImage,
 			Parameters:     parameters,
 		}); err != nil {
-			return err
-		}
-	case "status":
-		if _, err := networks.Inspect(ctx, *enclaveName); err != nil {
 			return err
 		}
 	case "stop":

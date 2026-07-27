@@ -9,13 +9,13 @@ Network lifecycle and suite execution are deliberately separate:
 
 ```bash
 make network-start
-make network-status
 make e2e-test E2E_PACKAGES=./suites/<suite>
 make network-stop
 ```
 
-Starting a network never runs tests. Running tests never creates or destroys a
-network. The root `make test` and `make lint` commands include this module.
+`network-start` waits for readiness but never runs tests. Running tests never
+creates or destroys a network. The root `make test` and `make lint` commands
+include this module.
 
 ## Development network
 
@@ -35,7 +35,6 @@ run independent networks:
 
 ```bash
 DEVNET_ENCLAVE_NAME=my-go-qrl-devnet make network-start
-DEVNET_ENCLAVE_NAME=my-go-qrl-devnet make network-status
 DEVNET_ENCLAVE_NAME=my-go-qrl-devnet \
   make e2e-test E2E_PACKAGES=./suites/<suite>
 DEVNET_ENCLAVE_NAME=my-go-qrl-devnet make network-stop
