@@ -26,7 +26,9 @@ never create or destroy the network.
 | `E2E_PACKAGES` | required | Suite packages passed to Ginkgo |
 | `E2E_SUITE_TIMEOUT` | `25m` | Suite execution budget |
 
-Use the same enclave name for every command:
+`DEVNET_ENCLAVE_NAME` is optional. Without it, every command uses
+`go-qrl-devnet`. Set it only to use another enclave name, and use the same value
+for each command in that lifecycle:
 
 ```bash
 DEVNET_ENCLAVE_NAME=my-devnet make network-start
