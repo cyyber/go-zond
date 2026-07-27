@@ -61,14 +61,14 @@ devtools:
 #? network-start: Start a standalone E2E test network without running suites.
 network-start:
 	docker build --tag "$(E2E_EXECUTION_IMAGE)" .
-	$(E2E_GO) run ./cmd/e2e start \
+	$(E2E_GO) run ./cmd/network start \
 		--network-dir "$(E2E_NETWORK_DIR)" \
 		--execution-image "$(E2E_EXECUTION_IMAGE)" \
 		--timeout "$(E2E_START_TIMEOUT)"
 
 #? network-status: Check whether the standalone E2E network is ready.
 network-status:
-	$(E2E_GO) run ./cmd/e2e status --network-dir "$(E2E_NETWORK_DIR)"
+	$(E2E_GO) run ./cmd/network status --network-dir "$(E2E_NETWORK_DIR)"
 
 #? live-test: Run selected Ginkgo E2E suites against the already-running network.
 live-test:
@@ -88,7 +88,7 @@ live-test:
 
 #? network-stop: Stop the E2E test network.
 network-stop:
-	$(E2E_GO) run ./cmd/e2e stop --network-dir "$(E2E_NETWORK_DIR)"
+	$(E2E_GO) run ./cmd/network stop --network-dir "$(E2E_NETWORK_DIR)"
 
 #? help: Get more info on make commands.
 help: Makefile
