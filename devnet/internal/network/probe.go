@@ -25,6 +25,7 @@ func probeNetwork(ctx context.Context, rpcURL string, address common.Address) er
 	if err != nil {
 		return fmt.Errorf("read block number: %w", err)
 	}
+
 	advancementCtx, cancel := context.WithTimeout(ctx, chainAdvancementWindow)
 	defer cancel()
 	if err := retryUntil(advancementCtx, func() error {
