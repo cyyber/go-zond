@@ -100,7 +100,7 @@ func run(
 		if command.name == "start" {
 			flags = append(flags,
 				&cli.StringFlag{Name: "execution-image", Usage: "execution image reference"},
-				&cli.DurationFlag{Name: "timeout", Usage: "network start budget", Value: 150 * time.Minute},
+				&cli.DurationFlag{Name: "timeout", Usage: "network start budget", Value: 30 * time.Minute},
 			)
 		}
 		app.Commands = append(app.Commands, &cli.Command{

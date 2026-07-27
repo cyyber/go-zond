@@ -8,7 +8,6 @@ exit status.
 Network lifecycle and suite execution remain separate:
 
 ```bash
-make e2e-unit
 make network-start
 make network-status
 make live-test E2E_PACKAGES=./suites/<suite>
@@ -16,12 +15,12 @@ make network-stop
 ```
 
 Starting a network never runs tests. Running tests never creates or destroys a
-network.
+network. The root `make test` and `make lint` targets also cover this module.
 
 The Make interface has one required package selector, `E2E_PACKAGES`, and four
-optional overrides: `E2E_NETWORK_DIR`, `E2E_NETWORK_TIMEOUT`,
+optional overrides: `E2E_NETWORK_DIR`, `E2E_START_TIMEOUT`,
 `E2E_SUITE_TIMEOUT`, and `E2E_EXECUTION_IMAGE`.
-`E2E_NETWORK_TIMEOUT` bounds provisioning; `E2E_SUITE_TIMEOUT` bounds Ginkgo
+`E2E_START_TIMEOUT` bounds provisioning; `E2E_SUITE_TIMEOUT` bounds Ginkgo
 execution. The lifecycle targets normalize `E2E_NETWORK_DIR` to an absolute path
 before passing it to the Go commands.
 
@@ -36,10 +35,9 @@ required Go and Kurtosis versions are declared in [`go.mod`](go.mod); Docker and
 the Kurtosis CLI are also required. A local Kurtosis 1.20 engine must already be
 running; the lifecycle command connects to it but does not install or start it.
 
-`network-start` first builds the current go-qrl working tree. Build the image
-without starting a network with `make network-image`. The root
-[`Dockerfile`](../../Dockerfile) pins its builder and runtime bases by
-digest. The organization-published support images are consumed directly.
+`network-start` first builds the current go-qrl working tree using the root
+[`Dockerfile`](../../Dockerfile). The organization-published support images
+are consumed directly.
 
 Use one private runtime directory for the complete lifecycle:
 
@@ -101,6 +99,11 @@ suite owns the clients, wallets, consoles, or command processes it needs.
 Lifecycle commands and separate live-test invocations for the same
 `E2E_NETWORK_DIR` must run serially. Use a different network directory for
 independent concurrent runs.
+
+If accidental same-directory concurrency creates duplicate exact-name enclaves,
+`network-status` and `network-stop` refuse the ambiguous slot. List the
+enclaves with `kurtosis enclave ls`, then remove each duplicate by UUID with
+`kurtosis enclave rm --force <UUID>...` before retrying.
 
 Prefer Ginkgo specs with `SpecContext`, `By`, `DeferCleanup`, and explicit
 timeouts over another custom runner. Keep state-changing scenarios rerunnable
