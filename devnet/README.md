@@ -10,7 +10,7 @@ Network lifecycle and suite execution are deliberately separate:
 ```bash
 make network-start
 make network-status
-make live-test E2E_PACKAGES=./suites/<suite>
+make e2e-test E2E_PACKAGES=./suites/<suite>
 make network-stop
 ```
 
@@ -35,7 +35,7 @@ Use `DEVNET_DIR` to select an independent deterministic network slot:
 DEVNET_DIR=/tmp/my-go-qrl-devnet make network-start
 DEVNET_DIR=/tmp/my-go-qrl-devnet make network-status
 DEVNET_DIR=/tmp/my-go-qrl-devnet \
-  make live-test E2E_PACKAGES=./suites/<suite>
+  make e2e-test E2E_PACKAGES=./suites/<suite>
 DEVNET_DIR=/tmp/my-go-qrl-devnet make network-stop
 ```
 
@@ -45,7 +45,7 @@ Available settings are:
 - `DEVNET_EXECUTION_IMAGE` (default `local/go-qrl:devnet`)
 - `DEVNET_START_TIMEOUT` (default `30m`)
 - `DEVNET_PARAMS_FILE` (optional complete JSON qrl-package parameters)
-- `E2E_PACKAGES` (required by `live-test`)
+- `E2E_PACKAGES` (required by `e2e-test`)
 - `E2E_SUITE_TIMEOUT` (default `25m`)
 
 Relative runtime and parameter-file paths supplied through Make are normalized
@@ -103,7 +103,7 @@ consoles, and cleanup; they must not start or stop the network.
 `E2E_PACKAGES` accepts one or more module-relative package paths:
 
 ```bash
-make live-test E2E_PACKAGES='./suites/goabi ./suites/commands'
+make e2e-test E2E_PACKAGES='./suites/goabi ./suites/commands'
 ```
 
 Ginkgo owns discovery, progress, timeouts, and the pass/fail exit status. Keep

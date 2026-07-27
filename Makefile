@@ -3,7 +3,7 @@
 # don't need to bother with make.
 
 .PHONY: gqrl qrvm all test lint fmt clean devtools \
-	network-start network-status live-test network-stop help
+	network-start network-status e2e-test network-stop help
 
 GOBIN = ./build/bin
 GORUN = go run
@@ -71,8 +71,8 @@ network-start:
 network-status:
 	$(DEVNET_GO) run ./cmd/devnet status --network-dir "$(DEVNET_DIR)"
 
-#? live-test: Run selected Ginkgo E2E suites against the already-running network.
-live-test:
+#? e2e-test: Run selected Ginkgo E2E suites against the already-running network.
+e2e-test:
 	@test -n "$(strip $(E2E_PACKAGES))" || { echo "E2E_PACKAGES must name at least one suite package" >&2; exit 2; }
 	DEVNET_DIR="$(DEVNET_DIR)" \
 	$(DEVNET_GO) tool ginkgo \
