@@ -7,7 +7,6 @@ package main
 import (
 	"context"
 	"errors"
-	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -16,14 +15,8 @@ import (
 	"time"
 
 	"github.com/theQRL/go-qrl/testing/endtoend/internal/network"
+	"github.com/urfave/cli/v2"
 )
-
-const usage = `Usage:
-  e2e <start|status|stop> [options]
-
-Manage the separately running E2E network. Tests run independently through
-make live-test.
-`
 
 type controller interface {
 	Start(context.Context, string, string) error
@@ -48,64 +41,71 @@ func run(
 	stderr io.Writer,
 	networks controller,
 ) error {
-	if len(arguments) == 0 || isHelp(arguments[0]) {
-		_, err := fmt.Fprint(stdout, usage)
+	execute := func(command *cli.Context) error {
+		if command.NArg() != 0 {
+			return fmt.Errorf("unexpected positional arguments: %v", command.Args().Slice())
+		}
+		networkDir := command.String("network-dir")
+		if networkDir == "" {
+			return errors.New("--network-dir is required")
+		}
+		message := "network ready"
+		switch command.Command.Name {
+		case "start":
+			executionImage := command.String("execution-image")
+			if executionImage == "" {
+				return errors.New("--execution-image is required")
+			}
+			startCtx, cancel := context.WithTimeout(command.Context, command.Duration("timeout"))
+			defer cancel()
+			if err := networks.Start(startCtx, networkDir, executionImage); err != nil {
+				return err
+			}
+		case "status":
+			if _, err := networks.Inspect(command.Context, networkDir); err != nil {
+				return err
+			}
+		case "stop":
+			if err := networks.Stop(command.Context, networkDir); err != nil {
+				return err
+			}
+			message = "network stopped"
+		}
+		_, err := fmt.Fprintln(command.App.Writer, message)
 		return err
 	}
-	command := arguments[0]
-	if command != "start" && command != "status" && command != "stop" {
-		return fmt.Errorf("unknown command %q", command)
-	}
-	var (
-		networkDir     string
-		executionImage string
-		timeout        = 150 * time.Minute
-	)
-	flags := flag.NewFlagSet("e2e "+command, flag.ContinueOnError)
-	flags.SetOutput(stderr)
-	flags.StringVar(&networkDir, "network-dir", networkDir, "E2E network directory")
-	if command == "start" {
-		flags.StringVar(&executionImage, "execution-image", executionImage, "execution image reference")
-		flags.DurationVar(&timeout, "timeout", timeout, "network start budget")
-	}
-	if err := flags.Parse(arguments[1:]); err != nil {
-		if errors.Is(err, flag.ErrHelp) {
-			return nil
-		}
-		return err
-	}
-	if flags.NArg() != 0 {
-		return fmt.Errorf("unexpected positional arguments: %v", flags.Args())
-	}
-	if networkDir == "" {
-		return errors.New("--network-dir is required")
-	}
-	if command == "start" && executionImage == "" {
-		return errors.New("--execution-image is required")
-	}
 
-	message := "network ready"
-	switch command {
-	case "start":
-		startCtx, cancel := context.WithTimeout(ctx, timeout)
-		defer cancel()
-		if err := networks.Start(startCtx, networkDir, executionImage); err != nil {
-			return err
-		}
-	case "status":
-		if _, err := networks.Inspect(ctx, networkDir); err != nil {
-			return err
-		}
-	case "stop":
-		if err := networks.Stop(ctx, networkDir); err != nil {
-			return err
-		}
-		message = "network stopped"
+	app := &cli.App{
+		Name:        "e2e",
+		Usage:       "Manage the separately running E2E network",
+		Description: "Tests run independently through make live-test.",
+		Writer:      stdout,
+		ErrWriter:   stderr,
+		ExitErrHandler: func(*cli.Context, error) {
+			// Return all errors to main and tests instead of exiting in the library.
+		},
+		Action: func(command *cli.Context) error {
+			if command.NArg() == 0 {
+				return cli.ShowAppHelp(command)
+			}
+			return fmt.Errorf("unknown command %q", command.Args().First())
+		},
 	}
-	_, err := fmt.Fprintln(stdout, message)
-	return err
-}
-
-func isHelp(argument string) bool {
-	return argument == "-h" || argument == "--help" || argument == "help"
+	for _, command := range []struct{ name, usage string }{
+		{"start", "Start the standalone E2E network"},
+		{"status", "Check whether the E2E network is ready"},
+		{"stop", "Stop the standalone E2E network"},
+	} {
+		flags := []cli.Flag{&cli.StringFlag{Name: "network-dir", Usage: "E2E network directory"}}
+		if command.name == "start" {
+			flags = append(flags,
+				&cli.StringFlag{Name: "execution-image", Usage: "execution image reference"},
+				&cli.DurationFlag{Name: "timeout", Usage: "network start budget", Value: 150 * time.Minute},
+			)
+		}
+		app.Commands = append(app.Commands, &cli.Command{
+			Name: command.name, Usage: command.usage, Flags: flags, Action: execute,
+		})
+	}
+	return app.RunContext(ctx, append([]string{app.Name}, arguments...))
 }
