@@ -3,7 +3,7 @@
 # don't need to bother with make.
 
 .PHONY: gqrl qrvm all test lint fmt clean devtools \
-	network-start network-status network-stop e2e-test help
+	network-start network-stop e2e-test help
 
 GOBIN = ./build/bin
 GORUN = go run
@@ -66,10 +66,6 @@ network-start:
 		--enclave-name "$(DEVNET_ENCLAVE_NAME)" \
 		--execution-image "$(DEVNET_EXECUTION_IMAGE)" \
 		--timeout "$(DEVNET_START_TIMEOUT)" $(if $(DEVNET_PARAMS_FILE),--params-file "$(DEVNET_PARAMS_FILE)")
-
-#? network-status: Check whether the standalone development network is ready.
-network-status:
-	$(DEVNET_GO) run ./cmd/devnet status --enclave-name "$(DEVNET_ENCLAVE_NAME)"
 
 #? network-stop: Stop the development network.
 network-stop:
