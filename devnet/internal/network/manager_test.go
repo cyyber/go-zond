@@ -37,7 +37,7 @@ func TestNetworkLifecycle(t *testing.T) {
 	require.Equal(t, packageLocator, client.RunLocator)
 	require.Contains(t, client.RunParameters, `"el_image":"local/go-qrl:test"`)
 	require.Equal(t, client.Enclave, client.RunRef)
-	require.Regexp(t, `^qrl-devnet-[0-9a-f]{48}$`, client.Enclave.Name)
+	require.Regexp(t, `^go-qrl-e2e-[0-9a-f]{48}$`, client.Enclave.Name)
 	require.Len(t, client.Enclave.Name, 59)
 
 	environment, err := manager.Inspect(t.Context(), networkDir)

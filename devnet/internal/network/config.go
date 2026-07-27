@@ -31,6 +31,15 @@ const (
 	graphQLPath          = "/graphql"
 )
 
+type parameterShape struct {
+	Participants []struct {
+		ExecutionImage string `json:"el_image"`
+	} `json:"participants"`
+	Network struct {
+		PrefundedAccounts map[string]json.RawMessage `json:"prefunded_accounts"`
+	} `json:"network_params"`
+}
+
 func effectiveParameters(address, executionImage string, custom []byte) (string, error) {
 	if _, err := common.NewAddressFromString(address); err != nil {
 		return "", errors.New("wallet address is invalid")
@@ -66,16 +75,12 @@ func effectiveParameters(address, executionImage string, custom []byte) (string,
 }
 
 func renderCustomParameters(payload []byte, address, executionImage string) (string, error) {
-	var shape struct {
-		Participants []struct {
-			ExecutionImage string `json:"el_image"`
-		} `json:"participants"`
-		Network struct {
-			PrefundedAccounts map[string]json.RawMessage `json:"prefunded_accounts"`
-		} `json:"network_params"`
+	if executionImage == executionImagePlaceholder || executionImage == walletAddressPlaceholder {
+		return "", errors.New("execution image cannot equal a reserved parameter token")
 	}
-	if err := json.Unmarshal(payload, &shape); err != nil {
-		return "", errors.New("parameters file must contain one JSON object")
+	shape, err := decodeParameterShape(payload)
+	if err != nil {
+		return "", err
 	}
 	if len(shape.Participants) == 0 || shape.Participants[0].ExecutionImage != executionImagePlaceholder {
 		return "", fmt.Errorf(
@@ -91,17 +96,35 @@ func renderCustomParameters(payload []byte, address, executionImage string) (str
 	}
 
 	rendered := bytes.Clone(payload)
-	for placeholder, value := range map[string]string{
-		executionImagePlaceholder: executionImage,
-		walletAddressPlaceholder:  address,
-	} {
-		encodedPlaceholder, _ := json.Marshal(placeholder)
-		encodedValue, _ := json.Marshal(value)
-		rendered = bytes.ReplaceAll(rendered, encodedPlaceholder, encodedValue)
-	}
-	var object map[string]json.RawMessage
-	if err := json.Unmarshal(rendered, &object); err != nil || object == nil {
+	encodedImagePlaceholder, _ := json.Marshal(executionImagePlaceholder)
+	encodedExecutionImage, _ := json.Marshal(executionImage)
+	rendered = bytes.ReplaceAll(rendered, encodedImagePlaceholder, encodedExecutionImage)
+	encodedWalletPlaceholder, _ := json.Marshal(walletAddressPlaceholder)
+	encodedAddress, _ := json.Marshal(address)
+	rendered = bytes.ReplaceAll(rendered, encodedWalletPlaceholder, encodedAddress)
+
+	renderedShape, err := decodeParameterShape(rendered)
+	if err != nil {
 		return "", errors.New("rendered parameters must contain one JSON object")
 	}
+	if len(renderedShape.Participants) == 0 ||
+		renderedShape.Participants[0].ExecutionImage != executionImage {
+		return "", errors.New("execution-image token must use its literal JSON spelling")
+	}
+	if _, ok := renderedShape.Network.PrefundedAccounts[address]; !ok {
+		return "", errors.New("wallet-address token must use its literal JSON spelling")
+	}
 	return string(rendered), nil
+}
+
+func decodeParameterShape(payload []byte) (parameterShape, error) {
+	var object map[string]json.RawMessage
+	if err := json.Unmarshal(payload, &object); err != nil || object == nil {
+		return parameterShape{}, errors.New("parameters file must contain one JSON object")
+	}
+	var shape parameterShape
+	if err := json.Unmarshal(payload, &shape); err != nil {
+		return parameterShape{}, errors.New("parameters file must contain one JSON object")
+	}
+	return shape, nil
 }
