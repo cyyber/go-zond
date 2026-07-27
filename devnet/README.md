@@ -25,31 +25,33 @@ Kurtosis. Docker, the Kurtosis CLI, and a running local Kurtosis 1.20 engine are
 required.
 
 The built-in profile creates one go-qrl execution client, one Qrysm beacon node,
-one Qrysm validator, one QRL genesis generator, and one funded ML-DSA wallet.
-The support images and qrl-package commit are defined in
+one Qrysm validator, one QRL genesis generator, and one funded ML-DSA wallet
+from the committed development fixture. The support images and qrl-package
+commit are defined in
 [`internal/network/config.go`](internal/network/config.go).
 
-Use `DEVNET_DIR` to select an independent deterministic network slot:
+The default Kurtosis enclave name is fixed. Override `DEVNET_ENCLAVE_NAME` to
+run independent networks:
 
 ```bash
-DEVNET_DIR=/tmp/my-go-qrl-devnet make network-start
-DEVNET_DIR=/tmp/my-go-qrl-devnet make network-status
-DEVNET_DIR=/tmp/my-go-qrl-devnet \
+DEVNET_ENCLAVE_NAME=my-go-qrl-devnet make network-start
+DEVNET_ENCLAVE_NAME=my-go-qrl-devnet make network-status
+DEVNET_ENCLAVE_NAME=my-go-qrl-devnet \
   make e2e-test E2E_PACKAGES=./suites/<suite>
-DEVNET_DIR=/tmp/my-go-qrl-devnet make network-stop
+DEVNET_ENCLAVE_NAME=my-go-qrl-devnet make network-stop
 ```
 
 Available settings are:
 
-- `DEVNET_DIR` (default `/tmp/go-qrl-devnet`)
+- `DEVNET_ENCLAVE_NAME` (default `go-qrl-devnet`)
 - `DEVNET_EXECUTION_IMAGE` (default `local/go-qrl:devnet`)
 - `DEVNET_START_TIMEOUT` (default `30m`)
 - `DEVNET_PARAMS_FILE` (optional complete JSON qrl-package parameters)
 - `E2E_PACKAGES` (required by `e2e-test`)
 - `E2E_SUITE_TIMEOUT` (default `25m`)
 
-Relative runtime and parameter-file paths supplied through Make are normalized
-to absolute paths.
+Relative parameter-file paths supplied through Make are normalized to absolute
+paths. Kurtosis enclave names must match `^[-A-Za-z0-9]{1,60}$`.
 
 ### Custom parameters
 
@@ -66,39 +68,38 @@ The first participant's `el_image` must be the execution-image token.
 `network_params.prefunded_accounts` must contain the wallet token as a key. The
 wallet token may also be used as a value, for example as
 `withdrawal_address`. Exact tokens are replaced with the image built by Make
-and the generated development-wallet address; token text embedded inside a
+and the public development-wallet address; token text embedded inside a
 larger string is left unchanged.
 
 Custom parameters may use any qrl-package fields, but the current controller
 expects the primary execution service `el-1-gqrl-qrysm` with public `rpc` and
 `ws` ports. Readiness requires advancing block production and a positive
-generated-wallet balance. No parameter copy, manifest, or checkpoint is written
-to the runtime directory.
+development-wallet balance. No parameter copy, manifest, checkpoint, or runtime
+wallet state is written.
 
-## Lifecycle and private state
+## Lifecycle and public fixture
 
-The runtime directory contains only `wallet.seed`. It must be an absolute
-canonical `0700` directory; the seed is an exclusive, non-symlink `0600` file.
-Do not upload it, qrl-package output, or raw enclave dumps.
+[`testdata/unsafe-development-wallet.seed`](testdata/unsafe-development-wallet.seed)
+is an intentionally public credential embedded in the devnet binary. Anyone can
+spend funds assigned to it. Never fund or use it outside disposable local
+development networks.
 
-The enclave name contains a deterministic 192-bit digest of the canonical
-runtime directory. Each command resolves its current UUID from Kurtosis.
-`network-stop` confirms independently that neither that UUID nor its exact name
-remains and leaves the shared Kurtosis engine running. A failed create or
-provisioning operation is never adopted as success; run `network-stop` before
-retrying because its deterministic enclave slot may remain occupied.
+Each command addresses the same fixed, overridable enclave name.
+`network-stop` confirms independently that the exact name no longer exists and
+leaves the shared Kurtosis engine running. A failed create or provisioning
+operation is never adopted as success; run `network-stop` before retrying
+because its deterministic enclave slot may remain occupied.
 
-Lifecycle commands and suites using the same `DEVNET_DIR` must run serially.
-Use separate directories for concurrent networks. If accidental concurrency
-creates duplicate exact-name enclaves, status and stop refuse the ambiguous
-slot; remove the duplicates by UUID with the Kurtosis CLI.
+Lifecycle commands and suites using the same `DEVNET_ENCLAVE_NAME` must run
+serially. Use different enclave names for concurrent networks.
 
 ## Suites
 
 Create a suite in `devnet/suites/<suite>`. Put its live bootstrap in a file with
 the `e2e` build tag and call `network.Inspect(ctx)` to obtain the RPC, GraphQL,
-WebSocket, and funded-seed locations. Suites own their clients, contracts,
-consoles, and cleanup; they must not start or stop the network.
+and WebSocket endpoints. Use `devnet.UnsafeDevelopmentWallet()` for the funded
+signer. Suites own their clients, contracts, consoles, and cleanup; they must
+not start or stop the network.
 
 `E2E_PACKAGES` accepts one or more module-relative package paths:
 

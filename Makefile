@@ -8,7 +8,7 @@
 GOBIN = ./build/bin
 GORUN = go run
 DEVNET_GO = go -C devnet
-override DEVNET_DIR := $(abspath $(or $(strip $(DEVNET_DIR)),/tmp/go-qrl-devnet))
+DEVNET_ENCLAVE_NAME ?= go-qrl-devnet
 DEVNET_START_TIMEOUT ?= 30m
 DEVNET_EXECUTION_IMAGE ?= local/go-qrl:devnet
 override DEVNET_PARAMS_FILE := $(if $(strip $(DEVNET_PARAMS_FILE)),$(abspath $(DEVNET_PARAMS_FILE)))
@@ -63,22 +63,22 @@ devtools:
 network-start:
 	docker build --tag "$(DEVNET_EXECUTION_IMAGE)" .
 	$(DEVNET_GO) run ./cmd/devnet start \
-		--network-dir "$(DEVNET_DIR)" \
+		--enclave-name "$(DEVNET_ENCLAVE_NAME)" \
 		--execution-image "$(DEVNET_EXECUTION_IMAGE)" \
 		--timeout "$(DEVNET_START_TIMEOUT)" $(if $(DEVNET_PARAMS_FILE),--params-file "$(DEVNET_PARAMS_FILE)")
 
 #? network-status: Check whether the standalone development network is ready.
 network-status:
-	$(DEVNET_GO) run ./cmd/devnet status --network-dir "$(DEVNET_DIR)"
+	$(DEVNET_GO) run ./cmd/devnet status --enclave-name "$(DEVNET_ENCLAVE_NAME)"
 
 #? network-stop: Stop the development network.
 network-stop:
-	$(DEVNET_GO) run ./cmd/devnet stop --network-dir "$(DEVNET_DIR)"
+	$(DEVNET_GO) run ./cmd/devnet stop --enclave-name "$(DEVNET_ENCLAVE_NAME)"
 
 #? e2e-test: Run selected Ginkgo E2E suites against the already-running network.
 e2e-test:
 	@test -n "$(strip $(E2E_PACKAGES))" || { echo "E2E_PACKAGES must name at least one suite package" >&2; exit 2; }
-	DEVNET_DIR="$(DEVNET_DIR)" \
+	DEVNET_ENCLAVE_NAME="$(DEVNET_ENCLAVE_NAME)" \
 	$(DEVNET_GO) tool ginkgo \
 		--tags=e2e \
 		--procs=1 \

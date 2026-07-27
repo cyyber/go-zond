@@ -38,18 +38,18 @@ func (networks *recordingNetworks) Start(_ context.Context, options network.Star
 	return nil
 }
 
-func (networks *recordingNetworks) Inspect(_ context.Context, directory string) (network.Environment, error) {
-	networks.call = "status:" + directory
+func (networks *recordingNetworks) Inspect(_ context.Context, name string) (network.Environment, error) {
+	networks.call = "status:" + name
 	return network.Environment{}, nil
 }
 
-func (networks *recordingNetworks) Stop(_ context.Context, directory string) error {
-	networks.call = "stop:" + directory
+func (networks *recordingNetworks) Stop(_ context.Context, name string) error {
+	networks.call = "stop:" + name
 	return nil
 }
 
 func TestRun(t *testing.T) {
-	networkDir := t.TempDir()
+	const enclaveName = "go-qrl-devnet-test"
 	paramsFile := filepath.Join(t.TempDir(), "params.json")
 	require.NoError(t, os.WriteFile(paramsFile, []byte(`{"custom":true}`), 0o600))
 	for _, test := range []struct {
@@ -60,14 +60,14 @@ func TestRun(t *testing.T) {
 		{
 			"start with custom parameters", "network ready\n", "start",
 			[]string{
-				"start", "--network-dir", networkDir,
+				"start", "--enclave-name", enclaveName,
 				"--execution-image", "local/go-qrl:test",
 				"--params-file", paramsFile,
 			},
 			[]byte(`{"custom":true}`),
 		},
-		{"status", "network ready\n", "status:" + networkDir, []string{"status", "--network-dir", networkDir}, nil},
-		{"stop", "network stopped\n", "stop:" + networkDir, []string{"stop", "--network-dir", networkDir}, nil},
+		{"status", "network ready\n", "status:" + enclaveName, []string{"status", "--enclave-name", enclaveName}, nil},
+		{"stop", "network stopped\n", "stop:" + enclaveName, []string{"stop", "--enclave-name", enclaveName}, nil},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			networks := new(recordingNetworks)
@@ -78,7 +78,7 @@ func TestRun(t *testing.T) {
 			require.Empty(t, stderr.String())
 			if test.call == "start" {
 				require.Equal(t, network.StartOptions{
-					Directory:      networkDir,
+					EnclaveName:    enclaveName,
 					ExecutionImage: "local/go-qrl:test",
 					Parameters:     test.parameters,
 				}, networks.start)
