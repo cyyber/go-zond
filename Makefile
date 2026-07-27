@@ -7,11 +7,12 @@
 
 GOBIN = ./build/bin
 GORUN = go run
-E2E_GO = go -C testing/endtoend
-override E2E_NETWORK_DIR := $(abspath $(or $(strip $(E2E_NETWORK_DIR)),/tmp/go-qrl-e2e-network))
-E2E_START_TIMEOUT ?= 30m
+DEVNET_GO = go -C devnet
+override DEVNET_DIR := $(abspath $(or $(strip $(DEVNET_DIR)),/tmp/go-qrl-devnet))
+DEVNET_START_TIMEOUT ?= 30m
+DEVNET_EXECUTION_IMAGE ?= local/go-qrl:devnet
+override DEVNET_PARAMS_FILE := $(if $(strip $(DEVNET_PARAMS_FILE)),$(abspath $(DEVNET_PARAMS_FILE)))
 E2E_SUITE_TIMEOUT ?= 25m
-E2E_EXECUTION_IMAGE ?= local/go-qrl:e2e
 
 #? gqrl: Build gqrl.
 gqrl:
@@ -58,23 +59,23 @@ devtools:
 	@type "hypc" 2> /dev/null || echo 'Please install hypc'
 	@type "protoc" 2> /dev/null || echo 'Please install protoc'
 
-#? network-start: Start a standalone E2E test network without running suites.
+#? network-start: Start a standalone development network without running suites.
 network-start:
-	docker build --tag "$(E2E_EXECUTION_IMAGE)" .
-	$(E2E_GO) run ./cmd/network start \
-		--network-dir "$(E2E_NETWORK_DIR)" \
-		--execution-image "$(E2E_EXECUTION_IMAGE)" \
-		--timeout "$(E2E_START_TIMEOUT)"
+	docker build --tag "$(DEVNET_EXECUTION_IMAGE)" .
+	$(DEVNET_GO) run ./cmd/devnet start \
+		--network-dir "$(DEVNET_DIR)" \
+		--execution-image "$(DEVNET_EXECUTION_IMAGE)" \
+		--timeout "$(DEVNET_START_TIMEOUT)" $(if $(DEVNET_PARAMS_FILE),--params-file "$(DEVNET_PARAMS_FILE)")
 
-#? network-status: Check whether the standalone E2E network is ready.
+#? network-status: Check whether the standalone development network is ready.
 network-status:
-	$(E2E_GO) run ./cmd/network status --network-dir "$(E2E_NETWORK_DIR)"
+	$(DEVNET_GO) run ./cmd/devnet status --network-dir "$(DEVNET_DIR)"
 
 #? live-test: Run selected Ginkgo E2E suites against the already-running network.
 live-test:
 	@test -n "$(strip $(E2E_PACKAGES))" || { echo "E2E_PACKAGES must name at least one suite package" >&2; exit 2; }
-	E2E_NETWORK_DIR="$(E2E_NETWORK_DIR)" \
-	$(E2E_GO) tool ginkgo \
+	DEVNET_DIR="$(DEVNET_DIR)" \
+	$(DEVNET_GO) tool ginkgo \
 		--tags=e2e \
 		--procs=1 \
 		--require-suite \
@@ -86,9 +87,9 @@ live-test:
 		$(strip $(E2E_PACKAGES)) \
 		-- -test.run='^TestE2E$$'
 
-#? network-stop: Stop the E2E test network.
+#? network-stop: Stop the development network.
 network-stop:
-	$(E2E_GO) run ./cmd/network stop --network-dir "$(E2E_NETWORK_DIR)"
+	$(DEVNET_GO) run ./cmd/devnet stop --network-dir "$(DEVNET_DIR)"
 
 #? help: Get more info on make commands.
 help: Makefile

@@ -7,7 +7,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/theQRL/go-qrl/testing/endtoend/internal/kurtosis"
+	"github.com/theQRL/go-qrl/devnet/internal/kurtosis"
 )
 
 type fakeKurtosis struct {

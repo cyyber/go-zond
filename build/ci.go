@@ -58,7 +58,7 @@ import (
 var (
 	goModules = []string{
 		".",
-		"testing/endtoend",
+		"devnet",
 	}
 
 	// Files that end up in the gqrl-alltools*.zip archive.

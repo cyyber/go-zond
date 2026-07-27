@@ -1,7 +1,7 @@
 // Copyright 2026 The go-qrl Authors
 // This file is part of the go-qrl library.
 
-// Package network owns separately managed E2E network slots.
+// Package network owns separately managed development network slots.
 package network
 
 import (
@@ -14,7 +14,7 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff/v7"
-	"github.com/theQRL/go-qrl/testing/endtoend/internal/kurtosis"
+	"github.com/theQRL/go-qrl/devnet/internal/kurtosis"
 )
 
 type kurtosisClient interface {
@@ -32,6 +32,12 @@ type Environment struct {
 	SeedFile     string
 }
 
+type StartOptions struct {
+	Directory      string
+	ExecutionImage string
+	Parameters     []byte
+}
+
 type Manager struct {
 	newClient func() (kurtosisClient, error)
 	probe     func(context.Context, string, string) error
@@ -44,13 +50,13 @@ func NewManager() *Manager {
 	}
 }
 
-// InspectLiveNetwork validates and inspects the separately started network.
-func InspectLiveNetwork(ctx context.Context) (Environment, error) {
-	return NewManager().Inspect(ctx, os.Getenv("E2E_NETWORK_DIR"))
+// Inspect validates and inspects the separately started development network.
+func Inspect(ctx context.Context) (Environment, error) {
+	return NewManager().Inspect(ctx, os.Getenv("DEVNET_DIR"))
 }
 
-func (manager *Manager) Start(ctx context.Context, requestedDir, executionImage string) error {
-	networkDir, err := ensureNetworkDirectory(requestedDir)
+func (manager *Manager) Start(ctx context.Context, options StartOptions) error {
+	networkDir, err := ensureNetworkDirectory(options.Directory)
 	if err != nil {
 		return err
 	}
@@ -68,9 +74,9 @@ func (manager *Manager) Start(ctx context.Context, requestedDir, executionImage 
 
 	walletAddress, err := ensureWallet(networkDir)
 	if err != nil {
-		return fmt.Errorf("prepare private E2E wallet: %w", err)
+		return fmt.Errorf("prepare private devnet wallet: %w", err)
 	}
-	parameters, err := effectiveParameters(walletAddress, executionImage)
+	parameters, err := effectiveParameters(walletAddress, options.ExecutionImage, options.Parameters)
 	if err != nil {
 		return fmt.Errorf("prepare qrl-package parameters: %w", err)
 	}
@@ -195,7 +201,7 @@ func cleanupCreatedEnclave(client kurtosisClient, enclave kurtosis.EnclaveRef) e
 
 func enclaveName(canonicalNetworkDir string) string {
 	digest := sha256.Sum256([]byte(canonicalNetworkDir))
-	return fmt.Sprintf("go-qrl-e2e-%x", digest[:24])
+	return fmt.Sprintf("qrl-devnet-%x", digest[:24])
 }
 
 func retryUntil(ctx context.Context, initial, maximum time.Duration, operation func(context.Context) error) error {
