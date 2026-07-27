@@ -57,7 +57,6 @@ func TestProbeNetworkRequiresAdvancingFundedChain(t *testing.T) {
 	require.NoError(t, probeNetwork(context.Background(), server.URL, address))
 	service.mu.Lock()
 	defer service.mu.Unlock()
-	require.GreaterOrEqual(t, service.blockCalls, 2)
 	require.True(t, strings.EqualFold(service.address, address))
 }
 

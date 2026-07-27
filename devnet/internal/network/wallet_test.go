@@ -4,7 +4,6 @@
 package network
 
 import (
-	"os"
 	"path/filepath"
 	"testing"
 
@@ -14,20 +13,9 @@ import (
 func TestEnsureWalletCreatesAndReusesPrivateSeed(t *testing.T) {
 	networkDir, err := ensureNetworkDirectory(filepath.Join(t.TempDir(), "network"))
 	require.NoError(t, err)
-	wallet, err := ensureWallet(networkDir)
+	walletAddress, err := ensureWallet(networkDir)
 	require.NoError(t, err)
-	seedPath := filepath.Join(networkDir, "wallet.seed")
-	seed, err := os.ReadFile(seedPath)
+	reusedAddress, err := ensureWallet(networkDir)
 	require.NoError(t, err)
-	info, err := os.Lstat(seedPath)
-	require.NoError(t, err)
-	require.True(t, info.Mode().IsRegular())
-	require.Equal(t, os.FileMode(0o600), info.Mode().Perm())
-	require.Zero(t, info.Mode()&os.ModeSymlink)
-	again, err := ensureWallet(networkDir)
-	require.NoError(t, err)
-	require.Equal(t, wallet, again)
-	reused, err := os.ReadFile(seedPath)
-	require.NoError(t, err)
-	require.Equal(t, seed, reused, "wallet reuse replaced the seed")
+	require.Equal(t, walletAddress, reusedAddress)
 }

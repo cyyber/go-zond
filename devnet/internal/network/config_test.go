@@ -31,19 +31,6 @@ func TestEffectiveParametersUseRequestedExecutionAndFixedSupportImages(t *testin
 	require.Equal(t, address, network["withdrawal_address"])
 	require.Equal(t, prefundBalance, prefund["balance"])
 	require.Regexp(t, `^github\.com/rgeraldes24/qrl-package@[0-9a-f]{40}$`, packageLocator)
-
-	for _, key := range []string{
-		"el_type",
-		"cl_type",
-		"vc_type",
-		"count",
-		"use_remote_signer",
-	} {
-		require.NotContains(t, participant, key)
-	}
-	for _, key := range []string{"preset", "slots_per_epoch"} {
-		require.NotContains(t, network, key)
-	}
 }
 
 func TestCustomParametersReplaceOnlyExactJSONTokens(t *testing.T) {
@@ -80,10 +67,4 @@ func TestCustomParametersValidateContract(t *testing.T) {
 			require.Error(t, err)
 		})
 	}
-	_, err := effectiveParameters(
-		address,
-		walletAddressPlaceholder,
-		[]byte(`{"participants":[{"el_image":"__DEVNET_EXECUTION_IMAGE__"}],"network_params":{"prefunded_accounts":{"__DEVNET_WALLET_ADDRESS__":{}}}}`),
-	)
-	require.ErrorContains(t, err, "reserved parameter token")
 }

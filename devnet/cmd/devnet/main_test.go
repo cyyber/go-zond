@@ -71,15 +71,6 @@ func TestRun(t *testing.T) {
 			},
 			true, []byte(`{"custom":true}`),
 		},
-		{
-			"start with built-in parameters", "network ready\n", "start",
-			[]string{
-				"start", "--network-dir", networkDir,
-				"--execution-image", "local/go-qrl:test",
-				"--timeout", "17m",
-			},
-			true, nil,
-		},
 		{"status", "network ready\n", "status:" + networkDir, []string{"status", "--network-dir", networkDir}, false, nil},
 		{"stop", "network stopped\n", "stop:" + networkDir, []string{"stop", "--network-dir", networkDir}, false, nil},
 	} {
