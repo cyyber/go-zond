@@ -41,7 +41,6 @@
 .codex
 .claude
 
-# Local E2E output may contain funded-account and network material.
 /testing/endtoend/logs/
 
 # binaries
