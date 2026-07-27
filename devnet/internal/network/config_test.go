@@ -71,6 +71,8 @@ func TestCustomParametersValidateContract(t *testing.T) {
 		"malformed":       []byte(`{`),
 		"missing image":   []byte(`{"participants":[{"el_image":"image"}],"network_params":{"prefunded_accounts":{"__DEVNET_WALLET_ADDRESS__":{}}}}`),
 		"missing wallet":  []byte(`{"participants":[{"el_image":"__DEVNET_EXECUTION_IMAGE__"}],"network_params":{"prefunded_accounts":{}}}`),
+		"escaped image":   []byte(`{"participants":[{"el_image":"__DEVNET_EXECUTION_IMAG\u0045__"}],"network_params":{"prefunded_accounts":{"__DEVNET_WALLET_ADDRESS__":{}}}}`),
+		"escaped wallet":  []byte(`{"participants":[{"el_image":"__DEVNET_EXECUTION_IMAGE__"}],"network_params":{"prefunded_accounts":{"__DEVNET_WALLET_ADDR\u0045SS__":{}}}}`),
 		"top-level array": []byte(`[]`),
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -78,4 +80,10 @@ func TestCustomParametersValidateContract(t *testing.T) {
 			require.Error(t, err)
 		})
 	}
+	_, err := effectiveParameters(
+		address,
+		walletAddressPlaceholder,
+		[]byte(`{"participants":[{"el_image":"__DEVNET_EXECUTION_IMAGE__"}],"network_params":{"prefunded_accounts":{"__DEVNET_WALLET_ADDRESS__":{}}}}`),
+	)
+	require.ErrorContains(t, err, "reserved parameter token")
 }

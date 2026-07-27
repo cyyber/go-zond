@@ -201,7 +201,7 @@ func cleanupCreatedEnclave(client kurtosisClient, enclave kurtosis.EnclaveRef) e
 
 func enclaveName(canonicalNetworkDir string) string {
 	digest := sha256.Sum256([]byte(canonicalNetworkDir))
-	return fmt.Sprintf("qrl-devnet-%x", digest[:24])
+	return fmt.Sprintf("go-qrl-e2e-%x", digest[:24])
 }
 
 func retryUntil(ctx context.Context, initial, maximum time.Duration, operation func(context.Context) error) error {
