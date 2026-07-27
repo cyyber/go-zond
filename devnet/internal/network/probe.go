@@ -53,5 +53,6 @@ func probeNetwork(ctx context.Context, rpcURL string, address common.Address) er
 	if balance.Sign() <= 0 {
 		return fmt.Errorf("development wallet %s has no balance", address.Hex())
 	}
+
 	return nil
 }
