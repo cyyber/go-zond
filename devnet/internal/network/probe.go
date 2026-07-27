@@ -45,6 +45,7 @@ func probeNetwork(ctx context.Context, rpcURL string, address common.Address) er
 			err,
 		)
 	}
+
 	balance, err := client.BalanceAt(ctx, address, nil)
 	if err != nil {
 		return fmt.Errorf("read development wallet balance: %w", err)
