@@ -6,34 +6,34 @@ package network
 
 import (
 	"context"
-	"crypto/sha256"
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/cenkalti/backoff/v7"
+	"github.com/theQRL/go-qrl/common"
+	"github.com/theQRL/go-qrl/devnet"
 	"github.com/theQRL/go-qrl/devnet/internal/kurtosis"
 )
 
 type kurtosisClient interface {
-	CreateEnclave(context.Context, string) (kurtosis.EnclaveRef, error)
-	LookupEnclave(context.Context, string) (kurtosis.EnclaveRef, bool, error)
-	RunRemotePackage(context.Context, kurtosis.EnclaveRef, string, string) error
-	Service(context.Context, kurtosis.EnclaveRef, string) (kurtosis.Service, error)
-	DestroyEnclave(context.Context, kurtosis.EnclaveRef) error
+	EnclaveExists(context.Context, string) (bool, error)
+	CreateAndRunRemotePackage(context.Context, string, string, string) error
+	Service(context.Context, string, string) (kurtosis.Service, error)
+	DestroyEnclave(context.Context, string) error
 }
+
+const DefaultEnclaveName = "go-qrl-devnet"
 
 type Environment struct {
 	RPCURL       string
 	GraphQLURL   string
 	WebSocketURL string
-	SeedFile     string
 }
 
 type StartOptions struct {
-	Directory      string
+	EnclaveName    string
 	ExecutionImage string
 	Parameters     []byte
 }
@@ -52,88 +52,81 @@ func NewManager() *Manager {
 
 // Inspect validates and inspects the separately started development network.
 func Inspect(ctx context.Context) (Environment, error) {
-	return NewManager().Inspect(ctx, os.Getenv("DEVNET_DIR"))
+	name := os.Getenv("DEVNET_ENCLAVE_NAME")
+	if name == "" {
+		name = DefaultEnclaveName
+	}
+	return NewManager().Inspect(ctx, name)
 }
 
 func (manager *Manager) Start(ctx context.Context, options StartOptions) error {
-	networkDir, err := ensureNetworkDirectory(options.Directory)
-	if err != nil {
-		return err
-	}
-
-	name := enclaveName(networkDir)
 	client, err := manager.newClient()
 	if err != nil {
 		return fmt.Errorf("connect to Kurtosis engine: %w", err)
 	}
-	if _, found, err := client.LookupEnclave(ctx, name); err != nil {
-		return fmt.Errorf("resolve deterministic network slot: %w", err)
+	if found, err := client.EnclaveExists(ctx, options.EnclaveName); err != nil {
+		return fmt.Errorf("resolve development network: %w", err)
 	} else if found {
 		return errors.New("network already exists or provisioning is incomplete; use status or network-stop")
 	}
 
-	walletAddress, err := ensureWallet(networkDir)
+	wallet, err := devnet.UnsafeDevelopmentWallet()
 	if err != nil {
-		return fmt.Errorf("prepare private devnet wallet: %w", err)
+		return fmt.Errorf("restore public development wallet: %w", err)
 	}
+	walletAddress := common.Address(wallet.GetAddress()).Hex()
 	parameters, err := effectiveParameters(walletAddress, options.ExecutionImage, options.Parameters)
 	if err != nil {
 		return fmt.Errorf("prepare qrl-package parameters: %w", err)
 	}
-	enclave, err := client.CreateEnclave(ctx, name)
-	if err != nil {
+	if err := client.CreateAndRunRemotePackage(
+		ctx,
+		options.EnclaveName,
+		packageLocator,
+		parameters,
+	); err != nil {
 		return fmt.Errorf(
-			"create Kurtosis enclave %q; its deterministic slot may remain for network-stop: %w",
-			name,
+			"create enclave or run pinned qrl-package; enclave may remain for network-stop: %w",
 			err,
 		)
 	}
-	if enclave.Name != name {
-		return errors.Join(
-			errors.New("Kurtosis returned an unexpected enclave identity"),
-			cleanupCreatedEnclave(client, enclave),
-		)
-	}
-
-	if err := client.RunRemotePackage(ctx, enclave, packageLocator, parameters); err != nil {
-		return fmt.Errorf("run pinned qrl-package; network slot remains for network-stop: %w", err)
-	}
 
 	if err := retryUntil(ctx, 500*time.Millisecond, 2*time.Second, func(attempt context.Context) error {
-		_, err := manager.inspectEnclave(attempt, client, enclave, networkDir)
+		_, err := manager.inspectEnclave(attempt, client, options.EnclaveName, walletAddress)
 		return err
 	}); err != nil {
-		return fmt.Errorf("wait for network readiness; network slot remains for network-stop: %w", err)
+		return fmt.Errorf("wait for network readiness; enclave remains for network-stop: %w", err)
 	}
 	return nil
 }
 
-func (manager *Manager) Inspect(ctx context.Context, requestedDir string) (Environment, error) {
-	networkDir, err := canonicalNetworkDirectory(requestedDir)
-	if err != nil {
-		return Environment{}, err
-	}
+func (manager *Manager) Inspect(ctx context.Context, name string) (Environment, error) {
 	client, err := manager.newClient()
 	if err != nil {
 		return Environment{}, err
 	}
-	enclave, found, err := client.LookupEnclave(ctx, enclaveName(networkDir))
+	found, err := client.EnclaveExists(ctx, name)
 	if err != nil {
-		return Environment{}, fmt.Errorf("resolve deterministic network slot: %w", err)
+		return Environment{}, fmt.Errorf("resolve development network: %w", err)
 	}
 	if !found {
 		return Environment{}, errors.New("network is not running")
 	}
-	return manager.inspectEnclave(ctx, client, enclave, networkDir)
+	wallet, err := devnet.UnsafeDevelopmentWallet()
+	if err != nil {
+		return Environment{}, fmt.Errorf("restore public development wallet: %w", err)
+	}
+	walletAddress := common.Address(wallet.GetAddress()).Hex()
+	return manager.inspectEnclave(ctx, client, name, walletAddress)
 }
 
 func (manager *Manager) inspectEnclave(
 	ctx context.Context,
 	client kurtosisClient,
-	enclave kurtosis.EnclaveRef,
-	networkDir string,
+	name,
+	walletAddress string,
 ) (Environment, error) {
-	execution, err := client.Service(ctx, enclave, executionServiceName)
+	execution, err := client.Service(ctx, name, executionServiceName)
 	if err != nil {
 		return Environment{}, err
 	}
@@ -153,16 +146,10 @@ func (manager *Manager) inspectEnclave(
 			webSocketPortID,
 		)
 	}
-	seedFile := filepath.Join(networkDir, "wallet.seed")
 	environment := Environment{
 		RPCURL:       rpcURL,
 		GraphQLURL:   rpcURL + graphQLPath,
 		WebSocketURL: webSocketURL,
-		SeedFile:     seedFile,
-	}
-	walletAddress, err := validateWalletSeed(seedFile)
-	if err != nil {
-		return Environment{}, fmt.Errorf("validate private wallet: %w", err)
 	}
 	if err = manager.probe(ctx, environment.RPCURL, walletAddress); err != nil {
 		return Environment{}, err
@@ -170,35 +157,19 @@ func (manager *Manager) inspectEnclave(
 	return environment, nil
 }
 
-func (manager *Manager) Stop(ctx context.Context, requestedDir string) error {
-	networkDir, err := ensureNetworkDirectory(requestedDir)
-	if err != nil {
-		return err
-	}
-
+func (manager *Manager) Stop(ctx context.Context, name string) error {
 	client, err := manager.newClient()
 	if err != nil {
 		return err
 	}
-	enclave, found, err := client.LookupEnclave(ctx, enclaveName(networkDir))
+	found, err := client.EnclaveExists(ctx, name)
 	if err != nil {
-		return fmt.Errorf("resolve deterministic network slot: %w", err)
+		return fmt.Errorf("resolve development network: %w", err)
 	}
 	if !found {
 		return nil
 	}
-	return client.DestroyEnclave(ctx, enclave)
-}
-
-func cleanupCreatedEnclave(client kurtosisClient, enclave kurtosis.EnclaveRef) error {
-	cleanupCtx, cancel := context.WithTimeout(context.Background(), time.Minute)
-	defer cancel()
-	return client.DestroyEnclave(cleanupCtx, enclave)
-}
-
-func enclaveName(canonicalNetworkDir string) string {
-	digest := sha256.Sum256([]byte(canonicalNetworkDir))
-	return fmt.Sprintf("qrl-devnet-%x", digest[:24])
+	return client.DestroyEnclave(ctx, name)
 }
 
 func retryUntil(ctx context.Context, initial, maximum time.Duration, operation func(context.Context) error) error {

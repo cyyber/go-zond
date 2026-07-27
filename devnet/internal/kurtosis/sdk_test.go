@@ -9,7 +9,6 @@ import (
 
 	"github.com/kurtosis-tech/kurtosis/api/golang/core/kurtosis_core_rpc_api_bindings"
 	"github.com/kurtosis-tech/kurtosis/api/golang/core/lib/binding_constructors"
-	engine_bindings "github.com/kurtosis-tech/kurtosis/api/golang/engine/kurtosis_engine_rpc_api_bindings"
 	"github.com/stretchr/testify/require"
 )
 
@@ -44,22 +43,4 @@ func TestConsumeStarlarkCompletionSuppressesSecretBearingTranscript(t *testing.T
 			require.NotContains(t, err.Error(), secret)
 		})
 	}
-}
-
-func TestFindExactEnclave(t *testing.T) {
-	const (
-		name = "qrl-devnet-slot"
-		uuid = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-	)
-	running := map[string]*engine_bindings.EnclaveInfo{
-		uuid: {Name: name, EnclaveUuid: uuid},
-	}
-	ref, found, err := findExactEnclave(running, name)
-	require.NoError(t, err)
-	require.True(t, found)
-	require.Equal(t, EnclaveRef{Name: name, UUID: uuid}, ref)
-
-	_, found, err = findExactEnclave(running, "another-slot")
-	require.NoError(t, err)
-	require.False(t, found)
 }
