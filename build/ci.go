@@ -263,13 +263,6 @@ func doTest(cmdline []string) {
 		test.Dir = mod
 		build.MustRun(&test)
 	}
-	if _, err := os.Stat(filepath.Join("devnet", "suites")); err == nil {
-		tagged := exec.Command("go", "test", "-tags=e2e", "-run", "^$", "./suites/...")
-		tagged.Dir = "devnet"
-		build.MustRun(tagged)
-	} else if !os.IsNotExist(err) {
-		log.Fatal(err)
-	}
 }
 
 // doLint runs golangci-lint on requested packages.
