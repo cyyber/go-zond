@@ -86,7 +86,7 @@ live-test:
 		$(strip $(E2E_PACKAGES)) \
 		-- -test.run='^TestE2E$$'
 
-#? network-stop: Stop the deterministic E2E network slot for E2E_NETWORK_DIR.
+#? network-stop: Stop the E2E test network.
 network-stop:
 	$(E2E_GO) run ./cmd/e2e stop --network-dir "$(E2E_NETWORK_DIR)"
 
