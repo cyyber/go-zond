@@ -86,8 +86,6 @@ e2e-test:
 		--fail-on-empty \
 		--fail-on-pending \
 		--timeout="$(E2E_SUITE_TIMEOUT)" \
-		--poll-progress-after=30s \
-		--poll-progress-interval=30s \
 		$(strip $(E2E_PACKAGES)) \
 		-- -test.run='^TestE2E$$'
 

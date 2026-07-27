@@ -19,7 +19,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -59,16 +58,10 @@ func run(
 			return fmt.Errorf("unexpected positional arguments: %v", command.Args().Slice())
 		}
 		networkDir := command.String("network-dir")
-		if networkDir == "" {
-			return errors.New("--network-dir is required")
-		}
 		message := "network ready"
 		switch command.Command.Name {
 		case "start":
 			executionImage := command.String("execution-image")
-			if executionImage == "" {
-				return errors.New("--execution-image is required")
-			}
 			var parameters []byte
 			if paramsFile := command.String("params-file"); paramsFile != "" {
 				var err error
@@ -121,10 +114,14 @@ func run(
 		{"status", "Check whether the development network is ready"},
 		{"stop", "Stop the standalone development network"},
 	} {
-		flags := []cli.Flag{&cli.StringFlag{Name: "network-dir", Usage: "development network directory"}}
+		flags := []cli.Flag{&cli.StringFlag{
+			Name: "network-dir", Usage: "development network directory", Required: true,
+		}}
 		if command.name == "start" {
 			flags = append(flags,
-				&cli.StringFlag{Name: "execution-image", Usage: "execution image reference"},
+				&cli.StringFlag{
+					Name: "execution-image", Usage: "execution image reference", Required: true,
+				},
 				&cli.PathFlag{
 					Name:  "params-file",
 					Usage: "complete JSON qrl-package parameters; omit for the built-in single-node profile",

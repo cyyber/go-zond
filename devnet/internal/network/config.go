@@ -9,8 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-
-	"github.com/theQRL/go-qrl/common"
 )
 
 const (
@@ -41,9 +39,6 @@ type parameterShape struct {
 }
 
 func effectiveParameters(address, executionImage string, custom []byte) (string, error) {
-	if _, err := common.NewAddressFromString(address); err != nil {
-		return "", errors.New("wallet address is invalid")
-	}
 	if strings.TrimSpace(executionImage) == "" {
 		return "", errors.New("execution image is empty")
 	}
@@ -75,9 +70,6 @@ func effectiveParameters(address, executionImage string, custom []byte) (string,
 }
 
 func renderCustomParameters(payload []byte, address, executionImage string) (string, error) {
-	if executionImage == executionImagePlaceholder || executionImage == walletAddressPlaceholder {
-		return "", errors.New("execution image cannot equal a reserved parameter token")
-	}
 	shape, err := decodeParameterShape(payload)
 	if err != nil {
 		return "", err
@@ -95,10 +87,9 @@ func renderCustomParameters(payload []byte, address, executionImage string) (str
 		)
 	}
 
-	rendered := bytes.Clone(payload)
 	encodedImagePlaceholder, _ := json.Marshal(executionImagePlaceholder)
 	encodedExecutionImage, _ := json.Marshal(executionImage)
-	rendered = bytes.ReplaceAll(rendered, encodedImagePlaceholder, encodedExecutionImage)
+	rendered := bytes.ReplaceAll(payload, encodedImagePlaceholder, encodedExecutionImage)
 	encodedWalletPlaceholder, _ := json.Marshal(walletAddressPlaceholder)
 	encodedAddress, _ := json.Marshal(address)
 	rendered = bytes.ReplaceAll(rendered, encodedWalletPlaceholder, encodedAddress)
@@ -118,10 +109,6 @@ func renderCustomParameters(payload []byte, address, executionImage string) (str
 }
 
 func decodeParameterShape(payload []byte) (parameterShape, error) {
-	var object map[string]json.RawMessage
-	if err := json.Unmarshal(payload, &object); err != nil || object == nil {
-		return parameterShape{}, errors.New("parameters file must contain one JSON object")
-	}
 	var shape parameterShape
 	if err := json.Unmarshal(payload, &shape); err != nil {
 		return parameterShape{}, errors.New("parameters file must contain one JSON object")

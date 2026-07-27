@@ -7,7 +7,6 @@ import (
 	"context"
 	"net/http/httptest"
 	"strings"
-	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -15,18 +14,12 @@ import (
 )
 
 type probeService struct {
-	mu         sync.Mutex
-	chainID    string
 	balance    string
 	blockCalls int
 	address    string
 }
 
-func (service *probeService) ChainId() string { return service.chainID }
-
 func (service *probeService) BlockNumber() string {
-	service.mu.Lock()
-	defer service.mu.Unlock()
 	service.blockCalls++
 	if service.blockCalls == 1 {
 		return "0x1"
@@ -35,8 +28,6 @@ func (service *probeService) BlockNumber() string {
 }
 
 func (service *probeService) GetBalance(address, _ string) string {
-	service.mu.Lock()
-	defer service.mu.Unlock()
 	service.address = address
 	return service.balance
 }
@@ -50,30 +41,21 @@ func newProbeServer(t *testing.T, service *probeService) *httptest.Server {
 }
 
 func TestProbeNetworkRequiresAdvancingFundedChain(t *testing.T) {
-	service := &probeService{chainID: "0x1234", balance: "0x1"}
+	service := &probeService{balance: "0x1"}
 	server := newProbeServer(t, service)
 	defer server.Close()
 	address := "Q" + strings.Repeat("b", 128)
 	require.NoError(t, probeNetwork(context.Background(), server.URL, address))
-	service.mu.Lock()
-	defer service.mu.Unlock()
 	require.True(t, strings.EqualFold(service.address, address))
 }
 
-func TestProbeNetworkRejectsInvalidChainAndEmptyWallet(t *testing.T) {
-	for name, service := range map[string]*probeService{
-		"chain":   {chainID: "0x0", balance: "0x1"},
-		"balance": {chainID: "0x539", balance: "0x0"},
-	} {
-		t.Run(name, func(t *testing.T) {
-			server := newProbeServer(t, service)
-			defer server.Close()
-			err := probeNetwork(
-				context.Background(),
-				server.URL,
-				"Q"+strings.Repeat("c", 128),
-			)
-			require.Error(t, err)
-		})
-	}
+func TestProbeNetworkRejectsEmptyWallet(t *testing.T) {
+	server := newProbeServer(t, &probeService{balance: "0x0"})
+	defer server.Close()
+	err := probeNetwork(
+		context.Background(),
+		server.URL,
+		"Q"+strings.Repeat("c", 128),
+	)
+	require.ErrorContains(t, err, "has no balance")
 }

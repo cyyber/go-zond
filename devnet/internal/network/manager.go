@@ -191,9 +191,6 @@ func (manager *Manager) Stop(ctx context.Context, requestedDir string) error {
 }
 
 func cleanupCreatedEnclave(client kurtosisClient, enclave kurtosis.EnclaveRef) error {
-	if enclave.UUID == "" {
-		return errors.New("cannot clean up an invalid returned enclave identity")
-	}
 	cleanupCtx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 	return client.DestroyEnclave(cleanupCtx, enclave)
