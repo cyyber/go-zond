@@ -51,7 +51,7 @@ func TestRun(t *testing.T) {
 		},
 		{"status", "network ready\n", "status:" + networkDir, "", []string{"status", "--network-dir", networkDir}, nil, false},
 		{"stop", "network stopped\n", "stop:" + networkDir, "", []string{"stop", "--network-dir", networkDir}, nil, false},
-		{"unknown command", "", "", "unknown command", []string{"network", "status"}, nil, false},
+		{"unknown command", "", "", "unknown command", []string{"unknown"}, nil, false},
 		{"missing directory", "", "", "--network-dir is required", []string{"status"}, nil, false},
 		{"empty directory", "", "", "--network-dir is required", []string{"status", "--network-dir", ""}, nil, false},
 		{
@@ -98,6 +98,7 @@ func TestRunHelp(t *testing.T) {
 		networks := new(recordingNetworks)
 		require.NoError(t, run(t.Context(), arguments, &stdout, &stderr, networks))
 		require.Contains(t, stdout.String(), "Manage the separately running E2E network")
+		require.Contains(t, stdout.String(), "network")
 		require.Contains(t, stdout.String(), "start")
 		require.Contains(t, stdout.String(), "status")
 		require.Contains(t, stdout.String(), "stop")

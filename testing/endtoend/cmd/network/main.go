@@ -1,7 +1,7 @@
 // Copyright 2026 The go-qrl Authors
 // This file is part of the go-qrl library.
 
-// Command e2e controls the separately managed E2E network.
+// Command network controls the separately managed E2E network.
 package main
 
 import (
@@ -29,7 +29,7 @@ func main() {
 	defer cancel()
 	manager := network.NewManager()
 	if err := run(ctx, os.Args[1:], os.Stdout, os.Stderr, manager); err != nil {
-		fmt.Fprintln(os.Stderr, "e2e:", err)
+		fmt.Fprintln(os.Stderr, "network:", err)
 		os.Exit(1)
 	}
 }
@@ -76,7 +76,7 @@ func run(
 	}
 
 	app := &cli.App{
-		Name:        "e2e",
+		Name:        "network",
 		Usage:       "Manage the separately running E2E network",
 		Description: "Tests run independently through make live-test.",
 		Writer:      stdout,
