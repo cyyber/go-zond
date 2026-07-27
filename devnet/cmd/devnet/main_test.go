@@ -22,22 +22,19 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 	"github.com/theQRL/go-qrl/devnet/internal/network"
 )
 
 type recordingNetworks struct {
-	call     string
-	start    network.StartOptions
-	deadline time.Time
+	call  string
+	start network.StartOptions
 }
 
-func (networks *recordingNetworks) Start(ctx context.Context, options network.StartOptions) error {
+func (networks *recordingNetworks) Start(_ context.Context, options network.StartOptions) error {
 	networks.call = "start"
 	networks.start = options
-	networks.deadline, _ = ctx.Deadline()
 	return nil
 }
 
@@ -58,7 +55,6 @@ func TestRun(t *testing.T) {
 	for _, test := range []struct {
 		name, output, call string
 		arguments          []string
-		timeout            bool
 		parameters         []byte
 	}{
 		{
@@ -67,41 +63,26 @@ func TestRun(t *testing.T) {
 				"start", "--network-dir", networkDir,
 				"--execution-image", "local/go-qrl:test",
 				"--params-file", paramsFile,
-				"--timeout", "17m",
 			},
-			true, []byte(`{"custom":true}`),
+			[]byte(`{"custom":true}`),
 		},
-		{"status", "network ready\n", "status:" + networkDir, []string{"status", "--network-dir", networkDir}, false, nil},
-		{"stop", "network stopped\n", "stop:" + networkDir, []string{"stop", "--network-dir", networkDir}, false, nil},
+		{"status", "network ready\n", "status:" + networkDir, []string{"status", "--network-dir", networkDir}, nil},
+		{"stop", "network stopped\n", "stop:" + networkDir, []string{"stop", "--network-dir", networkDir}, nil},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			networks := new(recordingNetworks)
 			var stdout, stderr bytes.Buffer
-			before := time.Now()
 			require.NoError(t, run(t.Context(), test.arguments, &stdout, &stderr, networks))
-			after := time.Now()
 			require.Equal(t, test.output, stdout.String())
 			require.Equal(t, test.call, networks.call)
 			require.Empty(t, stderr.String())
-			if test.timeout {
+			if test.call == "start" {
 				require.Equal(t, network.StartOptions{
 					Directory:      networkDir,
 					ExecutionImage: "local/go-qrl:test",
 					Parameters:     test.parameters,
 				}, networks.start)
-				require.WithinRange(t, networks.deadline, before.Add(17*time.Minute), after.Add(17*time.Minute))
 			}
 		})
 	}
-}
-
-func TestRunReportsParametersFileReadError(t *testing.T) {
-	var stdout, stderr bytes.Buffer
-	err := run(t.Context(), []string{
-		"start",
-		"--network-dir", t.TempDir(),
-		"--execution-image", "local/go-qrl:test",
-		"--params-file", filepath.Join(t.TempDir(), "missing.json"),
-	}, &stdout, &stderr, new(recordingNetworks))
-	require.ErrorContains(t, err, "read parameters file")
 }

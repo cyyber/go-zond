@@ -150,25 +150,14 @@ func (client *SDKClient) DestroyEnclave(ctx context.Context, ref EnclaveRef) err
 	confirmCtx, cancel := context.WithTimeout(context.Background(), destroyConfirmationTimeout)
 	defer cancel()
 	enclaves, inspectErr := client.context.GetEnclaves(confirmCtx)
-	var exists bool
-	if inspectErr == nil {
-		exists, inspectErr = destroyStillExists(enclaves.GetEnclavesByUuid(), ref)
+	if inspectErr != nil {
+		return errors.Join(destroyErr, fmt.Errorf("confirm enclave destruction: %w", inspectErr))
 	}
-	return reconcileDestroy(destroyErr, inspectErr, exists)
-}
-
-func destroyStillExists(
-	running map[string]*engine_bindings.EnclaveInfo,
-	ref EnclaveRef,
-) (bool, error) {
-	if _, found := running[ref.UUID]; found {
-		return true, nil
+	running := enclaves.GetEnclavesByUuid()
+	_, exists := running[ref.UUID]
+	if !exists {
+		_, exists, inspectErr = findExactEnclave(running, ref.Name)
 	}
-	_, found, err := findExactEnclave(running, ref.Name)
-	return found, err
-}
-
-func reconcileDestroy(destroyErr, inspectErr error, exists bool) error {
 	if inspectErr != nil {
 		return errors.Join(destroyErr, fmt.Errorf("confirm enclave destruction: %w", inspectErr))
 	}
