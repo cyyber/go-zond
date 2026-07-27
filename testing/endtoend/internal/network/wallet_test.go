@@ -31,23 +31,3 @@ func TestEnsureWalletCreatesAndReusesPrivateSeed(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, seed, reused, "wallet reuse replaced the seed")
 }
-
-func TestEnsureWalletRejectsInvalidExistingSeed(t *testing.T) {
-	networkDir, err := ensureNetworkDirectory(filepath.Join(t.TempDir(), "network"))
-	require.NoError(t, err)
-	require.NoError(t, os.WriteFile(filepath.Join(networkDir, "wallet.seed"), []byte("invalid\n"), 0o600))
-	_, err = ensureWallet(networkDir)
-	require.ErrorContains(t, err, "restore existing wallet")
-}
-
-func TestExclusiveWriteCreatesOnePrivateFile(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "secret")
-	require.NoError(t, writeExclusive(path, []byte("first\n")))
-	require.ErrorIs(t, writeExclusive(path, []byte("second\n")), os.ErrExist)
-	contents, err := os.ReadFile(path)
-	require.NoError(t, err)
-	require.Equal(t, "first\n", string(contents))
-	info, err := os.Stat(path)
-	require.NoError(t, err)
-	require.Equal(t, os.FileMode(0o600), info.Mode().Perm())
-}

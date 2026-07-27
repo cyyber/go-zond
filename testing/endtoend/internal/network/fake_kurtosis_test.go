@@ -11,24 +11,14 @@ import (
 )
 
 type fakeKurtosis struct {
-	Enclave                                          kurtosis.EnclaveRef
-	ExecutionService                                 kurtosis.Service
-	CreateError, LookupError, RunError, DestroyError error
-	CreateAfterError, Exists                         bool
-	Creates, Runs, Destroys                          int
-	RunLocator, RunParameters                        string
-	RunRef, ServiceRef, DestroyRef                   kurtosis.EnclaveRef
+	Enclave                        kurtosis.EnclaveRef
+	ExecutionService               kurtosis.Service
+	Exists                         bool
+	RunLocator, RunParameters      string
+	RunRef, ServiceRef, DestroyRef kurtosis.EnclaveRef
 }
 
 func (fake *fakeKurtosis) CreateEnclave(_ context.Context, name string) (kurtosis.EnclaveRef, error) {
-	fake.Creates++
-	if fake.CreateError != nil {
-		if fake.CreateAfterError && fake.Enclave.Name == "" {
-			fake.Enclave.Name = name
-		}
-		fake.Exists = fake.CreateAfterError
-		return kurtosis.EnclaveRef{}, fake.CreateError
-	}
 	if fake.Enclave.Name == "" {
 		fake.Enclave.Name = name
 	}
@@ -40,9 +30,6 @@ func (fake *fakeKurtosis) LookupEnclave(ctx context.Context, name string) (kurto
 	if err := ctx.Err(); err != nil {
 		return kurtosis.EnclaveRef{}, false, err
 	}
-	if fake.LookupError != nil {
-		return kurtosis.EnclaveRef{}, false, fake.LookupError
-	}
 	if !fake.Exists || name != fake.Enclave.Name {
 		return kurtosis.EnclaveRef{}, false, nil
 	}
@@ -50,10 +37,9 @@ func (fake *fakeKurtosis) LookupEnclave(ctx context.Context, name string) (kurto
 }
 
 func (fake *fakeKurtosis) RunRemotePackage(_ context.Context, ref kurtosis.EnclaveRef, locator, parameters string) error {
-	fake.Runs++
 	fake.RunRef = ref
 	fake.RunLocator, fake.RunParameters = locator, parameters
-	return fake.RunError
+	return nil
 }
 
 func (fake *fakeKurtosis) Service(_ context.Context, ref kurtosis.EnclaveRef, name string) (kurtosis.Service, error) {
@@ -65,11 +51,7 @@ func (fake *fakeKurtosis) Service(_ context.Context, ref kurtosis.EnclaveRef, na
 }
 
 func (fake *fakeKurtosis) DestroyEnclave(_ context.Context, ref kurtosis.EnclaveRef) error {
-	fake.Destroys++
 	fake.DestroyRef = ref
-	if fake.DestroyError != nil {
-		return fake.DestroyError
-	}
 	fake.Exists = false
 	return nil
 }

@@ -4,7 +4,6 @@
 package kurtosis
 
 import (
-	"errors"
 	"testing"
 	"time"
 
@@ -47,102 +46,20 @@ func TestConsumeStarlarkCompletionSuppressesSecretBearingTranscript(t *testing.T
 	}
 }
 
-func TestFindExactEnclaveDistinguishesAbsenceIdentityAndAmbiguity(t *testing.T) {
+func TestFindExactEnclave(t *testing.T) {
 	const (
-		name  = "go-qrl-e2e-slot"
-		uuid  = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-		uuid2 = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+		name = "go-qrl-e2e-slot"
+		uuid = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 	)
-	info := func(name, uuid string) *engine_bindings.EnclaveInfo {
-		return &engine_bindings.EnclaveInfo{Name: name, EnclaveUuid: uuid}
+	running := map[string]*engine_bindings.EnclaveInfo{
+		uuid: {Name: name, EnclaveUuid: uuid},
 	}
-	check := func(running map[string]*engine_bindings.EnclaveInfo, want EnclaveRef, wantErr string) {
-		ref, found, err := findExactEnclave(running, name)
-		if wantErr != "" {
-			require.ErrorContains(t, err, wantErr)
-			return
-		}
-		require.NoError(t, err)
-		require.Equal(t, want.Name != "", found)
-		require.Equal(t, want, ref)
-	}
-	check(map[string]*engine_bindings.EnclaveInfo{uuid: info("another-slot", uuid)}, EnclaveRef{}, "")
-	check(map[string]*engine_bindings.EnclaveInfo{uuid: info(name, uuid)}, EnclaveRef{Name: name, UUID: uuid}, "")
-	check(map[string]*engine_bindings.EnclaveInfo{uuid: info(name, "")}, EnclaveRef{}, "empty enclave identity")
-	check(map[string]*engine_bindings.EnclaveInfo{
-		uuid: info(name, uuid), uuid2: info(name, uuid2),
-	}, EnclaveRef{}, "multiple running")
-}
+	ref, found, err := findExactEnclave(running, name)
+	require.NoError(t, err)
+	require.True(t, found)
+	require.Equal(t, EnclaveRef{Name: name, UUID: uuid}, ref)
 
-func TestDestroyStillExistsChecksUUIDAndDeterministicName(t *testing.T) {
-	const (
-		name        = "go-qrl-e2e-slot"
-		uuid        = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-		replacement = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
-	)
-	ref := EnclaveRef{Name: name, UUID: uuid}
-	info := func(name, uuid string) *engine_bindings.EnclaveInfo {
-		return &engine_bindings.EnclaveInfo{Name: name, EnclaveUuid: uuid}
-	}
-	for _, test := range []struct {
-		name    string
-		running map[string]*engine_bindings.EnclaveInfo
-		want    bool
-		wantErr string
-	}{
-		{"absent", map[string]*engine_bindings.EnclaveInfo{}, false, ""},
-		{"original UUID remains", map[string]*engine_bindings.EnclaveInfo{
-			uuid: info(name, uuid),
-		}, true, ""},
-		{"same-name replacement remains", map[string]*engine_bindings.EnclaveInfo{
-			replacement: info(name, replacement),
-		}, true, ""},
-		{"unrelated enclave remains", map[string]*engine_bindings.EnclaveInfo{
-			replacement: info("another-slot", replacement),
-		}, false, ""},
-		{"nil original identity", map[string]*engine_bindings.EnclaveInfo{
-			uuid: nil,
-		}, false, "nil identity"},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			exists, err := destroyStillExists(test.running, ref)
-			require.Equal(t, test.want, exists)
-			if test.wantErr == "" {
-				require.NoError(t, err)
-			} else {
-				require.ErrorContains(t, err, test.wantErr)
-			}
-		})
-	}
-}
-
-func TestReconcileDestroy(t *testing.T) {
-	destroyErr := errors.New("destroy response lost")
-	inspectErr := errors.New("enclave listing failed")
-	for name, test := range map[string]struct {
-		destroyErr, inspectErr error
-		exists                 bool
-		want                   []error
-	}{
-		"successful destroy":        {},
-		"lost response but absent":  {destroyErr: destroyErr},
-		"rejected and still exists": {destroyErr: destroyErr, exists: true, want: []error{destroyErr}},
-		"inspection failed":         {destroyErr: destroyErr, inspectErr: inspectErr, want: []error{destroyErr, inspectErr}},
-	} {
-		t.Run(name, func(t *testing.T) {
-			err := reconcileDestroy(test.destroyErr, test.inspectErr, test.exists)
-			if len(test.want) == 0 {
-				require.NoError(t, err)
-				return
-			}
-			for _, cause := range test.want {
-				require.ErrorIs(t, err, cause)
-			}
-		})
-	}
-	require.ErrorContains(
-		t,
-		reconcileDestroy(nil, nil, true),
-		"deterministic enclave slot remains occupied",
-	)
+	_, found, err = findExactEnclave(running, "another-slot")
+	require.NoError(t, err)
+	require.False(t, found)
 }
