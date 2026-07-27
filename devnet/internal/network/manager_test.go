@@ -5,8 +5,8 @@ package network
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -19,7 +19,7 @@ func TestNetworkLifecycle(t *testing.T) {
 	networkDir, err := ensureNetworkDirectory(filepath.Join(t.TempDir(), "network"))
 	require.NoError(t, err)
 	client := &fakeKurtosis{
-		Enclave: kurtosis.EnclaveRef{UUID: strings.Repeat("a", 32)},
+		Enclave: kurtosis.EnclaveRef{UUID: "test-enclave"},
 		ExecutionService: kurtosis.Service{
 			PublicIP:    "127.0.0.1",
 			PublicPorts: map[string]uint16{rpcPortID: 18545, webSocketPortID: 18546},
@@ -38,7 +38,6 @@ func TestNetworkLifecycle(t *testing.T) {
 	require.Contains(t, client.RunParameters, `"el_image":"local/go-qrl:test"`)
 	require.Equal(t, client.Enclave, client.RunRef)
 	require.Regexp(t, `^go-qrl-e2e-[0-9a-f]{48}$`, client.Enclave.Name)
-	require.Len(t, client.Enclave.Name, 59)
 
 	environment, err := manager.Inspect(t.Context(), networkDir)
 	require.NoError(t, err)
@@ -49,8 +48,48 @@ func TestNetworkLifecycle(t *testing.T) {
 	require.Equal(t, client.Enclave, client.ServiceRef)
 
 	require.NoError(t, manager.Stop(t.Context(), networkDir))
-	require.False(t, client.Exists)
 	require.Equal(t, client.Enclave, client.DestroyRef)
 	_, err = manager.Inspect(t.Context(), networkDir)
 	require.ErrorContains(t, err, "not running")
+}
+
+type fakeKurtosis struct {
+	Enclave                        kurtosis.EnclaveRef
+	ExecutionService               kurtosis.Service
+	Exists                         bool
+	RunLocator, RunParameters      string
+	RunRef, ServiceRef, DestroyRef kurtosis.EnclaveRef
+}
+
+func (fake *fakeKurtosis) CreateEnclave(_ context.Context, name string) (kurtosis.EnclaveRef, error) {
+	fake.Enclave.Name = name
+	fake.Exists = true
+	return fake.Enclave, nil
+}
+
+func (fake *fakeKurtosis) LookupEnclave(_ context.Context, name string) (kurtosis.EnclaveRef, bool, error) {
+	if !fake.Exists || name != fake.Enclave.Name {
+		return kurtosis.EnclaveRef{}, false, nil
+	}
+	return fake.Enclave, true, nil
+}
+
+func (fake *fakeKurtosis) RunRemotePackage(_ context.Context, ref kurtosis.EnclaveRef, locator, parameters string) error {
+	fake.RunRef = ref
+	fake.RunLocator, fake.RunParameters = locator, parameters
+	return nil
+}
+
+func (fake *fakeKurtosis) Service(_ context.Context, ref kurtosis.EnclaveRef, name string) (kurtosis.Service, error) {
+	fake.ServiceRef = ref
+	if name != executionServiceName {
+		return kurtosis.Service{}, fmt.Errorf("service %q not found", name)
+	}
+	return fake.ExecutionService, nil
+}
+
+func (fake *fakeKurtosis) DestroyEnclave(_ context.Context, ref kurtosis.EnclaveRef) error {
+	fake.DestroyRef = ref
+	fake.Exists = false
+	return nil
 }
