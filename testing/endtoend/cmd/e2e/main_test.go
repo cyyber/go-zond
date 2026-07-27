@@ -53,9 +53,18 @@ func TestRun(t *testing.T) {
 		{"stop", "network stopped\n", "stop:" + networkDir, "", []string{"stop", "--network-dir", networkDir}, nil, false},
 		{"unknown command", "", "", "unknown command", []string{"network", "status"}, nil, false},
 		{"missing directory", "", "", "--network-dir is required", []string{"status"}, nil, false},
+		{"empty directory", "", "", "--network-dir is required", []string{"status", "--network-dir", ""}, nil, false},
 		{
 			"missing image", "", "", "--execution-image is required",
 			[]string{"start", "--network-dir", networkDir}, nil, false,
+		},
+		{
+			"empty image", "", "", "--execution-image is required",
+			[]string{"start", "--network-dir", networkDir, "--execution-image", ""}, nil, false,
+		},
+		{
+			"unexpected arguments", "", "", "unexpected positional arguments",
+			[]string{"status", "--network-dir", networkDir, "extra"}, nil, false,
 		},
 		{"failed status", "", "status:" + networkDir, statusErr.Error(), []string{"status", "--network-dir", networkDir}, statusErr, false},
 	} {
@@ -80,5 +89,19 @@ func TestRun(t *testing.T) {
 				require.WithinRange(t, networks.deadline, before.Add(17*time.Minute), after.Add(17*time.Minute))
 			}
 		})
+	}
+}
+
+func TestRunHelp(t *testing.T) {
+	for _, arguments := range [][]string{nil, {"--help"}, {"help"}} {
+		var stdout, stderr bytes.Buffer
+		networks := new(recordingNetworks)
+		require.NoError(t, run(t.Context(), arguments, &stdout, &stderr, networks))
+		require.Contains(t, stdout.String(), "Manage the separately running E2E network")
+		require.Contains(t, stdout.String(), "start")
+		require.Contains(t, stdout.String(), "status")
+		require.Contains(t, stdout.String(), "stop")
+		require.Empty(t, stderr.String())
+		require.Empty(t, networks.call)
 	}
 }
