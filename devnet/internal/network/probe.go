@@ -5,7 +5,6 @@ package network
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
@@ -15,11 +14,7 @@ import (
 
 const chainAdvancementWindow = 30 * time.Second
 
-func probeNetwork(ctx context.Context, rpcURL, walletAddress string) error {
-	address, err := common.NewAddressFromString(walletAddress)
-	if err != nil {
-		return errors.New("signer readiness requires a valid wallet address")
-	}
+func probeNetwork(ctx context.Context, rpcURL string, address common.Address) error {
 	client, err := qrlclient.DialContext(ctx, rpcURL)
 	if err != nil {
 		return fmt.Errorf("dial RPC: %w", err)
@@ -32,8 +27,8 @@ func probeNetwork(ctx context.Context, rpcURL, walletAddress string) error {
 	}
 	advancementCtx, cancel := context.WithTimeout(ctx, chainAdvancementWindow)
 	defer cancel()
-	if err := retryUntil(advancementCtx, 500*time.Millisecond, 2*time.Second, func(attempt context.Context) error {
-		block, err := client.BlockNumber(attempt)
+	if err := retryUntil(advancementCtx, func() error {
+		block, err := client.BlockNumber(advancementCtx)
 		if err != nil {
 			return fmt.Errorf("read advancing block number: %w", err)
 		}
@@ -54,7 +49,7 @@ func probeNetwork(ctx context.Context, rpcURL, walletAddress string) error {
 		return fmt.Errorf("read development wallet balance: %w", err)
 	}
 	if balance.Sign() <= 0 {
-		return fmt.Errorf("development wallet %s has no balance", walletAddress)
+		return fmt.Errorf("development wallet %s has no balance", address.Hex())
 	}
 	return nil
 }

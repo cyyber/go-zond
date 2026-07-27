@@ -5,6 +5,7 @@
 package network
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -40,7 +41,7 @@ type StartOptions struct {
 
 type Manager struct {
 	newClient func() (kurtosisClient, error)
-	probe     func(context.Context, string, string) error
+	probe     func(context.Context, string, common.Address) error
 }
 
 func NewManager() *Manager {
@@ -52,11 +53,7 @@ func NewManager() *Manager {
 
 // Inspect validates and inspects the separately started development network.
 func Inspect(ctx context.Context) (Environment, error) {
-	name := os.Getenv("DEVNET_ENCLAVE_NAME")
-	if name == "" {
-		name = DefaultEnclaveName
-	}
-	return NewManager().Inspect(ctx, name)
+	return NewManager().Inspect(ctx, cmp.Or(os.Getenv("DEVNET_ENCLAVE_NAME"), DefaultEnclaveName))
 }
 
 func (manager *Manager) Start(ctx context.Context, options StartOptions) error {
@@ -70,12 +67,11 @@ func (manager *Manager) Start(ctx context.Context, options StartOptions) error {
 		return errors.New("network already exists or provisioning is incomplete; use network-stop before retrying")
 	}
 
-	wallet, err := devnet.UnsafeDevelopmentWallet()
+	address, err := developmentWalletAddress()
 	if err != nil {
-		return fmt.Errorf("restore public development wallet: %w", err)
+		return err
 	}
-	walletAddress := common.Address(wallet.GetAddress()).Hex()
-	parameters, err := effectiveParameters(walletAddress, options.ExecutionImage, options.Parameters)
+	parameters, err := effectiveParameters(address.Hex(), options.ExecutionImage, options.Parameters)
 	if err != nil {
 		return fmt.Errorf("prepare qrl-package parameters: %w", err)
 	}
@@ -91,8 +87,8 @@ func (manager *Manager) Start(ctx context.Context, options StartOptions) error {
 		)
 	}
 
-	if err := retryUntil(ctx, 500*time.Millisecond, 2*time.Second, func(attempt context.Context) error {
-		_, err := manager.inspectEnclave(attempt, client, options.EnclaveName, walletAddress)
+	if err := retryUntil(ctx, func() error {
+		_, err := manager.inspectEnclave(ctx, client, options.EnclaveName, address)
 		return err
 	}); err != nil {
 		return fmt.Errorf("wait for network readiness; enclave remains for network-stop: %w", err)
@@ -112,19 +108,26 @@ func (manager *Manager) Inspect(ctx context.Context, name string) (Environment, 
 	if !found {
 		return Environment{}, errors.New("network is not running")
 	}
+	address, err := developmentWalletAddress()
+	if err != nil {
+		return Environment{}, err
+	}
+	return manager.inspectEnclave(ctx, client, name, address)
+}
+
+func developmentWalletAddress() (common.Address, error) {
 	wallet, err := devnet.UnsafeDevelopmentWallet()
 	if err != nil {
-		return Environment{}, fmt.Errorf("restore public development wallet: %w", err)
+		return common.Address{}, fmt.Errorf("restore public development wallet: %w", err)
 	}
-	walletAddress := common.Address(wallet.GetAddress()).Hex()
-	return manager.inspectEnclave(ctx, client, name, walletAddress)
+	return common.Address(wallet.GetAddress()), nil
 }
 
 func (manager *Manager) inspectEnclave(
 	ctx context.Context,
 	client kurtosisClient,
-	name,
-	walletAddress string,
+	name string,
+	address common.Address,
 ) (Environment, error) {
 	execution, err := client.Service(ctx, name, executionServiceName)
 	if err != nil {
@@ -151,7 +154,7 @@ func (manager *Manager) inspectEnclave(
 		GraphQLURL:   rpcURL + graphQLPath,
 		WebSocketURL: webSocketURL,
 	}
-	if err = manager.probe(ctx, environment.RPCURL, walletAddress); err != nil {
+	if err = manager.probe(ctx, environment.RPCURL, address); err != nil {
 		return Environment{}, err
 	}
 	return environment, nil
@@ -172,13 +175,15 @@ func (manager *Manager) Stop(ctx context.Context, name string) error {
 	return client.DestroyEnclave(ctx, name)
 }
 
-func retryUntil(ctx context.Context, initial, maximum time.Duration, operation func(context.Context) error) error {
+// retryUntil retries operation with exponential backoff until it succeeds or
+// ctx ends.
+func retryUntil(ctx context.Context, operation func() error) error {
 	policy := backoff.NewExponentialBackOff()
-	policy.InitialInterval = initial
-	policy.MaxInterval = maximum
+	policy.InitialInterval = 500 * time.Millisecond
+	policy.MaxInterval = 2 * time.Second
 	_, err := backoff.Retry(
 		ctx,
-		func() (struct{}, error) { return struct{}{}, operation(ctx) },
+		func() (struct{}, error) { return struct{}{}, operation() },
 		backoff.WithBackOff(policy),
 		backoff.WithMaxElapsedTime(0),
 	)
