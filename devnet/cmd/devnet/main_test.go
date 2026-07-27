@@ -66,7 +66,9 @@ func TestRun(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			networks := new(recordingNetworks)
 			var stdout, stderr bytes.Buffer
-			require.NoError(t, run(t.Context(), test.arguments, &stdout, &stderr, networks))
+			app := newApp(networks)
+			app.Writer, app.ErrWriter = &stdout, &stderr
+			require.NoError(t, app.RunContext(t.Context(), append([]string{"devnet"}, test.arguments...)))
 			require.Equal(t, test.output, stdout.String())
 			require.Equal(t, test.call, networks.call)
 			require.Empty(t, stderr.String())
