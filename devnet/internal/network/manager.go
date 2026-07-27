@@ -25,7 +25,12 @@ type kurtosisClient interface {
 	DestroyEnclave(context.Context, string) error
 }
 
-const DefaultEnclaveName = "go-qrl-devnet"
+const (
+	DefaultEnclaveName  = "go-qrl-devnet"
+	DefaultStartTimeout = 30 * time.Minute
+
+	destroyConfirmationTimeout = 15 * time.Second
+)
 
 type Environment struct {
 	RPCURL       string
@@ -46,8 +51,14 @@ type Manager struct {
 
 func NewManager() *Manager {
 	return &Manager{
-		newClient: func() (kurtosisClient, error) { return kurtosis.NewSDKClient() },
-		probe:     probeNetwork,
+		newClient: func() (kurtosisClient, error) {
+			client, err := kurtosis.NewSDKClient()
+			if err != nil {
+				return nil, fmt.Errorf("connect to Kurtosis engine: %w", err)
+			}
+			return client, nil
+		},
+		probe: probeNetwork,
 	}
 }
 
@@ -57,16 +68,6 @@ func Inspect(ctx context.Context) (Environment, error) {
 }
 
 func (manager *Manager) Start(ctx context.Context, options StartOptions) error {
-	client, err := manager.newClient()
-	if err != nil {
-		return fmt.Errorf("connect to Kurtosis engine: %w", err)
-	}
-	if found, err := client.EnclaveExists(ctx, options.EnclaveName); err != nil {
-		return fmt.Errorf("resolve development network: %w", err)
-	} else if found {
-		return errors.New("network already exists or provisioning is incomplete; use network-stop before retrying")
-	}
-
 	address, err := developmentWalletAddress()
 	if err != nil {
 		return err
@@ -75,23 +76,34 @@ func (manager *Manager) Start(ctx context.Context, options StartOptions) error {
 	if err != nil {
 		return fmt.Errorf("prepare qrl-package parameters: %w", err)
 	}
+	client, err := manager.newClient()
+	if err != nil {
+		return err
+	}
+	if found, err := client.EnclaveExists(ctx, options.EnclaveName); err != nil {
+		return err
+	} else if found {
+		return errors.New("network already exists or provisioning is incomplete; stop it before retrying")
+	}
 	if err := client.CreateAndRunRemotePackage(
 		ctx,
 		options.EnclaveName,
 		packageLocator,
 		parameters,
 	); err != nil {
-		return fmt.Errorf(
-			"create enclave or run pinned qrl-package; enclave may remain for network-stop: %w",
-			err,
-		)
+		return fmt.Errorf("create enclave or run pinned qrl-package; enclave may remain until stopped: %w", err)
 	}
 
+	// Endpoints are fixed once the package run completes; only the probe has to
+	// wait for the chain to come up.
+	environment, err := resolveEnvironment(ctx, client, options.EnclaveName)
+	if err != nil {
+		return fmt.Errorf("resolve network endpoints; enclave remains until stopped: %w", err)
+	}
 	if err := retryUntil(ctx, func() error {
-		_, err := manager.inspectEnclave(ctx, client, options.EnclaveName, address)
-		return err
+		return manager.probe(ctx, environment.RPCURL, address)
 	}); err != nil {
-		return fmt.Errorf("wait for network readiness; enclave remains for network-stop: %w", err)
+		return fmt.Errorf("wait for network readiness; enclave remains until stopped: %w", err)
 	}
 	return nil
 }
@@ -103,7 +115,7 @@ func (manager *Manager) Inspect(ctx context.Context, name string) (Environment, 
 	}
 	found, err := client.EnclaveExists(ctx, name)
 	if err != nil {
-		return Environment{}, fmt.Errorf("resolve development network: %w", err)
+		return Environment{}, err
 	}
 	if !found {
 		return Environment{}, errors.New("network is not running")
@@ -112,49 +124,11 @@ func (manager *Manager) Inspect(ctx context.Context, name string) (Environment, 
 	if err != nil {
 		return Environment{}, err
 	}
-	return manager.inspectEnclave(ctx, client, name, address)
-}
-
-func developmentWalletAddress() (common.Address, error) {
-	wallet, err := devnet.UnsafeDevelopmentWallet()
-	if err != nil {
-		return common.Address{}, fmt.Errorf("restore public development wallet: %w", err)
-	}
-	return common.Address(wallet.GetAddress()), nil
-}
-
-func (manager *Manager) inspectEnclave(
-	ctx context.Context,
-	client kurtosisClient,
-	name string,
-	address common.Address,
-) (Environment, error) {
-	execution, err := client.Service(ctx, name, executionServiceName)
+	environment, err := resolveEnvironment(ctx, client, name)
 	if err != nil {
 		return Environment{}, err
 	}
-	rpcURL, ok := execution.PublicEndpoint(rpcPortID, "http")
-	if !ok {
-		return Environment{}, fmt.Errorf(
-			"execution service %q lacks public RPC port %q",
-			executionServiceName,
-			rpcPortID,
-		)
-	}
-	webSocketURL, ok := execution.PublicEndpoint(webSocketPortID, "ws")
-	if !ok {
-		return Environment{}, fmt.Errorf(
-			"execution service %q lacks public WebSocket port %q",
-			executionServiceName,
-			webSocketPortID,
-		)
-	}
-	environment := Environment{
-		RPCURL:       rpcURL,
-		GraphQLURL:   rpcURL + graphQLPath,
-		WebSocketURL: webSocketURL,
-	}
-	if err = manager.probe(ctx, environment.RPCURL, address); err != nil {
+	if err := manager.probe(ctx, environment.RPCURL, address); err != nil {
 		return Environment{}, err
 	}
 	return environment, nil
@@ -167,12 +141,51 @@ func (manager *Manager) Stop(ctx context.Context, name string) error {
 	}
 	found, err := client.EnclaveExists(ctx, name)
 	if err != nil {
-		return fmt.Errorf("resolve development network: %w", err)
+		return err
 	}
 	if !found {
 		return nil
 	}
-	return client.DestroyEnclave(ctx, name)
+	destroyErr := client.DestroyEnclave(ctx, name)
+	// Confirm the deterministic slot is actually free — on a fresh context so
+	// cancellation cannot fake a successful stop — because the next start
+	// trusts this result.
+	confirmCtx, cancel := context.WithTimeout(context.Background(), destroyConfirmationTimeout)
+	defer cancel()
+	if found, err := client.EnclaveExists(confirmCtx, name); err != nil {
+		return errors.Join(destroyErr, fmt.Errorf("confirm enclave destruction: %w", err))
+	} else if found {
+		return errors.Join(destroyErr, errors.New("enclave still occupies its slot"))
+	}
+	return nil
+}
+
+func developmentWalletAddress() (common.Address, error) {
+	wallet, err := devnet.UnsafeDevelopmentWallet()
+	if err != nil {
+		return common.Address{}, fmt.Errorf("restore public development wallet: %w", err)
+	}
+	return common.Address(wallet.GetAddress()), nil
+}
+
+func resolveEnvironment(ctx context.Context, client kurtosisClient, name string) (Environment, error) {
+	execution, err := client.Service(ctx, name, executionServiceName)
+	if err != nil {
+		return Environment{}, err
+	}
+	rpcURL, err := execution.PublicEndpoint(rpcPortID, "http")
+	if err != nil {
+		return Environment{}, fmt.Errorf("execution service %q: %w", executionServiceName, err)
+	}
+	webSocketURL, err := execution.PublicEndpoint(webSocketPortID, "ws")
+	if err != nil {
+		return Environment{}, fmt.Errorf("execution service %q: %w", executionServiceName, err)
+	}
+	return Environment{
+		RPCURL:       rpcURL,
+		GraphQLURL:   rpcURL + graphQLPath,
+		WebSocketURL: webSocketURL,
+	}, nil
 }
 
 // retryUntil retries operation with exponential backoff until it succeeds or

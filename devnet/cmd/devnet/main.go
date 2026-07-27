@@ -82,7 +82,7 @@ func run(
 			"",
 			"complete JSON qrl-package parameters; omit for the built-in single-node profile",
 		)
-		flags.DurationVar(&timeout, "timeout", 30*time.Minute, "network start budget")
+		flags.DurationVar(&timeout, "timeout", network.DefaultStartTimeout, "network start budget")
 	case "stop":
 	default:
 		return fmt.Errorf("unknown command %q", command)
@@ -100,9 +100,6 @@ func run(
 	message := "network ready"
 	switch command {
 	case "start":
-		if executionImage == "" {
-			return errors.New("--execution-image is required")
-		}
 		var parameters []byte
 		if paramsFile != "" {
 			var err error

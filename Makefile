@@ -8,8 +8,10 @@
 GOBIN = ./build/bin
 GORUN = go run
 DEVNET_GO = go -C devnet
-DEVNET_ENCLAVE_NAME ?= go-qrl-devnet
-DEVNET_START_TIMEOUT ?= 30m
+# Enclave name and start timeout default inside the devnet CLI; set these only
+# to override.
+DEVNET_ENCLAVE_NAME ?=
+DEVNET_START_TIMEOUT ?=
 DEVNET_EXECUTION_IMAGE ?= local/go-qrl:devnet
 override DEVNET_PARAMS_FILE := $(if $(strip $(DEVNET_PARAMS_FILE)),$(abspath $(DEVNET_PARAMS_FILE)))
 E2E_SUITE_TIMEOUT ?= 25m
@@ -63,13 +65,14 @@ devtools:
 network-start:
 	docker build --tag "$(DEVNET_EXECUTION_IMAGE)" .
 	$(DEVNET_GO) run ./cmd/devnet start \
-		--enclave-name "$(DEVNET_ENCLAVE_NAME)" \
 		--execution-image "$(DEVNET_EXECUTION_IMAGE)" \
-		--timeout "$(DEVNET_START_TIMEOUT)" $(if $(DEVNET_PARAMS_FILE),--params-file "$(DEVNET_PARAMS_FILE)")
+		$(if $(DEVNET_ENCLAVE_NAME),--enclave-name "$(DEVNET_ENCLAVE_NAME)") \
+		$(if $(DEVNET_START_TIMEOUT),--timeout "$(DEVNET_START_TIMEOUT)") \
+		$(if $(DEVNET_PARAMS_FILE),--params-file "$(DEVNET_PARAMS_FILE)")
 
 #? network-stop: Stop the development network.
 network-stop:
-	$(DEVNET_GO) run ./cmd/devnet stop --enclave-name "$(DEVNET_ENCLAVE_NAME)"
+	$(DEVNET_GO) run ./cmd/devnet stop $(if $(DEVNET_ENCLAVE_NAME),--enclave-name "$(DEVNET_ENCLAVE_NAME)")
 
 #? e2e-test: Run selected Ginkgo E2E suites against the already-running network.
 e2e-test:

@@ -19,9 +19,9 @@ never create or destroy the network.
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `DEVNET_ENCLAVE_NAME` | `go-qrl-devnet` | Kurtosis enclave |
+| `DEVNET_ENCLAVE_NAME` | `go-qrl-devnet` (CLI default) | Kurtosis enclave |
 | `DEVNET_EXECUTION_IMAGE` | `local/go-qrl:devnet` | Tag for the locally built execution image |
-| `DEVNET_START_TIMEOUT` | `30m` | Network startup budget |
+| `DEVNET_START_TIMEOUT` | `30m` (CLI default) | Network startup budget |
 | `DEVNET_PARAMS_FILE` | unset | Complete qrl-package JSON parameters |
 | `E2E_PACKAGES` | required | Suite packages passed to Ginkgo |
 | `E2E_SUITE_TIMEOUT` | `25m` | Suite execution budget |
@@ -35,7 +35,7 @@ DEVNET_ENCLAVE_NAME=my-devnet \
 DEVNET_ENCLAVE_NAME=my-devnet make network-stop
 ```
 
-Enclave names must match `^[-A-Za-z0-9]{1,60}$`. Operations using the same name
+Kurtosis restricts enclave names to letters, digits, and dashes. Operations using the same name
 must run serially. Concurrent networks need different names; concurrent builds
 from different source trees also need different `DEVNET_EXECUTION_IMAGE` tags.
 
@@ -54,7 +54,9 @@ The first participant's `el_image` must use the image token.
 wallet token may also be used as a value, such as `withdrawal_address`.
 
 The controller expects service `el-1-gqrl-qrysm` with public `rpc` and `ws`
-ports. Readiness requires advancing blocks and a funded development wallet.
+ports; the reported GraphQL URL is live only if the profile enables GraphQL on
+the rpc port (the built-in profile passes `--graphql`). Readiness requires
+advancing blocks and a funded development wallet.
 
 ## Adding a suite
 
