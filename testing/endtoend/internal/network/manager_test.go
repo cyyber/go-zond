@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	kurtosisenclave "github.com/kurtosis-tech/kurtosis/api/golang/engine/lib/enclave"
 	"github.com/stretchr/testify/require"
 	"github.com/theQRL/go-qrl/testing/endtoend/internal/kurtosis"
 )
@@ -47,6 +48,7 @@ func TestEnclaveNameIsStable192BitSlot(t *testing.T) {
 	name := enclaveName(first)
 	require.Equal(t, name, enclaveName(first))
 	require.NotEqual(t, name, enclaveName(second))
+	require.Regexp(t, kurtosisenclave.AllowedEnclaveNameCharsRegexStr, name)
 	digest, err := hex.DecodeString(strings.TrimPrefix(name, "go-qrl-e2e-"))
 	require.NoError(t, err)
 	require.Len(t, digest, 24)

@@ -190,7 +190,7 @@ func reconcileDestroy(destroyErr, inspectErr error, exists bool) error {
 		return errors.Join(destroyErr, fmt.Errorf("confirm enclave destruction: %w", inspectErr))
 	}
 	if exists {
-		return errors.Join(destroyErr, errors.New("enclave still exists after destruction"))
+		return errors.Join(destroyErr, errors.New("deterministic enclave slot remains occupied"))
 	}
 	return nil
 }

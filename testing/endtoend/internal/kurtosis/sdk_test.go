@@ -140,4 +140,9 @@ func TestReconcileDestroy(t *testing.T) {
 			}
 		})
 	}
+	require.ErrorContains(
+		t,
+		reconcileDestroy(nil, nil, true),
+		"deterministic enclave slot remains occupied",
+	)
 }

@@ -86,12 +86,6 @@ func (manager *Manager) Start(ctx context.Context, requestedDir, executionImage 
 			cleanupCreatedEnclave(client, enclave),
 		)
 	}
-	if err := ctx.Err(); err != nil {
-		return fmt.Errorf(
-			"Kurtosis enclave was created; its deterministic slot remains for network-stop: %w",
-			err,
-		)
-	}
 
 	if err := client.RunRemotePackage(ctx, enclave, packageLocator, parameters); err != nil {
 		return fmt.Errorf("run pinned qrl-package; network slot remains for network-stop: %w", err)
