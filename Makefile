@@ -3,13 +3,13 @@
 # don't need to bother with make.
 
 .PHONY: gqrl qrvm all test lint fmt clean devtools \
-	e2e-unit network-image network-start network-status live-test network-stop help
+	network-start network-status live-test network-stop help
 
 GOBIN = ./build/bin
 GORUN = go run
 E2E_GO = go -C testing/endtoend
 override E2E_NETWORK_DIR := $(abspath $(or $(strip $(E2E_NETWORK_DIR)),/tmp/go-qrl-e2e-network))
-E2E_NETWORK_TIMEOUT ?= 150m
+E2E_START_TIMEOUT ?= 30m
 E2E_SUITE_TIMEOUT ?= 25m
 E2E_EXECUTION_IMAGE ?= local/go-qrl:e2e
 
@@ -58,21 +58,13 @@ devtools:
 	@type "hypc" 2> /dev/null || echo 'Please install hypc'
 	@type "protoc" 2> /dev/null || echo 'Please install protoc'
 
-#? e2e-unit: Run unit tests and vet for the isolated E2E module.
-e2e-unit:
-	$(E2E_GO) test -count=1 ./...
-	$(E2E_GO) vet ./...
-
-#? network-image: Build the go-qrl execution image used by the E2E network.
-network-image:
-	docker build --tag "$(E2E_EXECUTION_IMAGE)" .
-
 #? network-start: Start a standalone E2E test network without running suites.
-network-start: network-image
+network-start:
+	docker build --tag "$(E2E_EXECUTION_IMAGE)" .
 	$(E2E_GO) run ./cmd/e2e start \
 		--network-dir "$(E2E_NETWORK_DIR)" \
 		--execution-image "$(E2E_EXECUTION_IMAGE)" \
-		--timeout "$(E2E_NETWORK_TIMEOUT)"
+		--timeout "$(E2E_START_TIMEOUT)"
 
 #? network-status: Check whether the standalone E2E network is ready.
 network-status:
