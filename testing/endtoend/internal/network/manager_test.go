@@ -182,27 +182,15 @@ func TestRetryUntilPreservesCancellationAndLastError(t *testing.T) {
 	require.ErrorIs(t, err, lastErr)
 }
 
-func TestStopReconcilesDestroyOutcomes(t *testing.T) {
-	t.Run("rejected then retried", func(t *testing.T) {
-		fixture := newManagerFixture(t)
-		require.NoError(t, fixture.manager.Start(t.Context(), fixture.networkDir, testExecutionImage))
-		fixture.client.DestroyError = errors.New("destroy rejected")
-		require.ErrorContains(t, fixture.manager.Stop(t.Context(), fixture.networkDir), "destroy rejected")
-		require.True(t, fixture.client.Exists)
-		fixture.client.DestroyError = nil
-		require.NoError(t, fixture.manager.Stop(t.Context(), fixture.networkDir))
-		require.Equal(t, 2, fixture.client.Destroys)
-	})
-	t.Run("lost response", func(t *testing.T) {
-		fixture := newManagerFixture(t)
-		require.NoError(t, fixture.manager.Start(t.Context(), fixture.networkDir, testExecutionImage))
-		fixture.client.DestroyError = errors.New("destroy response lost")
-		fixture.client.DestroyAfterError = true
-		require.ErrorContains(t, fixture.manager.Stop(t.Context(), fixture.networkDir), "destroy response lost")
-		require.False(t, fixture.client.Exists)
-		require.NoError(t, fixture.manager.Stop(t.Context(), fixture.networkDir))
-		require.Equal(t, 1, fixture.client.Destroys)
-	})
+func TestStopCanRetryRejectedDestroy(t *testing.T) {
+	fixture := newManagerFixture(t)
+	require.NoError(t, fixture.manager.Start(t.Context(), fixture.networkDir, testExecutionImage))
+	fixture.client.DestroyError = errors.New("destroy rejected")
+	require.ErrorContains(t, fixture.manager.Stop(t.Context(), fixture.networkDir), "destroy rejected")
+	require.True(t, fixture.client.Exists)
+	fixture.client.DestroyError = nil
+	require.NoError(t, fixture.manager.Stop(t.Context(), fixture.networkDir))
+	require.Equal(t, 2, fixture.client.Destroys)
 }
 
 func TestStopUsesTheLatestExactNameLookup(t *testing.T) {

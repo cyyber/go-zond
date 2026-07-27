@@ -41,8 +41,6 @@
 .codex
 .claude
 
-/testing/endtoend/logs/
-
 # binaries
 cmd/abidump/abidump
 cmd/abigen/abigen

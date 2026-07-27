@@ -9,6 +9,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/cenkalti/backoff/v7"
@@ -40,6 +41,11 @@ func NewManager() *Manager {
 		newClient: func() (kurtosisClient, error) { return kurtosis.NewSDKClient() },
 		probe:     probeNetwork,
 	}
+}
+
+// InspectLiveNetwork validates and inspects the separately started network.
+func InspectLiveNetwork(ctx context.Context) (Environment, error) {
+	return NewManager().Inspect(ctx, os.Getenv("E2E_NETWORK_DIR"))
 }
 
 func (manager *Manager) Start(ctx context.Context, requestedDir, executionImage string) error {
