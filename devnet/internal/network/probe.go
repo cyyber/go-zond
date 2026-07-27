@@ -26,19 +26,9 @@ func probeNetwork(ctx context.Context, rpcURL, walletAddress string) error {
 	}
 	defer client.Close()
 
-	actualChainID, err := client.ChainID(ctx)
-	if err != nil {
-		return fmt.Errorf("read chain ID: %w", err)
-	}
-	if actualChainID == nil || actualChainID.Sign() <= 0 {
-		return fmt.Errorf("chain ID must be positive, got %v", actualChainID)
-	}
 	firstBlock, err := client.BlockNumber(ctx)
 	if err != nil {
 		return fmt.Errorf("read block number: %w", err)
-	}
-	if firstBlock == 0 {
-		return errors.New("chain has not produced a post-genesis block")
 	}
 	advancementCtx, cancel := context.WithTimeout(ctx, chainAdvancementWindow)
 	defer cancel()
@@ -52,9 +42,6 @@ func probeNetwork(ctx context.Context, rpcURL, walletAddress string) error {
 		}
 		return nil
 	}); err != nil {
-		if ctx.Err() != nil {
-			return fmt.Errorf("chain advancement probe interrupted: %w", err)
-		}
 		return fmt.Errorf(
 			"chain did not advance beyond block %d within %s: %w",
 			firstBlock,

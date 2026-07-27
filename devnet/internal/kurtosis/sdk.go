@@ -67,9 +67,6 @@ func (client *SDKClient) LookupEnclave(ctx context.Context, name string) (Enclav
 	if err != nil {
 		return EnclaveRef{}, false, fmt.Errorf("list running Kurtosis enclaves: %w", err)
 	}
-	if running == nil {
-		return EnclaveRef{}, false, errors.New("Kurtosis returned a nil enclave listing")
-	}
 	return findExactEnclave(running.GetEnclavesByUuid(), name)
 }
 
@@ -86,7 +83,7 @@ func findExactEnclave(
 ) (EnclaveRef, bool, error) {
 	var match *engine_bindings.EnclaveInfo
 	for _, info := range running {
-		if info == nil || info.GetName() != name {
+		if info.GetName() != name {
 			continue
 		}
 		if match != nil {
@@ -135,15 +132,6 @@ func (client *SDKClient) Service(ctx context.Context, ref EnclaveRef, name strin
 	if err != nil {
 		return Service{}, err
 	}
-	// Kurtosis v1.20 GetServiceContext does not accept a context. Checking
-	// again prevents publishing stale results when the caller was cancelled
-	// while the SDK request was in flight.
-	if err := ctx.Err(); err != nil {
-		return Service{}, err
-	}
-	if serviceContext == nil {
-		return Service{}, errors.New("Kurtosis GetServiceContext returned a nil service context")
-	}
 	ports := make(map[string]uint16, len(serviceContext.GetPublicPorts()))
 	for id, port := range serviceContext.GetPublicPorts() {
 		ports[id] = port.GetNumber()
@@ -163,9 +151,7 @@ func (client *SDKClient) DestroyEnclave(ctx context.Context, ref EnclaveRef) err
 	defer cancel()
 	enclaves, inspectErr := client.context.GetEnclaves(confirmCtx)
 	var exists bool
-	if inspectErr == nil && enclaves == nil {
-		inspectErr = errors.New("Kurtosis returned a nil enclave listing")
-	} else if inspectErr == nil {
+	if inspectErr == nil {
 		exists, inspectErr = destroyStillExists(enclaves.GetEnclavesByUuid(), ref)
 	}
 	return reconcileDestroy(destroyErr, inspectErr, exists)
@@ -175,10 +161,7 @@ func destroyStillExists(
 	running map[string]*engine_bindings.EnclaveInfo,
 	ref EnclaveRef,
 ) (bool, error) {
-	if info, found := running[ref.UUID]; found {
-		if info == nil {
-			return false, fmt.Errorf("Kurtosis returned nil identity for enclave UUID %q", ref.UUID)
-		}
+	if _, found := running[ref.UUID]; found {
 		return true, nil
 	}
 	_, found, err := findExactEnclave(running, ref.Name)
@@ -199,9 +182,6 @@ func (client *SDKClient) enclaveContext(ctx context.Context, ref EnclaveRef) (*e
 	current, err := client.context.GetEnclaveContext(ctx, ref.UUID)
 	if err != nil {
 		return nil, err
-	}
-	if current == nil {
-		return nil, errors.New("Kurtosis returned a nil enclave context")
 	}
 	if string(current.GetEnclaveUuid()) != ref.UUID || current.GetEnclaveName() != ref.Name {
 		return nil, fmt.Errorf("enclave identity changed: got %s/%s, want %s/%s", current.GetEnclaveName(), current.GetEnclaveUuid(), ref.Name, ref.UUID)

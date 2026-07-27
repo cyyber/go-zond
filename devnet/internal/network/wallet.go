@@ -32,9 +32,6 @@ func ensureWallet(networkDir string) (string, error) {
 	}
 	address := common.Address(wallet.GetAddress()).Hex()
 	if err := writeExclusive(seedPath, []byte(hex.EncodeToString(seed.ToBytes())+"\n")); err != nil {
-		if errors.Is(err, os.ErrExist) {
-			return validateWalletSeed(seedPath)
-		}
 		return "", err
 	}
 	return address, nil

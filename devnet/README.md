@@ -71,9 +71,9 @@ larger string is left unchanged.
 
 Custom parameters may use any qrl-package fields, but the current controller
 expects the primary execution service `el-1-gqrl-qrysm` with public `rpc` and
-`ws` ports. Readiness requires a valid positive chain ID, a post-genesis block,
-continued block production, and a positive generated-wallet balance. No
-parameter copy, manifest, or checkpoint is written to the runtime directory.
+`ws` ports. Readiness requires advancing block production and a positive
+generated-wallet balance. No parameter copy, manifest, or checkpoint is written
+to the runtime directory.
 
 ## Lifecycle and private state
 
