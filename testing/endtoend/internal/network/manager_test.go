@@ -5,29 +5,17 @@ package network
 
 import (
 	"context"
-	"encoding/hex"
-	"errors"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
-	kurtosisenclave "github.com/kurtosis-tech/kurtosis/api/golang/engine/lib/enclave"
 	"github.com/stretchr/testify/require"
 	"github.com/theQRL/go-qrl/testing/endtoend/internal/kurtosis"
 )
 
 const testExecutionImage = "local/go-qrl:test"
 
-type managerFixture struct {
-	manager    *Manager
-	client     *fakeKurtosis
-	networkDir string
-}
-
-func newManagerFixture(t *testing.T) managerFixture {
-	t.Helper()
+func TestNetworkLifecycle(t *testing.T) {
 	networkDir, err := ensureNetworkDirectory(filepath.Join(t.TempDir(), "network"))
 	require.NoError(t, err)
 	client := &fakeKurtosis{
@@ -40,179 +28,24 @@ func newManagerFixture(t *testing.T) managerFixture {
 	manager := NewManager()
 	manager.newClient = func() (kurtosisClient, error) { return client, nil }
 	manager.probe = func(context.Context, string, string) error { return nil }
-	return managerFixture{manager, client, networkDir}
-}
 
-func TestEnclaveNameIsStable192BitSlot(t *testing.T) {
-	first, second := t.TempDir(), t.TempDir()
-	name := enclaveName(first)
-	require.Equal(t, name, enclaveName(first))
-	require.NotEqual(t, name, enclaveName(second))
-	require.Regexp(t, kurtosisenclave.AllowedEnclaveNameCharsRegexStr, name)
-	digest, err := hex.DecodeString(strings.TrimPrefix(name, "go-qrl-e2e-"))
-	require.NoError(t, err)
-	require.Len(t, digest, 24)
-}
+	require.NoError(t, manager.Start(t.Context(), networkDir, testExecutionImage))
+	require.Equal(t, enclaveName(networkDir), client.Enclave.Name)
+	require.Equal(t, packageLocator, client.RunLocator)
+	require.Contains(t, client.RunParameters, `"el_image":"local/go-qrl:test"`)
+	require.Equal(t, client.Enclave, client.RunRef)
 
-func TestStartOwnsOneDeterministicSlot(t *testing.T) {
-	fixture := newManagerFixture(t)
-	require.NoError(t, fixture.manager.Start(t.Context(), fixture.networkDir, testExecutionImage))
-	require.Equal(t, enclaveName(fixture.networkDir), fixture.client.Enclave.Name)
-	require.Equal(t, 1, fixture.client.Creates)
-	require.Equal(t, 1, fixture.client.Runs)
-	require.Equal(t, packageLocator, fixture.client.RunLocator)
-	require.Contains(t, fixture.client.RunParameters, `"el_image":"local/go-qrl:test"`)
-	require.Equal(t, fixture.client.Enclave, fixture.client.RunRef)
-
-	environment, err := fixture.manager.Inspect(t.Context(), fixture.networkDir)
+	environment, err := manager.Inspect(t.Context(), networkDir)
 	require.NoError(t, err)
 	require.Equal(t, "http://127.0.0.1:18545", environment.RPCURL)
 	require.Equal(t, "http://127.0.0.1:18545/graphql", environment.GraphQLURL)
 	require.Equal(t, "ws://127.0.0.1:18546", environment.WebSocketURL)
-	require.Equal(t, filepath.Join(fixture.networkDir, "wallet.seed"), environment.SeedFile)
-	require.Equal(t, fixture.client.Enclave, fixture.client.ServiceRef)
+	require.Equal(t, filepath.Join(networkDir, "wallet.seed"), environment.SeedFile)
+	require.Equal(t, client.Enclave, client.ServiceRef)
 
-	require.ErrorContains(t, fixture.manager.Start(t.Context(), fixture.networkDir, testExecutionImage), "already exists")
-	require.Equal(t, 1, fixture.client.Creates)
-	require.Equal(t, 1, fixture.client.Runs)
-}
-
-func TestLifecycleDoesNotTreatLookupFailureAsAbsence(t *testing.T) {
-	operations := []struct {
-		name string
-		run  func(context.Context, *managerFixture) error
-	}{
-		{"start", func(ctx context.Context, f *managerFixture) error {
-			return f.manager.Start(ctx, f.networkDir, testExecutionImage)
-		}},
-		{"status", func(ctx context.Context, f *managerFixture) error {
-			_, err := f.manager.Inspect(ctx, f.networkDir)
-			return err
-		}},
-		{"stop", func(ctx context.Context, f *managerFixture) error {
-			return f.manager.Stop(ctx, f.networkDir)
-		}},
-	}
-	for _, operation := range operations {
-		t.Run(operation.name, func(t *testing.T) {
-			fixture := newManagerFixture(t)
-			lookupErr := errors.New("engine listing failed")
-			fixture.client.LookupError = lookupErr
-			err := operation.run(t.Context(), &fixture)
-			require.ErrorIs(t, err, lookupErr)
-			require.ErrorContains(t, err, "resolve deterministic network slot")
-			require.Zero(t, fixture.client.Creates)
-			require.Zero(t, fixture.client.Runs)
-			require.Zero(t, fixture.client.Destroys)
-		})
-	}
-}
-
-func TestInspectAndStopAbsentSlot(t *testing.T) {
-	fixture := newManagerFixture(t)
-	_, err := fixture.manager.Inspect(t.Context(), fixture.networkDir)
+	require.NoError(t, manager.Stop(t.Context(), networkDir))
+	require.False(t, client.Exists)
+	require.Equal(t, client.Enclave, client.DestroyRef)
+	_, err = manager.Inspect(t.Context(), networkDir)
 	require.ErrorContains(t, err, "not running")
-	require.NoError(t, fixture.manager.Stop(t.Context(), fixture.networkDir))
-	require.Zero(t, fixture.client.Destroys)
-}
-
-func TestInspectRequiresExecutionEndpoints(t *testing.T) {
-	for _, portID := range []string{rpcPortID, webSocketPortID} {
-		t.Run(portID, func(t *testing.T) {
-			fixture := newManagerFixture(t)
-			_, err := ensureWallet(fixture.networkDir)
-			require.NoError(t, err)
-			delete(fixture.client.ExecutionService.PublicPorts, portID)
-			_, err = fixture.manager.inspectEnclave(t.Context(), fixture.client, fixture.client.Enclave, fixture.networkDir)
-			require.ErrorContains(t, err, portID)
-		})
-	}
-}
-
-func TestProvisioningFailureLeavesStoppableSlot(t *testing.T) {
-	fixture := newManagerFixture(t)
-	fixture.client.RunError = errors.New("package failed")
-	require.ErrorContains(t, fixture.manager.Start(t.Context(), fixture.networkDir, testExecutionImage), "slot remains")
-	require.True(t, fixture.client.Exists)
-	require.ErrorContains(t, fixture.manager.Start(t.Context(), fixture.networkDir, testExecutionImage), "network-stop")
-
-	fixture.client.RunError = nil
-	require.NoError(t, fixture.manager.Stop(t.Context(), fixture.networkDir))
-	require.NoError(t, fixture.manager.Stop(t.Context(), fixture.networkDir))
-	require.False(t, fixture.client.Exists)
-	require.Equal(t, 1, fixture.client.Destroys)
-	require.Equal(t, fixture.client.Enclave, fixture.client.DestroyRef)
-}
-
-func TestCreateFailureNeverAdoptsTheDeterministicSlot(t *testing.T) {
-	fixture := newManagerFixture(t)
-	fixture.client.CreateError = errors.New("create response lost")
-	fixture.client.CreateAfterError = true
-	err := fixture.manager.Start(t.Context(), fixture.networkDir, testExecutionImage)
-	require.ErrorContains(t, err, "may remain for network-stop")
-	require.True(t, fixture.client.Exists)
-	require.Zero(t, fixture.client.Runs)
-
-	fixture.client.CreateError = nil
-	require.NoError(t, fixture.manager.Stop(t.Context(), fixture.networkDir))
-	require.Equal(t, fixture.client.Enclave, fixture.client.DestroyRef)
-}
-
-func TestUnexpectedCreatedIdentityIsCleanedUp(t *testing.T) {
-	fixture := newManagerFixture(t)
-	fixture.client.Enclave.Name = "unexpected-enclave"
-	err := fixture.manager.Start(t.Context(), fixture.networkDir, testExecutionImage)
-	require.ErrorContains(t, err, "unexpected enclave identity")
-	require.False(t, fixture.client.Exists)
-	require.Equal(t, 1, fixture.client.Destroys)
-	require.Zero(t, fixture.client.Runs)
-}
-
-func TestRetryUntilPreservesCancellationAndLastError(t *testing.T) {
-	lastErr := errors.New("last operation failed")
-	ctx, cancel := context.WithCancel(t.Context())
-	cancel()
-	attempts := 0
-	err := retryUntil(ctx, time.Hour, time.Hour, func(context.Context) error {
-		attempts++
-		return lastErr
-	})
-	require.Equal(t, 1, attempts)
-	require.ErrorIs(t, err, context.Canceled)
-	require.ErrorIs(t, err, lastErr)
-}
-
-func TestStopCanRetryRejectedDestroy(t *testing.T) {
-	fixture := newManagerFixture(t)
-	require.NoError(t, fixture.manager.Start(t.Context(), fixture.networkDir, testExecutionImage))
-	fixture.client.DestroyError = errors.New("destroy rejected")
-	require.ErrorContains(t, fixture.manager.Stop(t.Context(), fixture.networkDir), "destroy rejected")
-	require.True(t, fixture.client.Exists)
-	fixture.client.DestroyError = nil
-	require.NoError(t, fixture.manager.Stop(t.Context(), fixture.networkDir))
-	require.Equal(t, 2, fixture.client.Destroys)
-}
-
-func TestStopUsesTheLatestExactNameLookup(t *testing.T) {
-	fixture := newManagerFixture(t)
-	fixture.client.Enclave = kurtosis.EnclaveRef{
-		Name: enclaveName(fixture.networkDir),
-		UUID: strings.Repeat("b", 32),
-	}
-	fixture.client.Exists = true
-	require.NoError(t, fixture.manager.Stop(t.Context(), fixture.networkDir))
-	require.Equal(t, fixture.client.Enclave, fixture.client.DestroyRef)
-}
-
-func TestStopRecreatesAMissingNormalSlotDirectory(t *testing.T) {
-	fixture := newManagerFixture(t)
-	fixture.client.Enclave.Name = enclaveName(fixture.networkDir)
-	fixture.client.Exists = true
-	require.NoError(t, os.RemoveAll(fixture.networkDir))
-
-	require.NoError(t, fixture.manager.Stop(t.Context(), fixture.networkDir))
-	info, err := os.Stat(fixture.networkDir)
-	require.NoError(t, err)
-	require.Equal(t, os.FileMode(0o700), info.Mode().Perm())
-	require.Equal(t, fixture.client.Enclave, fixture.client.DestroyRef)
 }

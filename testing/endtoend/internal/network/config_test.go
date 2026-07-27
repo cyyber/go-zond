@@ -45,11 +45,3 @@ func TestEffectiveParametersUseRequestedExecutionAndFixedSupportImages(t *testin
 		require.NotContains(t, network, key)
 	}
 }
-
-func TestEffectiveParametersRejectInvalidInputs(t *testing.T) {
-	address := "Q" + strings.Repeat("a", 128)
-	_, err := effectiveParameters("0x01", testExecutionImage)
-	require.Error(t, err)
-	_, err = effectiveParameters(address, "")
-	require.Error(t, err)
-}

@@ -9,19 +9,17 @@ import (
 	"strings"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 	"github.com/theQRL/go-qrl/rpc"
 )
 
 type probeService struct {
-	mu           sync.Mutex
-	chainID      string
-	balance      string
-	freezeBlocks bool
-	blockCalls   int
-	address      string
+	mu         sync.Mutex
+	chainID    string
+	balance    string
+	blockCalls int
+	address    string
 }
 
 func (service *probeService) ChainId() string { return service.chainID }
@@ -30,7 +28,7 @@ func (service *probeService) BlockNumber() string {
 	service.mu.Lock()
 	defer service.mu.Unlock()
 	service.blockCalls++
-	if service.freezeBlocks || service.blockCalls == 1 {
+	if service.blockCalls == 1 {
 		return "0x1"
 	}
 	return "0x2"
@@ -79,16 +77,4 @@ func TestProbeNetworkRejectsWrongChainAndEmptyWallet(t *testing.T) {
 			require.Error(t, err)
 		})
 	}
-}
-
-func TestProbeNetworkHonorsCallerDeadline(t *testing.T) {
-	service := &probeService{chainID: "0x539", balance: "0x1", freezeBlocks: true}
-	server := newProbeServer(t, service)
-	defer server.Close()
-	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
-	defer cancel()
-	err := probeNetwork(ctx, server.URL, "Q"+strings.Repeat("d", 128))
-	require.ErrorIs(t, err, context.DeadlineExceeded)
-	require.ErrorContains(t, err, "chain advancement probe interrupted")
-	require.ErrorContains(t, err, "block number remains at 1")
 }

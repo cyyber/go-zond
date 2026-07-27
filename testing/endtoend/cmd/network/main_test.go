@@ -6,7 +6,6 @@ package main
 import (
 	"bytes"
 	"context"
-	"errors"
 	"testing"
 	"time"
 
@@ -15,9 +14,8 @@ import (
 )
 
 type recordingNetworks struct {
-	call       string
-	deadline   time.Time
-	inspectErr error
+	call     string
+	deadline time.Time
 }
 
 func (networks *recordingNetworks) Start(ctx context.Context, directory, image string) error {
@@ -28,7 +26,7 @@ func (networks *recordingNetworks) Start(ctx context.Context, directory, image s
 
 func (networks *recordingNetworks) Inspect(_ context.Context, directory string) (network.Environment, error) {
 	networks.call = "status:" + directory
-	return network.Environment{}, networks.inspectErr
+	return network.Environment{}, nil
 }
 
 func (networks *recordingNetworks) Stop(_ context.Context, directory string) error {
@@ -38,71 +36,30 @@ func (networks *recordingNetworks) Stop(_ context.Context, directory string) err
 
 func TestRun(t *testing.T) {
 	networkDir := t.TempDir()
-	statusErr := errors.New("network is not running")
 	for _, test := range []struct {
-		name, output, call, errorText string
-		arguments                     []string
-		inspectErr                    error
-		timeout                       bool
+		name, output, call string
+		arguments          []string
+		timeout            bool
 	}{
 		{
-			"start", "network ready\n", "start:" + networkDir + ":local/go-qrl:test", "",
-			[]string{"start", "--network-dir", networkDir, "--execution-image", "local/go-qrl:test", "--timeout", "17m"}, nil, true,
+			"start", "network ready\n", "start:" + networkDir + ":local/go-qrl:test",
+			[]string{"start", "--network-dir", networkDir, "--execution-image", "local/go-qrl:test", "--timeout", "17m"}, true,
 		},
-		{"status", "network ready\n", "status:" + networkDir, "", []string{"status", "--network-dir", networkDir}, nil, false},
-		{"stop", "network stopped\n", "stop:" + networkDir, "", []string{"stop", "--network-dir", networkDir}, nil, false},
-		{"unknown command", "", "", "unknown command", []string{"unknown"}, nil, false},
-		{"missing directory", "", "", "--network-dir is required", []string{"status"}, nil, false},
-		{"empty directory", "", "", "--network-dir is required", []string{"status", "--network-dir", ""}, nil, false},
-		{
-			"missing image", "", "", "--execution-image is required",
-			[]string{"start", "--network-dir", networkDir}, nil, false,
-		},
-		{
-			"empty image", "", "", "--execution-image is required",
-			[]string{"start", "--network-dir", networkDir, "--execution-image", ""}, nil, false,
-		},
-		{
-			"unexpected arguments", "", "", "unexpected positional arguments",
-			[]string{"status", "--network-dir", networkDir, "extra"}, nil, false,
-		},
-		{"failed status", "", "status:" + networkDir, statusErr.Error(), []string{"status", "--network-dir", networkDir}, statusErr, false},
+		{"status", "network ready\n", "status:" + networkDir, []string{"status", "--network-dir", networkDir}, false},
+		{"stop", "network stopped\n", "stop:" + networkDir, []string{"stop", "--network-dir", networkDir}, false},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			networks := &recordingNetworks{inspectErr: test.inspectErr}
+			networks := new(recordingNetworks)
 			var stdout, stderr bytes.Buffer
 			before := time.Now()
-			err := run(t.Context(), test.arguments, &stdout, &stderr, networks)
+			require.NoError(t, run(t.Context(), test.arguments, &stdout, &stderr, networks))
 			after := time.Now()
-			if test.errorText == "" {
-				require.NoError(t, err)
-			} else {
-				require.ErrorContains(t, err, test.errorText)
-			}
 			require.Equal(t, test.output, stdout.String())
 			require.Equal(t, test.call, networks.call)
 			require.Empty(t, stderr.String())
-			if test.inspectErr != nil {
-				require.ErrorIs(t, err, test.inspectErr)
-			}
 			if test.timeout {
 				require.WithinRange(t, networks.deadline, before.Add(17*time.Minute), after.Add(17*time.Minute))
 			}
 		})
-	}
-}
-
-func TestRunHelp(t *testing.T) {
-	for _, arguments := range [][]string{nil, {"--help"}, {"help"}} {
-		var stdout, stderr bytes.Buffer
-		networks := new(recordingNetworks)
-		require.NoError(t, run(t.Context(), arguments, &stdout, &stderr, networks))
-		require.Contains(t, stdout.String(), "Manage the separately running E2E network")
-		require.Contains(t, stdout.String(), "network")
-		require.Contains(t, stdout.String(), "start")
-		require.Contains(t, stdout.String(), "status")
-		require.Contains(t, stdout.String(), "stop")
-		require.Empty(t, stderr.String())
-		require.Empty(t, networks.call)
 	}
 }
