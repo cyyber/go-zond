@@ -47,11 +47,6 @@ func (manager *Manager) Start(ctx context.Context, requestedDir, executionImage 
 	if err != nil {
 		return err
 	}
-	mutation, err := AcquireMutationLease(networkDir)
-	if err != nil {
-		return err
-	}
-	defer mutation.Close()
 
 	name := enclaveName(networkDir)
 	client, err := manager.newClient()
@@ -167,11 +162,6 @@ func (manager *Manager) Stop(ctx context.Context, requestedDir string) error {
 	if err != nil {
 		return err
 	}
-	mutation, err := AcquireMutationLease(networkDir)
-	if err != nil {
-		return err
-	}
-	defer mutation.Close()
 
 	client, err := manager.newClient()
 	if err != nil {

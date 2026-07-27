@@ -34,20 +34,3 @@ func TestEnsureNetworkDirectoryRejectsWithoutChangingExistingPermissions(t *test
 	require.NoError(t, statErr)
 	require.Equal(t, os.FileMode(0o755), info.Mode().Perm())
 }
-
-func TestMutationLeaseContendsAndReopens(t *testing.T) {
-	networkDir, err := ensureNetworkDirectory(filepath.Join(t.TempDir(), "network"))
-	require.NoError(t, err)
-	first, err := AcquireMutationLease(networkDir)
-	require.NoError(t, err)
-	if second, err := AcquireMutationLease(networkDir); err == nil {
-		_ = second.Close()
-		t.Fatal("concurrent lease was acquired")
-	} else {
-		require.ErrorContains(t, err, "already in progress")
-	}
-	require.NoError(t, first.Close())
-	reopened, err := AcquireMutationLease(networkDir)
-	require.NoError(t, err, "reopen lease")
-	require.NoError(t, reopened.Close())
-}

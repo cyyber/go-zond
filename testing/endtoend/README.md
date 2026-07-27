@@ -62,7 +62,7 @@ Status is deliberately pass/fail: it prints `network ready` only after resolving
 the directory's deterministic enclave slot and probing the advancing funded
 chain. Unavailable or incomplete networks return a non-zero exit status.
 
-The runtime directory contains only the funded wallet seed and a mutation lock.
+The framework writes only the funded wallet seed.
 The enclave name is a deterministic 192-bit digest of the canonical directory;
 each lifecycle command resolves its current UUID from Kurtosis. `network-stop`
 destroys that UUID, independently confirms that neither the UUID nor its
@@ -96,10 +96,13 @@ Create `testing/endtoend/suites/<suite>` with a `TestE2E` bootstrap, then run:
 make live-test E2E_PACKAGES=./suites/<suite>
 ```
 
-Call `suitekit.OpenLiveNetwork(ctx)` to authenticate the shared network and
-hold its mutation lease. It exposes RPC, GraphQL, and WebSocket endpoints plus
-the funded seed path. Each suite owns the clients, wallets, consoles, or command
-processes it needs. Close the live network handle when the suite finishes.
+Call `suitekit.InspectLiveNetwork(ctx)` to validate and inspect the shared network.
+It exposes RPC, GraphQL, and WebSocket endpoints plus the funded seed path. Each
+suite owns the clients, wallets, consoles, or command processes it needs.
+
+Lifecycle commands and separate live-test invocations for the same
+`E2E_NETWORK_DIR` must run serially. Use a different network directory for
+independent concurrent runs.
 
 Prefer Ginkgo specs with `SpecContext`, `By`, `DeferCleanup`, and explicit
 timeouts over another custom runner. Keep state-changing scenarios rerunnable

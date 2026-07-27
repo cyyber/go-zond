@@ -6,7 +6,6 @@ tool github.com/onsi/ginkgo/v2/ginkgo
 
 require (
 	github.com/cenkalti/backoff/v7 v7.0.0
-	github.com/gofrs/flock v0.13.0
 	github.com/kurtosis-tech/kurtosis/api/golang v1.20.0
 	github.com/stretchr/testify v1.11.1
 	github.com/theQRL/go-qrl v0.0.0
