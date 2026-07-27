@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/cenkalti/backoff/v7"
@@ -146,7 +147,7 @@ func (manager *Manager) inspectEnclave(
 			webSocketPortID,
 		)
 	}
-	seedFile := walletSeedPath(networkDir)
+	seedFile := filepath.Join(networkDir, "wallet.seed")
 	environment := Environment{
 		RPCURL:       rpcURL,
 		GraphQLURL:   rpcURL + graphQLPath,
