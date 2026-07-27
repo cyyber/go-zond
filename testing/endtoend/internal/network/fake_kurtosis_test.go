@@ -18,7 +18,6 @@ type fakeKurtosis struct {
 	Creates, Lookups, Runs, Destroys                 int
 	RunLocator, RunParameters                        string
 	RunRef, ServiceRef, DestroyRef                   kurtosis.EnclaveRef
-	RunStarted, RunRelease                           chan struct{}
 }
 
 func (fake *fakeKurtosis) CreateEnclave(_ context.Context, name string) (kurtosis.EnclaveRef, error) {
@@ -51,20 +50,10 @@ func (fake *fakeKurtosis) LookupEnclave(ctx context.Context, name string) (kurto
 	return fake.Enclave, true, nil
 }
 
-func (fake *fakeKurtosis) RunRemotePackage(ctx context.Context, ref kurtosis.EnclaveRef, locator, parameters string) error {
+func (fake *fakeKurtosis) RunRemotePackage(_ context.Context, ref kurtosis.EnclaveRef, locator, parameters string) error {
 	fake.Runs++
 	fake.RunRef = ref
 	fake.RunLocator, fake.RunParameters = locator, parameters
-	if fake.RunStarted != nil {
-		close(fake.RunStarted)
-	}
-	if fake.RunRelease != nil {
-		select {
-		case <-fake.RunRelease:
-		case <-ctx.Done():
-			return ctx.Err()
-		}
-	}
 	return fake.RunError
 }
 

@@ -5,31 +5,9 @@ package network
 
 import (
 	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
-
-	"github.com/gofrs/flock"
 )
-
-// AcquireMutationLease takes the non-blocking cross-process lock shared by
-// network lifecycle commands and live suites.
-func AcquireMutationLease(networkDir string) (*flock.Flock, error) {
-	canonical, err := canonicalNetworkDirectory(networkDir)
-	if err != nil {
-		return nil, err
-	}
-	lock := flock.New(filepath.Join(canonical, "mutation.lock"))
-	locked, err := lock.TryLock()
-	if err != nil {
-		return nil, fmt.Errorf("acquire network mutation lease: %w", err)
-	}
-	if !locked {
-		_ = lock.Close()
-		return nil, errors.New("network mutation is already in progress")
-	}
-	return lock, nil
-}
 
 func canonicalNetworkDirectory(path string) (string, error) {
 	if path == "" || !filepath.IsAbs(path) {

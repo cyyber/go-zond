@@ -228,21 +228,3 @@ func TestStopRecreatesAMissingNormalSlotDirectory(t *testing.T) {
 	require.Equal(t, os.FileMode(0o700), info.Mode().Perm())
 	require.Equal(t, fixture.client.Enclave, fixture.client.DestroyRef)
 }
-
-func TestStartHoldsMutationLeaseThroughPackageExecution(t *testing.T) {
-	fixture := newManagerFixture(t)
-	fixture.client.RunStarted = make(chan struct{})
-	fixture.client.RunRelease = make(chan struct{})
-	startResult := make(chan error, 1)
-	go func() {
-		startResult <- fixture.manager.Start(t.Context(), fixture.networkDir, testExecutionImage)
-	}()
-	<-fixture.client.RunStarted
-
-	err := fixture.manager.Stop(t.Context(), fixture.networkDir)
-	require.ErrorContains(t, err, "already in progress")
-	require.Zero(t, fixture.client.Destroys)
-
-	close(fixture.client.RunRelease)
-	require.NoError(t, <-startResult)
-}
