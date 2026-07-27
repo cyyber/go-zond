@@ -14,12 +14,8 @@ import (
 	qrlwallet "github.com/theQRL/go-qrl/crypto/pqcrypto/wallet"
 )
 
-func walletSeedPath(networkDir string) string {
-	return filepath.Join(networkDir, "wallet.seed")
-}
-
 func ensureWallet(networkDir string) (string, error) {
-	seedPath := walletSeedPath(networkDir)
+	seedPath := filepath.Join(networkDir, "wallet.seed")
 	if _, err := os.Lstat(seedPath); err == nil {
 		return validateWalletSeed(seedPath)
 	} else if !errors.Is(err, os.ErrNotExist) {

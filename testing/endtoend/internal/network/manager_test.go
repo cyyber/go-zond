@@ -69,7 +69,7 @@ func TestStartOwnsOneDeterministicSlot(t *testing.T) {
 	require.Equal(t, "http://127.0.0.1:18545", environment.RPCURL)
 	require.Equal(t, "http://127.0.0.1:18545/graphql", environment.GraphQLURL)
 	require.Equal(t, "ws://127.0.0.1:18546", environment.WebSocketURL)
-	require.Equal(t, walletSeedPath(fixture.networkDir), environment.SeedFile)
+	require.Equal(t, filepath.Join(fixture.networkDir, "wallet.seed"), environment.SeedFile)
 	require.Equal(t, fixture.client.Enclave, fixture.client.ServiceRef)
 
 	require.ErrorContains(t, fixture.manager.Start(t.Context(), fixture.networkDir, testExecutionImage), "already exists")
