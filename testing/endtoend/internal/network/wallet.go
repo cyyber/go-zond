@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/theQRL/go-qrl/common"
 	qrlwallet "github.com/theQRL/go-qrl/crypto/pqcrypto/wallet"
@@ -53,11 +52,7 @@ func validateWalletSeed(path string) (string, error) {
 	if info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() || info.Mode().Perm() != 0o600 {
 		return "", fmt.Errorf("%s must be a non-symlink 0600 regular file", path)
 	}
-	seed, err := os.ReadFile(path)
-	if err != nil {
-		return "", err
-	}
-	wallet, err := qrlwallet.RestoreFromSeedHex(strings.TrimSpace(string(seed)))
+	wallet, err := qrlwallet.RestoreFromFile(path)
 	if err != nil {
 		return "", fmt.Errorf("restore existing wallet: %w", err)
 	}

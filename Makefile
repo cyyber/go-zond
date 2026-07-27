@@ -65,21 +65,7 @@ e2e-unit:
 
 #? network-image: Build the go-qrl execution image used by the E2E network.
 network-image:
-	@status="$$(git status --porcelain=v1 --untracked-files=all)" || exit 1; \
-	revision="$$(git rev-parse HEAD)" || exit 1; \
-	if [ -n "$$status" ]; then \
-		if [ "$${E2E_REQUIRE_CLEAN:-0}" = "1" ]; then \
-			echo "E2E_REQUIRE_CLEAN=1 refuses a dirty execution-image build." >&2; \
-			echo "$$status" >&2; \
-			exit 1; \
-		fi; \
-		revision="working-tree-$$(git rev-parse --short=12 HEAD)"; \
-		echo "Building dirty execution image with revision $$revision." >&2; \
-	fi; \
-	docker build \
-		--build-arg "COMMIT=$$revision" \
-		--tag "$(E2E_EXECUTION_IMAGE)" \
-		.
+	docker build --tag "$(E2E_EXECUTION_IMAGE)" .
 
 #? network-start: Start a standalone E2E test network without running suites.
 network-start: network-image

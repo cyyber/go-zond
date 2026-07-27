@@ -18,9 +18,9 @@ make network-stop
 Starting a network never runs tests. Running tests never creates or destroys a
 network.
 
-The Make interface has one required package selector, `E2E_PACKAGES`, and five
+The Make interface has one required package selector, `E2E_PACKAGES`, and four
 optional overrides: `E2E_NETWORK_DIR`, `E2E_NETWORK_TIMEOUT`,
-`E2E_SUITE_TIMEOUT`, `E2E_EXECUTION_IMAGE`, and `E2E_REQUIRE_CLEAN`.
+`E2E_SUITE_TIMEOUT`, and `E2E_EXECUTION_IMAGE`.
 `E2E_NETWORK_TIMEOUT` bounds provisioning; `E2E_SUITE_TIMEOUT` bounds Ginkgo
 execution. The lifecycle targets normalize `E2E_NETWORK_DIR` to an absolute path
 before passing it to the Go commands.
@@ -33,13 +33,11 @@ funded wallet, and one QRL genesis generator. Multi-node, Clef, explorer, and
 transaction-spammer topologies are outside this minimal profile. They can be
 added later as separate network profiles with suites that target them. The
 required Go and Kurtosis versions are declared in [`go.mod`](go.mod); Docker and
-Git are also required. A local Kurtosis 1.20 engine must already be running;
-the lifecycle command connects to it but does not install or start it.
+the Kurtosis CLI are also required. A local Kurtosis 1.20 engine must already be
+running; the lifecycle command connects to it but does not install or start it.
 
-`network-start` first builds the current go-qrl working tree. Clean builds embed
-the full commit; dirty builds embed `working-tree-<short-commit>` and print a
-warning. Set `E2E_REQUIRE_CLEAN=1` to reject dirty builds. Build the image without
-starting a network with `make network-image`. The root
+`network-start` first builds the current go-qrl working tree. Build the image
+without starting a network with `make network-image`. The root
 [`Dockerfile`](../../Dockerfile) pins its builder and runtime bases by
 digest. The organization-published support images are consumed directly.
 
@@ -96,7 +94,7 @@ Create `testing/endtoend/suites/<suite>` with a `TestE2E` bootstrap, then run:
 make live-test E2E_PACKAGES=./suites/<suite>
 ```
 
-Call `suitekit.InspectLiveNetwork(ctx)` to validate and inspect the shared network.
+Call `network.InspectLiveNetwork(ctx)` to validate and inspect the shared network.
 It exposes RPC, GraphQL, and WebSocket endpoints plus the funded seed path. Each
 suite owns the clients, wallets, consoles, or command processes it needs.
 

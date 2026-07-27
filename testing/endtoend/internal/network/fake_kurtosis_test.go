@@ -14,8 +14,8 @@ type fakeKurtosis struct {
 	Enclave                                          kurtosis.EnclaveRef
 	ExecutionService                                 kurtosis.Service
 	CreateError, LookupError, RunError, DestroyError error
-	CreateAfterError, DestroyAfterError, Exists      bool
-	Creates, Lookups, Runs, Destroys                 int
+	CreateAfterError, Exists                         bool
+	Creates, Runs, Destroys                          int
 	RunLocator, RunParameters                        string
 	RunRef, ServiceRef, DestroyRef                   kurtosis.EnclaveRef
 }
@@ -37,7 +37,6 @@ func (fake *fakeKurtosis) CreateEnclave(_ context.Context, name string) (kurtosi
 }
 
 func (fake *fakeKurtosis) LookupEnclave(ctx context.Context, name string) (kurtosis.EnclaveRef, bool, error) {
-	fake.Lookups++
 	if err := ctx.Err(); err != nil {
 		return kurtosis.EnclaveRef{}, false, err
 	}
@@ -69,9 +68,6 @@ func (fake *fakeKurtosis) DestroyEnclave(_ context.Context, ref kurtosis.Enclave
 	fake.Destroys++
 	fake.DestroyRef = ref
 	if fake.DestroyError != nil {
-		if fake.DestroyAfterError {
-			fake.Exists = false
-		}
 		return fake.DestroyError
 	}
 	fake.Exists = false
