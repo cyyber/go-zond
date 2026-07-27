@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"net"
 	"strconv"
-	"time"
 
 	"github.com/kurtosis-tech/kurtosis/api/golang/core/kurtosis_core_rpc_api_bindings"
 	"github.com/kurtosis-tech/kurtosis/api/golang/core/lib/starlark_run_config"
@@ -23,19 +22,20 @@ type Service struct {
 	PublicPorts map[string]uint16
 }
 
-func (service Service) PublicEndpoint(portID, scheme string) (string, bool) {
+func (service Service) PublicEndpoint(portID, scheme string) (string, error) {
 	port, ok := service.PublicPorts[portID]
-	if !ok || service.PublicIP == "" || port == 0 {
-		return "", false
+	if !ok || port == 0 {
+		return "", fmt.Errorf("no public %q port", portID)
 	}
-	return scheme + "://" + net.JoinHostPort(service.PublicIP, strconv.Itoa(int(port))), true
+	if service.PublicIP == "" {
+		return "", errors.New("no public IP address")
+	}
+	return scheme + "://" + net.JoinHostPort(service.PublicIP, strconv.Itoa(int(port))), nil
 }
 
 type SDKClient struct {
 	context *kurtosis_context.KurtosisContext
 }
-
-const destroyConfirmationTimeout = 15 * time.Second
 
 func NewSDKClient() (*SDKClient, error) {
 	ctx, err := kurtosis_context.NewKurtosisContextFromLocalEngine()
@@ -96,18 +96,7 @@ func (client *SDKClient) Service(ctx context.Context, enclaveName, serviceName s
 }
 
 func (client *SDKClient) DestroyEnclave(ctx context.Context, name string) error {
-	destroyErr := client.context.DestroyEnclave(ctx, name)
-	confirmCtx, cancel := context.WithTimeout(context.Background(), destroyConfirmationTimeout)
-	defer cancel()
-	enclaves, inspectErr := client.context.GetEnclaves(confirmCtx)
-	if inspectErr != nil {
-		return errors.Join(destroyErr, fmt.Errorf("confirm enclave destruction: %w", inspectErr))
-	}
-	_, exists := enclaves.GetEnclavesByName()[name]
-	if exists {
-		return errors.Join(destroyErr, errors.New("deterministic enclave slot remains occupied"))
-	}
-	return nil
+	return client.context.DestroyEnclave(ctx, name)
 }
 
 func consumeStarlarkCompletion(stream <-chan *kurtosis_core_rpc_api_bindings.StarlarkRunResponseLine) error {
