@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math/big"
 	"time"
 
 	"github.com/theQRL/go-qrl/common"
@@ -31,9 +30,8 @@ func probeNetwork(ctx context.Context, rpcURL, walletAddress string) error {
 	if err != nil {
 		return fmt.Errorf("read chain ID: %w", err)
 	}
-	expected := big.NewInt(expectedChainID)
-	if actualChainID.Cmp(expected) != 0 {
-		return fmt.Errorf("chain ID %s differs from expected %s", actualChainID, expected)
+	if actualChainID == nil || actualChainID.Sign() <= 0 {
+		return fmt.Errorf("chain ID must be positive, got %v", actualChainID)
 	}
 	firstBlock, err := client.BlockNumber(ctx)
 	if err != nil {
@@ -66,10 +64,10 @@ func probeNetwork(ctx context.Context, rpcURL, walletAddress string) error {
 	}
 	balance, err := client.BalanceAt(ctx, address, nil)
 	if err != nil {
-		return fmt.Errorf("read E2E wallet balance: %w", err)
+		return fmt.Errorf("read development wallet balance: %w", err)
 	}
 	if balance.Sign() <= 0 {
-		return fmt.Errorf("E2E wallet %s has no balance", walletAddress)
+		return fmt.Errorf("development wallet %s has no balance", walletAddress)
 	}
 	return nil
 }

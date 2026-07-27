@@ -78,8 +78,8 @@ var (
 		"crypto/secp256k1", // Relicensed to BSD-3 via https://github.com/theQRL/go-qrl/pull/17225
 	}
 
-	// paths with this prefix are licensed as GPL. all other files are LGPL.
-	gplPrefixes = []string{"cmd/"}
+	// paths with these prefixes are licensed as GPL. all other files are LGPL.
+	gplPrefixes = []string{"cmd/", "devnet/cmd/"}
 
 	// this regexp must match the entire license comment at the
 	// beginning of each file.

@@ -50,7 +50,7 @@ func newProbeServer(t *testing.T, service *probeService) *httptest.Server {
 }
 
 func TestProbeNetworkRequiresAdvancingFundedChain(t *testing.T) {
-	service := &probeService{chainID: "0x539", balance: "0x1"}
+	service := &probeService{chainID: "0x1234", balance: "0x1"}
 	server := newProbeServer(t, service)
 	defer server.Close()
 	address := "Q" + strings.Repeat("b", 128)
@@ -61,9 +61,9 @@ func TestProbeNetworkRequiresAdvancingFundedChain(t *testing.T) {
 	require.True(t, strings.EqualFold(service.address, address))
 }
 
-func TestProbeNetworkRejectsWrongChainAndEmptyWallet(t *testing.T) {
+func TestProbeNetworkRejectsInvalidChainAndEmptyWallet(t *testing.T) {
 	for name, service := range map[string]*probeService{
-		"chain":   {chainID: "0x540", balance: "0x1"},
+		"chain":   {chainID: "0x0", balance: "0x1"},
 		"balance": {chainID: "0x539", balance: "0x0"},
 	} {
 		t.Run(name, func(t *testing.T) {

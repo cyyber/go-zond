@@ -1,8 +1,8 @@
 // Copyright 2026 The go-qrl Authors
 // This file is part of the go-qrl library.
 
-// Package kurtosis provides the narrow Kurtosis API used by the E2E network
-// controller. Raw SDK types deliberately do not escape this package.
+// Package kurtosis provides the narrow Kurtosis API used by the development
+// network controller. Raw SDK types deliberately do not escape this package.
 package kurtosis
 
 import (

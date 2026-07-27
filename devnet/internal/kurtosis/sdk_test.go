@@ -48,7 +48,7 @@ func TestConsumeStarlarkCompletionSuppressesSecretBearingTranscript(t *testing.T
 
 func TestFindExactEnclave(t *testing.T) {
 	const (
-		name = "go-qrl-e2e-slot"
+		name = "qrl-devnet-slot"
 		uuid = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 	)
 	running := map[string]*engine_bindings.EnclaveInfo{
