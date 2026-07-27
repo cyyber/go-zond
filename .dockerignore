@@ -5,15 +5,8 @@ build/_bin
 build/bin
 build/cache
 
-# Local agent and runtime state is never part of a source image. The exact
-# revision is passed as a build argument, so the Git object database is not
-# needed in an image layer.
 .git
-.agents
 .claude
 .codex
-.runtime
 
-# The execution image does not contain the separate E2E module or its private
-# runtime output.
 testing/endtoend
