@@ -3,7 +3,7 @@
 # don't need to bother with make.
 
 .PHONY: gqrl qrvm all test lint fmt clean devtools \
-	network-start network-status e2e-test network-stop help
+	network-start network-status network-stop e2e-test help
 
 GOBIN = ./build/bin
 GORUN = go run
@@ -71,6 +71,10 @@ network-start:
 network-status:
 	$(DEVNET_GO) run ./cmd/devnet status --network-dir "$(DEVNET_DIR)"
 
+#? network-stop: Stop the development network.
+network-stop:
+	$(DEVNET_GO) run ./cmd/devnet stop --network-dir "$(DEVNET_DIR)"
+
 #? e2e-test: Run selected Ginkgo E2E suites against the already-running network.
 e2e-test:
 	@test -n "$(strip $(E2E_PACKAGES))" || { echo "E2E_PACKAGES must name at least one suite package" >&2; exit 2; }
@@ -86,10 +90,6 @@ e2e-test:
 		--poll-progress-interval=30s \
 		$(strip $(E2E_PACKAGES)) \
 		-- -test.run='^TestE2E$$'
-
-#? network-stop: Stop the development network.
-network-stop:
-	$(DEVNET_GO) run ./cmd/devnet stop --network-dir "$(DEVNET_DIR)"
 
 #? help: Get more info on make commands.
 help: Makefile
