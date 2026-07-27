@@ -38,6 +38,38 @@ type parameterShape struct {
 	} `json:"network_params"`
 }
 
+// The qrl-package parameter schema, as far as the built-in profile uses it.
+type packageParameters struct {
+	Participants  []participant   `json:"participants"`
+	NetworkParams networkParams   `json:"network_params"`
+	GenesisParams generatorParams `json:"qrl_genesis_generator_params"`
+}
+
+type participant struct {
+	ELImage       string   `json:"el_image"`
+	ELExtraParams []string `json:"el_extra_params"`
+	CLImage       string   `json:"cl_image"`
+	CLExtraParams []string `json:"cl_extra_params"`
+	VCImage       string   `json:"vc_image"`
+}
+
+type networkParams struct {
+	NetworkID               string             `json:"network_id"`
+	SecondsPerSlot          int                `json:"seconds_per_slot"`
+	ExecutionFollowDistance int                `json:"execution_follow_distance"`
+	PrefundedAccounts       map[string]account `json:"prefunded_accounts"`
+	WithdrawalAddress       string             `json:"withdrawal_address"`
+	LightKDFEnabled         bool               `json:"light_kdf_enabled"`
+}
+
+type account struct {
+	Balance string `json:"balance"`
+}
+
+type generatorParams struct {
+	Image string `json:"image"`
+}
+
 func effectiveParameters(address, executionImage string, custom []byte) (string, error) {
 	if strings.TrimSpace(executionImage) == "" {
 		return "", errors.New("execution image is empty")
@@ -45,24 +77,24 @@ func effectiveParameters(address, executionImage string, custom []byte) (string,
 	if custom != nil {
 		return renderCustomParameters(custom, address, executionImage)
 	}
-	parameters := map[string]any{
-		"participants": []any{map[string]any{
-			"el_image":        executionImage,
-			"el_extra_params": []any{"--graphql", "--graphql.vhosts=*"},
-			"cl_image":        consensusImage,
-			"cl_extra_params": []any{"--min-sync-peers=0", "--minimum-peers-per-subnet=0"},
-			"vc_image":        validatorImage,
+	payload, err := json.Marshal(packageParameters{
+		Participants: []participant{{
+			ELImage:       executionImage,
+			ELExtraParams: []string{"--graphql", "--graphql.vhosts=*"},
+			CLImage:       consensusImage,
+			CLExtraParams: []string{"--min-sync-peers=0", "--minimum-peers-per-subnet=0"},
+			VCImage:       validatorImage,
 		}},
-		"network_params": map[string]any{
-			"network_id": defaultNetworkID, "seconds_per_slot": 5,
-			"execution_follow_distance": 8,
-			"prefunded_accounts":        map[string]any{address: map[string]any{"balance": prefundBalance}},
-			"withdrawal_address":        address,
-			"light_kdf_enabled":         true,
+		NetworkParams: networkParams{
+			NetworkID:               defaultNetworkID,
+			SecondsPerSlot:          5,
+			ExecutionFollowDistance: 8,
+			PrefundedAccounts:       map[string]account{address: {Balance: prefundBalance}},
+			WithdrawalAddress:       address,
+			LightKDFEnabled:         true,
 		},
-		"qrl_genesis_generator_params": map[string]any{"image": genesisImage},
-	}
-	payload, err := json.Marshal(parameters)
+		GenesisParams: generatorParams{Image: genesisImage},
+	})
 	if err != nil {
 		return "", err
 	}
