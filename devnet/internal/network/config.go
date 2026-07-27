@@ -12,9 +12,9 @@ import (
 )
 
 const (
-	packageLocator = "github.com/rgeraldes24/qrl-package@3892c3d2596403c080424d9e8fc99ff172483fe0"
-	defaultChainID = 1337
-	prefundBalance = "2000000QRL"
+	packageLocator   = "github.com/rgeraldes24/qrl-package@3892c3d2596403c080424d9e8fc99ff172483fe0"
+	defaultNetworkID = "1337"
+	prefundBalance   = "2000000QRL"
 
 	executionImagePlaceholder = "__DEVNET_EXECUTION_IMAGE__"
 	walletAddressPlaceholder  = "__DEVNET_WALLET_ADDRESS__"
@@ -54,7 +54,7 @@ func effectiveParameters(address, executionImage string, custom []byte) (string,
 			"vc_image":        validatorImage,
 		}},
 		"network_params": map[string]any{
-			"network_id": fmt.Sprint(defaultChainID), "seconds_per_slot": 5,
+			"network_id": defaultNetworkID, "seconds_per_slot": 5,
 			"execution_follow_distance": 8,
 			"prefunded_accounts":        map[string]any{address: map[string]any{"balance": prefundBalance}},
 			"withdrawal_address":        address,

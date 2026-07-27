@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"github.com/theQRL/go-qrl/common"
 	"github.com/theQRL/go-qrl/rpc"
 )
 
@@ -44,9 +45,9 @@ func TestProbeNetworkRequiresAdvancingFundedChain(t *testing.T) {
 	service := &probeService{balance: "0x1"}
 	server := newProbeServer(t, service)
 	defer server.Close()
-	address := "Q" + strings.Repeat("b", 128)
+	address := common.MustParseAddress("Q" + strings.Repeat("b", 128))
 	require.NoError(t, probeNetwork(context.Background(), server.URL, address))
-	require.True(t, strings.EqualFold(service.address, address))
+	require.True(t, strings.EqualFold(service.address, address.Hex()))
 }
 
 func TestProbeNetworkRejectsEmptyWallet(t *testing.T) {
@@ -55,7 +56,7 @@ func TestProbeNetworkRejectsEmptyWallet(t *testing.T) {
 	err := probeNetwork(
 		context.Background(),
 		server.URL,
-		"Q"+strings.Repeat("c", 128),
+		common.MustParseAddress("Q"+strings.Repeat("c", 128)),
 	)
 	require.ErrorContains(t, err, "has no balance")
 }

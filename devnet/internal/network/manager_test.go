@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"github.com/theQRL/go-qrl/common"
 	"github.com/theQRL/go-qrl/devnet/internal/kurtosis"
 )
 
@@ -24,7 +25,7 @@ func TestNetworkLifecycle(t *testing.T) {
 	}
 	manager := NewManager()
 	manager.newClient = func() (kurtosisClient, error) { return client, nil }
-	manager.probe = func(context.Context, string, string) error { return nil }
+	manager.probe = func(context.Context, string, common.Address) error { return nil }
 
 	require.NoError(t, manager.Start(t.Context(), StartOptions{
 		EnclaveName:    enclaveName,
