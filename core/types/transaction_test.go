@@ -257,12 +257,6 @@ func TestEIP2718TransactionEncode(t *testing.T) {
 	}
 }
 
-func decodeTx(data []byte) (*Transaction, error) {
-	var tx Transaction
-	t, err := &tx, rlp.Decode(bytes.NewReader(data), &tx)
-	return t, err
-}
-
 // defaultTestWallet restores the wallet whose public key produced the
 // pre-signed RLP blobs hard-coded in the tests below. The seed cannot be
 // swapped for a testutil fixture without invalidating those signatures.

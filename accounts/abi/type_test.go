@@ -122,7 +122,6 @@ func TestTypeRegexp(t *testing.T) {
 }
 
 func TestTypeCheck(t *testing.T) {
-
 	t.Parallel()
 	for i, test := range []struct {
 		typ        string
@@ -345,7 +344,6 @@ func TestInternalType(t *testing.T) {
 }
 
 func TestGetTypeSize(t *testing.T) {
-
 	t.Parallel()
 	var testCases = []struct {
 		typ        string
