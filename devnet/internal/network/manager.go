@@ -88,7 +88,7 @@ func (manager *Manager) Start(ctx context.Context, options StartOptions) error {
 			err,
 		)
 	}
-	if enclave.Name != name || enclave.UUID == "" {
+	if enclave.Name != name {
 		return errors.Join(
 			errors.New("Kurtosis returned an unexpected enclave identity"),
 			cleanupCreatedEnclave(client, enclave),
@@ -198,7 +198,7 @@ func cleanupCreatedEnclave(client kurtosisClient, enclave kurtosis.EnclaveRef) e
 
 func enclaveName(canonicalNetworkDir string) string {
 	digest := sha256.Sum256([]byte(canonicalNetworkDir))
-	return fmt.Sprintf("go-qrl-e2e-%x", digest[:24])
+	return fmt.Sprintf("qrl-devnet-%x", digest[:24])
 }
 
 func retryUntil(ctx context.Context, initial, maximum time.Duration, operation func(context.Context) error) error {
