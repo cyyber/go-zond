@@ -66,13 +66,7 @@ check("deployment transaction is accepted and mined", function () {
 var signatureHash = web3.sha3(eventSignature);
 var expectedTopic = signatureHash + zeros(64);
 var otherTopic = "0x" + new Array(65).join("ab");
-var contractABI = PARAMS.abi.filter(function (entry) {
-    return entry.name === "Deployed" ||
-        entry.name === "echo" ||
-        entry.name === "echoFixed" ||
-        entry.name === "echoArrays";
-});
-var contract = qrl.contract(contractABI).at(receipt.contractAddress);
+var contract = qrl.contract(PARAMS.abi).at(receipt.contractAddress);
 
 check("transaction and block APIs expose the deployment", function () {
     var tx = qrl.getTransaction(PARAMS.txHash);

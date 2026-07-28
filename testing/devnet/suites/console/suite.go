@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"context"
 	"embed"
-	"encoding/json"
 	"fmt"
 	"io/fs"
 	"os"
@@ -76,9 +75,6 @@ func prepareWorkspace(ctx context.Context, destination, rpcURL string) error {
 		return fmt.Errorf("copy console fixtures: %w", err)
 	}
 
-	if !json.Valid(eventEmitterABI) {
-		return fmt.Errorf("EventEmitter ABI is invalid JSON")
-	}
 	bytecode, err := hexutil.Decode("0x" + strings.TrimPrefix(strings.TrimSpace(eventEmitterBytecode), "0x"))
 	if err != nil {
 		return fmt.Errorf("decode EventEmitter bytecode: %w", err)
