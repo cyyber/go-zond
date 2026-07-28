@@ -55,6 +55,43 @@ The first participant's `el_image` must use the image token.
 `network_params.prefunded_accounts` must contain the wallet token as a key; the
 wallet token may also be used as a value, such as `withdrawal_address`.
 
+For example, save the following as `devnet-params.json`:
+
+```json
+{
+  "participants": [
+    {
+      "el_image": "__DEVNET_EXECUTION_IMAGE__",
+      "el_extra_params": ["--graphql", "--graphql.vhosts=*"],
+      "cl_image": "qrledger/qrysm:beacon-chain-8b80fa0c3f5a",
+      "cl_extra_params": ["--min-sync-peers=0", "--minimum-peers-per-subnet=0"],
+      "vc_image": "qrledger/qrysm:validator-8b80fa0c3f5a"
+    }
+  ],
+  "network_params": {
+    "network_id": "1337",
+    "seconds_per_slot": 5,
+    "execution_follow_distance": 8,
+    "prefunded_accounts": {
+      "__DEVNET_WALLET_ADDRESS__": {
+        "balance": "2000000QRL"
+      }
+    },
+    "withdrawal_address": "__DEVNET_WALLET_ADDRESS__",
+    "light_kdf_enabled": true
+  },
+  "qrl_genesis_generator_params": {
+    "image": "qrledger/qrysm:qrl-genesis-generator-360410c72353-8b80fa0c3f5a"
+  }
+}
+```
+
+Start the network with the custom parameters:
+
+```bash
+DEVNET_PARAMS_FILE=devnet-params.json make network-start
+```
+
 The controller expects service `el-1-gqrl-qrysm` with public `rpc` and `ws`
 ports; the reported GraphQL URL is live only if the profile enables GraphQL on
 the rpc port (the built-in profile passes `--graphql`). Readiness requires
