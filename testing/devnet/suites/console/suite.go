@@ -13,7 +13,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 
 	"github.com/theQRL/go-qrl/common/hexutil"
@@ -68,19 +67,6 @@ func parseSuiteResult(name string, output []byte) error {
 	return nil
 }
 
-func buildGQRL(ctx context.Context, output string) error {
-	root, err := repositoryRoot()
-	if err != nil {
-		return err
-	}
-	command := exec.CommandContext(ctx, "go", "build", "-o", output, "./cmd/gqrl")
-	command.Dir = root
-	if output, err := command.CombinedOutput(); err != nil {
-		return fmt.Errorf("build gqrl: %w\n%s", err, output)
-	}
-	return nil
-}
-
 func prepareWorkspace(ctx context.Context, destination, rpcURL string) error {
 	consoleScripts, err := fs.Sub(consoleFixtures, "testdata/console")
 	if err != nil {
@@ -108,12 +94,4 @@ func prepareWorkspace(ctx context.Context, destination, rpcURL string) error {
 		return fmt.Errorf("write console parameters: %w", err)
 	}
 	return nil
-}
-
-func repositoryRoot() (string, error) {
-	_, file, _, ok := runtime.Caller(0)
-	if !ok {
-		return "", fmt.Errorf("locate console suite source")
-	}
-	return filepath.Clean(filepath.Join(filepath.Dir(file), "..", "..", "..", "..")), nil
 }

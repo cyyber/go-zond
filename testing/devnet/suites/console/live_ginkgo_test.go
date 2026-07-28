@@ -12,6 +12,7 @@ import (
 
 	ginkgo "github.com/onsi/ginkgo/v2"
 	gomega "github.com/onsi/gomega"
+	"github.com/theQRL/go-qrl/testing/devnet/internal/build"
 	"github.com/theQRL/go-qrl/testing/devnet/internal/network"
 )
 
@@ -34,7 +35,7 @@ var _ = ginkgo.It(
 
 		gqrlPath := filepath.Join(workDir, "gqrl")
 		ginkgo.By("building the current gqrl console")
-		gomega.Expect(buildGQRL(ctx, gqrlPath)).To(gomega.Succeed())
+		gomega.Expect(build.Binary(ctx, "./cmd/gqrl", gqrlPath)).To(gomega.Succeed())
 
 		jsPath := filepath.Join(workDir, "js")
 		ginkgo.By("preparing the console scripts and deployment transaction")

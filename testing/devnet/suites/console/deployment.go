@@ -4,12 +4,13 @@
 package console
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"math/big"
 
-	qrl "github.com/theQRL/go-qrl"
+	"github.com/theQRL/go-qrl/accounts/abi"
+	"github.com/theQRL/go-qrl/accounts/abi/bind"
 	"github.com/theQRL/go-qrl/common"
 	"github.com/theQRL/go-qrl/common/hexutil"
 	"github.com/theQRL/go-qrl/core/types"
@@ -30,7 +31,11 @@ func deploymentParameters(ctx context.Context, rpcURL string, abiJSON, bytecode 
 	}
 	defer client.Close()
 
-	tx, err := signDeployment(ctx, client, wallet, from, bytecode)
+	contractABI, err := abi.JSON(bytes.NewReader(abiJSON))
+	if err != nil {
+		return nil, fmt.Errorf("parse contract ABI: %w", err)
+	}
+	tx, err := signDeployment(ctx, client, wallet, contractABI, bytecode)
 	if err != nil {
 		return nil, err
 	}
@@ -55,50 +60,23 @@ func signDeployment(
 	ctx context.Context,
 	client *qrlclient.Client,
 	wallet qrlwallet.Wallet,
-	from common.Address,
+	contractABI abi.ABI,
 	bytecode []byte,
 ) (*types.Transaction, error) {
 	chainID, err := client.ChainID(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("chain ID: %w", err)
 	}
-	nonce, err := client.PendingNonceAt(ctx, from)
+	auth, err := bind.NewKeyedTransactorWithChainID(wallet, chainID)
 	if err != nil {
-		return nil, fmt.Errorf("deployment nonce: %w", err)
+		return nil, fmt.Errorf("create deployment transactor: %w", err)
 	}
-	gasFeeCap, err := client.SuggestGasPrice(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("gas price: %w", err)
-	}
-	gasTipCap, err := client.SuggestGasTipCap(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("gas tip: %w", err)
-	}
-	gasFeeCap = new(big.Int).Mul(gasFeeCap, big.NewInt(4))
-	if gasFeeCap.Cmp(gasTipCap) < 0 {
-		gasFeeCap = gasTipCap
-	}
-	gas, err := client.EstimateGas(ctx, qrl.CallMsg{
-		From:  from,
-		Value: new(big.Int),
-		Data:  bytecode,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("estimate deployment gas: %w", err)
-	}
-	gas += gas / 5
+	auth.Context = ctx
+	auth.NoSend = true
 
-	signed, err := types.SignNewTx(wallet, types.LatestSignerForChainID(chainID), &types.DynamicFeeTx{
-		ChainID:   chainID,
-		Nonce:     nonce,
-		GasTipCap: gasTipCap,
-		GasFeeCap: gasFeeCap,
-		Gas:       gas,
-		Value:     new(big.Int),
-		Data:      bytecode,
-	})
+	_, tx, _, err := bind.DeployContract(auth, contractABI, bytecode, client)
 	if err != nil {
-		return nil, fmt.Errorf("sign deployment transaction: %w", err)
+		return nil, fmt.Errorf("prepare deployment transaction: %w", err)
 	}
-	return signed, nil
+	return tx, nil
 }
