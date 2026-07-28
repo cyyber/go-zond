@@ -14,6 +14,12 @@ make network-stop
 `network-start` starts the Kurtosis engine when needed, builds the current
 go-qrl tree, and waits for readiness. Tests never create or destroy the network.
 
+The Clef suite starts a temporary signer and does not require the network:
+
+```bash
+make e2e-test E2E_PACKAGES=./suites/clef
+```
+
 ## Configuration
 
 | Variable | Default | Purpose |
