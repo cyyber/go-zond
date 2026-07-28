@@ -45,8 +45,10 @@ func (networks *recordingNetworks) Stop(_ context.Context, name string) error {
 
 func TestRun(t *testing.T) {
 	const enclaveName = "go-qrl-devnet-test"
+
 	paramsFile := filepath.Join(t.TempDir(), "params.json")
 	require.NoError(t, os.WriteFile(paramsFile, []byte(`{"custom":true}`), 0o600))
+
 	for _, test := range []struct {
 		name, output, call string
 		arguments          []string
@@ -66,12 +68,15 @@ func TestRun(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			networks := new(recordingNetworks)
 			var stdout, stderr bytes.Buffer
+
 			app := newApp(networks)
 			app.Writer, app.ErrWriter = &stdout, &stderr
+
 			require.NoError(t, app.RunContext(t.Context(), append([]string{"devnet"}, test.arguments...)))
 			require.Equal(t, test.output, stdout.String())
 			require.Equal(t, test.call, networks.call)
 			require.Empty(t, stderr.String())
+
 			if test.call == "start" {
 				require.Equal(t, network.StartOptions{
 					EnclaveName:    enclaveName,
