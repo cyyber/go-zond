@@ -10,7 +10,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
@@ -19,7 +18,6 @@ import (
 
 	ginkgo "github.com/onsi/ginkgo/v2"
 	gomega "github.com/onsi/gomega"
-	"github.com/theQRL/go-qrl/common"
 	"github.com/theQRL/go-qrl/testing/devnet/internal/network"
 )
 
@@ -35,10 +33,7 @@ var _ = ginkgo.It(
 	ginkgo.Serial,
 	ginkgo.Label("e2e", "live", "clef"),
 	func(ctx ginkgo.SpecContext) {
-		workDir, err := os.MkdirTemp("", "go-qrl-clef-suite-")
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-		ginkgo.DeferCleanup(os.RemoveAll, workDir)
-
+		workDir := ginkgo.GinkgoT().TempDir()
 		clefPath := filepath.Join(workDir, "clef")
 		ginkgo.By("building the current Clef binary")
 		gomega.Expect(buildClef(ctx, clefPath)).To(gomega.Succeed())
@@ -49,15 +44,12 @@ var _ = ginkgo.It(
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 		ginkgo.By("running and verifying the standalone Clef signing scenario")
-		result, err := Run(ctx, Config{
-			ClefPath: clefPath,
-			Seed:     hex.EncodeToString(seed.ToBytes()),
-		})
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-		gomega.Expect(result.Account).To(gomega.Equal(
-			common.Address(developmentWallet.GetAddress()),
-		))
-		gomega.Expect(result.Version).NotTo(gomega.BeEmpty())
+		gomega.Expect(run(
+			ctx,
+			clefPath,
+			workDir,
+			hex.EncodeToString(seed.ToBytes()),
+		)).To(gomega.Succeed())
 	},
 	ginkgo.SpecTimeout(liveSpecTimeout),
 )
