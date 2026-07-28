@@ -15,11 +15,10 @@ import (
 	"github.com/theQRL/go-qrl/common"
 	"github.com/theQRL/go-qrl/common/hexutil"
 	"github.com/theQRL/go-qrl/core/types"
-	"github.com/theQRL/go-qrl/crypto/pqcrypto/wallet"
+	"github.com/theQRL/go-qrl/rpc"
 	"github.com/theQRL/go-qrl/signer/core/apitypes"
+	"github.com/theQRL/go-qrl/testing/devnet/internal/network"
 )
-
-const testSeed = "010000f29f58aff0b00de2844f7e20bd9eeaacc379150043beeb328335817512b29fbb7184da84a092f842b2a06d72a24a5d28"
 
 type roundTripFunc func(*http.Request) (*http.Response, error)
 
@@ -28,7 +27,7 @@ func (function roundTripFunc) RoundTrip(request *http.Request) (*http.Response, 
 }
 
 func TestExercise(t *testing.T) {
-	expectedWallet, err := wallet.RestoreFromSeedHex(testSeed)
+	expectedWallet, err := network.UnsafeDevelopmentWallet()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -49,10 +48,7 @@ func TestExercise(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	request, err := expectedTransaction(account)
-	if err != nil {
-		t.Fatal(err)
-	}
+	request := expectedTransaction(account)
 	unsigned := request.ToTransaction()
 	transaction, err := types.SignTx(
 		unsigned,
@@ -68,13 +64,12 @@ func TestExercise(t *testing.T) {
 	}
 
 	responses := map[string]any{
-		"account_version":         "1.0.0",
 		"account_list":            []common.Address{account},
 		"account_signData":        hexutil.Bytes(dataSignature),
 		"account_signTypedData":   hexutil.Bytes(typedSignature),
 		"account_signTransaction": signTransactionResult{Raw: hexutil.Bytes(raw), Tx: transaction},
 	}
-	client := &http.Client{Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
+	httpClient := &http.Client{Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
 		defer request.Body.Close()
 		var call struct {
 			Method string `json:"method"`
@@ -101,19 +96,23 @@ func TestExercise(t *testing.T) {
 			Header:     make(http.Header),
 		}, nil
 	})}
+	client, err := rpc.DialOptions(
+		context.Background(),
+		"http://clef.test",
+		rpc.WithHTTPClient(httpClient),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer client.Close()
 
-	result, err := exercise(
+	err = exercise(
 		context.Background(),
 		client,
-		"http://clef.test",
-		&clefProcess{done: make(chan struct{})},
 		account,
 		expectedWallet,
 	)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if result.Account != account || result.Version != "1.0.0" {
-		t.Fatalf("unexpected result: %+v", result)
 	}
 }

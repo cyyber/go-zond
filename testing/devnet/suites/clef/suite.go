@@ -6,23 +6,19 @@
 package clef
 
 import (
-	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"math/big"
 	"net"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -33,6 +29,7 @@ import (
 	"github.com/theQRL/go-qrl/common/math"
 	"github.com/theQRL/go-qrl/core/types"
 	"github.com/theQRL/go-qrl/crypto/pqcrypto/wallet"
+	"github.com/theQRL/go-qrl/rpc"
 	"github.com/theQRL/go-qrl/signer/core/apitypes"
 )
 
@@ -69,18 +66,6 @@ type Config struct {
 type Result struct {
 	Account common.Address
 	Version string
-}
-
-type rpcResponse struct {
-	JSONRPC string          `json:"jsonrpc"`
-	Result  json.RawMessage `json:"result"`
-	Error   *rpcError       `json:"error"`
-	ID      int             `json:"id"`
-}
-
-type rpcError struct {
-	Code    int    `json:"code"`
-	Message string `json:"message"`
 }
 
 type signTransactionResult struct {
@@ -149,19 +134,24 @@ func Run(ctx context.Context, config Config) (Result, error) {
 	if err != nil {
 		return Result{}, err
 	}
-	result, runErr := exercise(
+	client, err := rpc.DialOptions(
 		ctx,
-		&http.Client{Timeout: requestTimeout},
 		endpoint,
-		process,
-		account,
-		expectedWallet,
+		rpc.WithHTTPClient(&http.Client{Timeout: requestTimeout}),
 	)
+	if err != nil {
+		return Result{}, errors.Join(fmt.Errorf("connect to Clef: %w", err), process.stop())
+	}
+	version, runErr := waitForClef(ctx, client, process)
+	if runErr == nil {
+		runErr = exercise(ctx, client, account, expectedWallet)
+	}
+	client.Close()
 	stopErr := process.stop()
 	if runErr != nil {
 		return Result{}, errors.Join(runErr, stopErr)
 	}
-	return result, stopErr
+	return Result{Account: account, Version: version}, stopErr
 }
 
 func initializeClef(
@@ -319,32 +309,25 @@ func (process *clefProcess) stop() error {
 
 func exercise(
 	ctx context.Context,
-	client *http.Client,
-	endpoint string,
-	process *clefProcess,
+	client *rpc.Client,
 	account common.Address,
 	expectedWallet wallet.Wallet,
-) (Result, error) {
-	version, err := waitForClef(ctx, client, endpoint, process)
-	if err != nil {
-		return Result{}, err
-	}
-
+) error {
 	var listedAccounts []common.Address
-	if err := callRPC(ctx, client, endpoint, "account_list", []any{}, 2, &listedAccounts); err != nil {
-		return Result{}, err
+	if err := callRPC(ctx, client, &listedAccounts, "account_list"); err != nil {
+		return err
 	}
 	if len(listedAccounts) != 1 || listedAccounts[0] != account {
-		return Result{}, fmt.Errorf("account_list returned %v, want [%s]", listedAccounts, account.Hex())
+		return fmt.Errorf("account_list returned %v, want [%s]", listedAccounts, account.Hex())
 	}
 
 	var dataSignature hexutil.Bytes
-	if err := callRPC(ctx, client, endpoint, "account_signData", []any{
+	if err := callRPC(ctx, client, &dataSignature, "account_signData",
 		qrlaccounts.MimetypeTextPlain,
 		account.Hex(),
 		hexutil.Encode([]byte(expectedText)),
-	}, 3, &dataSignature); err != nil {
-		return Result{}, err
+	); err != nil {
+		return err
 	}
 	if err := verifySignature(
 		"account_signData",
@@ -352,20 +335,20 @@ func exercise(
 		qrlaccounts.TextHash([]byte(expectedText)),
 		expectedWallet,
 	); err != nil {
-		return Result{}, err
+		return err
 	}
 
 	typedData := expectedTypedData(account)
 	var typedSignature hexutil.Bytes
-	if err := callRPC(ctx, client, endpoint, "account_signTypedData", []any{
+	if err := callRPC(ctx, client, &typedSignature, "account_signTypedData",
 		account.Hex(),
 		typedData,
-	}, 4, &typedSignature); err != nil {
-		return Result{}, err
+	); err != nil {
+		return err
 	}
 	typedDigest, _, err := apitypes.TypedDataAndHash(typedData)
 	if err != nil {
-		return Result{}, fmt.Errorf("hash typed data: %w", err)
+		return fmt.Errorf("hash typed data: %w", err)
 	}
 	if err := verifySignature(
 		"account_signTypedData",
@@ -373,36 +356,30 @@ func exercise(
 		typedDigest,
 		expectedWallet,
 	); err != nil {
-		return Result{}, err
+		return err
 	}
 
-	transaction, err := expectedTransaction(account)
-	if err != nil {
-		return Result{}, err
-	}
+	transaction := expectedTransaction(account)
 	var signed signTransactionResult
 	if err := callRPC(
 		ctx,
 		client,
-		endpoint,
-		"account_signTransaction",
-		[]any{transaction},
-		5,
 		&signed,
+		"account_signTransaction",
+		transaction,
 	); err != nil {
-		return Result{}, err
+		return err
 	}
 	if err := verifyTransaction(signed, transaction, account, expectedWallet); err != nil {
-		return Result{}, err
+		return err
 	}
 
-	return Result{Account: account, Version: version}, nil
+	return nil
 }
 
 func waitForClef(
 	ctx context.Context,
-	client *http.Client,
-	endpoint string,
+	client *rpc.Client,
 	process *clefProcess,
 ) (string, error) {
 	readyCtx, cancel := context.WithTimeout(ctx, readinessTimeout)
@@ -410,7 +387,7 @@ func waitForClef(
 	var lastErr error
 	for {
 		var version string
-		if err := callRPC(readyCtx, client, endpoint, "account_version", []any{}, 1, &version); err == nil {
+		if err := callRPC(readyCtx, client, &version, "account_version"); err == nil {
 			return version, nil
 		} else {
 			lastErr = err
@@ -430,59 +407,13 @@ func waitForClef(
 
 func callRPC(
 	ctx context.Context,
-	client *http.Client,
-	endpoint string,
-	method string,
-	params []any,
-	id int,
+	client *rpc.Client,
 	result any,
+	method string,
+	args ...any,
 ) error {
-	body, err := json.Marshal(map[string]any{
-		"jsonrpc": "2.0",
-		"method":  method,
-		"params":  params,
-		"id":      id,
-	})
-	if err != nil {
-		return err
-	}
-	request, err := http.NewRequestWithContext(
-		ctx,
-		http.MethodPost,
-		endpoint,
-		bytes.NewReader(body),
-	)
-	if err != nil {
-		return err
-	}
-	request.Header.Set("Content-Type", "application/json")
-	response, err := client.Do(request)
-	if err != nil {
+	if err := client.CallContext(ctx, result, method, args...); err != nil {
 		return fmt.Errorf("%s: %w", method, err)
-	}
-	defer response.Body.Close()
-	responseBody, err := io.ReadAll(response.Body)
-	if err != nil {
-		return fmt.Errorf("%s: %w", method, err)
-	}
-	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
-		return fmt.Errorf("%s: HTTP %s", method, response.Status)
-	}
-	var envelope rpcResponse
-	if err := json.Unmarshal(responseBody, &envelope); err != nil {
-		return fmt.Errorf("%s: decode response: %w", method, err)
-	}
-	if envelope.JSONRPC != "2.0" || envelope.ID != id {
-		return fmt.Errorf("%s: unexpected JSON-RPC response", method)
-	}
-	if envelope.Error != nil {
-		return fmt.Errorf("%s: RPC error %d: %s", method, envelope.Error.Code, envelope.Error.Message)
-	}
-	if len(envelope.Result) == 0 || bytes.Equal(envelope.Result, []byte("null")) {
-		return fmt.Errorf("%s: missing result", method)
-	}
-	if err := json.Unmarshal(envelope.Result, result); err != nil {
-		return fmt.Errorf("%s: decode result: %w", method, err)
 	}
 	return nil
 }
@@ -518,15 +449,9 @@ func expectedTypedData(account common.Address) apitypes.TypedData {
 	}
 }
 
-func expectedTransaction(account common.Address) (apitypes.SendTxArgs, error) {
-	recipient, err := common.NewAddressFromString(expectedRecipient)
-	if err != nil {
-		return apitypes.SendTxArgs{}, err
-	}
-	input, err := hexutil.Decode(expectedTxInputHex)
-	if err != nil {
-		return apitypes.SendTxArgs{}, err
-	}
+func expectedTransaction(account common.Address) apitypes.SendTxArgs {
+	recipient := common.MustParseAddress(expectedRecipient)
+	input := hexutil.MustDecode(expectedTxInputHex)
 	from := common.NewMixedcaseAddress(account)
 	to := common.NewMixedcaseAddress(recipient)
 	tip := hexutil.Big(*big.NewInt(expectedTip))
@@ -546,7 +471,7 @@ func expectedTransaction(account common.Address) (apitypes.SendTxArgs, error) {
 		Input:                &data,
 		AccessList:           &accessList,
 		ChainID:              &chainID,
-	}, nil
+	}
 }
 
 func randomSecret() (string, error) {
@@ -555,25 +480,4 @@ func randomSecret() (string, error) {
 		return "", fmt.Errorf("generate Clef password: %w", err)
 	}
 	return base64.RawURLEncoding.EncodeToString(secret), nil
-}
-
-func buildClef(ctx context.Context, output string) error {
-	root, err := repositoryRoot()
-	if err != nil {
-		return err
-	}
-	command := exec.CommandContext(ctx, "go", "build", "-o", output, "./cmd/clef")
-	command.Dir = root
-	if output, err := command.CombinedOutput(); err != nil {
-		return fmt.Errorf("build Clef: %w\n%s", err, output)
-	}
-	return nil
-}
-
-func repositoryRoot() (string, error) {
-	_, source, _, ok := runtime.Caller(0)
-	if !ok {
-		return "", errors.New("locate Clef suite source")
-	}
-	return filepath.Clean(filepath.Join(filepath.Dir(source), "..", "..", "..", "..")), nil
 }

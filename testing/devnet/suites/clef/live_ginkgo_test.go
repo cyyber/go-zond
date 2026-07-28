@@ -6,9 +6,14 @@
 package clef
 
 import (
+	"context"
 	"encoding/hex"
+	"errors"
+	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -56,3 +61,24 @@ var _ = ginkgo.It(
 	},
 	ginkgo.SpecTimeout(liveSpecTimeout),
 )
+
+func buildClef(ctx context.Context, output string) error {
+	root, err := repositoryRoot()
+	if err != nil {
+		return err
+	}
+	command := exec.CommandContext(ctx, "go", "build", "-o", output, "./cmd/clef")
+	command.Dir = root
+	if output, err := command.CombinedOutput(); err != nil {
+		return fmt.Errorf("build Clef: %w\n%s", err, output)
+	}
+	return nil
+}
+
+func repositoryRoot() (string, error) {
+	_, source, _, ok := runtime.Caller(0)
+	if !ok {
+		return "", errors.New("locate Clef suite source")
+	}
+	return filepath.Clean(filepath.Join(filepath.Dir(source), "..", "..", "..", "..")), nil
+}
