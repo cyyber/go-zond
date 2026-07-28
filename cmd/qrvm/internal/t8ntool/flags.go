@@ -21,7 +21,7 @@ import (
 	"strings"
 
 	"github.com/theQRL/go-qrl/core/vm"
-	"github.com/theQRL/go-qrl/tests"
+	"github.com/theQRL/go-qrl/testing/tests"
 	"github.com/urfave/cli/v2"
 )
 

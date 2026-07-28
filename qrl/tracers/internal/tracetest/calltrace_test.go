@@ -35,7 +35,7 @@ import (
 	"github.com/theQRL/go-qrl/params"
 	"github.com/theQRL/go-qrl/qrl/tracers"
 	"github.com/theQRL/go-qrl/rlp"
-	"github.com/theQRL/go-qrl/tests"
+	"github.com/theQRL/go-qrl/testing/tests"
 )
 
 type callContext struct {
