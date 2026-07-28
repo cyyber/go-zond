@@ -120,7 +120,6 @@ compile_fuzzer github.com/theQRL/go-qrl/trie \
   FuzzStackTrie fuzzStackTrie \
   $pkg/stacktrie_fuzzer_test.go,$pkg/iterator_test.go,$pkg/trie_test.go,$pkg/database_test.go,$pkg/tracer_test.go,$pkg/proof_test.go,$pkg/sync_test.go
 
-#compile_fuzzer tests/fuzzers/snap  FuzzARange fuzz_account_range
 compile_fuzzer github.com/theQRL/go-qrl/qrl/protocols/snap \
   FuzzARange fuzz_account_range \
   $repo/qrl/protocols/snap/handler_fuzzing_test.go
@@ -137,10 +136,10 @@ compile_fuzzer github.com/theQRL/go-qrl/qrl/protocols/snap \
   FuzzTrieNodes fuzz_trie_nodes\
   $repo/qrl/protocols/snap/handler_fuzzing_test.go
 
-compile_fuzzer github.com/theQRL/go-qrl/tests/fuzzers/txfetcher \
+compile_fuzzer github.com/theQRL/go-qrl/testing/tests/fuzzers/txfetcher \
   Fuzz fuzzTxfetcher \
-  $repo/tests/fuzzers/txfetcher/txfetcher_test.go
+  $repo/testing/tests/fuzzers/txfetcher/txfetcher_test.go
 
-compile_fuzzer github.com/theQRL/go-qrl/tests/fuzzers/secp256k1 \
+compile_fuzzer github.com/theQRL/go-qrl/testing/tests/fuzzers/secp256k1 \
   Fuzz fuzzSecp256k1\
-  $repo/tests/fuzzers/secp256k1/secp_test.go
+  $repo/testing/tests/fuzzers/secp256k1/secp_test.go

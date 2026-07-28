@@ -16,7 +16,7 @@ import (
 	"github.com/theQRL/go-qrl/core/rawdb"
 	"github.com/theQRL/go-qrl/core/types"
 	"github.com/theQRL/go-qrl/core/vm"
-	"github.com/theQRL/go-qrl/tests"
+	"github.com/theQRL/go-qrl/testing/tests"
 
 	// Force-load the native, to trigger registration
 	"github.com/theQRL/go-qrl/qrl/tracers"
