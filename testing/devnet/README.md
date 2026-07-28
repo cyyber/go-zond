@@ -11,6 +11,8 @@ make e2e-test E2E_PACKAGES=./testing/devnet/suites/<suite>
 make network-stop
 ```
 
+Run the embedded console coverage with `E2E_PACKAGES=./suites/console`.
+
 `network-start` starts the Kurtosis engine when needed, builds the current
 go-qrl tree, and waits for readiness. Tests never create or destroy the network.
 

@@ -1,0 +1,135 @@
+// SPDX-License-Identifier: LGPL-3.0
+pragma hyperion >=0.1.0;
+
+/// @notice VM64 integration fixture. The deliberately broad ABI makes one
+/// deployment exercise 64-byte VM words, addresses, fixed bytes, dynamic
+/// offsets, tuples, arrays, storage, and all four log topics.
+contract EventEmitter {
+    struct Record {
+        uint512 amount;
+        address recipient;
+        bytes64 tag;
+    }
+
+    event Deployed(uint256 value);
+    event Stored(
+        address indexed recipient,
+        uint512 indexed amount,
+        int512 indexed delta,
+        bytes64 tag,
+        bytes payload,
+        string note,
+        bool enabled
+    );
+    event Dynamic(bytes indexed payload, string indexed note, uint512 amount);
+    event AnonymousStored(
+        address indexed recipient,
+        uint512 indexed amount,
+        bytes64 indexed tag,
+        bool indexed enabled
+    ) anonymous;
+
+    uint512 private storedAmount;
+    int512 private storedDelta;
+    bytes64 private storedTag;
+    address private storedRecipient;
+    bytes private storedPayload;
+    string private storedNote;
+    bool private storedEnabled;
+
+    constructor() {
+        emit Deployed(1337);
+    }
+
+    function store(
+        uint512 amount,
+        int512 delta,
+        bytes64 tag,
+        address recipient,
+        bytes calldata payload,
+        string calldata note,
+        bool enabled
+    ) external {
+        storedAmount = amount;
+        storedDelta = delta;
+        storedTag = tag;
+        storedRecipient = recipient;
+        storedPayload = payload;
+        storedNote = note;
+        storedEnabled = enabled;
+
+        emit Stored(recipient, amount, delta, tag, payload, note, enabled);
+        emit Dynamic(payload, note, amount);
+        emit AnonymousStored(recipient, amount, tag, enabled);
+    }
+
+    function read() external view returns (
+        uint512 amount,
+        int512 delta,
+        bytes64 tag,
+        address recipient,
+        bytes memory payload,
+        string memory note,
+        bool enabled
+    ) {
+        return (
+            storedAmount,
+            storedDelta,
+            storedTag,
+            storedRecipient,
+            storedPayload,
+            storedNote,
+            storedEnabled
+        );
+    }
+
+    function echo(
+        uint512 amount,
+        int512 delta,
+        bytes64 tag,
+        address recipient,
+        bytes calldata payload,
+        string calldata note,
+        bool enabled
+    ) external pure returns (
+        uint512,
+        int512,
+        bytes64,
+        address,
+        bytes memory,
+        string memory,
+        bool
+    ) {
+        return (amount, delta, tag, recipient, payload, note, enabled);
+    }
+
+    function echoFixed(
+        bytes1 value1,
+        bytes32 value32,
+        bytes33 value33,
+        bytes64 value64
+    ) external pure returns (bytes1, bytes32, bytes33, bytes64) {
+        return (value1, value32, value33, value64);
+    }
+
+    function echoArrays(
+        uint512[] calldata values,
+        bytes64[2] calldata tags
+    ) external pure returns (uint512[] memory, bytes64[2] memory) {
+        return (values, tags);
+    }
+
+    function echoRecord(Record calldata record) external pure returns (Record memory) {
+        return record;
+    }
+
+    function clear() external {
+        delete storedAmount;
+        delete storedDelta;
+        delete storedTag;
+        delete storedRecipient;
+        delete storedPayload;
+        delete storedNote;
+        delete storedEnabled;
+    }
+}
