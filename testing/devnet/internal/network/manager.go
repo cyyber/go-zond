@@ -165,11 +165,21 @@ func (manager *Manager) Stop(ctx context.Context, name string) error {
 var unsafeDevelopmentWalletSeed string
 
 func developmentWalletAddress() (common.Address, error) {
-	wallet, err := qrlwallet.RestoreFromSeedHex(strings.TrimSpace(unsafeDevelopmentWalletSeed))
+	wallet, err := UnsafeDevelopmentWallet()
 	if err != nil {
-		return common.Address{}, fmt.Errorf("restore public development wallet: %w", err)
+		return common.Address{}, err
 	}
 	return common.Address(wallet.GetAddress()), nil
+}
+
+// UnsafeDevelopmentWallet restores the public signer funded by the built-in
+// devnet profile. Never use it outside disposable local development networks.
+func UnsafeDevelopmentWallet() (qrlwallet.Wallet, error) {
+	wallet, err := qrlwallet.RestoreFromSeedHex(strings.TrimSpace(unsafeDevelopmentWalletSeed))
+	if err != nil {
+		return nil, fmt.Errorf("restore public development wallet: %w", err)
+	}
+	return wallet, nil
 }
 
 func resolveEnvironment(ctx context.Context, client kurtosisClient, name string) (Environment, error) {
