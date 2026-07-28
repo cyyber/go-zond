@@ -7,10 +7,10 @@ package clef
 
 import (
 	"context"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"net/http"
-	"strings"
 	"time"
 
 	qrlaccounts "github.com/theQRL/go-qrl/accounts"
@@ -33,17 +33,13 @@ type signTransactionResult struct {
 	Tx  *types.Transaction `json:"tx"`
 }
 
-func run(ctx context.Context, clefPath, workspace, seed string) error {
+func run(ctx context.Context, clefPath, workspace string, expectedWallet wallet.Wallet) error {
 	if clefPath == "" {
 		return errors.New("Clef executable path is required")
 	}
-	seed = strings.TrimPrefix(strings.TrimSpace(seed), "0x")
-	if seed == "" {
-		return errors.New("Clef seed is required")
-	}
-	expectedWallet, err := wallet.RestoreFromSeedHex(seed)
+	seed, err := expectedWallet.GetSeed()
 	if err != nil {
-		return fmt.Errorf("restore expected wallet: %w", err)
+		return fmt.Errorf("read expected wallet seed: %w", err)
 	}
 
 	masterPassword, err := randomSecret()
@@ -58,7 +54,7 @@ func run(ctx context.Context, clefPath, workspace, seed string) error {
 		ctx,
 		clefPath,
 		workspace,
-		seed,
+		hex.EncodeToString(seed.ToBytes()),
 		masterPassword,
 		accountPassword,
 	)

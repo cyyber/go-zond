@@ -6,7 +6,6 @@
 package clef
 
 import (
-	"encoding/hex"
 	"path/filepath"
 	"testing"
 	"time"
@@ -36,15 +35,13 @@ var _ = ginkgo.It(
 
 		developmentWallet, err := network.UnsafeDevelopmentWallet()
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-		seed, err := developmentWallet.GetSeed()
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 		ginkgo.By("running and verifying the standalone Clef signing scenario")
 		gomega.Expect(run(
 			ctx,
 			clefPath,
 			workDir,
-			hex.EncodeToString(seed.ToBytes()),
+			developmentWallet,
 		)).To(gomega.Succeed())
 	},
 	ginkgo.SpecTimeout(liveSpecTimeout),
