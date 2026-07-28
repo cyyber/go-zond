@@ -62,7 +62,6 @@ func NewManager() *Manager {
 	}
 }
 
-// Inspect validates and inspects the separately started development network.
 func Inspect(ctx context.Context) (Environment, error) {
 	return NewManager().Inspect(ctx, cmp.Or(os.Getenv("DEVNET_ENCLAVE_NAME"), DefaultEnclaveName))
 }
@@ -188,8 +187,6 @@ func resolveEnvironment(ctx context.Context, client kurtosisClient, name string)
 	}, nil
 }
 
-// retryUntil retries operation with exponential backoff until it succeeds or
-// ctx ends.
 func retryUntil(ctx context.Context, operation func() error) error {
 	policy := backoff.NewExponentialBackOff()
 	policy.InitialInterval = 500 * time.Millisecond
