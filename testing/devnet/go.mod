@@ -1,4 +1,4 @@
-module github.com/theQRL/go-qrl/devnet
+module github.com/theQRL/go-qrl/testing/devnet
 
 go 1.26.5
 
@@ -78,4 +78,4 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace github.com/theQRL/go-qrl => ..
+replace github.com/theQRL/go-qrl => ../..

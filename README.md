@@ -186,11 +186,11 @@ Please make sure your contributions adhere to our coding guidelines:
 ## License
 
 The go-qrl library (i.e. all code outside of the root `cmd` directory and
-`devnet/cmd`) is licensed under the
+`testing/devnet/cmd`) is licensed under the
 [GNU Lesser General Public License v3.0](https://www.gnu.org/licenses/lgpl-3.0.en.html),
 also included in our repository in the `COPYING.LESSER` file.
 
 The go-qrl binaries (i.e. all code inside of the root `cmd` directory and
-`devnet/cmd`) are licensed under the
+`testing/devnet/cmd`) are licensed under the
 [GNU General Public License v3.0](https://www.gnu.org/licenses/gpl-3.0.en.html), also
 included in our repository in the `COPYING` file.

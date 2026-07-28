@@ -17,7 +17,7 @@ import (
 	"github.com/cenkalti/backoff/v7"
 	"github.com/theQRL/go-qrl/common"
 	qrlwallet "github.com/theQRL/go-qrl/crypto/pqcrypto/wallet"
-	"github.com/theQRL/go-qrl/devnet/internal/kurtosis"
+	"github.com/theQRL/go-qrl/testing/devnet/internal/kurtosis"
 )
 
 type kurtosisClient interface {

@@ -1,8 +1,7 @@
 # Devnet and end-to-end tests
 
 This module provides a Kurtosis-backed QRL development network and the Ginkgo
-suites that run against it. It requires Docker, the Kurtosis CLI, and a running
-local Kurtosis 1.20 engine.
+suites that run against it. It requires Docker and Kurtosis CLI 1.20.x.
 
 ## Run
 
@@ -12,8 +11,8 @@ make e2e-test E2E_PACKAGES=./suites/<suite>
 make network-stop
 ```
 
-`network-start` builds the current go-qrl tree and waits for readiness. Tests
-never create or destroy the network.
+`network-start` starts the Kurtosis engine when needed, builds the current
+go-qrl tree, and waits for readiness. Tests never create or destroy the network.
 
 ## Configuration
 
