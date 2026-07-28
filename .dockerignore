@@ -9,4 +9,4 @@ build/cache
 .claude
 .codex
 
-devnet
+testing/devnet

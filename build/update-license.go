@@ -79,7 +79,7 @@ var (
 	}
 
 	// paths with these prefixes are licensed as GPL. all other files are LGPL.
-	gplPrefixes = []string{"cmd/", "devnet/cmd/"}
+	gplPrefixes = []string{"cmd/", "testing/devnet/cmd/"}
 
 	// this regexp must match the entire license comment at the
 	// beginning of each file.

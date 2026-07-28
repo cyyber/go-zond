@@ -24,7 +24,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"github.com/theQRL/go-qrl/devnet/internal/network"
+	"github.com/theQRL/go-qrl/testing/devnet/internal/network"
 )
 
 type recordingNetworks struct {

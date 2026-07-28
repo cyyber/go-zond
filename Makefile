@@ -7,7 +7,7 @@
 
 GOBIN = ./build/bin
 GORUN = go run
-DEVNET_GO = go -C devnet
+DEVNET_GO = go -C testing/devnet
 # Enclave name and start timeout default inside the devnet CLI; set these only
 # to override.
 DEVNET_ENCLAVE_NAME ?=
@@ -63,6 +63,15 @@ devtools:
 
 #? network-start: Start a standalone development network without running suites.
 network-start:
+	@docker info >/dev/null 2>&1 || { \
+		echo "Docker is required and its daemon must be running" >&2; \
+		exit 1; \
+	}
+	@kurtosis version 2>/dev/null | grep -Eq '^CLI Version:[[:space:]]+1\.20\.' || { \
+		echo "Kurtosis CLI 1.20.x is required (https://docs.kurtosis.com/upgrade)" >&2; \
+		exit 1; \
+	}
+	kurtosis engine start
 	docker build --tag "$(DEVNET_EXECUTION_IMAGE)" .
 	$(DEVNET_GO) run ./cmd/devnet start \
 		--execution-image "$(DEVNET_EXECUTION_IMAGE)" \

@@ -24,7 +24,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/theQRL/go-qrl/devnet/internal/network"
+	"github.com/theQRL/go-qrl/testing/devnet/internal/network"
 	"github.com/urfave/cli/v2"
 )
 
