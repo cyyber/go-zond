@@ -63,15 +63,13 @@ advancing blocks and a funded development wallet.
 ## Adding a suite
 
 Add suites under `suites/<suite>`. Live bootstrap files use the `e2e` build tag
-and call `network.Inspect(ctx)` for endpoints. Use
-`devnet.UnsafeDevelopmentWallet()` for the funded signer. Suites must not manage
-the network lifecycle.
+and call `network.Inspect(ctx)` for endpoints. Suites must not manage the network
+lifecycle.
 
 ## Safety
 
-[`testdata/unsafe-development-wallet.seed`](testdata/unsafe-development-wallet.seed)
-is public and embedded in the devnet binary. Never fund or use it outside
-disposable local development networks.
+The development wallet seed is public and embedded in the devnet binary. Never
+fund or use it outside disposable local development networks.
 
 After a failed start, run `make network-stop` with the same enclave name before
 retrying.
