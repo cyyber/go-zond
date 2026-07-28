@@ -6,7 +6,6 @@
 package console
 
 import (
-	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -31,9 +30,7 @@ var _ = ginkgo.It(
 		live, err := network.Inspect(ctx)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
-		workDir, err := os.MkdirTemp("", "go-qrl-console-e2e-")
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-		ginkgo.DeferCleanup(os.RemoveAll, workDir)
+		workDir := ginkgo.GinkgoT().TempDir()
 
 		gqrlPath := filepath.Join(workDir, "gqrl")
 		ginkgo.By("building the current gqrl console")
