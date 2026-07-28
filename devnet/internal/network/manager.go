@@ -7,14 +7,16 @@ package network
 import (
 	"cmp"
 	"context"
+	_ "embed"
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/cenkalti/backoff/v7"
 	"github.com/theQRL/go-qrl/common"
-	"github.com/theQRL/go-qrl/devnet"
+	qrlwallet "github.com/theQRL/go-qrl/crypto/pqcrypto/wallet"
 	"github.com/theQRL/go-qrl/devnet/internal/kurtosis"
 )
 
@@ -159,8 +161,11 @@ func (manager *Manager) Stop(ctx context.Context, name string) error {
 	return nil
 }
 
+//go:embed testdata/unsafe-development-wallet.seed
+var unsafeDevelopmentWalletSeed string
+
 func developmentWalletAddress() (common.Address, error) {
-	wallet, err := devnet.UnsafeDevelopmentWallet()
+	wallet, err := qrlwallet.RestoreFromSeedHex(strings.TrimSpace(unsafeDevelopmentWalletSeed))
 	if err != nil {
 		return common.Address{}, fmt.Errorf("restore public development wallet: %w", err)
 	}

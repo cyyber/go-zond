@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestEffectiveParametersUseRequestedExecutionAndFixedSupportImages(t *testing.T) {
+func TestDefaultParameters(t *testing.T) {
 	address := "Q" + strings.Repeat("a", 128)
 	const executionImage = "local/go-qrl:test"
 	payload, err := effectiveParameters(address, executionImage, nil)
@@ -33,7 +33,7 @@ func TestEffectiveParametersUseRequestedExecutionAndFixedSupportImages(t *testin
 	require.Regexp(t, `^github\.com/rgeraldes24/qrl-package@[0-9a-f]{40}$`, packageLocator)
 }
 
-func TestCustomParametersReplaceOnlyExactJSONTokens(t *testing.T) {
+func TestCustomParameterTokens(t *testing.T) {
 	address := "Q" + strings.Repeat("b", 128)
 	custom := []byte(`{
 		"participants":[{"el_image":"__DEVNET_EXECUTION_IMAGE__","custom":9007199254740993}],
@@ -52,7 +52,7 @@ func TestCustomParametersReplaceOnlyExactJSONTokens(t *testing.T) {
 	require.Contains(t, rendered, `"untouched":"prefix-__DEVNET_EXECUTION_IMAGE__"`)
 }
 
-func TestCustomParametersValidateContract(t *testing.T) {
+func TestInvalidCustomParameters(t *testing.T) {
 	address := "Q" + strings.Repeat("c", 128)
 	for name, custom := range map[string][]byte{
 		"malformed":       []byte(`{`),
