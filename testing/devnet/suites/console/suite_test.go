@@ -23,7 +23,7 @@ func TestParseSuiteResult(t *testing.T) {
 
 func TestSuiteFixtures(t *testing.T) {
 	for _, name := range append([]string{"harness"}, suiteNames...) {
-		if _, err := fs.Stat(fixtures, "testdata/console/"+name+".js"); err != nil {
+		if _, err := fs.Stat(consoleFixtures, "testdata/console/"+name+".js"); err != nil {
 			t.Errorf("%s: %v", name, err)
 		}
 	}

@@ -23,8 +23,14 @@ const resultPrefix = "CONSOLE_E2E_PASS "
 
 var suiteNames = []string{"api", "contract"}
 
-//go:embed testdata/console/*.js testdata/contracts/EventEmitter.abi testdata/contracts/EventEmitter.bin
-var fixtures embed.FS
+//go:embed testdata/console/*.js
+var consoleFixtures embed.FS
+
+//go:embed testdata/contracts/EventEmitter.abi
+var eventEmitterABI []byte
+
+//go:embed testdata/contracts/EventEmitter.bin
+var eventEmitterBytecode string
 
 func runSuite(ctx context.Context, gqrlPath, jsPath, rpcURL, name string) error {
 	expression := "loadScript('harness.js');loadScript('" + name + ".js')"
@@ -76,31 +82,23 @@ func buildGQRL(ctx context.Context, output string) error {
 }
 
 func prepareWorkspace(ctx context.Context, destination, rpcURL string) error {
-	consoleFixtures, err := fs.Sub(fixtures, "testdata/console")
+	consoleScripts, err := fs.Sub(consoleFixtures, "testdata/console")
 	if err != nil {
 		return fmt.Errorf("open console fixtures: %w", err)
 	}
-	if err := os.CopyFS(destination, consoleFixtures); err != nil {
+	if err := os.CopyFS(destination, consoleScripts); err != nil {
 		return fmt.Errorf("copy console fixtures: %w", err)
 	}
 
-	abiJSON, err := fixtures.ReadFile("testdata/contracts/EventEmitter.abi")
-	if err != nil {
-		return fmt.Errorf("read EventEmitter ABI: %w", err)
-	}
-	if !json.Valid(abiJSON) {
+	if !json.Valid(eventEmitterABI) {
 		return fmt.Errorf("EventEmitter ABI is invalid JSON")
 	}
-	bytecodeHex, err := fixtures.ReadFile("testdata/contracts/EventEmitter.bin")
-	if err != nil {
-		return fmt.Errorf("read EventEmitter bytecode: %w", err)
-	}
-	bytecode, err := hexutil.Decode("0x" + strings.TrimPrefix(strings.TrimSpace(string(bytecodeHex)), "0x"))
+	bytecode, err := hexutil.Decode("0x" + strings.TrimPrefix(strings.TrimSpace(eventEmitterBytecode), "0x"))
 	if err != nil {
 		return fmt.Errorf("decode EventEmitter bytecode: %w", err)
 	}
 
-	params, err := deploymentParameters(ctx, rpcURL, abiJSON, bytecode)
+	params, err := deploymentParameters(ctx, rpcURL, eventEmitterABI, bytecode)
 	if err != nil {
 		return err
 	}

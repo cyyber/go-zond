@@ -1,25 +1,17 @@
 function createConsoleSuite(name) {
-    var failed = 0;
-
-    function fail(desc, err) {
-        failed++;
-        console.log("FAIL: " + desc + " -- " + err);
-    }
-
     return {
         check: function (desc, fn) {
             try {
                 if (fn() === false) {
                     throw new Error("assertion returned false");
                 }
-                console.log("PASS: " + desc);
             } catch (e) {
-                fail(desc, e);
+                throw new Error(desc + " -- " + e);
             }
+            console.log("PASS: " + desc);
         },
-        fail: fail,
         finish: function () {
-            console.log((failed === 0 ? "CONSOLE_E2E_PASS " : "CONSOLE_E2E_FAIL ") + name);
+            console.log("CONSOLE_E2E_PASS " + name);
         }
     };
 }

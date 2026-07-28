@@ -88,7 +88,7 @@ func signDeployment(
 	}
 	gas += gas / 5
 
-	tx := types.NewTx(&types.DynamicFeeTx{
+	signed, err := types.SignNewTx(wallet, types.LatestSignerForChainID(chainID), &types.DynamicFeeTx{
 		ChainID:   chainID,
 		Nonce:     nonce,
 		GasTipCap: gasTipCap,
@@ -97,7 +97,6 @@ func signDeployment(
 		Value:     new(big.Int),
 		Data:      bytecode,
 	})
-	signed, err := types.SignTx(tx, types.LatestSignerForChainID(chainID), wallet)
 	if err != nil {
 		return nil, fmt.Errorf("sign deployment transaction: %w", err)
 	}
