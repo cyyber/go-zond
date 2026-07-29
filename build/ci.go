@@ -56,11 +56,6 @@ import (
 )
 
 var (
-	goModules = []string{
-		".",
-		"testing/devnet",
-	}
-
 	// Files that end up in the gqrl-alltools*.zip archive.
 	allToolsArchiveFiles = []string{
 		"COPYING",
@@ -256,13 +251,9 @@ func doTest(cmdline []string) {
 		return
 	}
 
-	// No packages specified, run all tests for all modules.
+	// No packages specified, run all tests.
 	gotest.Args = append(gotest.Args, "./...")
-	for _, mod := range goModules {
-		test := *gotest
-		test.Dir = mod
-		build.MustRun(&test)
-	}
+	build.MustRun(gotest)
 }
 
 // doLint runs golangci-lint on requested packages.
@@ -287,13 +278,7 @@ func doLint(cmdline []string) {
 	if len(packages) > 0 {
 		build.MustRunCommandWithOutput(linter, append(lflags, packages...)...)
 	} else {
-		// Run for all modules in workspace.
-		for _, mod := range goModules {
-			args := append(lflags, "./...")
-			lintcmd := exec.Command(linter, args...)
-			lintcmd.Dir = mod
-			build.MustRunWithOutput(lintcmd)
-		}
+		build.MustRunCommandWithOutput(linter, append(lflags, "./...")...)
 	}
 	fmt.Println("You have achieved perfection.")
 }

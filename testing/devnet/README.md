@@ -1,6 +1,6 @@
 # Devnet and end-to-end tests
 
-This module provides a Kurtosis-backed QRL development network and the Ginkgo
+This directory provides a Kurtosis-backed QRL development network and the Ginkgo
 suites that run against it. It requires Docker and Kurtosis CLI 1.20.x.
 
 ## Run
