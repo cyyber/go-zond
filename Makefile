@@ -87,7 +87,7 @@ network-stop:
 e2e-test:
 	@test -n "$(strip $(E2E_PACKAGES))" || { echo "E2E_PACKAGES must name at least one suite package" >&2; exit 2; }
 	DEVNET_ENCLAVE_NAME="$(DEVNET_ENCLAVE_NAME)" \
-	$(DEVNET_GO) tool ginkgo \
+	go tool ginkgo \
 		--tags=e2e \
 		--procs=1 \
 		--require-suite \
