@@ -38,7 +38,7 @@ func (api *testAccountAPI) SignTransaction(apitypes.SendTxArgs) signTransactionR
 	return api.signedTransaction
 }
 
-func TestExercise(t *testing.T) {
+func TestSigningScenarios(t *testing.T) {
 	expectedWallet, err := network.UnsafeDevelopmentWallet()
 	if err != nil {
 		t.Fatal(err)
@@ -88,7 +88,29 @@ func TestExercise(t *testing.T) {
 
 	client := rpc.DialInProc(server)
 	t.Cleanup(client.Close)
-	if err := exercise(t.Context(), client, account, expectedWallet); err != nil {
-		t.Fatal(err)
-	}
+
+	t.Run("account listing", func(t *testing.T) {
+		if err := verifyAccountListing(t.Context(), client, account); err != nil {
+			t.Fatal(err)
+		}
+	})
+	t.Run("data signing", func(t *testing.T) {
+		if err := verifyDataSigning(t.Context(), client, account, expectedWallet); err != nil {
+			t.Fatal(err)
+		}
+	})
+	t.Run("typed-data signing", func(t *testing.T) {
+		if err := verifyTypedDataSigning(t.Context(), client, account, expectedWallet); err != nil {
+			t.Fatal(err)
+		}
+	})
+	t.Run("transaction signing", func(t *testing.T) {
+		signed, err := signTransaction(t.Context(), client, request)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := verifyTransaction(signed, request, account, expectedWallet); err != nil {
+			t.Fatal(err)
+		}
+	})
 }

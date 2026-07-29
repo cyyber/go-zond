@@ -33,22 +33,35 @@ type signTransactionResult struct {
 	Tx  *types.Transaction `json:"tx"`
 }
 
-func run(ctx context.Context, clefPath, workspace string, expectedWallet wallet.Wallet) error {
+type clefSession struct {
+	process        *clefProcess
+	client         *rpc.Client
+	account        common.Address
+	expectedWallet wallet.Wallet
+}
+
+func newClefSession(
+	ctx context.Context,
+	processContext context.Context,
+	clefPath,
+	workspace string,
+	expectedWallet wallet.Wallet,
+) (*clefSession, error) {
 	if clefPath == "" {
-		return errors.New("Clef executable path is required")
+		return nil, errors.New("Clef executable path is required")
 	}
 	seed, err := expectedWallet.GetSeed()
 	if err != nil {
-		return fmt.Errorf("read expected wallet seed: %w", err)
+		return nil, fmt.Errorf("read expected wallet seed: %w", err)
 	}
 
 	masterPassword, err := randomSecret()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	accountPassword, err := randomSecret()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	account, err := initializeClef(
 		ctx,
@@ -59,19 +72,19 @@ func run(ctx context.Context, clefPath, workspace string, expectedWallet wallet.
 		accountPassword,
 	)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if account != common.Address(expectedWallet.GetAddress()) {
-		return fmt.Errorf(
+		return nil, fmt.Errorf(
 			"imported account %s does not match seed address %s",
 			account.Hex(),
 			common.Address(expectedWallet.GetAddress()).Hex(),
 		)
 	}
 
-	process, endpoint, err := startClef(ctx, clefPath, workspace, masterPassword)
+	process, endpoint, err := startClef(processContext, clefPath, workspace, masterPassword)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	client, err := rpc.DialOptions(
 		ctx,
@@ -79,22 +92,30 @@ func run(ctx context.Context, clefPath, workspace string, expectedWallet wallet.
 		rpc.WithHTTPClient(&http.Client{Timeout: requestTimeout}),
 	)
 	if err != nil {
-		return errors.Join(fmt.Errorf("connect to Clef: %w", err), process.stop())
+		return nil, errors.Join(fmt.Errorf("connect to Clef: %w", err), process.stop())
 	}
 
-	runErr := waitForClef(ctx, client, process)
-	if runErr == nil {
-		runErr = exercise(ctx, client, account, expectedWallet)
+	if err := waitForClef(ctx, client, process); err != nil {
+		client.Close()
+		return nil, errors.Join(err, process.stop())
 	}
-	client.Close()
-	return errors.Join(runErr, process.stop())
+	return &clefSession{
+		process:        process,
+		client:         client,
+		account:        account,
+		expectedWallet: expectedWallet,
+	}, nil
 }
 
-func exercise(
+func (session *clefSession) close() error {
+	session.client.Close()
+	return session.process.stop()
+}
+
+func verifyAccountListing(
 	ctx context.Context,
 	client *rpc.Client,
 	account common.Address,
-	expectedWallet wallet.Wallet,
 ) error {
 	var listedAccounts []common.Address
 	if err := callRPC(ctx, client, &listedAccounts, "account_list"); err != nil {
@@ -103,7 +124,15 @@ func exercise(
 	if len(listedAccounts) != 1 || listedAccounts[0] != account {
 		return fmt.Errorf("account_list returned %v, want [%s]", listedAccounts, account.Hex())
 	}
+	return nil
+}
 
+func verifyDataSigning(
+	ctx context.Context,
+	client *rpc.Client,
+	account common.Address,
+	expectedWallet wallet.Wallet,
+) error {
 	var dataSignature hexutil.Bytes
 	if err := callRPC(ctx, client, &dataSignature, "account_signData",
 		qrlaccounts.MimetypeTextPlain,
@@ -120,7 +149,15 @@ func exercise(
 	); err != nil {
 		return err
 	}
+	return nil
+}
 
+func verifyTypedDataSigning(
+	ctx context.Context,
+	client *rpc.Client,
+	account common.Address,
+	expectedWallet wallet.Wallet,
+) error {
 	typedData := expectedTypedData(account)
 	var typedSignature hexutil.Bytes
 	if err := callRPC(ctx, client, &typedSignature, "account_signTypedData",
@@ -141,8 +178,14 @@ func exercise(
 	); err != nil {
 		return err
 	}
+	return nil
+}
 
-	transaction := expectedTransaction(account)
+func signTransaction(
+	ctx context.Context,
+	client *rpc.Client,
+	transaction apitypes.SendTxArgs,
+) (signTransactionResult, error) {
 	var signed signTransactionResult
 	if err := callRPC(
 		ctx,
@@ -151,9 +194,9 @@ func exercise(
 		"account_signTransaction",
 		transaction,
 	); err != nil {
-		return err
+		return signTransactionResult{}, err
 	}
-	return verifyTransaction(signed, transaction, account, expectedWallet)
+	return signed, nil
 }
 
 func waitForClef(

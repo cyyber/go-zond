@@ -67,26 +67,42 @@ func expectedTypedData(account common.Address) apitypes.TypedData {
 }
 
 func expectedTransaction(account common.Address) apitypes.SendTxArgs {
+	return transactionArgs(
+		account,
+		big.NewInt(defaultChainID),
+		expectedNonce,
+		big.NewInt(expectedTip),
+		big.NewInt(expectedFeeCap),
+	)
+}
+
+func transactionArgs(
+	account common.Address,
+	chainID *big.Int,
+	nonce uint64,
+	tip *big.Int,
+	feeCap *big.Int,
+) apitypes.SendTxArgs {
 	recipient := common.MustParseAddress(expectedRecipient)
 	input := hexutil.MustDecode(expectedTxInputHex)
 	from := common.NewMixedcaseAddress(account)
 	to := common.NewMixedcaseAddress(recipient)
-	tip := hexutil.Big(*big.NewInt(expectedTip))
-	feeCap := hexutil.Big(*big.NewInt(expectedFeeCap))
+	tipValue := hexutil.Big(*new(big.Int).Set(tip))
+	feeCapValue := hexutil.Big(*new(big.Int).Set(feeCap))
 	value := hexutil.Big(*big.NewInt(expectedValue))
-	chainID := hexutil.Big(*big.NewInt(defaultChainID))
+	chainIDValue := hexutil.Big(*new(big.Int).Set(chainID))
 	data := hexutil.Bytes(input)
 	accessList := types.AccessList{}
 	return apitypes.SendTxArgs{
 		From:                 from,
 		To:                   &to,
 		Gas:                  hexutil.Uint64(expectedGas),
-		MaxFeePerGas:         &feeCap,
-		MaxPriorityFeePerGas: &tip,
+		MaxFeePerGas:         &feeCapValue,
+		MaxPriorityFeePerGas: &tipValue,
 		Value:                value,
-		Nonce:                hexutil.Uint64(expectedNonce),
+		Nonce:                hexutil.Uint64(nonce),
 		Input:                &data,
 		AccessList:           &accessList,
-		ChainID:              &chainID,
+		ChainID:              &chainIDValue,
 	}
 }
