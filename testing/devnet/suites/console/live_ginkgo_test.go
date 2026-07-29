@@ -23,28 +23,45 @@ func TestE2E(t *testing.T) {
 	ginkgo.RunSpecs(t, "Console live E2E suite")
 }
 
-var _ = ginkgo.It(
-	"exercises the embedded console against a live qrl-package network",
+var _ = ginkgo.Describe(
+	"embedded console against a live qrl-package network",
 	ginkgo.Serial,
+	ginkgo.Ordered,
+	ginkgo.ContinueOnFailure,
 	ginkgo.Label("e2e", "live", "console", "mutates-chain"),
-	func(ctx ginkgo.SpecContext) {
-		live, err := network.Inspect(ctx)
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	func() {
+		var (
+			gqrlPath string
+			jsPath   string
+			rpcURL   string
+		)
 
-		workDir := ginkgo.GinkgoT().TempDir()
+		ginkgo.BeforeAll(func(ctx ginkgo.SpecContext) {
+			live, err := network.Inspect(ctx)
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			rpcURL = live.RPCURL
 
-		gqrlPath := filepath.Join(workDir, "gqrl")
-		ginkgo.By("building the current gqrl console")
-		gomega.Expect(build.Binary(ctx, "./cmd/gqrl", gqrlPath)).To(gomega.Succeed())
+			workDir := ginkgo.GinkgoT().TempDir()
 
-		jsPath := filepath.Join(workDir, "js")
-		ginkgo.By("preparing the console scripts and deployment transaction")
-		gomega.Expect(prepareWorkspace(ctx, jsPath, live.RPCURL)).To(gomega.Succeed())
+			gqrlPath = filepath.Join(workDir, "gqrl")
+			ginkgo.By("building the current gqrl console")
+			gomega.Expect(build.Binary(ctx, "./cmd/gqrl", gqrlPath)).To(gomega.Succeed())
 
-		for _, name := range suiteNames {
-			ginkgo.By("running " + name)
-			gomega.Expect(runSuite(ctx, gqrlPath, jsPath, live.RPCURL, name)).To(gomega.Succeed())
+			jsPath = filepath.Join(workDir, "js")
+			ginkgo.By("preparing the console scripts and deployment transaction")
+			gomega.Expect(prepareWorkspace(ctx, jsPath, rpcURL)).To(gomega.Succeed())
+		})
+
+		for _, scenario := range consoleScenarios {
+			ginkgo.It(
+				scenario.description,
+				func(ctx ginkgo.SpecContext) {
+					gomega.Expect(
+						runSuite(ctx, gqrlPath, jsPath, rpcURL, scenario.name),
+					).To(gomega.Succeed())
+				},
+				ginkgo.SpecTimeout(liveSpecTimeout),
+			)
 		}
 	},
-	ginkgo.SpecTimeout(liveSpecTimeout),
 )

@@ -19,7 +19,21 @@ import (
 
 const resultPrefix = "CONSOLE_E2E_PASS "
 
-var suiteNames = []string{"api", "contract"}
+type consoleScenario struct {
+	name        string
+	description string
+}
+
+var consoleScenarios = []consoleScenario{
+	{
+		name:        "api",
+		description: "validates console and RPC APIs against the live network",
+	},
+	{
+		name:        "contract",
+		description: "deploys a contract and validates VM64 ABI, receipts, events, and filters",
+	},
+}
 
 //go:embed testdata/console/*.js
 var consoleFixtures embed.FS
