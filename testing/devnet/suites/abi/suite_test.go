@@ -63,9 +63,9 @@ var _ = ginkgo.Describe(
 			fixture.assertEventsAndFilters(ctx)
 		})
 
-		// ginkgo.It("round-trips function values and containers through generic ABI and raw RPC", func(ctx ginkgo.SpecContext) {
-		// 	fixture.assertFunctionValues(ctx)
-		// })
+		ginkgo.It("round-trips function values and containers through generic ABI and raw RPC", func(ctx ginkgo.SpecContext) {
+			fixture.assertFunctionValues(ctx)
+		})
 
 		ginkgo.It("sends value through the generated receive entrypoint", func(ctx ginkgo.SpecContext) {
 			fixture.assertPayableEntrypoints(ctx)
