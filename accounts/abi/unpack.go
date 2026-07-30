@@ -123,25 +123,15 @@ func readBool(word []byte) (bool, error) {
 	}
 }
 
-// A function type is simply the address with the function selection signature at the end.
-//
-// readFunctionType enforces that standard by always presenting it as an array of
-// (AddressLength + 4) bytes (address + 4-byte selector).
-func readFunctionType(t Type, word []byte) (funcTy [common.AddressLength + 4]byte, err error) {
+// readFunctionType reconstructs the address and selector from the two-word
+// encoding of an external function value.
+func readFunctionType(t Type, words []byte) (funcTy [common.AddressLength + 4]byte, err error) {
 	if t.T != FunctionTy {
 		return [common.AddressLength + 4]byte{}, errors.New("abi: invalid type in call to make function type byte array")
 	}
-	if common.AddressLength+4 > len(word) {
-		return [common.AddressLength + 4]byte{}, errors.New("abi: function type does not fit in a 64-byte ABI word with 64-byte addresses")
-	}
-	for _, b := range word[common.AddressLength+4:] {
-		if b != 0 {
-			err = fmt.Errorf("abi: got improperly encoded function type, got %v", word)
-			return
-		}
-	}
-	copy(funcTy[:], word[0:common.AddressLength+4])
-	return
+	copy(funcTy[:common.AddressLength], words[:common.AddressLength])
+	copy(funcTy[common.AddressLength:], words[124:128])
+	return funcTy, nil
 }
 
 // ReadFixedBytes uses reflection to create a fixed array to be read from.
@@ -221,6 +211,8 @@ func forTupleUnpack(t Type, output []byte) (any, error) {
 			// If we have a static tuple, like (uint256, bool, uint256), these are
 			// coded as just like uint256,bool,uint256
 			virtualArgs += getTypeSize(*elem)/64 - 1
+		} else if elem.T == FunctionTy {
+			virtualArgs += getTypeSize(*elem)/64 - 1
 		}
 		retval.Field(index).Set(reflect.ValueOf(marshalledValue))
 	}
@@ -230,6 +222,12 @@ func forTupleUnpack(t Type, output []byte) (any, error) {
 // toGoType parses the output bytes and recursively assigns the value of these bytes
 // into a go type with accordance with the ABI spec.
 func toGoType(index int, t Type, output []byte) (any, error) {
+	if t.T == FunctionTy {
+		if index+128 > len(output) {
+			return nil, fmt.Errorf("abi: cannot marshal in to go type: length insufficient %d require %d", len(output), index+128)
+		}
+		return readFunctionType(t, output[index:index+128])
+	}
 	if index+64 > len(output) {
 		return nil, fmt.Errorf("abi: cannot marshal in to go type: length insufficient %d require %d", len(output), index+64)
 	}
@@ -285,8 +283,6 @@ func toGoType(index int, t Type, output []byte) (any, error) {
 		return output[begin : begin+length], nil
 	case FixedBytesTy:
 		return ReadFixedBytes(t, returnOutput)
-	case FunctionTy:
-		return readFunctionType(t, returnOutput)
 	default:
 		return nil, fmt.Errorf("abi: unknown type %v", t.T)
 	}

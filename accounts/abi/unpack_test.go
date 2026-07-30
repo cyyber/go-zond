@@ -96,6 +96,51 @@ func TestUnpack(t *testing.T) {
 	}
 }
 
+func TestUnpackFunctionHeadOffsets(t *testing.T) {
+	t.Parallel()
+
+	function := functionValue(1, [4]byte{0xde, 0xad, 0xbe, 0xef})
+	tests := []struct {
+		name    string
+		outputs string
+		encoded []byte
+		want    []any
+	}{
+		{
+			name:    "function",
+			outputs: `[{"type":"function"},{"type":"uint256"}]`,
+			encoded: append(functionBytes(function), common.LeftPadBytes([]byte{42}, 64)...),
+			want:    []any{function, big.NewInt(42)},
+		},
+		{
+			name:    "fixed array",
+			outputs: `[{"type":"function[2]"},{"type":"uint256"}]`,
+			encoded: append(
+				append(functionBytes(function), functionBytes(function)...),
+				common.LeftPadBytes([]byte{42}, 64)...,
+			),
+			want: []any{
+				[2][common.AddressLength + 4]byte{function, function},
+				big.NewInt(42),
+			},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			definition := fmt.Sprintf(
+				`[{"name":"method","type":"function","outputs":%s}]`,
+				test.outputs,
+			)
+			parsed, err := JSON(strings.NewReader(definition))
+			require.NoError(t, err)
+
+			got, err := parsed.Unpack("method", test.encoded)
+			require.NoError(t, err)
+			require.Equal(t, test.want, got)
+		})
+	}
+}
+
 type unpackTest struct {
 	def  string // ABI definition JSON
 	enc  string // qrvm return data

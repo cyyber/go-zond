@@ -39,7 +39,7 @@ type EventEmitterDynamicRecord struct {
 
 // EventEmitterFunctionRecord is an auto generated low-level Go binding around an user-defined struct.
 type EventEmitterFunctionRecord struct {
-	Callback [24]byte
+	Callback [68]byte
 	Note     string
 }
 
@@ -301,18 +301,18 @@ func (_EventEmitter *EventEmitterCallerSession) EchoBoundaries(smallUnsigned uin
 // EchoFunctions is a free data retrieval call binding the contract method 0xe558a3a7.
 //
 // Hyperion: function echoFunctions(function callback, string note, function[2] fixedCallbacks, function[] callbacks, (function,string) record) pure returns(function, string, function[2], function[], (function,string))
-func (_EventEmitter *EventEmitterCaller) EchoFunctions(opts *bind.CallOpts, callback [24]byte, note string, fixedCallbacks [2][24]byte, callbacks [][24]byte, record EventEmitterFunctionRecord) ([24]byte, string, [2][24]byte, [][24]byte, EventEmitterFunctionRecord, error) {
+func (_EventEmitter *EventEmitterCaller) EchoFunctions(opts *bind.CallOpts, callback [68]byte, note string, fixedCallbacks [2][68]byte, callbacks [][68]byte, record EventEmitterFunctionRecord) ([68]byte, string, [2][68]byte, [][68]byte, EventEmitterFunctionRecord, error) {
 	var out []any
 	err := _EventEmitter.contract.Call(opts, &out, "echoFunctions", callback, note, fixedCallbacks, callbacks, record)
 
 	if err != nil {
-		return *new([24]byte), *new(string), *new([2][24]byte), *new([][24]byte), *new(EventEmitterFunctionRecord), err
+		return *new([68]byte), *new(string), *new([2][68]byte), *new([][68]byte), *new(EventEmitterFunctionRecord), err
 	}
 
-	out0 := *abi.ConvertType(out[0], new([24]byte)).(*[24]byte)
+	out0 := *abi.ConvertType(out[0], new([68]byte)).(*[68]byte)
 	out1 := *abi.ConvertType(out[1], new(string)).(*string)
-	out2 := *abi.ConvertType(out[2], new([2][24]byte)).(*[2][24]byte)
-	out3 := *abi.ConvertType(out[3], new([][24]byte)).(*[][24]byte)
+	out2 := *abi.ConvertType(out[2], new([2][68]byte)).(*[2][68]byte)
+	out3 := *abi.ConvertType(out[3], new([][68]byte)).(*[][68]byte)
 	out4 := *abi.ConvertType(out[4], new(EventEmitterFunctionRecord)).(*EventEmitterFunctionRecord)
 
 	return out0, out1, out2, out3, out4, err
@@ -322,14 +322,14 @@ func (_EventEmitter *EventEmitterCaller) EchoFunctions(opts *bind.CallOpts, call
 // EchoFunctions is a free data retrieval call binding the contract method 0xe558a3a7.
 //
 // Hyperion: function echoFunctions(function callback, string note, function[2] fixedCallbacks, function[] callbacks, (function,string) record) pure returns(function, string, function[2], function[], (function,string))
-func (_EventEmitter *EventEmitterSession) EchoFunctions(callback [24]byte, note string, fixedCallbacks [2][24]byte, callbacks [][24]byte, record EventEmitterFunctionRecord) ([24]byte, string, [2][24]byte, [][24]byte, EventEmitterFunctionRecord, error) {
+func (_EventEmitter *EventEmitterSession) EchoFunctions(callback [68]byte, note string, fixedCallbacks [2][68]byte, callbacks [][68]byte, record EventEmitterFunctionRecord) ([68]byte, string, [2][68]byte, [][68]byte, EventEmitterFunctionRecord, error) {
 	return _EventEmitter.Contract.EchoFunctions(&_EventEmitter.CallOpts, callback, note, fixedCallbacks, callbacks, record)
 }
 
 // EchoFunctions is a free data retrieval call binding the contract method 0xe558a3a7.
 //
 // Hyperion: function echoFunctions(function callback, string note, function[2] fixedCallbacks, function[] callbacks, (function,string) record) pure returns(function, string, function[2], function[], (function,string))
-func (_EventEmitter *EventEmitterCallerSession) EchoFunctions(callback [24]byte, note string, fixedCallbacks [2][24]byte, callbacks [][24]byte, record EventEmitterFunctionRecord) ([24]byte, string, [2][24]byte, [][24]byte, EventEmitterFunctionRecord, error) {
+func (_EventEmitter *EventEmitterCallerSession) EchoFunctions(callback [68]byte, note string, fixedCallbacks [2][68]byte, callbacks [][68]byte, record EventEmitterFunctionRecord) ([68]byte, string, [2][68]byte, [][68]byte, EventEmitterFunctionRecord, error) {
 	return _EventEmitter.Contract.EchoFunctions(&_EventEmitter.CallOpts, callback, note, fixedCallbacks, callbacks, record)
 }
 
@@ -678,21 +678,21 @@ func (_EventEmitter *EventEmitterTransactorSession) EmitTransformed0(value uint1
 // ExerciseFunction is a paid mutator transaction binding the contract method 0xa43e73c9.
 //
 // Hyperion: function exerciseFunction(function callback, uint512 value) returns(function, uint512)
-func (_EventEmitter *EventEmitterTransactor) ExerciseFunction(opts *bind.TransactOpts, callback [24]byte, value *big.Int) (*types.Transaction, error) {
+func (_EventEmitter *EventEmitterTransactor) ExerciseFunction(opts *bind.TransactOpts, callback [68]byte, value *big.Int) (*types.Transaction, error) {
 	return _EventEmitter.contract.Transact(opts, "exerciseFunction", callback, value)
 }
 
 // ExerciseFunction is a paid mutator transaction binding the contract method 0xa43e73c9.
 //
 // Hyperion: function exerciseFunction(function callback, uint512 value) returns(function, uint512)
-func (_EventEmitter *EventEmitterSession) ExerciseFunction(callback [24]byte, value *big.Int) (*types.Transaction, error) {
+func (_EventEmitter *EventEmitterSession) ExerciseFunction(callback [68]byte, value *big.Int) (*types.Transaction, error) {
 	return _EventEmitter.Contract.ExerciseFunction(&_EventEmitter.TransactOpts, callback, value)
 }
 
 // ExerciseFunction is a paid mutator transaction binding the contract method 0xa43e73c9.
 //
 // Hyperion: function exerciseFunction(function callback, uint512 value) returns(function, uint512)
-func (_EventEmitter *EventEmitterTransactorSession) ExerciseFunction(callback [24]byte, value *big.Int) (*types.Transaction, error) {
+func (_EventEmitter *EventEmitterTransactorSession) ExerciseFunction(callback [68]byte, value *big.Int) (*types.Transaction, error) {
 	return _EventEmitter.Contract.ExerciseFunction(&_EventEmitter.TransactOpts, callback, value)
 }
 
@@ -1409,8 +1409,8 @@ func (it *EventEmitterFunctionObservedIterator) Close() error {
 
 // EventEmitterFunctionObserved represents a FunctionObserved event raised by the EventEmitter contract.
 type EventEmitterFunctionObserved struct {
-	IndexedCallback [24]byte
-	Callback        [24]byte
+	IndexedCallback common.Hash
+	Callback        [68]byte
 	Result          *big.Int
 	Raw             types.Log // Blockchain specific contextual infos
 }
@@ -1418,7 +1418,7 @@ type EventEmitterFunctionObserved struct {
 // FilterFunctionObserved is a free log retrieval operation binding the contract event 0xfa178067c55becdc50555038a0302191054dc26036b1e5ad5d3d0a9daa93423c.
 //
 // Hyperion: event FunctionObserved(function indexed indexedCallback, function callback, uint512 result)
-func (_EventEmitter *EventEmitterFilterer) FilterFunctionObserved(opts *bind.FilterOpts, indexedCallback [][24]byte) (*EventEmitterFunctionObservedIterator, error) {
+func (_EventEmitter *EventEmitterFilterer) FilterFunctionObserved(opts *bind.FilterOpts, indexedCallback [][68]byte) (*EventEmitterFunctionObservedIterator, error) {
 
 	var indexedCallbackRule []any
 	for _, indexedCallbackItem := range indexedCallback {
@@ -1435,7 +1435,7 @@ func (_EventEmitter *EventEmitterFilterer) FilterFunctionObserved(opts *bind.Fil
 // WatchFunctionObserved is a free log subscription operation binding the contract event 0xfa178067c55becdc50555038a0302191054dc26036b1e5ad5d3d0a9daa93423c.
 //
 // Hyperion: event FunctionObserved(function indexed indexedCallback, function callback, uint512 result)
-func (_EventEmitter *EventEmitterFilterer) WatchFunctionObserved(opts *bind.WatchOpts, sink chan<- *EventEmitterFunctionObserved, indexedCallback [][24]byte) (event.Subscription, error) {
+func (_EventEmitter *EventEmitterFilterer) WatchFunctionObserved(opts *bind.WatchOpts, sink chan<- *EventEmitterFunctionObserved, indexedCallback [][68]byte) (event.Subscription, error) {
 
 	var indexedCallbackRule []any
 	for _, indexedCallbackItem := range indexedCallback {

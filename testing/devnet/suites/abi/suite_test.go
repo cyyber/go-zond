@@ -67,12 +67,12 @@ var _ = ginkgo.Describe(
 		// 	fixture.assertFunctionValues(ctx)
 		// })
 
-		// ginkgo.It("sends value through the generated receive entrypoint", func(ctx ginkgo.SpecContext) {
-		// 	fixture.assertPayableEntrypoints(ctx)
-		// })
+		ginkgo.It("sends value through the generated receive entrypoint", func(ctx ginkgo.SpecContext) {
+			fixture.assertPayableEntrypoints(ctx)
+		})
 
-		// ginkgo.It("observes an indexed generated event filter over WebSocket", func(ctx ginkgo.SpecContext) {
-		// 	fixture.assertWebSocketWatcher(ctx)
-		// })
+		ginkgo.It("observes an indexed generated event filter over WebSocket", func(ctx ginkgo.SpecContext) {
+			fixture.assertWebSocketWatcher(ctx)
+		})
 	},
 )

@@ -311,7 +311,7 @@ func bindBasicType(kind abi.Type) string {
 	case abi.BytesTy:
 		return "[]byte"
 	case abi.FunctionTy:
-		return "[24]byte"
+		return fmt.Sprintf("[%d]byte", kind.Size)
 	default:
 		// string, bool types
 		return kind.String()
@@ -343,9 +343,9 @@ func bindTopicType(kind abi.Type, structs map[string]*tmplStruct) string {
 	// parameters that are not value types i.e. arrays and structs are not
 	// stored directly but instead a keccak256-hash of an encoding is stored.
 	//
-	// We only convert strings and bytes to hash, still need to deal with
-	// array(both fixed-size and dynamic-size) and struct.
-	if bound == "string" || bound == "[]byte" {
+	// We convert strings, bytes, and VM64 functions to hashes, and still need
+	// to deal with arrays and structs.
+	if bound == "string" || bound == "[]byte" || kind.T == abi.FunctionTy {
 		bound = "common.Hash"
 	}
 	return bound

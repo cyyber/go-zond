@@ -751,100 +751,98 @@ func (fixture *liveFixture) assertEventsAndFilters(ctx context.Context) {
 	gomega.Expect(composite.FixedStrings).To(gomega.Equal(fixedStrings))
 	gomega.Expect(composite.Mixed).To(gomega.Equal(mixed))
 
-	/*
-		// Hyperion:
-		// event IndexedScalars(bool indexed flag, bytes5 indexed code, int16 indexed delta);
-		// function emitIndexedScalars(bool flag, bytes5 code, int16 delta) external {
-		//     emit IndexedScalars(flag, code, delta);
-		// }
-		// Goal: indexed scalar topics use the correct VM padding and sign
-		// extension, and generated parsing plus filters recover their values.
-		ginkgo.By("encoding and filtering indexed scalar event values")
-		code, delta := [5]byte{0x00, 0x7f, 0x80, 0xfe, 0xff}, int16(-321)
-		indexedTx, err := fixture.binding.EmitIndexedScalars(
-			fixture.transactOpts(ctx),
-			false,
-			code,
-			delta,
-		)
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-		indexedReceipt := waitSuccessfulTransaction(ctx, fixture.client, indexedTx)
-		gomega.Expect(indexedReceipt.Logs).To(gomega.HaveLen(1))
-		fixture.assertEvent(ctx, eventExpectation{
-			name: "IndexedScalars",
-			log:  *indexedReceipt.Logs[0],
-			exactTopics: []common.LogTopic{
-				common.HashToLogTopic(fixture.contractABI.Events["IndexedScalars"].ID),
-				{},
-				common.BytesToLeftAlignedLogTopic(code[:]),
-				common.BytesToRightAlignedLogTopic(qrlmath.U512Bytes(big.NewInt(int64(delta)))),
-			},
-			want: map[string]any{
-				"flag":  false,
-				"code":  code,
-				"delta": delta,
-			},
-			filter: [][]any{{true, false}, {code}, {delta}},
-			reject: [][]any{{false}, {code}, {int16(321)}},
-		})
-		indexed, err := fixture.binding.ParseIndexedScalars(*indexedReceipt.Logs[0])
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-		gomega.Expect(indexed.Flag).To(gomega.BeFalse())
-		gomega.Expect(indexed.Code).To(gomega.Equal(code))
-		gomega.Expect(indexed.Delta).To(gomega.Equal(delta))
+	// Hyperion:
+	// event IndexedScalars(bool indexed flag, bytes5 indexed code, int16 indexed delta);
+	// function emitIndexedScalars(bool flag, bytes5 code, int16 delta) external {
+	//     emit IndexedScalars(flag, code, delta);
+	// }
+	// Goal: indexed scalar topics use the correct VM padding and sign
+	// extension, and generated parsing plus filters recover their values.
+	ginkgo.By("encoding and filtering indexed scalar event values")
+	code, delta := [5]byte{0x00, 0x7f, 0x80, 0xfe, 0xff}, int16(-321)
+	indexedTx, err := fixture.binding.EmitIndexedScalars(
+		fixture.transactOpts(ctx),
+		false,
+		code,
+		delta,
+	)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	indexedReceipt := waitSuccessfulTransaction(ctx, fixture.client, indexedTx)
+	gomega.Expect(indexedReceipt.Logs).To(gomega.HaveLen(1))
+	fixture.assertEvent(ctx, eventExpectation{
+		name: "IndexedScalars",
+		log:  *indexedReceipt.Logs[0],
+		exactTopics: []common.LogTopic{
+			common.HashToLogTopic(fixture.contractABI.Events["IndexedScalars"].ID),
+			{},
+			common.BytesToLeftAlignedLogTopic(code[:]),
+			common.BytesToRightAlignedLogTopic(qrlmath.U512Bytes(big.NewInt(int64(delta)))),
+		},
+		want: map[string]any{
+			"flag":  false,
+			"code":  code,
+			"delta": delta,
+		},
+		filter: [][]any{{true, false}, {code}, {delta}},
+		reject: [][]any{{false}, {code}, {int16(321)}},
+	})
+	indexed, err := fixture.binding.ParseIndexedScalars(*indexedReceipt.Logs[0])
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	gomega.Expect(indexed.Flag).To(gomega.BeFalse())
+	gomega.Expect(indexed.Code).To(gomega.Equal(code))
+	gomega.Expect(indexed.Delta).To(gomega.Equal(delta))
 
-		// Hyperion:
-		// event Transformed(uint16 value);
-		// event Transformed(string value);
-		// function emitTransformed(uint16 value) external { emit Transformed(value); }
-		// function emitTransformed(string calldata value) external { emit Transformed(value); }
-		// Goal: overloaded event lookup and generated parsers retain the correct
-		// canonical signature and decode each overload independently.
-		ginkgo.By("resolving and decoding overloaded events")
-		gomega.Expect(fixture.contractABI.Events["Transformed"].Sig).To(
-			gomega.Equal("Transformed(uint16)"),
-		)
-		gomega.Expect(fixture.contractABI.Events["Transformed0"].Sig).To(
-			gomega.Equal("Transformed(string)"),
-		)
-		stringTx, err := fixture.binding.EmitTransformed(fixture.transactOpts(ctx), inputs.note)
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-		stringReceipt := waitSuccessfulTransaction(ctx, fixture.client, stringTx)
-		gomega.Expect(stringReceipt.Logs).To(gomega.HaveLen(1))
-		fixture.assertEvent(ctx, eventExpectation{
-			name: "Transformed0",
-			log:  *stringReceipt.Logs[0],
-			data: []any{inputs.note},
-			exactTopics: []common.LogTopic{
-				common.HashToLogTopic(fixture.contractABI.Events["Transformed0"].ID),
-			},
-			want: map[string]any{"value": inputs.note},
-		})
-		stringEvent, err := fixture.binding.ParseTransformed0(*stringReceipt.Logs[0])
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-		gomega.Expect(stringEvent.Value).To(gomega.Equal(inputs.note))
+	// Hyperion:
+	// event Transformed(uint16 value);
+	// event Transformed(string value);
+	// function emitTransformed(uint16 value) external { emit Transformed(value); }
+	// function emitTransformed(string calldata value) external { emit Transformed(value); }
+	// Goal: overloaded event lookup and generated parsers retain the correct
+	// canonical signature and decode each overload independently.
+	ginkgo.By("resolving and decoding overloaded events")
+	gomega.Expect(fixture.contractABI.Events["Transformed"].Sig).To(
+		gomega.Equal("Transformed(uint16)"),
+	)
+	gomega.Expect(fixture.contractABI.Events["Transformed0"].Sig).To(
+		gomega.Equal("Transformed(string)"),
+	)
+	stringTx, err := fixture.binding.EmitTransformed(fixture.transactOpts(ctx), inputs.note)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	stringReceipt := waitSuccessfulTransaction(ctx, fixture.client, stringTx)
+	gomega.Expect(stringReceipt.Logs).To(gomega.HaveLen(1))
+	fixture.assertEvent(ctx, eventExpectation{
+		name: "Transformed0",
+		log:  *stringReceipt.Logs[0],
+		data: []any{inputs.note},
+		exactTopics: []common.LogTopic{
+			common.HashToLogTopic(fixture.contractABI.Events["Transformed0"].ID),
+		},
+		want: map[string]any{"value": inputs.note},
+	})
+	stringEvent, err := fixture.binding.ParseTransformed0(*stringReceipt.Logs[0])
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	gomega.Expect(stringEvent.Value).To(gomega.Equal(inputs.note))
 
-		const transformedInteger = uint16(0x1234)
-		integerTx, err := fixture.binding.EmitTransformed0(
-			fixture.transactOpts(ctx),
-			transformedInteger,
-		)
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-		integerReceipt := waitSuccessfulTransaction(ctx, fixture.client, integerTx)
-		gomega.Expect(integerReceipt.Logs).To(gomega.HaveLen(1))
-		fixture.assertEvent(ctx, eventExpectation{
-			name: "Transformed",
-			log:  *integerReceipt.Logs[0],
-			data: []any{transformedInteger},
-			exactTopics: []common.LogTopic{
-				common.HashToLogTopic(fixture.contractABI.Events["Transformed"].ID),
-			},
-			want: map[string]any{"value": transformedInteger},
-		})
-		integerEvent, err := fixture.binding.ParseTransformed(*integerReceipt.Logs[0])
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-		gomega.Expect(integerEvent.Value).To(gomega.Equal(transformedInteger))
-	*/
+	const transformedInteger = uint16(0x1234)
+	integerTx, err := fixture.binding.EmitTransformed0(
+		fixture.transactOpts(ctx),
+		transformedInteger,
+	)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	integerReceipt := waitSuccessfulTransaction(ctx, fixture.client, integerTx)
+	gomega.Expect(integerReceipt.Logs).To(gomega.HaveLen(1))
+	fixture.assertEvent(ctx, eventExpectation{
+		name: "Transformed",
+		log:  *integerReceipt.Logs[0],
+		data: []any{transformedInteger},
+		exactTopics: []common.LogTopic{
+			common.HashToLogTopic(fixture.contractABI.Events["Transformed"].ID),
+		},
+		want: map[string]any{"value": transformedInteger},
+	})
+	integerEvent, err := fixture.binding.ParseTransformed(*integerReceipt.Logs[0])
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	gomega.Expect(integerEvent.Value).To(gomega.Equal(transformedInteger))
 }
 
 func (fixture *liveFixture) assertFunctionValues(ctx context.Context) {
@@ -982,7 +980,7 @@ func (fixture *liveFixture) assertFunctionValues(ctx context.Context) {
 		gomega.Expect(ok).To(gomega.BeTrue(), "generated ExerciseFunction returned %T", exerciseResults[0].Interface())
 		receipt := waitSuccessfulTransaction(ctx, fixture.client, functionTx)
 		gomega.Expect(receipt.Logs).To(gomega.HaveLen(1))
-		callbackHash := common.HashToLogTopic(crypto.Keccak256Hash(callback[:]))
+		callbackHash := crypto.Keccak256Hash(callback[:])
 		fixture.assertEvent(
 			ctx,
 			eventExpectation{
@@ -991,7 +989,7 @@ func (fixture *liveFixture) assertFunctionValues(ctx context.Context) {
 				data: []any{callback, functionResult},
 				exactTopics: []common.LogTopic{
 					common.HashToLogTopic(fixture.contractABI.Events["FunctionObserved"].ID),
-					callbackHash,
+					common.HashToLogTopic(callbackHash),
 				},
 				want: map[string]any{
 					"indexedCallback": callbackHash,
@@ -1008,7 +1006,7 @@ func (fixture *liveFixture) assertFunctionValues(ctx context.Context) {
 		indexedField, ok := eventType.FieldByName("IndexedCallback")
 		gomega.Expect(ok).To(gomega.BeTrue())
 		gomega.Expect(indexedField.Type).To(
-			gomega.Equal(reflect.TypeOf(common.LogTopic{})),
+			gomega.Equal(reflect.TypeOf(common.Hash{})),
 			"generated indexed function representation",
 		)
 		callbackField, ok := eventType.FieldByName("Callback")
@@ -1077,82 +1075,81 @@ func (fixture *liveFixture) assertPayableEntrypoints(ctx context.Context) {
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	gomega.Expect(received.Amount).To(gomega.Equal(amount))
 
-	/*
-		// Hyperion:
-		// event FallbackCalled(bytes payload, uint256 amount);
-		// fallback() external payable { emit FallbackCalled(msg.data, msg.value); }
-		// Goal: the generated fallback entrypoint preserves calldata larger than
-		// one VM word and the transferred value in both the transaction and log.
-		ginkgo.By("sending calldata and value through the generated fallback entrypoint")
-		payload := []byte(strings.Repeat("\x5a", 65))
-		amount := big.NewInt(13)
-		auth := fixture.transactOpts(ctx)
-		auth.Value = amount
-		auth.GasLimit = 1_000_000
-		tx, err := fixture.binding.Fallback(auth, payload)
-		gomega.Expect(err).NotTo(gomega.HaveOccurred(), "generated fallback transaction")
-		gomega.Expect(tx.To()).NotTo(gomega.BeNil())
-		gomega.Expect(*tx.To()).To(gomega.Equal(fixture.address))
-		gomega.Expect(tx.Data()).To(gomega.Equal(payload))
-		gomega.Expect(tx.Value()).To(gomega.Equal(amount))
-		receipt := waitSuccessfulTransaction(ctx, fixture.client, tx)
-		gomega.Expect(receipt.Logs).To(gomega.HaveLen(1))
-		fixture.assertEvent(ctx, eventExpectation{
-			name: "FallbackCalled",
-			log:  *receipt.Logs[0],
-			data: []any{payload, amount},
-			exactTopics: []common.LogTopic{
-				common.HashToLogTopic(fixture.contractABI.Events["FallbackCalled"].ID),
-			},
-			want: map[string]any{
-				"payload": payload,
-				"amount":  amount,
-			},
-		})
-		fallback, err := fixture.binding.ParseFallbackCalled(*receipt.Logs[0])
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-		gomega.Expect(fallback.Payload).To(gomega.Equal(payload))
-		gomega.Expect(fallback.Amount).To(gomega.Equal(amount))
+	// Hyperion:
+	// event FallbackCalled(bytes payload, uint256 amount);
+	// fallback() external payable { emit FallbackCalled(msg.data, msg.value); }
+	// Goal: the generated fallback entrypoint preserves calldata larger than
+	// one VM word and the transferred value in both the transaction and log.
+	ginkgo.By("sending calldata and value through the generated fallback entrypoint")
+	payload := []byte(strings.Repeat("\x5a", 65))
+	amount = big.NewInt(13)
+	auth = fixture.transactOpts(ctx)
+	auth.Value = amount
+	auth.GasLimit = 1_000_000
+	tx, err = fixture.binding.Fallback(auth, payload)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred(), "generated fallback transaction")
+	gomega.Expect(tx.To()).NotTo(gomega.BeNil())
+	gomega.Expect(*tx.To()).To(gomega.Equal(fixture.address))
+	gomega.Expect(tx.Data()).To(gomega.Equal(payload))
+	gomega.Expect(tx.Value()).To(gomega.Equal(amount))
+	receipt = waitSuccessfulTransaction(ctx, fixture.client, tx)
+	gomega.Expect(receipt.Logs).To(gomega.HaveLen(1))
+	fixture.assertEvent(ctx, eventExpectation{
+		name: "FallbackCalled",
+		log:  *receipt.Logs[0],
+		data: []any{payload, amount},
+		exactTopics: []common.LogTopic{
+			common.HashToLogTopic(fixture.contractABI.Events["FallbackCalled"].ID),
+		},
+		want: map[string]any{
+			"payload": payload,
+			"amount":  amount,
+		},
+	})
+	fallback, err := fixture.binding.ParseFallbackCalled(*receipt.Logs[0])
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	gomega.Expect(fallback.Payload).To(gomega.Equal(payload))
+	gomega.Expect(fallback.Amount).To(gomega.Equal(amount))
 
-		// Hyperion:
-		// event Paid(address indexed sender, uint16 indexed marker, uint256 amount);
-		// function pay(uint16 marker) external payable {
-		//     emit Paid(msg.sender, marker, msg.value);
-		// }
-		// Goal: a named generated payable method preserves its argument and value,
-		// and its indexed event can be decoded and positively or negatively filtered.
-		ginkgo.By("sending value through a named generated payable method")
-		const marker = uint16(0xbabe)
-		amount := big.NewInt(17)
-		auth := fixture.transactOpts(ctx)
-		auth.Value = amount
-		payTx, err := fixture.binding.Pay(auth, marker)
-		gomega.Expect(err).NotTo(gomega.HaveOccurred(), "generated named payable transaction")
-		payReceipt := waitSuccessfulTransaction(ctx, fixture.client, payTx)
-		gomega.Expect(payReceipt.Logs).To(gomega.HaveLen(1))
-		fixture.assertEvent(ctx, eventExpectation{
-			name: "Paid",
-			log:  *payReceipt.Logs[0],
-			data: []any{amount},
-			exactTopics: []common.LogTopic{
-				common.HashToLogTopic(fixture.contractABI.Events["Paid"].ID),
-				common.BytesToLeftAlignedLogTopic(fixture.from[:]),
-				common.BytesToRightAlignedLogTopic(qrlmath.U512Bytes(new(big.Int).SetUint64(uint64(marker)))),
-			},
-			want: map[string]any{
-				"sender": fixture.from,
-				"marker": marker,
-				"amount": amount,
-			},
-			filter: [][]any{{fixture.from}, {marker}},
-			reject: [][]any{{fixture.from}, {uint16(marker + 1)}},
-		})
-		paid, err := fixture.binding.ParsePaid(*payReceipt.Logs[0])
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-		gomega.Expect(paid.Sender).To(gomega.Equal(fixture.from))
-		gomega.Expect(paid.Marker).To(gomega.Equal(marker))
-		gomega.Expect(paid.Amount).To(gomega.Equal(amount))
-	*/
+	// Hyperion:
+	// event Paid(address indexed sender, uint16 indexed marker, uint256 amount);
+	// function pay(uint16 marker) external payable {
+	//     emit Paid(msg.sender, marker, msg.value);
+	// }
+	// Goal: a named generated payable method preserves its argument and value,
+	// and its indexed event can be decoded and positively or negatively filtered.
+	ginkgo.By("sending value through a named generated payable method")
+	const marker = uint16(0xbabe)
+	amount = big.NewInt(17)
+	auth = fixture.transactOpts(ctx)
+	auth.Value = amount
+	payTx, err := fixture.binding.Pay(auth, marker)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred(), "generated named payable transaction")
+	payReceipt := waitSuccessfulTransaction(ctx, fixture.client, payTx)
+	gomega.Expect(payReceipt.Logs).To(gomega.HaveLen(1))
+	fixture.assertEvent(ctx, eventExpectation{
+		name: "Paid",
+		log:  *payReceipt.Logs[0],
+		data: []any{amount},
+		exactTopics: []common.LogTopic{
+			common.HashToLogTopic(fixture.contractABI.Events["Paid"].ID),
+			common.BytesToLeftAlignedLogTopic(fixture.from[:]),
+			common.BytesToRightAlignedLogTopic(qrlmath.U512Bytes(new(big.Int).SetUint64(uint64(marker)))),
+		},
+		want: map[string]any{
+			"sender": fixture.from,
+			"marker": marker,
+			"amount": amount,
+		},
+		filter: [][]any{{fixture.from}, {marker}},
+		reject: [][]any{{fixture.from}, {uint16(marker + 1)}},
+	})
+	paid, err := fixture.binding.ParsePaid(*payReceipt.Logs[0])
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	gomega.Expect(paid.Sender).To(gomega.Equal(fixture.from))
+	gomega.Expect(paid.Marker).To(gomega.Equal(marker))
+	gomega.Expect(paid.Amount).To(gomega.Equal(amount))
+
 }
 
 func (fixture *liveFixture) assertWebSocketWatcher(ctx context.Context) {
