@@ -7,7 +7,7 @@ suites that run against it. It requires Docker and Kurtosis CLI 1.20.x.
 
 ```bash
 make network-start
-make e2e-test E2E_PACKAGES=./testing/devnet/suites/<suite>
+make e2e-test E2E_PACKAGES=./testing/devnet/suites/...
 make network-stop
 ```
 
@@ -32,7 +32,7 @@ for each command in that lifecycle:
 ```bash
 DEVNET_ENCLAVE_NAME=my-devnet make network-start
 DEVNET_ENCLAVE_NAME=my-devnet \
-  make e2e-test E2E_PACKAGES=./testing/devnet/suites/<suite>
+  make e2e-test E2E_PACKAGES=./testing/devnet/suites/...
 DEVNET_ENCLAVE_NAME=my-devnet make network-stop
 ```
 
@@ -102,7 +102,8 @@ Add suites under `suites/<suite>`. Live bootstrap files use the `e2e` build tag
 and call `network.Inspect(ctx)` for endpoints. Suites must not manage the network
 lifecycle.
 
-The [ABI suite](suites/abi/README.md) documents its command and coverage.
+The [ABI](suites/abi/README.md), [console](suites/console/README.md), and
+[Clef](suites/clef/README.md) suites document their commands and coverage.
 
 ## Safety
 
