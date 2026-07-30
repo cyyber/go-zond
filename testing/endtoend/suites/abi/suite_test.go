@@ -51,8 +51,12 @@ var _ = ginkgo.Describe(
 			fixture = suite.deployEventEmitter(ctx)
 		})
 
-		ginkgo.It("round-trips ABI calls through generic decoding, generated bindings, and raw RPC", func(ctx ginkgo.SpecContext) {
+		ginkgo.It("round-trips scalar and nested ABI values through generic ABI, generated bindings, and raw RPC", func(ctx ginkgo.SpecContext) {
 			fixture.assertCallRoundTrips(ctx)
+		})
+
+		ginkgo.It("round-trips integer, fixed-byte, dynamic, and container boundary values through generic ABI, generated bindings, and raw RPC", func(ctx ginkgo.SpecContext) {
+			fixture.assertBoundaryRoundTrips(ctx)
 		})
 
 		ginkgo.It("decodes custom and standard errors and requires a failed receipt", func(ctx ginkgo.SpecContext) {
@@ -63,7 +67,7 @@ var _ = ginkgo.Describe(
 			fixture.assertEventsAndFilters(ctx)
 		})
 
-		ginkgo.It("round-trips function values and containers through generic ABI and raw RPC", func(ctx ginkgo.SpecContext) {
+		ginkgo.It("round-trips and executes function values and containers through generic ABI, generated bindings, raw RPC, events, and filters", func(ctx ginkgo.SpecContext) {
 			fixture.assertFunctionValues(ctx)
 		})
 
@@ -71,7 +75,7 @@ var _ = ginkgo.Describe(
 			fixture.assertPayableEntrypoints(ctx)
 		})
 
-		ginkgo.It("observes generated scalar and dynamic indexed event filters over WebSocket", func(ctx ginkgo.SpecContext) {
+		ginkgo.It("observes generated scalar and dynamically indexed event subscriptions over WebSocket", func(ctx ginkgo.SpecContext) {
 			fixture.assertWebSocketWatcher(ctx)
 		})
 	},

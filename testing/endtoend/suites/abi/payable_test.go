@@ -46,7 +46,7 @@ func (fixture *liveFixture) assertPayableEntrypoints(ctx context.Context) {
 	gomega.Expect(*tx.To()).To(gomega.Equal(fixture.address))
 	gomega.Expect(tx.Data()).To(gomega.BeEmpty())
 	gomega.Expect(tx.Value()).To(gomega.Equal(amount))
-	receipt := waitSuccessfulTransaction(ctx, fixture.client, tx)
+	receipt := fixture.waitSuccessfulTransaction(ctx, tx)
 	gomega.Expect(receipt.Logs).To(gomega.HaveLen(1))
 	fixture.assertEvent(ctx, eventExpectation{
 		name: "Received",
@@ -75,11 +75,10 @@ func (fixture *liveFixture) assertPayableEntrypoints(ctx context.Context) {
 	tx, err = fixture.binding.Fallback(auth, payload)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred(), "generated fallback transaction")
 	gomega.Expect(tx.To()).NotTo(gomega.BeNil())
-	gomega.Expect(tx.To()).NotTo(gomega.BeNil())
 	gomega.Expect(*tx.To()).To(gomega.Equal(fixture.address))
 	gomega.Expect(tx.Data()).To(gomega.Equal(payload))
 	gomega.Expect(tx.Value()).To(gomega.Equal(amount))
-	receipt = waitSuccessfulTransaction(ctx, fixture.client, tx)
+	receipt = fixture.waitSuccessfulTransaction(ctx, tx)
 	gomega.Expect(receipt.Logs).To(gomega.HaveLen(1))
 	fixture.assertEvent(ctx, eventExpectation{
 		name: "FallbackCalled",
@@ -112,7 +111,7 @@ func (fixture *liveFixture) assertPayableEntrypoints(ctx context.Context) {
 	auth.Value = amount
 	payTx, err := fixture.binding.Pay(auth, marker)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred(), "generated named payable transaction")
-	payReceipt := waitSuccessfulTransaction(ctx, fixture.client, payTx)
+	payReceipt := fixture.waitSuccessfulTransaction(ctx, payTx)
 	gomega.Expect(payReceipt.Logs).To(gomega.HaveLen(1))
 	fixture.assertEvent(ctx, eventExpectation{
 		name: "Paid",

@@ -143,7 +143,7 @@ func (fixture *liveFixture) assertErrors(ctx context.Context) {
 	auth.GasLimit = 1_000_000
 	failedTx, err := fixture.contract.Transact(auth, "failReason")
 	gomega.Expect(err).NotTo(gomega.HaveOccurred(), "submit reverting transaction")
-	failedReceipt := waitTransaction(ctx, fixture.client, failedTx)
+	failedReceipt := fixture.waitTransaction(ctx, failedTx)
 	gomega.Expect(failedReceipt.Status).To(
 		gomega.Equal(types.ReceiptStatusFailed),
 		"reverting transaction %s status",

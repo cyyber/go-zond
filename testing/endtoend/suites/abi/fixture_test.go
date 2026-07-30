@@ -123,7 +123,7 @@ func (suite *liveSuite) deployEventEmitter(ctx context.Context) *liveFixture {
 	)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
-	receipt := waitSuccessfulTransaction(ctx, suite.client, tx)
+	receipt := suite.waitSuccessfulTransaction(ctx, tx)
 	gomega.Expect(receipt.ContractAddress).To(gomega.Equal(address))
 	gomega.Expect(receipt.Logs).To(gomega.HaveLen(1))
 
@@ -201,28 +201,34 @@ func (suite *liveSuite) transactOpts(ctx context.Context) *bind.TransactOpts {
 	}
 }
 
-func waitTransaction(
+func (fixture *liveFixture) callOpts(ctx context.Context) *bind.CallOpts {
+	return &bind.CallOpts{
+		Context:     ctx,
+		From:        fixture.from,
+		BlockNumber: fixture.deploymentBlock,
+	}
+}
+
+func (suite *liveSuite) waitTransaction(
 	ctx context.Context,
-	client *qrlclient.Client,
 	tx *types.Transaction,
 ) *types.Receipt {
 	ginkgo.GinkgoHelper()
 
-	receipt, err := bind.WaitMined(ctx, client, tx)
+	receipt, err := bind.WaitMined(ctx, suite.client, tx)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred(), "wait for transaction %s", tx.Hash())
 	gomega.Expect(receipt).NotTo(gomega.BeNil(), "transaction %s has no mined receipt", tx.Hash())
 	gomega.Expect(receipt.BlockNumber).NotTo(gomega.BeNil(), "transaction %s has no block number", tx.Hash())
 	return receipt
 }
 
-func waitSuccessfulTransaction(
+func (suite *liveSuite) waitSuccessfulTransaction(
 	ctx context.Context,
-	client *qrlclient.Client,
 	tx *types.Transaction,
 ) *types.Receipt {
 	ginkgo.GinkgoHelper()
 
-	receipt := waitTransaction(ctx, client, tx)
+	receipt := suite.waitTransaction(ctx, tx)
 	gomega.Expect(receipt.Status).To(
 		gomega.Equal(types.ReceiptStatusSuccessful),
 		"transaction %s status",

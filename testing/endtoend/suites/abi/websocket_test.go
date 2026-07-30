@@ -59,10 +59,10 @@ func (fixture *liveFixture) assertWebSocketWatcher(ctx context.Context) {
 		delta,
 	)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-	waitSuccessfulTransaction(ctx, fixture.client, nonMatchingTx)
+	fixture.waitSuccessfulTransaction(ctx, nonMatchingTx)
 	matchingTx, err := fixture.binding.EmitIndexedScalars(auth, false, code, delta)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-	receipt := waitSuccessfulTransaction(ctx, fixture.client, matchingTx)
+	receipt := fixture.waitSuccessfulTransaction(ctx, matchingTx)
 
 	select {
 	case event, open := <-events:
@@ -111,7 +111,7 @@ func (fixture *liveFixture) assertWebSocketWatcher(ctx context.Context) {
 		true,
 	)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-	waitSuccessfulTransaction(ctx, fixture.client, nonMatchingDynamicTx)
+	fixture.waitSuccessfulTransaction(ctx, nonMatchingDynamicTx)
 	matchingDynamicTx, err := fixture.binding.Store(
 		fixture.transactOpts(ctx),
 		fixture.inputs.amount,
@@ -123,7 +123,7 @@ func (fixture *liveFixture) assertWebSocketWatcher(ctx context.Context) {
 		true,
 	)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-	dynamicReceipt := waitSuccessfulTransaction(ctx, fixture.client, matchingDynamicTx)
+	dynamicReceipt := fixture.waitSuccessfulTransaction(ctx, matchingDynamicTx)
 	payloadHash := crypto.Keccak256Hash(fixture.inputs.payload)
 	noteHash := crypto.Keccak256Hash([]byte(fixture.inputs.note))
 

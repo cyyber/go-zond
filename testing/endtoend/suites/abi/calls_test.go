@@ -80,11 +80,7 @@ func (fixture *liveFixture) assertCallRoundTrips(ctx context.Context) {
 	}
 	fixture.assertCall(ctx, "echo", echoValues, echoValues)
 
-	callOpts := &bind.CallOpts{
-		Context:     ctx,
-		From:        fixture.from,
-		BlockNumber: fixture.deploymentBlock,
-	}
+	callOpts := fixture.callOpts(ctx)
 
 	// Hyperion:
 	// function echoNested(DynamicRecord, DynamicRecord[], uint16[][][])
@@ -118,70 +114,6 @@ func (fixture *liveFixture) assertCallRoundTrips(ctx context.Context) {
 	nestedValues := []any{nested, records, cube}
 	fixture.assertCall(ctx, "echoNested", nestedValues, nestedValues)
 
-	// Hyperion:
-	// function echoBoundaries(uint8, int8, uint256, int256, bytes5, uint16[3], string[2], uint16[][2])
-	//     external pure returns (uint8, int8, uint256, int256, bytes5, uint16[3], string[2], uint16[][2]);
-	// Goal: generated bindings preserve fixed/dynamic values plus uint256 zero-extension
-	// and int256 sign-extension in 64-byte ABI words.
-	ginkgo.By("round-tripping integer widths and fixed/dynamic boundary values through generated bindings")
-	wideUnsigned := new(big.Int).Add(
-		new(big.Int).Lsh(big.NewInt(1), 255),
-		big.NewInt(0x1234),
-	)
-	wideSigned := new(big.Int).Add(
-		new(big.Int).Neg(new(big.Int).Lsh(big.NewInt(1), 254)),
-		big.NewInt(42),
-	)
-	shortBytes := [5]byte{0x00, 0x7f, 0x80, 0xfe, 0xff}
-	fixedNumbers := [3]uint16{0, 0xffff, 0x1234}
-	fixedStrings := [2]string{"", inputs.note}
-	mixed := [2][]uint16{{}, {1, 0xffff, 0x1234}}
-	smallUnsigned, smallSigned := uint8(0xff), int8(-128)
-	gotUnsigned, gotSigned, gotWideUnsigned, gotWideSigned,
-		gotShortBytes, gotFixedNumbers, gotFixedStrings, gotMixed, err :=
-		fixture.binding.EchoBoundaries(
-			callOpts,
-			smallUnsigned,
-			smallSigned,
-			wideUnsigned,
-			wideSigned,
-			shortBytes,
-			fixedNumbers,
-			fixedStrings,
-			mixed,
-		)
-	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-	gomega.Expect([]any{
-		gotUnsigned,
-		gotSigned,
-		gotWideUnsigned,
-		gotWideSigned,
-		gotShortBytes,
-		gotFixedNumbers,
-		gotFixedStrings,
-		gotMixed,
-	}).To(gomega.Equal([]any{
-		smallUnsigned,
-		smallSigned,
-		wideUnsigned,
-		wideSigned,
-		shortBytes,
-		fixedNumbers,
-		fixedStrings,
-		mixed,
-	}))
-	boundaryValues := []any{
-		smallUnsigned,
-		smallSigned,
-		wideUnsigned,
-		wideSigned,
-		shortBytes,
-		fixedNumbers,
-		fixedStrings,
-		mixed,
-	}
-	fixture.assertCall(ctx, "echoBoundaries", boundaryValues, boundaryValues)
-
 	// Hyperion: function observe() external view returns (uint512 value, address caller);
 	// Goal: the generated view returns the constructor state and original caller.
 	ginkgo.By("reading constructor state through a generated view")
@@ -205,6 +137,4 @@ func (fixture *liveFixture) assertCallRoundTrips(ctx context.Context) {
 	transformedInteger, err := fixture.binding.Transform0(callOpts, 0xfffe)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	gomega.Expect(transformedInteger).To(gomega.Equal(uint16(0xffff)))
-
-	fixture.assertBoundaryRoundTrips(ctx)
 }

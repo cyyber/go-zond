@@ -119,7 +119,7 @@ func (fixture *liveFixture) assertEventsAndFilters(ctx context.Context) {
 		true,
 	)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-	receipt := waitSuccessfulTransaction(ctx, fixture.client, storeTx)
+	receipt := fixture.waitSuccessfulTransaction(ctx, storeTx)
 	gomega.Expect(receipt.Logs).To(gomega.HaveLen(2))
 
 	end := receipt.BlockNumber.Uint64()
@@ -241,7 +241,7 @@ func (fixture *liveFixture) assertEventsAndFilters(ctx context.Context) {
 		mixed,
 	)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-	compositeReceipt := waitSuccessfulTransaction(ctx, fixture.client, compositeTx)
+	compositeReceipt := fixture.waitSuccessfulTransaction(ctx, compositeTx)
 	gomega.Expect(compositeReceipt.Logs).To(gomega.HaveLen(1))
 	fixture.assertEvent(ctx, eventExpectation{
 		name: "Composite",
@@ -288,7 +288,7 @@ func (fixture *liveFixture) assertEventsAndFilters(ctx context.Context) {
 		delta,
 	)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-	indexedReceipt := waitSuccessfulTransaction(ctx, fixture.client, indexedTx)
+	indexedReceipt := fixture.waitSuccessfulTransaction(ctx, indexedTx)
 	gomega.Expect(indexedReceipt.Logs).To(gomega.HaveLen(1))
 	fixture.assertEvent(ctx, eventExpectation{
 		name: "IndexedScalars",
@@ -329,7 +329,7 @@ func (fixture *liveFixture) assertEventsAndFilters(ctx context.Context) {
 	)
 	stringTx, err := fixture.binding.EmitTransformed(fixture.transactOpts(ctx), inputs.note)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-	stringReceipt := waitSuccessfulTransaction(ctx, fixture.client, stringTx)
+	stringReceipt := fixture.waitSuccessfulTransaction(ctx, stringTx)
 	gomega.Expect(stringReceipt.Logs).To(gomega.HaveLen(1))
 	fixture.assertEvent(ctx, eventExpectation{
 		name: "Transformed0",
@@ -350,7 +350,7 @@ func (fixture *liveFixture) assertEventsAndFilters(ctx context.Context) {
 		transformedInteger,
 	)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-	integerReceipt := waitSuccessfulTransaction(ctx, fixture.client, integerTx)
+	integerReceipt := fixture.waitSuccessfulTransaction(ctx, integerTx)
 	gomega.Expect(integerReceipt.Logs).To(gomega.HaveLen(1))
 	fixture.assertEvent(ctx, eventExpectation{
 		name: "Transformed",
