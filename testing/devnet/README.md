@@ -102,6 +102,9 @@ Add suites under `suites/<suite>`. Live bootstrap files use the `e2e` build tag
 and call `network.Inspect(ctx)` for endpoints. Suites must not manage the network
 lifecycle.
 
+The [console](suites/console/README.md) and [Clef](suites/clef/README.md) suites
+document their commands and coverage.
+
 ## Safety
 
 The development wallet seed is public and embedded in the devnet binary. Never

@@ -1,0 +1,255 @@
+// Copyright 2026 The go-qrl Authors
+// This file is part of the go-qrl library.
+
+// Package clef exercises a standalone Clef signer and verifies its QRL
+// signatures and signed transactions.
+package clef
+
+import (
+	"context"
+	"encoding/hex"
+	"errors"
+	"fmt"
+	"math/big"
+	"net/http"
+	"time"
+
+	qrlaccounts "github.com/theQRL/go-qrl/accounts"
+	"github.com/theQRL/go-qrl/common"
+	"github.com/theQRL/go-qrl/common/hexutil"
+	"github.com/theQRL/go-qrl/core/types"
+	"github.com/theQRL/go-qrl/crypto/pqcrypto/wallet"
+	"github.com/theQRL/go-qrl/rpc"
+	"github.com/theQRL/go-qrl/signer/core/apitypes"
+)
+
+const (
+	readinessTimeout = 30 * time.Second
+	requestTimeout   = 15 * time.Second
+	pollInterval     = 500 * time.Millisecond
+)
+
+type signTransactionResult struct {
+	Raw hexutil.Bytes      `json:"raw"`
+	Tx  *types.Transaction `json:"tx"`
+}
+
+type clefSession struct {
+	process        *clefProcess
+	client         *rpc.Client
+	account        common.Address
+	chainID        *big.Int
+	expectedWallet wallet.Wallet
+}
+
+func newClefSession(
+	ctx context.Context,
+	processContext context.Context,
+	clefPath,
+	workspace string,
+	chainID *big.Int,
+	expectedWallet wallet.Wallet,
+) (*clefSession, error) {
+	if clefPath == "" {
+		return nil, errors.New("Clef executable path is required")
+	}
+	seed, err := expectedWallet.GetSeed()
+	if err != nil {
+		return nil, fmt.Errorf("read expected wallet seed: %w", err)
+	}
+
+	masterPassword, err := randomSecret()
+	if err != nil {
+		return nil, err
+	}
+	accountPassword, err := randomSecret()
+	if err != nil {
+		return nil, err
+	}
+	account, err := initializeClef(
+		ctx,
+		clefPath,
+		workspace,
+		hex.EncodeToString(seed.ToBytes()),
+		masterPassword,
+		accountPassword,
+	)
+	if err != nil {
+		return nil, err
+	}
+	if account != common.Address(expectedWallet.GetAddress()) {
+		return nil, fmt.Errorf(
+			"imported account %s does not match seed address %s",
+			account.Hex(),
+			common.Address(expectedWallet.GetAddress()).Hex(),
+		)
+	}
+
+	process, endpoint, err := startClef(
+		processContext,
+		clefPath,
+		workspace,
+		masterPassword,
+		chainID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	client, err := rpc.DialOptions(
+		ctx,
+		endpoint,
+		rpc.WithHTTPClient(&http.Client{Timeout: requestTimeout}),
+	)
+	if err != nil {
+		return nil, errors.Join(fmt.Errorf("connect to Clef: %w", err), process.stop())
+	}
+
+	if err := waitForClef(ctx, client, process); err != nil {
+		client.Close()
+		return nil, errors.Join(err, process.stop())
+	}
+	return &clefSession{
+		process:        process,
+		client:         client,
+		account:        account,
+		chainID:        new(big.Int).Set(chainID),
+		expectedWallet: expectedWallet,
+	}, nil
+}
+
+func (session *clefSession) close() error {
+	session.client.Close()
+	return session.process.stop()
+}
+
+func verifyAccountListing(
+	ctx context.Context,
+	client *rpc.Client,
+	account common.Address,
+) error {
+	var listedAccounts []common.Address
+	if err := callRPC(ctx, client, &listedAccounts, "account_list"); err != nil {
+		return err
+	}
+	if len(listedAccounts) != 1 || listedAccounts[0] != account {
+		return fmt.Errorf("account_list returned %v, want [%s]", listedAccounts, account.Hex())
+	}
+	return nil
+}
+
+func verifyDataSigning(
+	ctx context.Context,
+	client *rpc.Client,
+	account common.Address,
+	expectedWallet wallet.Wallet,
+) error {
+	var dataSignature hexutil.Bytes
+	if err := callRPC(ctx, client, &dataSignature, "account_signData",
+		qrlaccounts.MimetypeTextPlain,
+		account.Hex(),
+		hexutil.Encode([]byte(expectedText)),
+	); err != nil {
+		return err
+	}
+	if err := verifySignature(
+		"account_signData",
+		dataSignature,
+		qrlaccounts.TextHash([]byte(expectedText)),
+		expectedWallet,
+	); err != nil {
+		return err
+	}
+	return nil
+}
+
+func verifyTypedDataSigning(
+	ctx context.Context,
+	client *rpc.Client,
+	account common.Address,
+	chainID *big.Int,
+	expectedWallet wallet.Wallet,
+) error {
+	typedData := expectedTypedData(account, chainID)
+	var typedSignature hexutil.Bytes
+	if err := callRPC(ctx, client, &typedSignature, "account_signTypedData",
+		account.Hex(),
+		typedData,
+	); err != nil {
+		return err
+	}
+	typedDigest, _, err := apitypes.TypedDataAndHash(typedData)
+	if err != nil {
+		return fmt.Errorf("hash typed data: %w", err)
+	}
+	if err := verifySignature(
+		"account_signTypedData",
+		typedSignature,
+		typedDigest,
+		expectedWallet,
+	); err != nil {
+		return err
+	}
+	return nil
+}
+
+func signTransaction(
+	ctx context.Context,
+	client *rpc.Client,
+	transaction apitypes.SendTxArgs,
+) (signTransactionResult, error) {
+	var signed signTransactionResult
+	if err := callRPC(
+		ctx,
+		client,
+		&signed,
+		"account_signTransaction",
+		transaction,
+	); err != nil {
+		return signTransactionResult{}, err
+	}
+	return signed, nil
+}
+
+func waitForClef(
+	ctx context.Context,
+	client *rpc.Client,
+	process *clefProcess,
+) error {
+	readyCtx, cancel := context.WithTimeout(ctx, readinessTimeout)
+	defer cancel()
+	var lastErr error
+	for {
+		var version string
+		if err := callRPC(readyCtx, client, &version, "account_version"); err == nil {
+			if version == "" {
+				return errors.New("account_version returned an empty version")
+			}
+			return nil
+		} else {
+			lastErr = err
+		}
+		select {
+		case <-process.done:
+			if process.err != nil {
+				return fmt.Errorf("Clef exited before readiness: %w", process.err)
+			}
+			return errors.New("Clef exited before readiness")
+		case <-readyCtx.Done():
+			return fmt.Errorf("wait for Clef: %w", errors.Join(readyCtx.Err(), lastErr))
+		case <-time.After(pollInterval):
+		}
+	}
+}
+
+func callRPC(
+	ctx context.Context,
+	client *rpc.Client,
+	result any,
+	method string,
+	args ...any,
+) error {
+	if err := client.CallContext(ctx, result, method, args...); err != nil {
+		return fmt.Errorf("%s: %w", method, err)
+	}
+	return nil
+}
