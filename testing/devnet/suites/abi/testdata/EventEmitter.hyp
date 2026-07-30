@@ -1,0 +1,244 @@
+// Copyright 2026 The go-qrl Authors
+// This file is part of the go-qrl library.
+// SPDX-License-Identifier: LGPL-3.0-or-later
+//
+// The go-qrl library is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Lesser General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+
+pragma hyperion >=0.1.0;
+
+contract EventEmitter {
+    struct Record {
+        uint512 amount;
+        address recipient;
+        bytes64 tag;
+    }
+
+    struct DynamicRecord {
+        uint512 amount;
+        string note;
+        bytes payload;
+        uint16[][] values;
+    }
+
+    struct FunctionRecord {
+        function(uint512) external pure returns (uint512) callback;
+        string note;
+    }
+
+    error ComplexFailure(
+        uint512 code,
+        string reason,
+        bytes payload,
+        Record record,
+        uint16[][] nested
+    );
+
+    uint512 private observed;
+
+    event Deployed(uint512 value);
+    event Dynamic(bytes indexed payload, string indexed note, uint512 amount);
+    event FunctionObserved(
+        function(uint512) external pure returns (uint512) indexed indexedCallback,
+        function(uint512) external pure returns (uint512) callback,
+        uint512 result
+    );
+    event Stored(
+        address indexed recipient,
+        uint512 indexed amount,
+        int512 indexed delta,
+        bytes64 tag,
+        bytes payload,
+        string note,
+        bool enabled
+    );
+    event Composite(
+        DynamicRecord record,
+        uint16[3] fixedNumbers,
+        string[2] fixedStrings,
+        uint16[][2] mixed
+    );
+    event IndexedScalars(bool indexed flag, bytes5 indexed code, int16 indexed delta);
+    event Transformed(uint16 value);
+    event Transformed(string value);
+    event Paid(address indexed sender, uint16 indexed marker, uint256 amount);
+    event Received(uint256 amount);
+    event FallbackCalled(bytes payload, uint256 amount);
+
+    constructor(uint512 initial) {
+        observed = initial;
+        emit Deployed(initial);
+    }
+
+    function echo(
+        uint512 amount,
+        int512 delta,
+        bytes64 tag,
+        address recipient,
+        bytes calldata payload,
+        string calldata note,
+        bool enabled
+    )
+        external
+        pure
+        returns (uint512, int512, bytes64, address, bytes memory, string memory, bool)
+    {
+        return (amount, delta, tag, recipient, payload, note, enabled);
+    }
+
+    function plusOne(uint512 value) external pure returns (uint512) {
+        return value + 1;
+    }
+
+    function exerciseFunction(
+        function(uint512) external pure returns (uint512) callback,
+        uint512 value
+    )
+        external
+        returns (
+            function(uint512) external pure returns (uint512),
+            uint512
+        )
+    {
+        uint512 result = callback(value);
+        emit FunctionObserved(callback, callback, result);
+        return (callback, result);
+    }
+
+    function echoNested(
+        DynamicRecord calldata record,
+        DynamicRecord[] calldata records,
+        uint16[][][] calldata cube
+    )
+        external
+        pure
+        returns (DynamicRecord memory, DynamicRecord[] memory, uint16[][][] memory)
+    {
+        return (record, records, cube);
+    }
+
+    function echoBoundaries(
+        uint8 smallUnsigned,
+        int8 smallSigned,
+        uint256 wideUnsigned,
+        int256 wideSigned,
+        bytes5 shortBytes,
+        uint16[3] calldata fixedNumbers,
+        string[2] calldata fixedStrings,
+        uint16[][2] calldata mixed
+    )
+        external
+        pure
+        returns (uint8, int8, uint256, int256, bytes5, uint16[3] memory, string[2] memory, uint16[][2] memory)
+    {
+        return (
+            smallUnsigned,
+            smallSigned,
+            wideUnsigned,
+            wideSigned,
+            shortBytes,
+            fixedNumbers,
+            fixedStrings,
+            mixed
+        );
+    }
+
+    function echoFunctions(
+        function(uint512) external pure returns (uint512) callback,
+        string calldata note,
+        function(uint512) external pure returns (uint512)[2] calldata fixedCallbacks,
+        function(uint512) external pure returns (uint512)[] calldata callbacks,
+        FunctionRecord calldata record
+    )
+        external
+        pure
+        returns (
+            function(uint512) external pure returns (uint512),
+            string memory,
+            function(uint512) external pure returns (uint512)[2] memory,
+            function(uint512) external pure returns (uint512)[] memory,
+            FunctionRecord memory
+        )
+    {
+        return (callback, note, fixedCallbacks, callbacks, record);
+    }
+
+    function failComplex(
+        uint512 code,
+        string calldata reason,
+        bytes calldata payload,
+        Record calldata record,
+        uint16[][] calldata nested
+    ) external pure {
+        revert ComplexFailure(code, reason, payload, record, nested);
+    }
+
+    function failReason() external pure {
+        revert("VM standard revert reason");
+    }
+
+    function failPanic() external pure {
+        assert(false);
+    }
+
+    function observe() external view returns (uint512 value, address caller) {
+        return (observed, msg.sender);
+    }
+
+    function store(
+        uint512 amount,
+        int512 delta,
+        bytes64 tag,
+        address recipient,
+        bytes calldata payload,
+        string calldata note,
+        bool enabled
+    ) external {
+        observed = amount;
+        emit Stored(recipient, amount, delta, tag, payload, note, enabled);
+        emit Dynamic(payload, note, amount);
+    }
+
+    function emitComposite(
+        DynamicRecord calldata record,
+        uint16[3] calldata fixedNumbers,
+        string[2] calldata fixedStrings,
+        uint16[][2] calldata mixed
+    ) external {
+        emit Composite(record, fixedNumbers, fixedStrings, mixed);
+    }
+
+    function emitIndexedScalars(bool flag, bytes5 code, int16 delta) external {
+        emit IndexedScalars(flag, code, delta);
+    }
+
+    function transform(uint16 value) external pure returns (uint16) {
+        return value + 1;
+    }
+
+    function transform(string calldata value) external pure returns (string memory) {
+        return value;
+    }
+
+    function emitTransformed(uint16 value) external {
+        emit Transformed(value);
+    }
+
+    function emitTransformed(string calldata value) external {
+        emit Transformed(value);
+    }
+
+    function pay(uint16 marker) external payable {
+        emit Paid(msg.sender, marker, msg.value);
+    }
+
+    fallback() external payable {
+        emit FallbackCalled(msg.data, msg.value);
+    }
+
+    receive() external payable {
+        emit Received(msg.value);
+    }
+}

@@ -102,6 +102,8 @@ Add suites under `suites/<suite>`. Live bootstrap files use the `e2e` build tag
 and call `network.Inspect(ctx)` for endpoints. Suites must not manage the network
 lifecycle.
 
+The [ABI suite](suites/abi/README.md) documents its command and coverage.
+
 ## Safety
 
 The development wallet seed is public and embedded in the devnet binary. Never
