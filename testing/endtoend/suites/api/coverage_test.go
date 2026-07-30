@@ -164,6 +164,12 @@ var apiCoverage = map[string]string{
 }
 
 func TestAPICoverageManifest(t *testing.T) {
+	for method, category := range apiCoverage {
+		if strings.TrimSpace(category) == "" {
+			t.Errorf("%s has no coverage category", method)
+		}
+	}
+
 	actual := map[string]struct{}{}
 	for namespace, serviceTypes := range map[string][]reflect.Type{
 		"qrl": {
@@ -234,12 +240,4 @@ func lowerFirst(value string) string {
 	runes := []rune(value)
 	runes[0] = unicode.ToLower(runes[0])
 	return string(runes)
-}
-
-func TestAPICoverageManifestCategories(t *testing.T) {
-	for method, category := range apiCoverage {
-		if strings.TrimSpace(category) == "" {
-			t.Errorf("%s has no coverage category", method)
-		}
-	}
 }

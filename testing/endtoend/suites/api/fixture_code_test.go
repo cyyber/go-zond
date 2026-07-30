@@ -1,8 +1,6 @@
 // Copyright 2026 The go-qrl Authors
 // This file is part of the go-qrl library.
 
-//go:build e2e
-
 package api
 
 import (
@@ -10,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/theQRL/go-qrl/common"
+	"github.com/theQRL/go-qrl/core/vm"
 	"github.com/theQRL/go-qrl/core/vm/runtime"
 )
 
@@ -57,4 +56,46 @@ func TestAPIContractCode(t *testing.T) {
 	if !bytes.Equal(output, value[:]) {
 		t.Fatalf("runtime output mismatch: got %x, want %x", output, value)
 	}
+}
+
+func apiContractCode(value common.StorageValue64, topic common.LogTopic) []byte {
+	runtimeCode := []byte{
+		byte(vm.PUSH1), 0,
+		byte(vm.SLOAD),
+		byte(vm.PUSH1), 0,
+		byte(vm.MSTORE),
+		byte(vm.PUSH1), byte(vm.WordBytes),
+		byte(vm.PUSH1), 0,
+		byte(vm.RETURN),
+	}
+
+	code := []byte{byte(vm.PUSH64)}
+	code = append(code, value[:]...)
+	code = append(code,
+		byte(vm.PUSH1), 0,
+		byte(vm.SSTORE),
+		byte(vm.PUSH64),
+	)
+	code = append(code, value[:]...)
+	code = append(code,
+		byte(vm.PUSH1), 0,
+		byte(vm.MSTORE),
+		byte(vm.PUSH64),
+	)
+	code = append(code, topic[:]...)
+	code = append(code,
+		byte(vm.PUSH1), byte(vm.WordBytes),
+		byte(vm.PUSH1), 0,
+		byte(vm.LOG1),
+		byte(vm.PUSH1)+byte(len(runtimeCode))-1,
+	)
+	code = append(code, runtimeCode...)
+	code = append(code,
+		byte(vm.PUSH1), 0,
+		byte(vm.MSTORE),
+		byte(vm.PUSH1), byte(len(runtimeCode)),
+		byte(vm.PUSH1), byte(vm.WordBytes-len(runtimeCode)),
+		byte(vm.RETURN),
+	)
+	return code
 }

@@ -6,6 +6,7 @@
 package api
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -26,6 +27,12 @@ var _ = ginkgo.BeforeSuite(func(ctx ginkgo.SpecContext) {
 	suite = setupLiveSuite(ctx)
 })
 
+func liveIt(description string, assertion func(*liveSuite, context.Context)) {
+	ginkgo.It(description, func(ctx ginkgo.SpecContext) {
+		assertion(suite, ctx)
+	}, ginkgo.SpecTimeout(liveSpecTimeout))
+}
+
 var _ = ginkgo.Describe(
 	"APIs against a live qrl-package network",
 	ginkgo.Serial,
@@ -33,24 +40,23 @@ var _ = ginkgo.Describe(
 	ginkgo.ContinueOnFailure,
 	ginkgo.Label("e2e", "live", "api", "mutates-chain"),
 	func() {
-		ginkgo.It("covers node, chain, state, transaction, and txpool JSON-RPC methods", func(ctx ginkgo.SpecContext) {
-			suite.assertRPCSurface(ctx)
-		}, ginkgo.SpecTimeout(liveSpecTimeout))
-
-		ginkgo.It("covers historical log and polling filter methods", func(ctx ginkgo.SpecContext) {
-			suite.assertFilters(ctx)
-		}, ginkgo.SpecTimeout(liveSpecTimeout))
-
-		ginkgo.It("covers WebSocket subscriptions", func(ctx ginkgo.SpecContext) {
-			suite.assertSubscriptions(ctx)
-		}, ginkgo.SpecTimeout(liveSpecTimeout))
-
-		ginkgo.It("covers read-only debug and tracing methods", func(ctx ginkgo.SpecContext) {
-			suite.assertDebugSurface(ctx)
-		}, ginkgo.SpecTimeout(liveSpecTimeout))
-
-		ginkgo.It("covers GraphQL queries, nested fields, and mutation", func(ctx ginkgo.SpecContext) {
-			suite.assertGraphQLSurface(ctx)
-		}, ginkgo.SpecTimeout(liveSpecTimeout))
+		liveIt("covers node and network metadata APIs", (*liveSuite).assertNodeMetadata)
+		liveIt("covers chain, account, state, call, proof, and fee APIs", (*liveSuite).assertChainState)
+		liveIt("covers managed account signing APIs", (*liveSuite).assertManagedSigning)
+		liveIt("covers transaction lookup and raw encoding APIs", (*liveSuite).assertTransactions)
+		liveIt("covers transaction-pool inspection APIs", (*liveSuite).assertTxPool)
+		liveIt("covers runtime diagnostic APIs", (*liveSuite).assertRuntimeDiagnostics)
+		liveIt("covers historical log filtering APIs", (*liveSuite).assertHistoricalLogs)
+		liveIt("covers newly mined block filters", (*liveSuite).assertBlockFilter)
+		liveIt("covers pending-transaction filters", (*liveSuite).assertPendingFilter)
+		liveIt("covers emitted WebSocket events", (*liveSuite).assertSubscriptionEvents)
+		liveIt("covers passive WebSocket subscription registration", (*liveSuite).assertSubscriptionRegistration)
+		liveIt("covers raw debug chain APIs", (*liveSuite).assertRawDebug)
+		liveIt("covers debug state diagnostics", (*liveSuite).assertDebugState)
+		liveIt("covers debug tracing APIs", (*liveSuite).assertDebugTracing)
+		liveIt("covers registered debug and node-control error paths", (*liveSuite).assertDebugErrorPaths)
+		liveIt("covers the GraphQL schema", (*liveSuite).assertGraphQLSchema)
+		liveIt("covers GraphQL query fields", (*liveSuite).assertGraphQLQueries)
+		liveIt("covers the GraphQL transaction mutation", (*liveSuite).assertGraphQLMutation)
 	},
 )

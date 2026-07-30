@@ -22,7 +22,7 @@ import (
 	gomega "github.com/onsi/gomega"
 )
 
-func (suite *liveSuite) assertDebugSurface(ctx context.Context) {
+func (suite *liveSuite) assertRawDebug(ctx context.Context) {
 	ginkgo.GinkgoHelper()
 
 	raw := suite.client.Client()
@@ -30,7 +30,6 @@ func (suite *liveSuite) assertDebugSurface(ctx context.Context) {
 	blockNumber := rpc.BlockNumber(fixture.block.NumberU64())
 	blockSelector := rpc.BlockNumberOrHashWithNumber(blockNumber)
 
-	ginkgo.By("reading raw chain objects")
 	var rawHeader, rawBlock, rawTransaction hexutil.Bytes
 	gomega.Expect(raw.CallContext(
 		ctx,
@@ -97,8 +96,16 @@ func (suite *liveSuite) assertDebugSurface(ctx context.Context) {
 			0,
 		))
 	}
+}
 
-	ginkgo.By("reading state diagnostics")
+func (suite *liveSuite) assertDebugState(ctx context.Context) {
+	ginkgo.GinkgoHelper()
+
+	raw := suite.client.Client()
+	fixture := suite.fixture
+	blockNumber := rpc.BlockNumber(fixture.block.NumberU64())
+	blockSelector := rpc.BlockNumberOrHashWithNumber(blockNumber)
+
 	var dump json.RawMessage
 	gomega.Expect(raw.CallContext(ctx, &dump, "debug_dumpBlock", blockNumber)).To(gomega.Succeed())
 	gomega.Expect(json.Valid(dump)).To(gomega.BeTrue())
@@ -158,8 +165,16 @@ func (suite *liveSuite) assertDebugSurface(ctx context.Context) {
 		callReceipt.BlockHash,
 	)).To(gomega.Succeed())
 	gomega.Expect(modifiedByHash).To(gomega.ContainElement(suite.from))
+}
 
-	ginkgo.By("executing in-memory traces")
+func (suite *liveSuite) assertDebugTracing(ctx context.Context) {
+	ginkgo.GinkgoHelper()
+
+	raw := suite.client.Client()
+	fixture := suite.fixture
+	blockNumber := rpc.BlockNumber(fixture.block.NumberU64())
+	blockSelector := rpc.BlockNumberOrHashWithNumber(blockNumber)
+
 	var trace json.RawMessage
 	gomega.Expect(raw.CallContext(
 		ctx,
@@ -179,6 +194,14 @@ func (suite *liveSuite) assertDebugSurface(ctx context.Context) {
 		map[string]any{},
 	)).To(gomega.Succeed())
 	gomega.Expect(blockTrace).NotTo(gomega.BeEmpty())
+
+	var rawBlock hexutil.Bytes
+	gomega.Expect(raw.CallContext(
+		ctx,
+		&rawBlock,
+		"debug_getRawBlock",
+		blockSelector,
+	)).To(gomega.Succeed())
 	gomega.Expect(raw.CallContext(
 		ctx,
 		&blockTrace,
@@ -194,7 +217,6 @@ func (suite *liveSuite) assertDebugSurface(ctx context.Context) {
 		map[string]any{},
 	)).To(gomega.Succeed())
 
-	ginkgo.By("streaming a chain trace over WebSocket")
 	gomega.Expect(blockNumber).To(gomega.BeNumerically(">", 0))
 	traceResults := make(chan json.RawMessage, 1)
 	traceSub, err := suite.wsClient.Client().Subscribe(
@@ -236,35 +258,13 @@ func (suite *liveSuite) assertDebugSurface(ctx context.Context) {
 		map[string]any{},
 	)).To(gomega.Succeed())
 	gomega.Expect(roots).To(gomega.HaveLen(len(fixture.block.Transactions())))
+}
 
-	ginkgo.By("checking configuration-dependent and invalid-input debug dispatch")
-	expectRegisteredError(raw.CallContext(
-		ctx,
-		&trace,
-		"debug_preimage",
-		common.Hash{},
-	))
-	expectRegisteredError(raw.CallContext(
-		ctx,
-		&trace,
-		"debug_traceBadBlock",
-		common.Hash{},
-		map[string]any{},
-	))
-	expectRegisteredError(raw.CallContext(
-		ctx,
-		&trace,
-		"debug_traceBlockFromFile",
-		"/path/that/does/not/exist",
-		map[string]any{},
-	))
-	expectRegisteredError(raw.CallContext(
-		ctx,
-		&trace,
-		"debug_standardTraceBadBlockToFile",
-		common.Hash{},
-		map[string]any{},
-	))
+func (suite *liveSuite) assertDebugErrorPaths(ctx context.Context) {
+	ginkgo.GinkgoHelper()
+
+	raw := suite.client.Client()
+	blockNumber := rpc.BlockNumber(suite.fixture.block.NumberU64())
 
 	var property string
 	if err := raw.CallContext(ctx, &property, "debug_chaindbProperty", ""); err != nil {
@@ -284,24 +284,25 @@ func (suite *liveSuite) assertDebugSurface(ctx context.Context) {
 	if err := raw.CallContext(ctx, &flushInterval, "debug_getTrieFlushInterval"); err != nil {
 		expectRegisteredError(err)
 	}
-	expectRegisteredError(raw.CallContext(
-		ctx,
-		&trace,
-		"debug_setTrieFlushInterval",
-		"not-a-duration",
-	))
 
-	ginkgo.By("checking safe invalid-input paths for node-control APIs")
-	for method, parameters := range map[string][]any{
-		"admin_addPeer":           {"not-a-qnode"},
-		"admin_removePeer":        {"not-a-qnode"},
-		"admin_addTrustedPeer":    {"not-a-qnode"},
-		"admin_removeTrustedPeer": {"not-a-qnode"},
-		"admin_exportChain":       {"/"},
-		"admin_importChain":       {"/path/that/does/not/exist"},
+	for _, test := range []struct {
+		method     string
+		parameters []any
+	}{
+		{"debug_preimage", []any{common.Hash{}}},
+		{"debug_traceBadBlock", []any{common.Hash{}, map[string]any{}}},
+		{"debug_traceBlockFromFile", []any{"/path/that/does/not/exist", map[string]any{}}},
+		{"debug_standardTraceBadBlockToFile", []any{common.Hash{}, map[string]any{}}},
+		{"debug_setTrieFlushInterval", []any{"not-a-duration"}},
+		{"admin_addPeer", []any{"not-a-qnode"}},
+		{"admin_removePeer", []any{"not-a-qnode"}},
+		{"admin_addTrustedPeer", []any{"not-a-qnode"}},
+		{"admin_removeTrustedPeer", []any{"not-a-qnode"}},
+		{"admin_exportChain", []any{"/"}},
+		{"admin_importChain", []any{"/path/that/does/not/exist"}},
 	} {
 		var result json.RawMessage
-		expectRegisteredError(raw.CallContext(ctx, &result, method, parameters...))
+		expectRegisteredError(raw.CallContext(ctx, &result, test.method, test.parameters...))
 	}
 }
 

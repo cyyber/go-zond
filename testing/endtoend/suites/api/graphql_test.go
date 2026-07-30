@@ -8,18 +8,22 @@ package api
 import (
 	"bytes"
 	"context"
+	_ "embed"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"slices"
 
+	"github.com/theQRL/go-qrl/common"
 	"github.com/theQRL/go-qrl/common/hexutil"
 	"github.com/theQRL/go-qrl/core/types"
 
 	ginkgo "github.com/onsi/ginkgo/v2"
 	gomega "github.com/onsi/gomega"
 )
+
+//go:embed testdata/api.graphql
+var apiGraphQLQuery string
 
 type graphQLResponse struct {
 	Data   json.RawMessage `json:"data"`
@@ -43,14 +47,13 @@ type graphQLLog struct {
 	Data   string   `json:"data"`
 }
 
-func (suite *liveSuite) assertGraphQLSurface(ctx context.Context) {
+func (suite *liveSuite) assertGraphQLSchema(ctx context.Context) {
 	ginkgo.GinkgoHelper()
 
-	ginkgo.By("checking every GraphQL root field remains exposed")
-	introspection := suite.graphQL(ctx, `{
-		queryType: __type(name: "Query") { fields { name } }
-		mutationType: __type(name: "Mutation") { fields { name } }
-	}`)
+	introspection := suite.queryGraphQL(ctx, `{
+			queryType: __type(name: "Query") { fields { name } }
+			mutationType: __type(name: "Mutation") { fields { name } }
+		}`, nil)
 	var schema struct {
 		QueryType struct {
 			Fields []struct {
@@ -76,140 +79,17 @@ func (suite *liveSuite) assertGraphQLSurface(ctx context.Context) {
 		"chainID",
 	})
 	expectGraphQLFields(schema.MutationType.Fields, []string{"sendRawTransaction"})
+}
+
+func (suite *liveSuite) assertGraphQLQueries(ctx context.Context) {
+	ginkgo.GinkgoHelper()
 
 	fixture := suite.fixture
 	block := hexutil.EncodeBig(fixture.receipt.BlockNumber)
 	index := hexutil.EncodeUint64(uint64(fixture.receipt.TransactionIndex))
-	slot := "0x" + fmt.Sprintf("%064x", 0)
+	slot := (common.Hash{}).Hex()
 
-	ginkgo.By("querying all root operations and nested API fields")
-	query := `
-	query APISurface(
-		$block: Long!,
-		$hash: Bytes32!,
-		$txHash: Bytes32!,
-		$address: Address!,
-		$sender: Address!,
-		$slot: Bytes32!,
-		$topic: Bytes64!,
-		$index: Long!
-	) {
-		block(number: $block) {
-			number
-			hash
-			parent { number hash }
-			transactionsRoot
-			transactionCount
-			stateRoot
-			receiptsRoot
-			miner { address balance transactionCount code storage(slot: $slot) }
-			extraData
-			gasLimit
-			gasUsed
-			baseFeePerGas
-			nextBaseFeePerGas
-			timestamp
-			logsBloom
-			random
-			transactions {
-				hash
-				nonce
-				index
-				from { address }
-				to { address }
-				value
-				maxFeePerGas
-				maxPriorityFeePerGas
-				effectiveTip
-				gas
-				inputData
-				block { number hash }
-				status
-				gasUsed
-				cumulativeGasUsed
-				effectiveGasPrice
-				createdContract { address }
-				logs {
-					index
-					account { address }
-					topics
-					data
-					transaction { hash }
-				}
-				descriptor
-				extraParams
-				signature
-				publicKey
-				type
-				accessList { address storageKeys }
-				raw
-				rawReceipt
-			}
-			transactionAt(index: $index) { hash }
-			logs(filter: { addresses: [$address], topics: [[$topic]] }) {
-				index
-				account { address }
-				topics
-				data
-				transaction { hash }
-			}
-			account(address: $address) {
-				address
-				balance
-				transactionCount
-				code
-				storage(slot: $slot)
-			}
-			call(data: { from: $sender, to: $address, data: "0x" }) {
-				data
-				gasUsed
-				status
-			}
-			estimateGas(data: { from: $sender, to: $address, data: "0x" })
-			rawHeader
-			raw
-			withdrawalsRoot
-			withdrawals { index validator address amount }
-		}
-		blockByHash: block(hash: $hash) { number hash }
-		blocks(from: $block, to: $block) { number hash }
-		pending {
-			transactionCount
-			transactions { hash }
-			account(address: $sender) { address balance transactionCount code }
-			call(data: { from: $sender, to: $address, data: "0x" }) {
-				data
-				gasUsed
-				status
-			}
-			estimateGas(data: { from: $sender, to: $address, data: "0x" })
-		}
-		transaction(hash: $txHash) {
-			hash
-			signature
-			publicKey
-			descriptor
-			extraParams
-			raw
-			rawReceipt
-		}
-		logs(filter: {
-			fromBlock: $block,
-			toBlock: $block,
-			addresses: [$address],
-			topics: [[$topic]]
-		}) {
-			account { address }
-			topics
-			data
-			transaction { hash }
-		}
-		gasPrice
-		maxPriorityFeePerGas
-		syncing { startingBlock currentBlock highestBlock }
-		chainID
-	}`
-	data := suite.graphQLVariables(ctx, query, map[string]any{
+	data := suite.queryGraphQL(ctx, apiGraphQLQuery, map[string]any{
 		"block":   block,
 		"hash":    fixture.block.Hash().Hex(),
 		"txHash":  fixture.tx.Hash().Hex(),
@@ -273,24 +153,27 @@ func (suite *liveSuite) assertGraphQLSurface(ctx context.Context) {
 	assertGraphQLLog(root.Block.Logs[0], fixture)
 	gomega.Expect(root.Logs).To(gomega.HaveLen(1))
 	assertGraphQLLog(root.Logs[0], fixture)
+}
 
-	ginkgo.By("submitting a signed transaction through the GraphQL mutation")
+func (suite *liveSuite) assertGraphQLMutation(ctx context.Context) {
+	ginkgo.GinkgoHelper()
+
 	tx, err := suite.signTransaction(ctx, &suite.from, nil, nil)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	encoded, err := tx.MarshalBinary()
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
-	mutationData := suite.graphQLVariables(ctx, `
-		mutation Send($raw: Bytes!) {
-			sendRawTransaction(data: $raw)
-		}
+	mutationData := suite.queryGraphQL(ctx, `
+			mutation Send($raw: Bytes!) {
+				sendRawTransaction(data: $raw)
+			}
 	`, map[string]any{"raw": hexutil.Encode(encoded)})
 	var mutation struct {
 		Hash string `json:"sendRawTransaction"`
 	}
 	gomega.Expect(json.Unmarshal(mutationData, &mutation)).To(gomega.Succeed())
 	gomega.Expect(mutation.Hash).To(gomega.Equal(tx.Hash().Hex()))
-	gomega.Expect(suite.submitExistingAndWait(ctx, tx).Status).To(
+	gomega.Expect(suite.waitReceipt(ctx, tx.Hash()).Status).To(
 		gomega.Equal(types.ReceiptStatusSuccessful),
 	)
 }
@@ -323,12 +206,7 @@ func assertGraphQLLog(got graphQLLog, fixture *liveFixture) {
 	gomega.Expect(got.Data).To(gomega.Equal(hexutil.Encode(fixture.value[:])))
 }
 
-func (suite *liveSuite) graphQL(ctx context.Context, query string) json.RawMessage {
-	ginkgo.GinkgoHelper()
-	return suite.graphQLVariables(ctx, query, nil)
-}
-
-func (suite *liveSuite) graphQLVariables(
+func (suite *liveSuite) queryGraphQL(
 	ctx context.Context,
 	query string,
 	variables map[string]any,
@@ -344,7 +222,7 @@ func (suite *liveSuite) graphQLVariables(
 	request, err := http.NewRequestWithContext(
 		ctx,
 		http.MethodPost,
-		suite.environment.GraphQLURL,
+		suite.graphQLURL,
 		bytes.NewReader(payload),
 	)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())

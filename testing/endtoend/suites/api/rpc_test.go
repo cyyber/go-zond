@@ -27,15 +27,11 @@ import (
 	gomega "github.com/onsi/gomega"
 )
 
-func (suite *liveSuite) assertRPCSurface(ctx context.Context) {
+func (suite *liveSuite) assertNodeMetadata(ctx context.Context) {
 	ginkgo.GinkgoHelper()
 
 	raw := suite.client.Client()
-	fixture := suite.fixture
-	blockNumber := fixture.receipt.BlockNumber
-	blockSelector := rpc.BlockNumberOrHashWithNumber(rpc.BlockNumber(blockNumber.Int64()))
 
-	ginkgo.By("checking exposed namespaces and node metadata")
 	var modules map[string]string
 	gomega.Expect(raw.CallContext(ctx, &modules, "rpc_modules")).To(gomega.Succeed())
 	for _, namespace := range []string{"admin", "debug", "net", "qrl", "txpool", "web3"} {
@@ -71,8 +67,16 @@ func (suite *liveSuite) assertRPCSurface(ctx context.Context) {
 	var datadir string
 	gomega.Expect(raw.CallContext(ctx, &datadir, "admin_datadir")).To(gomega.Succeed())
 	gomega.Expect(datadir).NotTo(gomega.BeEmpty())
+}
 
-	ginkgo.By("checking chain, account, storage, proof, call, and fee APIs")
+func (suite *liveSuite) assertChainState(ctx context.Context) {
+	ginkgo.GinkgoHelper()
+
+	raw := suite.client.Client()
+	fixture := suite.fixture
+	blockNumber := fixture.receipt.BlockNumber
+	blockSelector := rpc.BlockNumberOrHashWithNumber(rpc.BlockNumber(blockNumber.Int64()))
+
 	chainID, err := suite.client.ChainID(ctx)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	gomega.Expect(chainID).To(gomega.Equal(suite.chainID))
@@ -150,11 +154,6 @@ func (suite *liveSuite) assertRPCSurface(ctx context.Context) {
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	gomega.Expect(syncProgress).To(gomega.BeNil())
 
-	var accounts []common.Address
-	gomega.Expect(raw.CallContext(ctx, &accounts, "qrl_accounts")).To(gomega.Succeed())
-	gomega.Expect(accounts).To(gomega.ContainElement(suite.from))
-	suite.assertManagedSigning(ctx)
-
 	proofClient := gqrlclient.New(raw)
 	proof, err := proofClient.GetProof(
 		ctx,
@@ -184,8 +183,15 @@ func (suite *liveSuite) assertRPCSurface(ctx context.Context) {
 	)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	gomega.Expect(receiptsByHash).To(gomega.HaveLen(len(receiptsByNumber)))
+}
 
-	ginkgo.By("checking transaction lookup and raw encoding APIs")
+func (suite *liveSuite) assertTransactions(ctx context.Context) {
+	ginkgo.GinkgoHelper()
+
+	raw := suite.client.Client()
+	fixture := suite.fixture
+	blockNumber := fixture.receipt.BlockNumber
+
 	index := hexutil.Uint64(fixture.receipt.TransactionIndex)
 	var countByNumber, countByHash hexutil.Uint
 	gomega.Expect(raw.CallContext(
@@ -292,8 +298,13 @@ func (suite *liveSuite) assertRPCSurface(ctx context.Context) {
 		&pendingTransactions,
 		"qrl_pendingTransactions",
 	)).To(gomega.Succeed())
+}
 
-	ginkgo.By("checking transaction-pool inspection APIs")
+func (suite *liveSuite) assertTxPool(ctx context.Context) {
+	ginkgo.GinkgoHelper()
+
+	raw := suite.client.Client()
+
 	var txpoolContent, txpoolInspect json.RawMessage
 	gomega.Expect(raw.CallContext(ctx, &txpoolContent, "txpool_content")).To(gomega.Succeed())
 	gomega.Expect(json.Valid(txpoolContent)).To(gomega.BeTrue())
@@ -307,8 +318,13 @@ func (suite *liveSuite) assertRPCSurface(ctx context.Context) {
 
 	gomega.Expect(raw.CallContext(ctx, &txpoolInspect, "txpool_inspect")).To(gomega.Succeed())
 	gomega.Expect(json.Valid(txpoolInspect)).To(gomega.BeTrue())
+}
 
-	ginkgo.By("checking read-only runtime diagnostics")
+func (suite *liveSuite) assertRuntimeDiagnostics(ctx context.Context) {
+	ginkgo.GinkgoHelper()
+
+	raw := suite.client.Client()
+
 	var memStats runtime.MemStats
 	gomega.Expect(raw.CallContext(ctx, &memStats, "debug_memStats")).To(gomega.Succeed())
 	gomega.Expect(memStats.Sys).To(gomega.BeNumerically(">", 0))
@@ -325,6 +341,10 @@ func (suite *liveSuite) assertManagedSigning(ctx context.Context) {
 	ginkgo.GinkgoHelper()
 
 	raw := suite.client.Client()
+	var accounts []common.Address
+	gomega.Expect(raw.CallContext(ctx, &accounts, "qrl_accounts")).To(gomega.Succeed())
+	gomega.Expect(accounts).To(gomega.ContainElement(suite.from))
+
 	message := hexutil.Bytes("live API signing")
 	var signature hexutil.Bytes
 	gomega.Expect(raw.CallContext(

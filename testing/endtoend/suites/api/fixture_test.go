@@ -14,7 +14,6 @@ import (
 	qrl "github.com/theQRL/go-qrl"
 	"github.com/theQRL/go-qrl/common"
 	"github.com/theQRL/go-qrl/core/types"
-	"github.com/theQRL/go-qrl/core/vm"
 	qrlwallet "github.com/theQRL/go-qrl/crypto/pqcrypto/wallet"
 	"github.com/theQRL/go-qrl/qrlclient"
 	"github.com/theQRL/go-qrl/testing/devnet"
@@ -24,13 +23,13 @@ import (
 )
 
 type liveSuite struct {
-	environment devnet.Environment
-	client      *qrlclient.Client
-	wsClient    *qrlclient.Client
-	wallet      qrlwallet.Wallet
-	from        common.Address
-	chainID     *big.Int
-	fixture     *liveFixture
+	graphQLURL string
+	client     *qrlclient.Client
+	wsClient   *qrlclient.Client
+	wallet     qrlwallet.Wallet
+	from       common.Address
+	chainID    *big.Int
+	fixture    *liveFixture
 }
 
 type liveFixture struct {
@@ -63,12 +62,12 @@ func setupLiveSuite(ctx context.Context) *liveSuite {
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	suite := &liveSuite{
-		environment: environment,
-		client:      client,
-		wsClient:    wsClient,
-		wallet:      wallet,
-		from:        common.Address(wallet.GetAddress()),
-		chainID:     chainID,
+		graphQLURL: environment.GraphQLURL,
+		client:     client,
+		wsClient:   wsClient,
+		wallet:     wallet,
+		from:       common.Address(wallet.GetAddress()),
+		chainID:    chainID,
 	}
 	suite.fixture = suite.deployFixture(ctx)
 	return suite
@@ -167,15 +166,6 @@ func (suite *liveSuite) submitAndWait(ctx context.Context, tx *types.Transaction
 	ginkgo.GinkgoHelper()
 
 	gomega.Expect(suite.client.SendTransaction(ctx, tx)).To(gomega.Succeed())
-	return suite.submitExistingAndWait(ctx, tx)
-}
-
-func (suite *liveSuite) submitExistingAndWait(
-	ctx context.Context,
-	tx *types.Transaction,
-) *types.Receipt {
-	ginkgo.GinkgoHelper()
-
 	return suite.waitReceipt(ctx, tx.Hash())
 }
 
@@ -193,46 +183,4 @@ func (suite *liveSuite) waitReceipt(ctx context.Context, hash common.Hash) *type
 	gomega.Expect(receipt).NotTo(gomega.BeNil())
 	gomega.Expect(receipt.BlockNumber).NotTo(gomega.BeNil())
 	return receipt
-}
-
-func apiContractCode(value common.StorageValue64, topic common.LogTopic) []byte {
-	runtime := []byte{
-		byte(vm.PUSH1), 0,
-		byte(vm.SLOAD),
-		byte(vm.PUSH1), 0,
-		byte(vm.MSTORE),
-		byte(vm.PUSH1), byte(vm.WordBytes),
-		byte(vm.PUSH1), 0,
-		byte(vm.RETURN),
-	}
-
-	code := []byte{byte(vm.PUSH64)}
-	code = append(code, value[:]...)
-	code = append(code,
-		byte(vm.PUSH1), 0,
-		byte(vm.SSTORE),
-		byte(vm.PUSH64),
-	)
-	code = append(code, value[:]...)
-	code = append(code,
-		byte(vm.PUSH1), 0,
-		byte(vm.MSTORE),
-		byte(vm.PUSH64),
-	)
-	code = append(code, topic[:]...)
-	code = append(code,
-		byte(vm.PUSH1), byte(vm.WordBytes),
-		byte(vm.PUSH1), 0,
-		byte(vm.LOG1),
-		byte(vm.PUSH1)+byte(len(runtime))-1,
-	)
-	code = append(code, runtime...)
-	code = append(code,
-		byte(vm.PUSH1), 0,
-		byte(vm.MSTORE),
-		byte(vm.PUSH1), byte(len(runtime)),
-		byte(vm.PUSH1), byte(vm.WordBytes-len(runtime)),
-		byte(vm.RETURN),
-	)
-	return code
 }
