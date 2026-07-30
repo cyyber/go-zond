@@ -20,6 +20,7 @@ import (
 	"github.com/theQRL/go-qrl/core/types"
 	"github.com/theQRL/go-qrl/crypto/pqcrypto/wallet"
 	"github.com/theQRL/go-qrl/rpc"
+	signercore "github.com/theQRL/go-qrl/signer/core"
 	"github.com/theQRL/go-qrl/signer/core/apitypes"
 )
 
@@ -90,6 +91,7 @@ func newClefSession(
 		clefPath,
 		workspace,
 		masterPassword,
+		accountPassword,
 		chainID,
 	)
 	if err != nil {
@@ -137,6 +139,35 @@ func verifyAccountListing(
 	return nil
 }
 
+func verifyVersion(ctx context.Context, client *rpc.Client) error {
+	var version string
+	if err := callRPC(ctx, client, &version, "account_version"); err != nil {
+		return err
+	}
+	if version != signercore.ExternalAPIVersion {
+		return fmt.Errorf(
+			"account_version returned %q, want %q",
+			version,
+			signercore.ExternalAPIVersion,
+		)
+	}
+	return nil
+}
+
+func verifyNewAccount(
+	ctx context.Context,
+	session *clefSession,
+) error {
+	var account common.Address
+	if err := callRPC(ctx, session.client, &account, "account_new"); err != nil {
+		return err
+	}
+	if account == (common.Address{}) || account == session.account {
+		return fmt.Errorf("account_new returned invalid address %s", account.Hex())
+	}
+	return nil
+}
+
 func verifyDataSigning(
 	ctx context.Context,
 	client *rpc.Client,
@@ -160,6 +191,41 @@ func verifyDataSigning(
 		return err
 	}
 	return nil
+}
+
+func verifyValidatorDataSigning(
+	ctx context.Context,
+	client *rpc.Client,
+	account common.Address,
+	expectedWallet wallet.Wallet,
+) error {
+	validator := common.MustParseAddress(expectedRecipient)
+	message := []byte(expectedValidatorText)
+	var signature hexutil.Bytes
+	if err := callRPC(
+		ctx,
+		client,
+		&signature,
+		"account_signData",
+		qrlaccounts.MimetypeDataWithValidator,
+		account.Hex(),
+		map[string]any{
+			"address": hexutil.Encode(validator.Bytes()),
+			"message": hexutil.Encode(message),
+		},
+	); err != nil {
+		return err
+	}
+	digest, _ := signercore.SignTextValidator(apitypes.ValidatorData{
+		Address: validator,
+		Message: message,
+	})
+	return verifySignature(
+		"account_signData data/validator",
+		signature,
+		digest,
+		expectedWallet,
+	)
 }
 
 func verifyTypedDataSigning(

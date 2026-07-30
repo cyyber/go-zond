@@ -8,15 +8,12 @@ package console
 import (
 	"path/filepath"
 	"testing"
-	"time"
 
 	ginkgo "github.com/onsi/ginkgo/v2"
 	gomega "github.com/onsi/gomega"
-	"github.com/theQRL/go-qrl/testing/devnet"
 	"github.com/theQRL/go-qrl/testing/endtoend/internal/build"
+	endtoendlive "github.com/theQRL/go-qrl/testing/endtoend/internal/live"
 )
-
-const liveSpecTimeout = 25 * time.Minute
 
 func TestE2E(t *testing.T) {
 	gomega.RegisterFailHandler(ginkgo.Fail)
@@ -34,12 +31,15 @@ var _ = ginkgo.Describe(
 			gqrlPath string
 			jsPath   string
 			rpcURL   string
+			session  *endtoendlive.Session
 		)
 
 		ginkgo.BeforeAll(func(ctx ginkgo.SpecContext) {
-			live, err := devnet.Inspect(ctx)
+			var err error
+			session, err = endtoendlive.Open(ctx, true)
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
-			rpcURL = live.RPCURL
+			ginkgo.DeferCleanup(session.Close)
+			rpcURL = session.Environment.RPCURL
 
 			workDir := ginkgo.GinkgoT().TempDir()
 
@@ -49,18 +49,26 @@ var _ = ginkgo.Describe(
 
 			jsPath = filepath.Join(workDir, "js")
 			ginkgo.By("preparing the console scripts and deployment transaction")
-			gomega.Expect(prepareWorkspace(ctx, jsPath, rpcURL)).To(gomega.Succeed())
+			gomega.Expect(prepareWorkspace(ctx, jsPath, session)).To(gomega.Succeed())
 		})
 
 		for _, scenario := range consoleScenarios {
 			ginkgo.It(
 				scenario.description,
 				func(ctx ginkgo.SpecContext) {
+					if scenario.webSocket {
+						gomega.Expect(runWatchedSuite(
+							ctx,
+							session.WebSocketClient.Client(),
+							jsPath,
+							scenario.name,
+						)).To(gomega.Succeed())
+						return
+					}
 					gomega.Expect(
 						runSuite(ctx, gqrlPath, jsPath, rpcURL, scenario.name),
 					).To(gomega.Succeed())
 				},
-				ginkgo.SpecTimeout(liveSpecTimeout),
 			)
 		}
 	},

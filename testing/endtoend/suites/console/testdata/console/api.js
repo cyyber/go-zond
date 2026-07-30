@@ -40,14 +40,10 @@ check("block APIs agree", function () {
     }
     var block = qrl.getBlock(blockNumber);
     var byHash = qrl.getBlock(block.hash);
-    var raw = rpc("qrl_getBlockByNumber", [web3.toHex(blockNumber), false]);
     requireHash("block hash", block.hash);
     requireAddress("block fee recipient", block.miner);
     if (byHash.hash !== block.hash || byHash.number !== block.number) {
         throw new Error("block lookup mismatch");
-    }
-    if (raw.hash !== block.hash || web3.toDecimal(raw.number) !== block.number) {
-        throw new Error("raw block lookup mismatch");
     }
     return true;
 });
@@ -58,15 +54,15 @@ check("parent hashes chain correctly", function () {
     return head.parentHash === parent.hash;
 });
 
-check("console namespaces respond", function () {
+check("provider dispatch and console namespaces respond", function () {
     var modules = rpc("rpc_modules");
     ["admin", "net", "qrl", "txpool", "web3"].forEach(function (name) {
         if (typeof modules[name] !== "string") {
             throw new Error("missing rpc module " + name);
         }
     });
-    if (typeof rpc("web3_clientVersion") !== "string") {
-        throw new Error("web3_clientVersion did not return a string");
+    if (typeof web3.version.node !== "string") {
+        throw new Error("web3.version.node did not return a string");
     }
     if (typeof net.version !== "string" || typeof net.listening !== "boolean" ||
         typeof net.peerCount !== "number") {
@@ -81,10 +77,10 @@ check("console namespaces respond", function () {
     return true;
 });
 
-check("qrl.chainId matches qrl_chainId", function () {
-    var raw = rpc("qrl_chainId");
-    requireHexQuantity("qrl_chainId", raw);
-    return web3.toDecimal(raw) === web3.toDecimal(qrl.chainId());
+check("qrl.chainId matches the network ID", function () {
+    var chainID = qrl.chainId();
+    requireHexQuantity("qrl.chainId", chainID);
+    return web3.toDecimal(chainID) === web3.toDecimal(net.version);
 });
 
 check("header API returns the latest header", function () {

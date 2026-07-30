@@ -11,6 +11,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 	"math/big"
 	"net"
 	"os"
@@ -20,13 +21,56 @@ import (
 	"strings"
 
 	"github.com/theQRL/go-qrl/common"
+	"github.com/theQRL/go-qrl/internal/qrlapi"
+	"github.com/theQRL/go-qrl/rpc"
+	signercore "github.com/theQRL/go-qrl/signer/core"
 )
 
 type clefProcess struct {
-	cancel context.CancelFunc
-	done   chan struct{}
-	err    error
-	log    *os.File
+	cancel   context.CancelFunc
+	done     chan struct{}
+	err      error
+	log      *os.File
+	input    io.WriteCloser
+	output   io.ReadCloser
+	uiClient *rpc.Client
+}
+
+type automatedUI struct {
+	masterPassword  string
+	accountPassword string
+}
+
+func (ui *automatedUI) ApproveTx(request *signercore.SignTxRequest) (signercore.SignTxResponse, error) {
+	return signercore.SignTxResponse{Transaction: request.Transaction, Approved: true}, nil
+}
+
+func (ui *automatedUI) ApproveSignData(*signercore.SignDataRequest) (signercore.SignDataResponse, error) {
+	return signercore.SignDataResponse{Approved: true}, nil
+}
+
+func (ui *automatedUI) ApproveListing(request *signercore.ListRequest) (signercore.ListResponse, error) {
+	return signercore.ListResponse{Accounts: request.Accounts}, nil
+}
+
+func (ui *automatedUI) ApproveNewAccount(*signercore.NewAccountRequest) (signercore.NewAccountResponse, error) {
+	return signercore.NewAccountResponse{Approved: true}, nil
+}
+
+func (ui *automatedUI) ShowError(signercore.Message) {}
+
+func (ui *automatedUI) ShowInfo(signercore.Message) {}
+
+func (ui *automatedUI) OnApprovedTx(qrlapi.SignTransactionResult) {}
+
+func (ui *automatedUI) OnSignerStartup(signercore.StartupInfo) {}
+
+func (ui *automatedUI) OnInputRequired(request signercore.UserInputRequest) (signercore.UserInputResponse, error) {
+	password := ui.accountPassword
+	if request.Title == "Master Password" {
+		password = ui.masterPassword
+	}
+	return signercore.UserInputResponse{Text: password}, nil
 }
 
 func initializeClef(
@@ -126,6 +170,7 @@ func startClef(
 	clefPath string,
 	workspace string,
 	masterPassword string,
+	accountPassword string,
 	chainID *big.Int,
 ) (*clefProcess, string, error) {
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
@@ -151,15 +196,60 @@ func startClef(
 		clefPath,
 		clefServerArgs(workspace, port, chainID)...,
 	)
-	command.Stdin = strings.NewReader(masterPassword + "\n")
-	command.Stdout = logFile
+	input, err := command.StdinPipe()
+	if err != nil {
+		cancel()
+		_ = logFile.Close()
+		return nil, "", fmt.Errorf("open Clef stdin: %w", err)
+	}
+	output, err := command.StdoutPipe()
+	if err != nil {
+		cancel()
+		_ = input.Close()
+		_ = logFile.Close()
+		return nil, "", fmt.Errorf("open Clef stdout: %w", err)
+	}
 	command.Stderr = logFile
+
+	uiClient, err := rpc.DialIO(
+		processCtx,
+		output,
+		input,
+	)
+	if err != nil {
+		cancel()
+		_ = input.Close()
+		_ = output.Close()
+		_ = logFile.Close()
+		return nil, "", fmt.Errorf("create Clef UI client: %w", err)
+	}
+	if err := uiClient.RegisterName("ui", &automatedUI{
+		masterPassword:  masterPassword,
+		accountPassword: accountPassword,
+	}); err != nil {
+		cancel()
+		uiClient.Close()
+		_ = input.Close()
+		_ = output.Close()
+		_ = logFile.Close()
+		return nil, "", fmt.Errorf("register Clef UI service: %w", err)
+	}
 	if err := command.Start(); err != nil {
 		cancel()
+		uiClient.Close()
+		_ = input.Close()
+		_ = output.Close()
 		_ = logFile.Close()
 		return nil, "", fmt.Errorf("start Clef: %w", err)
 	}
-	process := &clefProcess{cancel: cancel, done: make(chan struct{}), log: logFile}
+	process := &clefProcess{
+		cancel:   cancel,
+		done:     make(chan struct{}),
+		log:      logFile,
+		input:    input,
+		output:   output,
+		uiClient: uiClient,
+	}
 	go func() {
 		process.err = command.Wait()
 		close(process.done)
@@ -176,6 +266,7 @@ func clefServerArgs(workspace string, port int, chainID *big.Int) []string {
 		"--keystore", filepath.Join(workspace, "keystore"),
 		"--chainid", chainID.String(),
 		"--rules", filepath.Join(workspace, "rules.js"),
+		"--stdio-ui",
 		"--http",
 		"--http.addr", "127.0.0.1",
 		"--http.port", strconv.Itoa(port),
@@ -187,6 +278,9 @@ func clefServerArgs(workspace string, port int, chainID *big.Int) []string {
 
 func (process *clefProcess) stop() error {
 	process.cancel()
+	process.uiClient.Close()
+	_ = process.input.Close()
+	_ = process.output.Close()
 	<-process.done
 	return process.log.Close()
 }

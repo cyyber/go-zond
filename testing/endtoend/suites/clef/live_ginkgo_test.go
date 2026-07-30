@@ -15,9 +15,8 @@ import (
 	gomega "github.com/onsi/gomega"
 	qrlbind "github.com/theQRL/go-qrl/accounts/abi/bind"
 	"github.com/theQRL/go-qrl/core/types"
-	"github.com/theQRL/go-qrl/qrlclient"
-	"github.com/theQRL/go-qrl/testing/devnet"
 	"github.com/theQRL/go-qrl/testing/endtoend/internal/build"
+	endtoendlive "github.com/theQRL/go-qrl/testing/endtoend/internal/live"
 )
 
 const liveSpecTimeout = 10 * time.Minute
@@ -35,36 +34,28 @@ var _ = ginkgo.Describe(
 	ginkgo.Label("e2e", "live", "clef", "mutates-chain"),
 	func() {
 		var (
-			session       *clefSession
-			networkClient *qrlclient.Client
+			session *clefSession
+			network *endtoendlive.Session
 		)
 
 		ginkgo.BeforeAll(func(ctx ginkgo.SpecContext) {
-			live, err := devnet.Inspect(ctx)
+			var err error
+			network, err = endtoendlive.Open(ctx, false)
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
-
-			networkClient, err = qrlclient.DialContext(ctx, live.RPCURL)
-			gomega.Expect(err).NotTo(gomega.HaveOccurred())
-			ginkgo.DeferCleanup(networkClient.Close)
-
-			chainID, err := networkClient.ChainID(ctx)
-			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			ginkgo.DeferCleanup(network.Close)
 
 			workDir := ginkgo.GinkgoT().TempDir()
 			clefPath := filepath.Join(workDir, "clef")
 			ginkgo.By("building the current Clef binary")
 			gomega.Expect(build.Binary(ctx, "./cmd/clef", clefPath)).To(gomega.Succeed())
 
-			developmentWallet, err := devnet.UnsafeDevelopmentWallet()
-			gomega.Expect(err).NotTo(gomega.HaveOccurred())
-
 			session, err = newClefSession(
 				ctx,
 				context.WithoutCancel(ctx),
 				clefPath,
 				workDir,
-				chainID,
-				developmentWallet,
+				network.ChainID,
+				network.Wallet,
 			)
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 			ginkgo.DeferCleanup(func() {
@@ -78,9 +69,24 @@ var _ = ginkgo.Describe(
 			).To(gomega.Succeed())
 		}, ginkgo.SpecTimeout(liveSpecTimeout))
 
+		ginkgo.It("reports the external API version", func(ctx ginkgo.SpecContext) {
+			gomega.Expect(verifyVersion(ctx, session.client)).To(gomega.Succeed())
+		}, ginkgo.SpecTimeout(liveSpecTimeout))
+
 		ginkgo.It("signs and verifies plain-text data", func(ctx ginkgo.SpecContext) {
 			gomega.Expect(
 				verifyDataSigning(ctx, session.client, session.account, session.expectedWallet),
+			).To(gomega.Succeed())
+		}, ginkgo.SpecTimeout(liveSpecTimeout))
+
+		ginkgo.It("signs and verifies validator-bound data", func(ctx ginkgo.SpecContext) {
+			gomega.Expect(
+				verifyValidatorDataSigning(
+					ctx,
+					session.client,
+					session.account,
+					session.expectedWallet,
+				),
 			).To(gomega.Succeed())
 		}, ginkgo.SpecTimeout(liveSpecTimeout))
 
@@ -97,11 +103,11 @@ var _ = ginkgo.Describe(
 		}, ginkgo.SpecTimeout(liveSpecTimeout))
 
 		ginkgo.It("signs, submits, and confirms a transaction", func(ctx ginkgo.SpecContext) {
-			nonce, err := networkClient.PendingNonceAt(ctx, session.account)
+			nonce, err := network.Client.PendingNonceAt(ctx, session.account)
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
-			tip, err := networkClient.SuggestGasTipCap(ctx)
+			tip, err := network.Client.SuggestGasTipCap(ctx)
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
-			feeCap, err := networkClient.SuggestGasPrice(ctx)
+			feeCap, err := network.Client.SuggestGasPrice(ctx)
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 			request := transactionArgs(session.account, session.chainID, nonce, tip, feeCap)
@@ -111,11 +117,15 @@ var _ = ginkgo.Describe(
 				verifyTransaction(signed, request, session.account, session.expectedWallet),
 			).To(gomega.Succeed())
 
-			gomega.Expect(networkClient.SendTransaction(ctx, signed.Tx)).To(gomega.Succeed())
-			receipt, err := qrlbind.WaitMined(ctx, networkClient, signed.Tx)
+			gomega.Expect(network.Client.SendTransaction(ctx, signed.Tx)).To(gomega.Succeed())
+			receipt, err := qrlbind.WaitMined(ctx, network.Client, signed.Tx)
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 			gomega.Expect(receipt.Status).To(gomega.Equal(types.ReceiptStatusSuccessful))
 			gomega.Expect(receipt.TxHash).To(gomega.Equal(signed.Tx.Hash()))
+		}, ginkgo.SpecTimeout(liveSpecTimeout))
+
+		ginkgo.It("creates a new password-protected account", func(ctx ginkgo.SpecContext) {
+			gomega.Expect(verifyNewAccount(ctx, session)).To(gomega.Succeed())
 		}, ginkgo.SpecTimeout(liveSpecTimeout))
 	},
 )

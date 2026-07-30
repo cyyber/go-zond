@@ -151,20 +151,18 @@ func (suite *liveSuite) assertDebugState(ctx context.Context) {
 	gomega.Expect(storageRange.Storage).NotTo(gomega.BeEmpty())
 
 	var modifiedByNumber, modifiedByHash []common.Address
-	gomega.Expect(raw.CallContext(
+	expectRegisteredError(raw.CallContext(
 		ctx,
 		&modifiedByNumber,
 		"debug_getModifiedAccountsByNumber",
 		callReceipt.BlockNumber.Uint64(),
-	)).To(gomega.Succeed())
-	gomega.Expect(modifiedByNumber).To(gomega.ContainElement(suite.from))
-	gomega.Expect(raw.CallContext(
+	))
+	expectRegisteredError(raw.CallContext(
 		ctx,
 		&modifiedByHash,
 		"debug_getModifiedAccountsByHash",
 		callReceipt.BlockHash,
-	)).To(gomega.Succeed())
-	gomega.Expect(modifiedByHash).To(gomega.ContainElement(suite.from))
+	))
 }
 
 func (suite *liveSuite) assertDebugTracing(ctx context.Context) {

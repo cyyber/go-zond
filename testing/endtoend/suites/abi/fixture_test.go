@@ -29,7 +29,7 @@ import (
 	"github.com/theQRL/go-qrl/common"
 	"github.com/theQRL/go-qrl/core/types"
 	"github.com/theQRL/go-qrl/qrlclient"
-	"github.com/theQRL/go-qrl/testing/devnet"
+	endtoendlive "github.com/theQRL/go-qrl/testing/endtoend/internal/live"
 )
 
 // Regenerate the source-controlled Hyperion artifacts and generated binding.
@@ -54,22 +54,11 @@ type liveSuite struct {
 func setupLiveSuite(ctx context.Context) *liveSuite {
 	ginkgo.GinkgoHelper()
 
-	environment, err := devnet.Inspect(ctx)
+	session, err := endtoendlive.Open(ctx, true)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	ginkgo.DeferCleanup(session.Close)
 
-	client, err := qrlclient.DialContext(ctx, environment.RPCURL)
-	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-	ginkgo.DeferCleanup(client.Close)
-
-	wsClient, err := qrlclient.DialContext(ctx, environment.WebSocketURL)
-	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-	ginkgo.DeferCleanup(wsClient.Close)
-
-	wallet, err := devnet.UnsafeDevelopmentWallet()
-	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-	chainID, err := client.ChainID(ctx)
-	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-	transactor, err := bind.NewKeyedTransactorWithChainID(wallet, chainID)
+	transactor, err := bind.NewKeyedTransactorWithChainID(session.Wallet, session.ChainID)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	inputs := scenarioInputs{
@@ -90,8 +79,8 @@ func setupLiveSuite(ctx context.Context) *liveSuite {
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	return &liveSuite{
-		client:      client,
-		wsClient:    wsClient,
+		client:      session.Client,
+		wsClient:    session.WebSocketClient,
 		from:        transactor.From,
 		signer:      transactor.Signer,
 		contractABI: parsed,

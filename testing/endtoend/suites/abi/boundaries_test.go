@@ -165,7 +165,7 @@ func (fixture *liveFixture) assertBoundaryRoundTrips(ctx context.Context) {
 		)
 		got, err := fixture.binding.EchoBoundaryEdges(callOpts, test.edges)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred(), test.name)
-		gomega.Expect(got).To(gomega.Equal(test.edges), test.name)
+		assertBoundaryEdgesEqual(got, test.edges, test.name)
 	}
 
 	// Hyperion:
@@ -188,7 +188,7 @@ func (fixture *liveFixture) assertBoundaryRoundTrips(ctx context.Context) {
 	)
 	gotFixedBytes, err := fixture.binding.EchoBoundaryEdges(callOpts, fixedBytes)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-	gomega.Expect(gotFixedBytes).To(gomega.Equal(fixedBytes))
+	assertBoundaryEdgesEqual(gotFixedBytes, fixedBytes, "fixed bytes")
 
 	// Hyperion:
 	// function echo(
@@ -358,8 +358,14 @@ func (fixture *liveFixture) assertBoundaryRoundTrips(ctx context.Context) {
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	gomega.Expect(gotFixedMatrix).To(gomega.Equal(fixedMatrix))
 	gomega.Expect(gotRows).To(gomega.Equal(rows))
-	gomega.Expect(gotRecords).To(gomega.Equal(records))
-	gomega.Expect(gotNested).To(gomega.Equal(nested))
+	for index := range records {
+		assertDynamicRecordEqual(gotRecords[index], records[index], "dynamic record")
+	}
+	gomega.Expect(gotNested.FixedRecord.Amount.Cmp(nested.FixedRecord.Amount)).To(gomega.Equal(0))
+	gomega.Expect(gotNested.FixedRecord.Recipient).To(gomega.Equal(nested.FixedRecord.Recipient))
+	gomega.Expect(gotNested.FixedRecord.Tag).To(gomega.Equal(nested.FixedRecord.Tag))
+	assertDynamicRecordEqual(gotNested.DynamicRecord, nested.DynamicRecord, "nested record")
+	gomega.Expect(gotNested.Extra).To(gomega.Equal(nested.Extra))
 }
 
 func unsignedMaximum(bits uint) *big.Int {
@@ -387,6 +393,39 @@ func signedMinimum(bits uint) *big.Int {
 
 func signedMaximum(bits uint) *big.Int {
 	return new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), bits-1), big.NewInt(1))
+}
+
+func assertBoundaryEdgesEqual(got, want EventEmitterBoundaryEdges, context string) {
+	ginkgo.GinkgoHelper()
+
+	for _, values := range [][2]*big.Int{
+		{got.Unsigned248, want.Unsigned248},
+		{got.Signed248, want.Signed248},
+		{got.Unsigned256, want.Unsigned256},
+		{got.Signed256, want.Signed256},
+		{got.Unsigned264, want.Unsigned264},
+		{got.Signed264, want.Signed264},
+		{got.Unsigned504, want.Unsigned504},
+		{got.Signed504, want.Signed504},
+		{got.Unsigned512, want.Unsigned512},
+		{got.Signed512, want.Signed512},
+	} {
+		gomega.Expect(values[0].Cmp(values[1])).To(gomega.Equal(0), context)
+	}
+	gomega.Expect(got.Bytes31Value).To(gomega.Equal(want.Bytes31Value), context)
+	gomega.Expect(got.Bytes32Value).To(gomega.Equal(want.Bytes32Value), context)
+	gomega.Expect(got.Bytes33Value).To(gomega.Equal(want.Bytes33Value), context)
+	gomega.Expect(got.Bytes63Value).To(gomega.Equal(want.Bytes63Value), context)
+	gomega.Expect(got.Bytes64Value).To(gomega.Equal(want.Bytes64Value), context)
+}
+
+func assertDynamicRecordEqual(got, want EventEmitterDynamicRecord, context string) {
+	ginkgo.GinkgoHelper()
+
+	gomega.Expect(got.Amount.Cmp(want.Amount)).To(gomega.Equal(0), context)
+	gomega.Expect(got.Note).To(gomega.Equal(want.Note), context)
+	gomega.Expect(got.Payload).To(gomega.Equal(want.Payload), context)
+	gomega.Expect(got.Values).To(gomega.Equal(want.Values), context)
 }
 
 func fillPattern(destination []byte, seed byte) {

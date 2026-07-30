@@ -16,7 +16,7 @@ import (
 	"github.com/theQRL/go-qrl/core/types"
 	qrlwallet "github.com/theQRL/go-qrl/crypto/pqcrypto/wallet"
 	"github.com/theQRL/go-qrl/qrlclient"
-	"github.com/theQRL/go-qrl/testing/devnet"
+	endtoendlive "github.com/theQRL/go-qrl/testing/endtoend/internal/live"
 
 	ginkgo "github.com/onsi/ginkgo/v2"
 	gomega "github.com/onsi/gomega"
@@ -44,30 +44,17 @@ type liveFixture struct {
 func setupLiveSuite(ctx context.Context) *liveSuite {
 	ginkgo.GinkgoHelper()
 
-	environment, err := devnet.Inspect(ctx)
+	session, err := endtoendlive.Open(ctx, true)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-
-	client, err := qrlclient.DialContext(ctx, environment.RPCURL)
-	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-	ginkgo.DeferCleanup(client.Close)
-
-	wsClient, err := qrlclient.DialContext(ctx, environment.WebSocketURL)
-	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-	ginkgo.DeferCleanup(wsClient.Close)
-
-	wallet, err := devnet.UnsafeDevelopmentWallet()
-	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-
-	chainID, err := client.ChainID(ctx)
-	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	ginkgo.DeferCleanup(session.Close)
 
 	suite := &liveSuite{
-		graphQLURL: environment.GraphQLURL,
-		client:     client,
-		wsClient:   wsClient,
-		wallet:     wallet,
-		from:       common.Address(wallet.GetAddress()),
-		chainID:    chainID,
+		graphQLURL: session.Environment.GraphQLURL,
+		client:     session.Client,
+		wsClient:   session.WebSocketClient,
+		wallet:     session.Wallet,
+		from:       session.Address,
+		chainID:    session.ChainID,
 	}
 	suite.fixture = suite.deployFixture(ctx)
 	return suite
@@ -115,12 +102,47 @@ func (suite *liveSuite) signTransaction(
 	value *big.Int,
 	data []byte,
 ) (*types.Transaction, error) {
+	return suite.signTransactionWithAccessList(ctx, to, value, data, nil)
+}
+
+func (suite *liveSuite) signTransactionWithAccessList(
+	ctx context.Context,
+	to *common.Address,
+	value *big.Int,
+	data []byte,
+	accessList types.AccessList,
+) (*types.Transaction, error) {
 	if value == nil {
 		value = new(big.Int)
 	}
 	nonce, err := suite.client.PendingNonceAt(ctx, suite.from)
 	if err != nil {
 		return nil, fmt.Errorf("read pending nonce: %w", err)
+	}
+	return suite.signTransactionForWallet(
+		ctx,
+		suite.wallet,
+		suite.from,
+		nonce,
+		to,
+		value,
+		data,
+		accessList,
+	)
+}
+
+func (suite *liveSuite) signTransactionForWallet(
+	ctx context.Context,
+	signerWallet qrlwallet.Wallet,
+	from common.Address,
+	nonce uint64,
+	to *common.Address,
+	value *big.Int,
+	data []byte,
+	accessList types.AccessList,
+) (*types.Transaction, error) {
+	if value == nil {
+		value = new(big.Int)
 	}
 	feeCap, err := suite.client.SuggestGasPrice(ctx)
 	if err != nil {
@@ -135,10 +157,11 @@ func (suite *liveSuite) signTransaction(
 		feeCap = new(big.Int).Set(tipCap)
 	}
 	gas, err := suite.client.EstimateGas(ctx, qrl.CallMsg{
-		From:  suite.from,
-		To:    to,
-		Value: value,
-		Data:  data,
+		From:       from,
+		To:         to,
+		Value:      value,
+		Data:       data,
+		AccessList: accessList,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("estimate gas: %w", err)
@@ -146,16 +169,21 @@ func (suite *liveSuite) signTransaction(
 	gas += gas / 5
 
 	tx := types.NewTx(&types.DynamicFeeTx{
-		ChainID:   suite.chainID,
-		Nonce:     nonce,
-		GasTipCap: tipCap,
-		GasFeeCap: feeCap,
-		Gas:       gas,
-		To:        to,
-		Value:     value,
-		Data:      data,
+		ChainID:    suite.chainID,
+		Nonce:      nonce,
+		GasTipCap:  tipCap,
+		GasFeeCap:  feeCap,
+		Gas:        gas,
+		To:         to,
+		Value:      value,
+		Data:       data,
+		AccessList: accessList,
 	})
-	signed, err := types.SignTx(tx, types.LatestSignerForChainID(suite.chainID), suite.wallet)
+	signed, err := types.SignTx(
+		tx,
+		types.LatestSignerForChainID(suite.chainID),
+		signerWallet,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("sign transaction: %w", err)
 	}

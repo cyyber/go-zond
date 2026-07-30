@@ -13,15 +13,22 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/theQRL/go-qrl/common/hexutil"
+	qrlconsole "github.com/theQRL/go-qrl/console"
+	"github.com/theQRL/go-qrl/rpc"
+	endtoendlive "github.com/theQRL/go-qrl/testing/endtoend/internal/live"
 )
 
 const resultPrefix = "CONSOLE_E2E_PASS "
+const failurePrefix = "CONSOLE_E2E_FAIL "
 
 type consoleScenario struct {
 	name        string
 	description string
+	webSocket   bool
 }
 
 var consoleScenarios = []consoleScenario{
@@ -32,6 +39,11 @@ var consoleScenarios = []consoleScenario{
 	{
 		name:        "contract",
 		description: "deploys a contract and validates VM64 ABI, receipts, events, and filters",
+	},
+	{
+		name:        "events",
+		description: "formats and submits a contract transaction and watches indexed events over WebSocket",
+		webSocket:   true,
 	},
 }
 
@@ -72,6 +84,57 @@ func runSuite(ctx context.Context, gqrlPath, jsPath, rpcURL, name string) error 
 	return nil
 }
 
+type synchronizedBuffer struct {
+	lock sync.Mutex
+	data bytes.Buffer
+}
+
+func (buffer *synchronizedBuffer) Write(data []byte) (int, error) {
+	buffer.lock.Lock()
+	defer buffer.lock.Unlock()
+	return buffer.data.Write(data)
+}
+
+func (buffer *synchronizedBuffer) Bytes() []byte {
+	buffer.lock.Lock()
+	defer buffer.lock.Unlock()
+	return bytes.Clone(buffer.data.Bytes())
+}
+
+func runWatchedSuite(ctx context.Context, client *rpc.Client, jsPath, name string) error {
+	var output synchronizedBuffer
+	console, err := qrlconsole.New(qrlconsole.Config{
+		DataDir: filepath.Join(jsPath, "console-data"),
+		DocRoot: jsPath,
+		Client:  client,
+		Printer: &output,
+	})
+	if err != nil {
+		return fmt.Errorf("create console suite %s: %w", name, err)
+	}
+	defer console.Stop(false)
+
+	console.Evaluate("loadScript('harness.js');loadScript('" + name + ".js')")
+
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		result := output.Bytes()
+		if bytes.Contains(result, []byte(resultPrefix+name)) {
+			return parseSuiteResult(name, result)
+		}
+		if bytes.Contains(result, []byte(failurePrefix+name)) ||
+			bytes.Contains(result, []byte("GoError:")) {
+			return fmt.Errorf("console suite %s failed\n%s", name, result)
+		}
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("console suite %s: %w\n%s", name, ctx.Err(), result)
+		case <-ticker.C:
+		}
+	}
+}
+
 func parseSuiteResult(name string, output []byte) error {
 	marker := []byte(resultPrefix + name)
 	var matches int
@@ -86,7 +149,7 @@ func parseSuiteResult(name string, output []byte) error {
 	return nil
 }
 
-func prepareWorkspace(ctx context.Context, destination, rpcURL string) error {
+func prepareWorkspace(ctx context.Context, destination string, session *endtoendlive.Session) error {
 	consoleScripts, err := fs.Sub(consoleFixtures, "testdata/console")
 	if err != nil {
 		return fmt.Errorf("open console fixtures: %w", err)
@@ -100,7 +163,7 @@ func prepareWorkspace(ctx context.Context, destination, rpcURL string) error {
 		return fmt.Errorf("decode EventEmitter bytecode: %w", err)
 	}
 
-	params, err := deploymentParameters(ctx, rpcURL, eventEmitterABI, bytecode)
+	params, err := deploymentParameters(ctx, session, eventEmitterABI, bytecode)
 	if err != nil {
 		return err
 	}

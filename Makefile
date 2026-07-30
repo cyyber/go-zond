@@ -15,6 +15,7 @@ DEVNET_START_TIMEOUT ?=
 DEVNET_EXECUTION_IMAGE ?= local/go-qrl:devnet
 override DEVNET_PARAMS_FILE := $(if $(strip $(DEVNET_PARAMS_FILE)),$(abspath $(DEVNET_PARAMS_FILE)))
 E2E_SUITE_TIMEOUT ?= 25m
+E2E_REPORT_DIR ?= build/cache/e2e
 
 #? gqrl: Build gqrl.
 gqrl:
@@ -86,14 +87,19 @@ network-stop:
 #? e2e-test: Run selected Ginkgo end-to-end suites against the already-running network.
 e2e-test:
 	@test -n "$(strip $(E2E_PACKAGES))" || { echo "E2E_PACKAGES must name at least one suite package" >&2; exit 2; }
+	@mkdir -p "$(E2E_REPORT_DIR)"
 	DEVNET_ENCLAVE_NAME="$(DEVNET_ENCLAVE_NAME)" \
 	go tool ginkgo \
 		--tags=e2e \
 		--procs=1 \
+		--keep-going \
 		--require-suite \
 		--fail-on-empty \
 		--fail-on-pending \
 		--timeout="$(E2E_SUITE_TIMEOUT)" \
+		--output-dir="$(E2E_REPORT_DIR)" \
+		--junit-report=e2e.junit.xml \
+		--json-report=e2e.json \
 		$(strip $(E2E_PACKAGES)) \
 		-- -test.run='^TestE2E$$'
 

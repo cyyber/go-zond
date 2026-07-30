@@ -132,9 +132,12 @@ check("contract echoes VM64 scalar and dynamic values", function () {
     if (echoed[0].toString(10) !== vm64Amount || echoed[1].toString(10) !== vm64Delta) {
         throw new Error("integer mismatch");
     }
-    if (echoed[2].toLowerCase() !== vm64Tag ||
-        echoed[3].toLowerCase() !== PARAMS.address.toLowerCase()) {
+    if (echoed[2].toLowerCase() !== vm64Tag) {
         throw new Error("fixed-width mismatch");
+    }
+    var expectedAddress = web3.toChecksumAddress(PARAMS.address);
+    if (echoed[3] !== expectedAddress || !web3.isChecksumAddress(echoed[3])) {
+        throw new Error("decoded address is not canonical: " + echoed[3]);
     }
     if (echoed[4].toLowerCase() !== vm64Payload || echoed[5] !== vm64Note || echoed[6] !== true) {
         throw new Error("dynamic-value mismatch");

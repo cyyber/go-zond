@@ -12,7 +12,9 @@ import (
 	"time"
 
 	"github.com/theQRL/go-qrl/common"
+	"github.com/theQRL/go-qrl/common/hexutil"
 	"github.com/theQRL/go-qrl/core/types"
+	"github.com/theQRL/go-qrl/internal/qrlapi"
 	"github.com/theQRL/go-qrl/p2p"
 
 	ginkgo "github.com/onsi/ginkgo/v2"
@@ -40,6 +42,17 @@ func (suite *liveSuite) assertSubscriptionEvents(ctx context.Context) {
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	defer pendingSub.Unsubscribe()
 
+	fullPending := make(chan *qrlapi.RPCTransaction, 8)
+	fullPendingSub, err := ws.Subscribe(
+		ctx,
+		"qrl",
+		fullPending,
+		"newPendingTransactions",
+		true,
+	)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	defer fullPendingSub.Unsubscribe()
+
 	tx, err := suite.signTransaction(
 		ctx,
 		nil,
@@ -53,8 +66,8 @@ func (suite *liveSuite) assertSubscriptionEvents(ctx context.Context) {
 
 	deadline := time.NewTimer(90 * time.Second)
 	defer deadline.Stop()
-	var gotHead, gotLog, gotPending bool
-	for !gotHead || !gotLog || !gotPending {
+	var gotHead, gotLog, gotPending, gotFullPending bool
+	for !gotHead || !gotLog || !gotPending || !gotFullPending {
 		select {
 		case header := <-headers:
 			if header != nil && header.Number != nil &&
@@ -71,18 +84,28 @@ func (suite *liveSuite) assertSubscriptionEvents(ctx context.Context) {
 			if hash == tx.Hash() {
 				gotPending = true
 			}
+		case transaction := <-fullPending:
+			if transaction != nil && transaction.Hash == tx.Hash() {
+				gomega.Expect(transaction.From).To(gomega.Equal(suite.from))
+				gomega.Expect(uint64(transaction.Nonce)).To(gomega.Equal(tx.Nonce()))
+				gomega.Expect(transaction.Input).To(gomega.Equal(hexutil.Bytes(tx.Data())))
+				gotFullPending = true
+			}
 		case err := <-headSub.Err():
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 		case err := <-logSub.Err():
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 		case err := <-pendingSub.Err():
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		case err := <-fullPendingSub.Err():
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 		case <-deadline.C:
 			ginkgo.Fail(fmt.Sprintf(
-				"timed out waiting for subscriptions: head=%t log=%t pending=%t",
+				"timed out waiting for subscriptions: head=%t log=%t pending=%t fullPending=%t",
 				gotHead,
 				gotLog,
 				gotPending,
+				gotFullPending,
 			))
 		case <-ctx.Done():
 			ginkgo.Fail("subscription context ended: " + ctx.Err().Error())

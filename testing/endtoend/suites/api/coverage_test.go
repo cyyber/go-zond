@@ -19,154 +19,223 @@ import (
 )
 
 const (
-	coverageLive       = "live behavior"
-	coverageLiveError  = "live dispatch and error contract"
+	coverageBehavior   = "live behavior"
+	coverageShape      = "live response shape"
+	coverageDispatch   = "live dispatch and error contract"
 	coverageUnsafe     = "excluded: mutates node configuration, chain, or files"
 	coverageNotExposed = "excluded: not exposed by the devnet profile"
 	coverageInternal   = "excluded: internal compatibility callback"
+
+	scenarioNodeMetadata             = "node-metadata"
+	scenarioChainState               = "chain-state"
+	scenarioTransactions             = "transactions"
+	scenarioTxPool                   = "txpool"
+	scenarioRuntimeDiagnostics       = "runtime-diagnostics"
+	scenarioHistoricalLogs           = "historical-logs"
+	scenarioBlockFilter              = "block-filter"
+	scenarioPendingFilter            = "pending-filter"
+	scenarioSubscriptionEvents       = "subscription-events"
+	scenarioSubscriptionRegistration = "subscription-registration"
+	scenarioRawDebug                 = "raw-debug"
+	scenarioDebugState               = "debug-state"
+	scenarioDebugTracing             = "debug-tracing"
+	scenarioDebugErrorPaths          = "debug-error-paths"
+	scenarioGraphQLSchema            = "graphql-schema"
+	scenarioGraphQLQueries           = "graphql-queries"
+	scenarioGraphQLMutation          = "graphql-mutation"
+	scenarioGraphQLPending           = "graphql-pending"
 )
 
-var apiCoverage = map[string]string{
-	"rpc_modules": coverageLive,
+type apiCoverageEntry struct {
+	kind     string
+	scenario string
+}
 
-	"web3_clientVersion": coverageLive,
-	"web3_sha3":          coverageLive,
+func behavior(scenario string) apiCoverageEntry {
+	return apiCoverageEntry{kind: coverageBehavior, scenario: scenario}
+}
 
-	"net_listening": coverageLive,
-	"net_peerCount": coverageLive,
-	"net_version":   coverageLive,
+func shape(scenario string) apiCoverageEntry {
+	return apiCoverageEntry{kind: coverageShape, scenario: scenario}
+}
 
-	"admin_addPeer":           coverageLiveError,
-	"admin_removePeer":        coverageLiveError,
-	"admin_addTrustedPeer":    coverageLiveError,
-	"admin_removeTrustedPeer": coverageLiveError,
-	"admin_peerEvents":        coverageLive,
-	"admin_startHTTP":         coverageUnsafe,
-	"admin_stopHTTP":          coverageUnsafe,
-	"admin_startWS":           coverageUnsafe,
-	"admin_stopWS":            coverageUnsafe,
-	"admin_peers":             coverageLive,
-	"admin_nodeInfo":          coverageLive,
-	"admin_datadir":           coverageLive,
-	"admin_exportChain":       coverageLiveError,
-	"admin_importChain":       coverageLiveError,
+func dispatch(scenario string) apiCoverageEntry {
+	return apiCoverageEntry{kind: coverageDispatch, scenario: scenario}
+}
 
-	"qrl_gasPrice":                               coverageLive,
-	"qrl_maxPriorityFeePerGas":                   coverageLive,
-	"qrl_feeHistory":                             coverageLive,
-	"qrl_syncing":                                coverageLive,
-	"qrl_accounts":                               coverageLive,
-	"qrl_chainId":                                coverageLive,
-	"qrl_blockNumber":                            coverageLive,
-	"qrl_getBalance":                             coverageLive,
-	"qrl_getProof":                               coverageLive,
-	"qrl_getHeaderByNumber":                      coverageLive,
-	"qrl_getHeaderByHash":                        coverageLive,
-	"qrl_getBlockByNumber":                       coverageLive,
-	"qrl_getBlockByHash":                         coverageLive,
-	"qrl_getCode":                                coverageLive,
-	"qrl_getStorageAt":                           coverageLive,
-	"qrl_getBlockReceipts":                       coverageLive,
-	"qrl_call":                                   coverageLive,
-	"qrl_estimateGas":                            coverageLive,
-	"qrl_createAccessList":                       coverageLive,
-	"qrl_getBlockTransactionCountByNumber":       coverageLive,
-	"qrl_getBlockTransactionCountByHash":         coverageLive,
-	"qrl_getTransactionByBlockNumberAndIndex":    coverageLive,
-	"qrl_getTransactionByBlockHashAndIndex":      coverageLive,
-	"qrl_getRawTransactionByBlockNumberAndIndex": coverageLive,
-	"qrl_getRawTransactionByBlockHashAndIndex":   coverageLive,
-	"qrl_getTransactionCount":                    coverageLive,
-	"qrl_getTransactionByHash":                   coverageLive,
-	"qrl_getRawTransactionByHash":                coverageLive,
-	"qrl_getTransactionReceipt":                  coverageLive,
-	"qrl_sendTransaction":                        coverageLive,
-	"qrl_fillTransaction":                        coverageLive,
-	"qrl_sendRawTransaction":                     coverageLive,
-	"qrl_sign":                                   coverageLive,
-	"qrl_signTransaction":                        coverageLive,
-	"qrl_pendingTransactions":                    coverageLive,
+func excluded(kind string) apiCoverageEntry {
+	return apiCoverageEntry{kind: kind}
+}
 
-	"qrl_newPendingTransactionFilter": coverageLive,
-	"qrl_newPendingTransactions":      coverageLive,
-	"qrl_newBlockFilter":              coverageLive,
-	"qrl_newHeads":                    coverageLive,
-	"qrl_logs":                        coverageLive,
-	"qrl_newFilter":                   coverageLive,
-	"qrl_getLogs":                     coverageLive,
-	"qrl_uninstallFilter":             coverageLive,
-	"qrl_getFilterLogs":               coverageLive,
-	"qrl_getFilterChanges":            coverageLive,
-	"qrl_subscribeSyncStatus":         coverageInternal,
+var scenarioDescriptions = map[string]string{
+	scenarioNodeMetadata:             "covers node and network metadata APIs",
+	scenarioChainState:               "covers chain, account, state, call, proof, and fee APIs",
+	scenarioTransactions:             "covers transaction lookup and raw encoding APIs",
+	scenarioTxPool:                   "covers non-empty transaction-pool inspection APIs",
+	scenarioRuntimeDiagnostics:       "covers runtime diagnostic APIs",
+	scenarioHistoricalLogs:           "covers historical log filtering APIs",
+	scenarioBlockFilter:              "covers newly mined block filters",
+	scenarioPendingFilter:            "covers pending-transaction filters",
+	scenarioSubscriptionEvents:       "covers emitted WebSocket events",
+	scenarioSubscriptionRegistration: "covers passive WebSocket subscription registration",
+	scenarioRawDebug:                 "covers raw debug chain APIs",
+	scenarioDebugState:               "covers debug state diagnostics",
+	scenarioDebugTracing:             "covers debug tracing APIs",
+	scenarioDebugErrorPaths:          "covers registered debug and node-control error paths",
+	scenarioGraphQLSchema:            "covers the GraphQL schema",
+	scenarioGraphQLQueries:           "covers GraphQL query fields",
+	scenarioGraphQLMutation:          "covers the GraphQL transaction mutation",
+	scenarioGraphQLPending:           "covers GraphQL pending transactions",
+}
 
-	"txpool_content":     coverageLive,
-	"txpool_contentFrom": coverageLive,
-	"txpool_status":      coverageLive,
-	"txpool_inspect":     coverageLive,
+var apiCoverage = map[string]apiCoverageEntry{
+	"rpc_modules": behavior(scenarioNodeMetadata),
 
-	"debug_getRawHeader":                coverageLive,
-	"debug_getRawBlock":                 coverageLive,
-	"debug_getRawReceipts":              coverageLive,
-	"debug_getRawTransaction":           coverageLive,
-	"debug_printBlock":                  coverageLive,
-	"debug_dbGet":                       coverageLive,
-	"debug_dbAncient":                   coverageLiveError,
-	"debug_dbAncients":                  coverageLive,
-	"debug_chaindbProperty":             coverageLiveError,
-	"debug_chaindbCompact":              coverageUnsafe,
-	"debug_setHead":                     coverageUnsafe,
-	"debug_dumpBlock":                   coverageLive,
-	"debug_preimage":                    coverageLiveError,
-	"debug_getBadBlocks":                coverageLive,
-	"debug_accountRange":                coverageLive,
-	"debug_storageRangeAt":              coverageLive,
-	"debug_getModifiedAccountsByNumber": coverageLive,
-	"debug_getModifiedAccountsByHash":   coverageLive,
-	"debug_getAccessibleState":          coverageLiveError,
-	"debug_setTrieFlushInterval":        coverageLiveError,
-	"debug_getTrieFlushInterval":        coverageLiveError,
-	"debug_traceChain":                  coverageLive,
-	"debug_traceBlockByNumber":          coverageLive,
-	"debug_traceBlockByHash":            coverageLive,
-	"debug_traceBlock":                  coverageLive,
-	"debug_traceBlockFromFile":          coverageLiveError,
-	"debug_traceBadBlock":               coverageLiveError,
-	"debug_standardTraceBlockToFile":    coverageUnsafe,
-	"debug_intermediateRoots":           coverageLive,
-	"debug_standardTraceBadBlockToFile": coverageLiveError,
-	"debug_traceTransaction":            coverageLive,
-	"debug_traceCall":                   coverageLive,
+	"web3_clientVersion": behavior(scenarioNodeMetadata),
+	"web3_sha3":          behavior(scenarioNodeMetadata),
 
-	"debug_verbosity":               coverageUnsafe,
-	"debug_vmodule":                 coverageUnsafe,
-	"debug_memStats":                coverageLive,
-	"debug_gcStats":                 coverageLive,
-	"debug_cpuProfile":              coverageUnsafe,
-	"debug_startCPUProfile":         coverageUnsafe,
-	"debug_stopCPUProfile":          coverageUnsafe,
-	"debug_goTrace":                 coverageUnsafe,
-	"debug_startGoTrace":            coverageUnsafe,
-	"debug_stopGoTrace":             coverageUnsafe,
-	"debug_blockProfile":            coverageUnsafe,
-	"debug_setBlockProfileRate":     coverageUnsafe,
-	"debug_writeBlockProfile":       coverageUnsafe,
-	"debug_mutexProfile":            coverageUnsafe,
-	"debug_setMutexProfileFraction": coverageUnsafe,
-	"debug_writeMutexProfile":       coverageUnsafe,
-	"debug_writeMemProfile":         coverageUnsafe,
-	"debug_stacks":                  coverageLive,
-	"debug_freeOSMemory":            coverageUnsafe,
-	"debug_setGCPercent":            coverageUnsafe,
+	"net_listening": behavior(scenarioNodeMetadata),
+	"net_peerCount": shape(scenarioNodeMetadata),
+	"net_version":   behavior(scenarioNodeMetadata),
 
-	"miner_setExtra":    coverageNotExposed,
-	"miner_setGasPrice": coverageNotExposed,
-	"miner_setGasLimit": coverageNotExposed,
+	"admin_addPeer":           dispatch(scenarioDebugErrorPaths),
+	"admin_removePeer":        dispatch(scenarioDebugErrorPaths),
+	"admin_addTrustedPeer":    dispatch(scenarioDebugErrorPaths),
+	"admin_removeTrustedPeer": dispatch(scenarioDebugErrorPaths),
+	"admin_peerEvents":        shape(scenarioSubscriptionRegistration),
+	"admin_startHTTP":         excluded(coverageUnsafe),
+	"admin_stopHTTP":          excluded(coverageUnsafe),
+	"admin_startWS":           excluded(coverageUnsafe),
+	"admin_stopWS":            excluded(coverageUnsafe),
+	"admin_peers":             shape(scenarioNodeMetadata),
+	"admin_nodeInfo":          behavior(scenarioNodeMetadata),
+	"admin_datadir":           behavior(scenarioNodeMetadata),
+	"admin_exportChain":       dispatch(scenarioDebugErrorPaths),
+	"admin_importChain":       dispatch(scenarioDebugErrorPaths),
+
+	"qrl_gasPrice":                               behavior(scenarioChainState),
+	"qrl_maxPriorityFeePerGas":                   behavior(scenarioChainState),
+	"qrl_feeHistory":                             behavior(scenarioChainState),
+	"qrl_syncing":                                shape(scenarioChainState),
+	"qrl_accounts":                               excluded(coverageNotExposed),
+	"qrl_chainId":                                behavior(scenarioChainState),
+	"qrl_blockNumber":                            behavior(scenarioChainState),
+	"qrl_getBalance":                             behavior(scenarioChainState),
+	"qrl_getProof":                               behavior(scenarioChainState),
+	"qrl_getHeaderByNumber":                      behavior(scenarioChainState),
+	"qrl_getHeaderByHash":                        behavior(scenarioChainState),
+	"qrl_getBlockByNumber":                       behavior(scenarioChainState),
+	"qrl_getBlockByHash":                         behavior(scenarioChainState),
+	"qrl_getCode":                                behavior(scenarioChainState),
+	"qrl_getStorageAt":                           behavior(scenarioChainState),
+	"qrl_getBlockReceipts":                       behavior(scenarioChainState),
+	"qrl_call":                                   behavior(scenarioChainState),
+	"qrl_estimateGas":                            behavior(scenarioChainState),
+	"qrl_createAccessList":                       behavior(scenarioChainState),
+	"qrl_getBlockTransactionCountByNumber":       behavior(scenarioTransactions),
+	"qrl_getBlockTransactionCountByHash":         behavior(scenarioTransactions),
+	"qrl_getTransactionByBlockNumberAndIndex":    behavior(scenarioTransactions),
+	"qrl_getTransactionByBlockHashAndIndex":      behavior(scenarioTransactions),
+	"qrl_getRawTransactionByBlockNumberAndIndex": behavior(scenarioTransactions),
+	"qrl_getRawTransactionByBlockHashAndIndex":   behavior(scenarioTransactions),
+	"qrl_getTransactionCount":                    behavior(scenarioTransactions),
+	"qrl_getTransactionByHash":                   behavior(scenarioTransactions),
+	"qrl_getRawTransactionByHash":                behavior(scenarioTransactions),
+	"qrl_getTransactionReceipt":                  behavior(scenarioTransactions),
+	"qrl_sendTransaction":                        excluded(coverageNotExposed),
+	"qrl_fillTransaction":                        behavior(scenarioTransactions),
+	"qrl_sendRawTransaction":                     behavior(scenarioTransactions),
+	"qrl_sign":                                   excluded(coverageNotExposed),
+	"qrl_signTransaction":                        excluded(coverageNotExposed),
+	"qrl_pendingTransactions":                    behavior(scenarioTxPool),
+
+	"qrl_newPendingTransactionFilter": behavior(scenarioPendingFilter),
+	"qrl_newPendingTransactions":      behavior(scenarioSubscriptionEvents),
+	"qrl_newBlockFilter":              behavior(scenarioBlockFilter),
+	"qrl_newHeads":                    behavior(scenarioSubscriptionEvents),
+	"qrl_logs":                        behavior(scenarioSubscriptionEvents),
+	"qrl_newFilter":                   behavior(scenarioHistoricalLogs),
+	"qrl_getLogs":                     behavior(scenarioHistoricalLogs),
+	"qrl_uninstallFilter":             behavior(scenarioHistoricalLogs),
+	"qrl_getFilterLogs":               behavior(scenarioHistoricalLogs),
+	"qrl_getFilterChanges":            behavior(scenarioHistoricalLogs),
+	"qrl_subscribeSyncStatus":         excluded(coverageInternal),
+
+	"txpool_content":     behavior(scenarioTxPool),
+	"txpool_contentFrom": behavior(scenarioTxPool),
+	"txpool_status":      behavior(scenarioTxPool),
+	"txpool_inspect":     behavior(scenarioTxPool),
+
+	"debug_getRawHeader":                behavior(scenarioRawDebug),
+	"debug_getRawBlock":                 behavior(scenarioRawDebug),
+	"debug_getRawReceipts":              behavior(scenarioRawDebug),
+	"debug_getRawTransaction":           behavior(scenarioRawDebug),
+	"debug_printBlock":                  behavior(scenarioRawDebug),
+	"debug_dbGet":                       behavior(scenarioRawDebug),
+	"debug_dbAncient":                   dispatch(scenarioDebugErrorPaths),
+	"debug_dbAncients":                  behavior(scenarioRawDebug),
+	"debug_chaindbProperty":             dispatch(scenarioDebugErrorPaths),
+	"debug_chaindbCompact":              excluded(coverageUnsafe),
+	"debug_setHead":                     excluded(coverageUnsafe),
+	"debug_dumpBlock":                   behavior(scenarioDebugState),
+	"debug_preimage":                    dispatch(scenarioDebugErrorPaths),
+	"debug_getBadBlocks":                shape(scenarioDebugState),
+	"debug_accountRange":                behavior(scenarioDebugState),
+	"debug_storageRangeAt":              behavior(scenarioDebugState),
+	"debug_getModifiedAccountsByNumber": dispatch(scenarioDebugState),
+	"debug_getModifiedAccountsByHash":   dispatch(scenarioDebugState),
+	"debug_getAccessibleState":          dispatch(scenarioDebugErrorPaths),
+	"debug_setTrieFlushInterval":        dispatch(scenarioDebugErrorPaths),
+	"debug_getTrieFlushInterval":        dispatch(scenarioDebugErrorPaths),
+	"debug_traceChain":                  behavior(scenarioDebugTracing),
+	"debug_traceBlockByNumber":          behavior(scenarioDebugTracing),
+	"debug_traceBlockByHash":            behavior(scenarioDebugTracing),
+	"debug_traceBlock":                  behavior(scenarioDebugTracing),
+	"debug_traceBlockFromFile":          dispatch(scenarioDebugErrorPaths),
+	"debug_traceBadBlock":               dispatch(scenarioDebugErrorPaths),
+	"debug_standardTraceBlockToFile":    excluded(coverageUnsafe),
+	"debug_intermediateRoots":           behavior(scenarioDebugTracing),
+	"debug_standardTraceBadBlockToFile": dispatch(scenarioDebugErrorPaths),
+	"debug_traceTransaction":            behavior(scenarioDebugTracing),
+	"debug_traceCall":                   behavior(scenarioDebugTracing),
+
+	"debug_verbosity":               excluded(coverageUnsafe),
+	"debug_vmodule":                 excluded(coverageUnsafe),
+	"debug_memStats":                behavior(scenarioRuntimeDiagnostics),
+	"debug_gcStats":                 shape(scenarioRuntimeDiagnostics),
+	"debug_cpuProfile":              excluded(coverageUnsafe),
+	"debug_startCPUProfile":         excluded(coverageUnsafe),
+	"debug_stopCPUProfile":          excluded(coverageUnsafe),
+	"debug_goTrace":                 excluded(coverageUnsafe),
+	"debug_startGoTrace":            excluded(coverageUnsafe),
+	"debug_stopGoTrace":             excluded(coverageUnsafe),
+	"debug_blockProfile":            excluded(coverageUnsafe),
+	"debug_setBlockProfileRate":     excluded(coverageUnsafe),
+	"debug_writeBlockProfile":       excluded(coverageUnsafe),
+	"debug_mutexProfile":            excluded(coverageUnsafe),
+	"debug_setMutexProfileFraction": excluded(coverageUnsafe),
+	"debug_writeMutexProfile":       excluded(coverageUnsafe),
+	"debug_writeMemProfile":         excluded(coverageUnsafe),
+	"debug_stacks":                  behavior(scenarioRuntimeDiagnostics),
+	"debug_freeOSMemory":            excluded(coverageUnsafe),
+	"debug_setGCPercent":            excluded(coverageUnsafe),
+
+	"miner_setExtra":    excluded(coverageNotExposed),
+	"miner_setGasPrice": excluded(coverageNotExposed),
+	"miner_setGasLimit": excluded(coverageNotExposed),
 }
 
 func TestAPICoverageManifest(t *testing.T) {
-	for method, category := range apiCoverage {
-		if strings.TrimSpace(category) == "" {
+	for method, entry := range apiCoverage {
+		if strings.TrimSpace(entry.kind) == "" {
 			t.Errorf("%s has no coverage category", method)
+		}
+		if strings.HasPrefix(entry.kind, "live ") {
+			if _, ok := scenarioDescriptions[entry.scenario]; !ok {
+				t.Errorf("%s references unknown live scenario %q", method, entry.scenario)
+			}
+		} else if entry.scenario != "" {
+			t.Errorf("%s is excluded but references scenario %q", method, entry.scenario)
 		}
 	}
 

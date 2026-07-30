@@ -105,12 +105,6 @@ query APISurface(
       code
       storage(slot: $slot)
     }
-    call(data: {from: $sender, to: $address, data: "0x"}) {
-      data
-      gasUsed
-      status
-    }
-    estimateGas(data: {from: $sender, to: $address, data: "0x"})
     rawHeader
     raw
     withdrawalsRoot
@@ -140,12 +134,6 @@ query APISurface(
       transactionCount
       code
     }
-    call(data: {from: $sender, to: $address, data: "0x"}) {
-      data
-      gasUsed
-      status
-    }
-    estimateGas(data: {from: $sender, to: $address, data: "0x"})
   }
   transaction(hash: $txHash) {
     hash

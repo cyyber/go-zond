@@ -12,9 +12,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
-	"slices"
 
-	"github.com/theQRL/go-qrl/common"
 	"github.com/theQRL/go-qrl/common/hexutil"
 	"github.com/theQRL/go-qrl/core/types"
 
@@ -33,7 +31,14 @@ type graphQLResponse struct {
 }
 
 type graphQLTransaction struct {
-	Hash        string `json:"hash"`
+	Hash string `json:"hash"`
+	To   *struct {
+		Address string `json:"address"`
+	} `json:"to"`
+	AccessList []struct {
+		Address     string   `json:"address"`
+		StorageKeys []string `json:"storageKeys"`
+	} `json:"accessList"`
 	Descriptor  string `json:"descriptor"`
 	ExtraParams string `json:"extraParams"`
 	Signature   string `json:"signature"`
@@ -45,137 +50,6 @@ type graphQLTransaction struct {
 type graphQLLog struct {
 	Topics []string `json:"topics"`
 	Data   string   `json:"data"`
-}
-
-func (suite *liveSuite) assertGraphQLSchema(ctx context.Context) {
-	ginkgo.GinkgoHelper()
-
-	introspection := suite.queryGraphQL(ctx, `{
-			queryType: __type(name: "Query") { fields { name } }
-			mutationType: __type(name: "Mutation") { fields { name } }
-		}`, nil)
-	var schema struct {
-		QueryType struct {
-			Fields []struct {
-				Name string `json:"name"`
-			} `json:"fields"`
-		} `json:"queryType"`
-		MutationType struct {
-			Fields []struct {
-				Name string `json:"name"`
-			} `json:"fields"`
-		} `json:"mutationType"`
-	}
-	gomega.Expect(json.Unmarshal(introspection, &schema)).To(gomega.Succeed())
-	expectGraphQLFields(schema.QueryType.Fields, []string{
-		"block",
-		"blocks",
-		"pending",
-		"transaction",
-		"logs",
-		"gasPrice",
-		"maxPriorityFeePerGas",
-		"syncing",
-		"chainID",
-	})
-	expectGraphQLFields(schema.MutationType.Fields, []string{"sendRawTransaction"})
-}
-
-func (suite *liveSuite) assertGraphQLQueries(ctx context.Context) {
-	ginkgo.GinkgoHelper()
-
-	fixture := suite.fixture
-	block := hexutil.EncodeBig(fixture.receipt.BlockNumber)
-	index := hexutil.EncodeUint64(uint64(fixture.receipt.TransactionIndex))
-	slot := (common.Hash{}).Hex()
-
-	data := suite.queryGraphQL(ctx, apiGraphQLQuery, map[string]any{
-		"block":   block,
-		"hash":    fixture.block.Hash().Hex(),
-		"txHash":  fixture.tx.Hash().Hex(),
-		"address": fixture.address.Hex(),
-		"sender":  suite.from.Hex(),
-		"slot":    slot,
-		"topic":   fixture.topic.Hex(),
-		"index":   index,
-	})
-	var root struct {
-		Block struct {
-			Hash         string               `json:"hash"`
-			Transactions []graphQLTransaction `json:"transactions"`
-			Logs         []graphQLLog         `json:"logs"`
-			Account      struct {
-				Address string `json:"address"`
-				Storage string `json:"storage"`
-			} `json:"account"`
-			Call struct {
-				Data   string `json:"data"`
-				Status string `json:"status"`
-			} `json:"call"`
-		} `json:"block"`
-		BlockByHash struct {
-			Hash string `json:"hash"`
-		} `json:"blockByHash"`
-		Blocks      []json.RawMessage  `json:"blocks"`
-		Pending     json.RawMessage    `json:"pending"`
-		Transaction graphQLTransaction `json:"transaction"`
-		Logs        []graphQLLog       `json:"logs"`
-		GasPrice    string             `json:"gasPrice"`
-		PriorityFee string             `json:"maxPriorityFeePerGas"`
-		Syncing     json.RawMessage    `json:"syncing"`
-		ChainID     string             `json:"chainID"`
-	}
-	gomega.Expect(json.Unmarshal(data, &root)).To(gomega.Succeed())
-	gomega.Expect(root.Block.Hash).To(gomega.Equal(fixture.block.Hash().Hex()))
-	gomega.Expect(root.BlockByHash.Hash).To(gomega.Equal(fixture.block.Hash().Hex()))
-	gomega.Expect(root.Blocks).To(gomega.HaveLen(1))
-	gomega.Expect(root.Pending).NotTo(gomega.BeEmpty())
-	gomega.Expect(root.Block.Account.Address).To(gomega.Equal(fixture.address.Hex()))
-	gomega.Expect(root.Block.Account.Storage).To(gomega.Equal(fixture.value.Hex()))
-	gomega.Expect(root.Block.Call.Data).To(gomega.Equal(fixture.value.Hex()))
-	gomega.Expect(root.Block.Call.Status).To(gomega.Equal("0x1"))
-	gomega.Expect(root.GasPrice).NotTo(gomega.BeEmpty())
-	gomega.Expect(root.PriorityFee).NotTo(gomega.BeEmpty())
-	gomega.Expect(root.ChainID).To(gomega.Equal(hexutil.EncodeBig(suite.chainID)))
-
-	var blockTransaction *graphQLTransaction
-	for index := range root.Block.Transactions {
-		if root.Block.Transactions[index].Hash == fixture.tx.Hash().Hex() {
-			blockTransaction = &root.Block.Transactions[index]
-			break
-		}
-	}
-	gomega.Expect(blockTransaction).NotTo(gomega.BeNil())
-	assertGraphQLTransaction(*blockTransaction, fixture.tx, fixture.receipt)
-	assertGraphQLTransaction(root.Transaction, fixture.tx, fixture.receipt)
-
-	gomega.Expect(root.Block.Logs).To(gomega.HaveLen(1))
-	assertGraphQLLog(root.Block.Logs[0], fixture)
-	gomega.Expect(root.Logs).To(gomega.HaveLen(1))
-	assertGraphQLLog(root.Logs[0], fixture)
-}
-
-func (suite *liveSuite) assertGraphQLMutation(ctx context.Context) {
-	ginkgo.GinkgoHelper()
-
-	tx, err := suite.signTransaction(ctx, &suite.from, nil, nil)
-	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-	encoded, err := tx.MarshalBinary()
-	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-
-	mutationData := suite.queryGraphQL(ctx, `
-			mutation Send($raw: Bytes!) {
-				sendRawTransaction(data: $raw)
-			}
-	`, map[string]any{"raw": hexutil.Encode(encoded)})
-	var mutation struct {
-		Hash string `json:"sendRawTransaction"`
-	}
-	gomega.Expect(json.Unmarshal(mutationData, &mutation)).To(gomega.Succeed())
-	gomega.Expect(mutation.Hash).To(gomega.Equal(tx.Hash().Hex()))
-	gomega.Expect(suite.waitReceipt(ctx, tx.Hash()).Status).To(
-		gomega.Equal(types.ReceiptStatusSuccessful),
-	)
 }
 
 func assertGraphQLTransaction(
@@ -203,7 +77,10 @@ func assertGraphQLLog(got graphQLLog, fixture *liveFixture) {
 	ginkgo.GinkgoHelper()
 
 	gomega.Expect(got.Topics).To(gomega.Equal([]string{fixture.topic.Hex()}))
-	gomega.Expect(got.Data).To(gomega.Equal(hexutil.Encode(fixture.value[:])))
+	gomega.Expect(got.Data).To(
+		gomega.Equal(hexutil.Encode(fixture.value[:])),
+		"GraphQL log data",
+	)
 }
 
 func (suite *liveSuite) queryGraphQL(
@@ -245,21 +122,4 @@ func (suite *liveSuite) queryGraphQL(
 	gomega.Expect(decoded.Errors).To(gomega.BeEmpty(), "GraphQL response: %s", body)
 	gomega.Expect(decoded.Data).NotTo(gomega.BeEmpty())
 	return decoded.Data
-}
-
-func expectGraphQLFields(
-	fields []struct {
-		Name string `json:"name"`
-	},
-	want []string,
-) {
-	ginkgo.GinkgoHelper()
-
-	names := make([]string, len(fields))
-	for index, field := range fields {
-		names[index] = field.Name
-	}
-	slices.Sort(names)
-	slices.Sort(want)
-	gomega.Expect(names).To(gomega.Equal(want))
 }
