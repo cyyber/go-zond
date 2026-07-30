@@ -21,8 +21,12 @@ statement coverage.
 
 Covered:
 
-- Calls: VM integers, booleans, 64-byte addresses, fixed and dynamic bytes,
-  strings, fixed and dynamic arrays, tuples, views, and overloaded methods.
+- Deployment: dynamic constructor strings, bytes, tuples, and arrays, verified
+  through the emitted constructor event.
+- Calls: VM integer transition widths and extrema, booleans, 64-byte addresses,
+  fixed bytes across the 32- and 64-byte boundaries, dynamic bytes and strings
+  around 64-byte length boundaries, fixed and dynamic arrays, nested tuples,
+  views, and overloaded methods.
 - Errors: a complex custom error, `Error(string)`, `Panic(uint256)`, RPC revert
   data, and failed transaction receipts.
 - Events and filters: successful transactions, scalar and composite events,
@@ -32,8 +36,8 @@ Covered:
   execution, generated calls and events, and indexed hashing and filtering.
 - Payable entrypoints: a named payable method plus distinct receive and
   fallback transactions.
-- WebSocket subscriptions: a generated watcher with matching and non-matching
-  indexed predicates.
+- WebSocket subscriptions: generated watchers with matching and non-matching
+  scalar and dynamically hashed indexed predicates.
 
 Not currently supported and excluded from this target:
 

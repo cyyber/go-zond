@@ -71,7 +71,7 @@ var _ = ginkgo.Describe(
 			fixture.assertPayableEntrypoints(ctx)
 		})
 
-		ginkgo.It("observes an indexed generated event filter over WebSocket", func(ctx ginkgo.SpecContext) {
+		ginkgo.It("observes generated scalar and dynamic indexed event filters over WebSocket", func(ctx ginkgo.SpecContext) {
 			fixture.assertWebSocketWatcher(ctx)
 		})
 	},

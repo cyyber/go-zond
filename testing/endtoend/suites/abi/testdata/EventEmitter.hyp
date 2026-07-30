@@ -28,6 +28,30 @@ contract EventEmitter {
         string note;
     }
 
+    struct BoundaryEdges {
+        uint248 unsigned248;
+        int248 signed248;
+        uint256 unsigned256;
+        int256 signed256;
+        uint264 unsigned264;
+        int264 signed264;
+        uint504 unsigned504;
+        int504 signed504;
+        uint512 unsigned512;
+        int512 signed512;
+        bytes31 bytes31Value;
+        bytes32 bytes32Value;
+        bytes33 bytes33Value;
+        bytes63 bytes63Value;
+        bytes64 bytes64Value;
+    }
+
+    struct NestedRecord {
+        Record fixedRecord;
+        DynamicRecord dynamicRecord;
+        bytes extra;
+    }
+
     error ComplexFailure(
         uint512 code,
         string reason,
@@ -38,7 +62,13 @@ contract EventEmitter {
 
     uint512 private observed;
 
-    event Deployed(uint512 value);
+    event Deployed(
+        uint512 value,
+        string note,
+        bytes payload,
+        Record record,
+        uint16[] numbers
+    );
     event Dynamic(bytes indexed payload, string indexed note, uint512 amount);
     event FunctionObserved(
         function(uint512) external pure returns (uint512) indexed indexedCallback,
@@ -67,9 +97,15 @@ contract EventEmitter {
     event Received(uint256 amount);
     event FallbackCalled(bytes payload, uint256 amount);
 
-    constructor(uint512 initial) {
+    constructor(
+        uint512 initial,
+        string memory note,
+        bytes memory payload,
+        Record memory record,
+        uint16[] memory numbers
+    ) {
         observed = initial;
-        emit Deployed(initial);
+        emit Deployed(initial, note, payload, record, numbers);
     }
 
     function echo(
@@ -86,6 +122,62 @@ contract EventEmitter {
         returns (uint512, int512, bytes64, address, bytes memory, string memory, bool)
     {
         return (amount, delta, tag, recipient, payload, note, enabled);
+    }
+
+    function echoBoundaryEdges(BoundaryEdges calldata edges)
+        external
+        pure
+        returns (BoundaryEdges memory)
+    {
+        return edges;
+    }
+
+    function echoLeafContainers(
+        address[2] calldata fixedAddresses,
+        address[] calldata addresses,
+        bytes64[2] calldata fixedTags,
+        bytes64[] calldata tags
+    )
+        external
+        pure
+        returns (
+            address[2] memory,
+            address[] memory,
+            bytes64[2] memory,
+            bytes64[] memory
+        )
+    {
+        return (fixedAddresses, addresses, fixedTags, tags);
+    }
+
+    function echoDynamicContainers(
+        bytes[2] calldata fixedBytes,
+        bytes[] calldata byteSlices,
+        string[] calldata strings
+    )
+        external
+        pure
+        returns (bytes[2] memory, bytes[] memory, string[] memory)
+    {
+        return (fixedBytes, byteSlices, strings);
+    }
+
+    function echoCompositeContainers(
+        uint16[2][2] calldata fixedMatrix,
+        uint16[2][] calldata rows,
+        DynamicRecord[2] calldata records,
+        NestedRecord calldata nested
+    )
+        external
+        pure
+        returns (
+            uint16[2][2] memory,
+            uint16[2][] memory,
+            DynamicRecord[2] memory,
+            NestedRecord memory
+        )
+    {
+        return (fixedMatrix, rows, records, nested);
     }
 
     function plusOne(uint512 value) external pure returns (uint512) {
