@@ -2,13 +2,13 @@
 
 ```bash
 # Compile the live suite without running it.
-go test -tags=e2e -run '^$' ./testing/devnet/suites/console
+go test -tags=e2e -run '^$' ./testing/endtoend/suites/console
 
 # Regeneration requires `hypc --version` to report commit.2b9a0f1d.
-go -C testing/devnet generate ./suites/console
+go generate ./testing/endtoend/suites/console
 
 # Run against an already-running development network.
-make e2e-test E2E_PACKAGES=./testing/devnet/suites/console
+make e2e-test E2E_PACKAGES=./testing/endtoend/suites/console
 ```
 
 ## Coverage

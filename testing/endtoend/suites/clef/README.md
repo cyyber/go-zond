@@ -2,10 +2,10 @@
 
 ```bash
 # Compile the live suite without running it.
-go test -tags=e2e -run '^$' ./testing/devnet/suites/clef
+go test -tags=e2e -run '^$' ./testing/endtoend/suites/clef
 
 # Run against an already-running development network.
-make e2e-test E2E_PACKAGES=./testing/devnet/suites/clef
+make e2e-test E2E_PACKAGES=./testing/endtoend/suites/clef
 ```
 
 ## Coverage

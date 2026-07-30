@@ -24,15 +24,15 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"github.com/theQRL/go-qrl/testing/devnet/internal/network"
+	"github.com/theQRL/go-qrl/testing/devnet"
 )
 
 type recordingNetworks struct {
 	call  string
-	start network.StartOptions
+	start devnet.StartOptions
 }
 
-func (networks *recordingNetworks) Start(_ context.Context, options network.StartOptions) error {
+func (networks *recordingNetworks) Start(_ context.Context, options devnet.StartOptions) error {
 	networks.call = "start"
 	networks.start = options
 	return nil
@@ -78,7 +78,7 @@ func TestRun(t *testing.T) {
 			require.Empty(t, stderr.String())
 
 			if test.call == "start" {
-				require.Equal(t, network.StartOptions{
+				require.Equal(t, devnet.StartOptions{
 					EnclaveName:    enclaveName,
 					ExecutionImage: "local/go-qrl:test",
 					Parameters:     test.parameters,

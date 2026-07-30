@@ -37,7 +37,7 @@ import (
 	"github.com/theQRL/go-qrl/crypto"
 	"github.com/theQRL/go-qrl/qrlclient"
 	"github.com/theQRL/go-qrl/rpc"
-	"github.com/theQRL/go-qrl/testing/devnet/internal/network"
+	"github.com/theQRL/go-qrl/testing/devnet"
 )
 
 // Regenerate the source-controlled Hyperion artifacts and generated binding.
@@ -45,7 +45,7 @@ import (
 //
 //go:generate sh -c "hypc --version 2>&1 | grep -Fq commit.2b9a0f1d || { echo 'hypc from cyyber/hyperion@2b9a0f1d is required; found:' >&2; hypc --version >&2; exit 1; }"
 //go:generate hypc --abi --bin --no-cbor-metadata --overwrite -o testdata testdata/EventEmitter.hyp
-//go:generate go -C ../../../.. run ./cmd/abigen --abi testing/devnet/suites/abi/testdata/EventEmitter.abi --bin testing/devnet/suites/abi/testdata/EventEmitter.bin --pkg abi --type EventEmitter --out testing/devnet/suites/abi/contract.go
+//go:generate go -C ../../../.. run ./cmd/abigen --abi testing/endtoend/suites/abi/testdata/EventEmitter.abi --bin testing/endtoend/suites/abi/testdata/EventEmitter.bin --pkg abi --type EventEmitter --out testing/endtoend/suites/abi/contract.go
 
 //go:embed testdata/EventEmitter.abi
 var eventEmitterABIJSON string
@@ -62,7 +62,7 @@ type liveSuite struct {
 func setupLiveSuite(ctx context.Context) *liveSuite {
 	ginkgo.GinkgoHelper()
 
-	environment, err := network.Inspect(ctx)
+	environment, err := devnet.Inspect(ctx)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	client, err := qrlclient.DialContext(ctx, environment.RPCURL)
@@ -73,7 +73,7 @@ func setupLiveSuite(ctx context.Context) *liveSuite {
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	ginkgo.DeferCleanup(wsClient.Close)
 
-	wallet, err := network.UnsafeDevelopmentWallet()
+	wallet, err := devnet.UnsafeDevelopmentWallet()
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	chainID, err := client.ChainID(ctx)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
@@ -563,7 +563,6 @@ func (fixture *liveFixture) assertErrors(ctx context.Context) {
 		"reverting transaction %s status",
 		failedTx.Hash(),
 	)
-
 }
 
 func (fixture *liveFixture) assertEventsAndFilters(ctx context.Context) {
@@ -1141,14 +1140,13 @@ func (fixture *liveFixture) assertPayableEntrypoints(ctx context.Context) {
 			"amount": amount,
 		},
 		filter: [][]any{{fixture.from}, {marker}},
-		reject: [][]any{{fixture.from}, {uint16(marker + 1)}},
+		reject: [][]any{{fixture.from}, {marker + 1}},
 	})
 	paid, err := fixture.binding.ParsePaid(*payReceipt.Logs[0])
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	gomega.Expect(paid.Sender).To(gomega.Equal(fixture.from))
 	gomega.Expect(paid.Marker).To(gomega.Equal(marker))
 	gomega.Expect(paid.Amount).To(gomega.Equal(amount))
-
 }
 
 func (fixture *liveFixture) assertWebSocketWatcher(ctx context.Context) {

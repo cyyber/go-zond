@@ -13,11 +13,11 @@ import (
 	"github.com/theQRL/go-qrl/accounts/abi/bind"
 	"github.com/theQRL/go-qrl/common/hexutil"
 	"github.com/theQRL/go-qrl/qrlclient"
-	"github.com/theQRL/go-qrl/testing/devnet/internal/network"
+	"github.com/theQRL/go-qrl/testing/devnet"
 )
 
 func deploymentParameters(ctx context.Context, rpcURL string, abiJSON, bytecode []byte) ([]byte, error) {
-	wallet, err := network.UnsafeDevelopmentWallet()
+	wallet, err := devnet.UnsafeDevelopmentWallet()
 	if err != nil {
 		return nil, err
 	}

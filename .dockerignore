@@ -10,3 +10,4 @@ build/cache
 .codex
 
 testing/devnet
+testing/endtoend

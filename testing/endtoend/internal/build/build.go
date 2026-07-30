@@ -2,7 +2,7 @@
 // This file is part of the go-qrl library.
 
 // Package build provides helpers for building repository binaries used by
-// development-network suites.
+// end-to-end suites.
 package build
 
 import (
@@ -30,7 +30,7 @@ func Binary(ctx context.Context, packagePath, output string) error {
 func repositoryRoot() (string, error) {
 	_, source, _, ok := runtime.Caller(0)
 	if !ok {
-		return "", fmt.Errorf("locate devnet build helper")
+		return "", fmt.Errorf("locate end-to-end build helper")
 	}
 	return filepath.Clean(filepath.Join(filepath.Dir(source), "..", "..", "..", "..")), nil
 }

@@ -14,7 +14,7 @@ import (
 	"github.com/theQRL/go-qrl/core/types"
 	"github.com/theQRL/go-qrl/rpc"
 	"github.com/theQRL/go-qrl/signer/core/apitypes"
-	"github.com/theQRL/go-qrl/testing/devnet/internal/network"
+	"github.com/theQRL/go-qrl/testing/devnet"
 )
 
 type testAccountAPI struct {
@@ -57,7 +57,7 @@ func TestClefServerArgsUseChainID(t *testing.T) {
 }
 
 func TestSigningScenarios(t *testing.T) {
-	expectedWallet, err := network.UnsafeDevelopmentWallet()
+	expectedWallet, err := devnet.UnsafeDevelopmentWallet()
 	if err != nil {
 		t.Fatal(err)
 	}

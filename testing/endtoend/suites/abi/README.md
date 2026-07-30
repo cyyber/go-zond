@@ -2,13 +2,13 @@
 
 ```bash
 # Compile the complete suite without running live tests.
-go test -tags=e2e -run '^$' ./testing/devnet/suites/abi
+go test -tags=e2e -run '^$' ./testing/endtoend/suites/abi
 
 # Regeneration requires `hypc --version` to report commit.2b9a0f1d.
-go generate ./testing/devnet/suites/abi
+go generate ./testing/endtoend/suites/abi
 
 # Run against an already-running development network.
-make e2e-test E2E_PACKAGES=./testing/devnet/suites/abi
+make e2e-test E2E_PACKAGES=./testing/endtoend/suites/abi
 ```
 
 ## Coverage contract

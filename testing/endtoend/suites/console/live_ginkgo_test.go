@@ -12,8 +12,8 @@ import (
 
 	ginkgo "github.com/onsi/ginkgo/v2"
 	gomega "github.com/onsi/gomega"
-	"github.com/theQRL/go-qrl/testing/devnet/internal/build"
-	"github.com/theQRL/go-qrl/testing/devnet/internal/network"
+	"github.com/theQRL/go-qrl/testing/devnet"
+	"github.com/theQRL/go-qrl/testing/endtoend/internal/build"
 )
 
 const liveSpecTimeout = 25 * time.Minute
@@ -37,7 +37,7 @@ var _ = ginkgo.Describe(
 		)
 
 		ginkgo.BeforeAll(func(ctx ginkgo.SpecContext) {
-			live, err := network.Inspect(ctx)
+			live, err := devnet.Inspect(ctx)
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 			rpcURL = live.RPCURL
 

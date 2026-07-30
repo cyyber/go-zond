@@ -83,7 +83,7 @@ network-start:
 network-stop:
 	$(DEVNET_GO) run ./cmd/devnet stop $(if $(DEVNET_ENCLAVE_NAME),--enclave-name "$(DEVNET_ENCLAVE_NAME)")
 
-#? e2e-test: Run selected Ginkgo E2E suites against the already-running network.
+#? e2e-test: Run selected Ginkgo end-to-end suites against the already-running network.
 e2e-test:
 	@test -n "$(strip $(E2E_PACKAGES))" || { echo "E2E_PACKAGES must name at least one suite package" >&2; exit 2; }
 	DEVNET_ENCLAVE_NAME="$(DEVNET_ENCLAVE_NAME)" \

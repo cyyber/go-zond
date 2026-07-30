@@ -24,19 +24,19 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/theQRL/go-qrl/testing/devnet/internal/network"
+	"github.com/theQRL/go-qrl/testing/devnet"
 	"github.com/urfave/cli/v2"
 )
 
 type controller interface {
-	Start(context.Context, network.StartOptions) error
+	Start(context.Context, devnet.StartOptions) error
 	Stop(context.Context, string) error
 }
 
 func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
-	if err := newApp(network.NewManager()).RunContext(ctx, os.Args); err != nil {
+	if err := newApp(devnet.NewManager()).RunContext(ctx, os.Args); err != nil {
 		fmt.Fprintln(os.Stderr, "devnet:", err)
 		os.Exit(1)
 	}
@@ -46,7 +46,7 @@ func newApp(networks controller) *cli.App {
 	enclaveName := &cli.StringFlag{
 		Name:  "enclave-name",
 		Usage: "Kurtosis enclave name",
-		Value: network.DefaultEnclaveName,
+		Value: devnet.DefaultEnclaveName,
 	}
 	return &cli.App{
 		Name:            "devnet",
@@ -71,7 +71,7 @@ func newApp(networks controller) *cli.App {
 					&cli.DurationFlag{
 						Name:  "timeout",
 						Usage: "network start budget",
-						Value: network.DefaultStartTimeout,
+						Value: devnet.DefaultStartTimeout,
 					},
 				},
 				Action: func(command *cli.Context) error {
@@ -88,7 +88,7 @@ func newApp(networks controller) *cli.App {
 					}
 					ctx, cancel := context.WithTimeout(command.Context, command.Duration("timeout"))
 					defer cancel()
-					if err := networks.Start(ctx, network.StartOptions{
+					if err := networks.Start(ctx, devnet.StartOptions{
 						EnclaveName:    command.String("enclave-name"),
 						ExecutionImage: command.String("execution-image"),
 						Parameters:     parameters,

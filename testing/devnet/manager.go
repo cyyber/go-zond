@@ -1,8 +1,8 @@
 // Copyright 2026 The go-qrl Authors
 // This file is part of the go-qrl library.
 
-// Package network owns separately managed development network slots.
-package network
+// Package devnet controls separately managed QRL development networks.
+package devnet
 
 import (
 	"cmp"

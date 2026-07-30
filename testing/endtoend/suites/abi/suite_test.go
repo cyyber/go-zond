@@ -59,7 +59,7 @@ var _ = ginkgo.Describe(
 			fixture.assertErrors(ctx)
 		})
 
-		ginkgo.It("validates a generated transaction, Stored event encoding, and generated and raw filters", func(ctx ginkgo.SpecContext) {
+		ginkgo.It("validates event transactions, scalar and composite encoding, indexed topics, overloads, and generated and raw filters", func(ctx ginkgo.SpecContext) {
 			fixture.assertEventsAndFilters(ctx)
 		})
 
@@ -67,7 +67,7 @@ var _ = ginkgo.Describe(
 			fixture.assertFunctionValues(ctx)
 		})
 
-		ginkgo.It("sends value through the generated receive entrypoint", func(ctx ginkgo.SpecContext) {
+		ginkgo.It("executes named payable, receive, and fallback entrypoints with value, calldata, events, and filters", func(ctx ginkgo.SpecContext) {
 			fixture.assertPayableEntrypoints(ctx)
 		})
 

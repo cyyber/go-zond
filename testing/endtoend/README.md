@@ -1,0 +1,26 @@
+# End-to-end suites
+
+These Ginkgo suites validate go-qrl against an already-running
+[development network](../devnet/README.md). Suites inspect the network but never
+create or destroy it.
+
+## Run
+
+```bash
+make network-start
+make e2e-test E2E_PACKAGES=./testing/endtoend/suites/...
+make network-stop
+```
+
+Use the same `DEVNET_ENCLAVE_NAME` for all commands when overriding the default.
+`E2E_SUITE_TIMEOUT` controls the Ginkgo execution budget and defaults to `25m`.
+
+## Adding a suite
+
+Add suites under `suites/<suite>`. Live bootstrap files use the `e2e` build tag
+and call `devnet.Inspect(ctx)` for endpoints. Keep network lifecycle management
+outside the suites.
+
+The [ABI](suites/abi/README.md), [console](suites/console/README.md), and
+[Clef](suites/clef/README.md) suites document their focused commands and
+coverage.

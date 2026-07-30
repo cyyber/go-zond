@@ -1,7 +1,7 @@
 // Copyright 2026 The go-qrl Authors
 // This file is part of the go-qrl library.
 
-package network
+package devnet
 
 import (
 	"encoding/json"

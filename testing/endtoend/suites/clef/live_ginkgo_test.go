@@ -16,8 +16,8 @@ import (
 	qrlbind "github.com/theQRL/go-qrl/accounts/abi/bind"
 	"github.com/theQRL/go-qrl/core/types"
 	"github.com/theQRL/go-qrl/qrlclient"
-	"github.com/theQRL/go-qrl/testing/devnet/internal/build"
-	"github.com/theQRL/go-qrl/testing/devnet/internal/network"
+	"github.com/theQRL/go-qrl/testing/devnet"
+	"github.com/theQRL/go-qrl/testing/endtoend/internal/build"
 )
 
 const liveSpecTimeout = 10 * time.Minute
@@ -40,7 +40,7 @@ var _ = ginkgo.Describe(
 		)
 
 		ginkgo.BeforeAll(func(ctx ginkgo.SpecContext) {
-			live, err := network.Inspect(ctx)
+			live, err := devnet.Inspect(ctx)
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 			networkClient, err = qrlclient.DialContext(ctx, live.RPCURL)
@@ -55,7 +55,7 @@ var _ = ginkgo.Describe(
 			ginkgo.By("building the current Clef binary")
 			gomega.Expect(build.Binary(ctx, "./cmd/clef", clefPath)).To(gomega.Succeed())
 
-			developmentWallet, err := network.UnsafeDevelopmentWallet()
+			developmentWallet, err := devnet.UnsafeDevelopmentWallet()
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 			session, err = newClefSession(
