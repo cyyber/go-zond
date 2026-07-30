@@ -41,6 +41,23 @@ watcher.watch(function (error, event) {
             return true;
         });
 
+        check("state wrappers return the full VM64 storage value", function () {
+            var expected = "0x" + web3.toBigNumber(PARAMS.storeValue).toString(16);
+            if (expected.length !== 130) {
+                throw new Error("fixture is not a full-width VM64 value: " + expected);
+            }
+            var stored = qrl.getStorageAt(deployment.contractAddress, "0x0", "latest");
+            if (stored.toLowerCase() !== expected) {
+                throw new Error("unexpected storage value: " + stored);
+            }
+            var proof = qrl.getProof(deployment.contractAddress, ["0x0"], "latest");
+            if (!proof.storageProof || proof.storageProof.length !== 1 ||
+                proof.storageProof[0].value.toLowerCase() !== expected) {
+                throw new Error("unexpected storage proof: " + JSON.stringify(proof));
+            }
+            return true;
+        });
+
         check("WebSocket event watch decodes indexed dynamic fields", function () {
             if (event.transactionHash !== PARAMS.storeTxHash) {
                 throw new Error("event watch returned the wrong transaction");

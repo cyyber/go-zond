@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"math/big"
 	"net/http"
+	"slices"
 	"time"
 
 	qrlaccounts "github.com/theQRL/go-qrl/accounts"
@@ -164,6 +165,13 @@ func verifyNewAccount(
 	}
 	if account == (common.Address{}) || account == session.account {
 		return fmt.Errorf("account_new returned invalid address %s", account.Hex())
+	}
+	var listedAccounts []common.Address
+	if err := callRPC(ctx, session.client, &listedAccounts, "account_list"); err != nil {
+		return err
+	}
+	if !slices.Contains(listedAccounts, account) {
+		return fmt.Errorf("account_list does not contain new account %s", account.Hex())
 	}
 	return nil
 }

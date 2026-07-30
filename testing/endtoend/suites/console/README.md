@@ -36,4 +36,6 @@ Excluded:
 - Generated Go bindings and unsupported ABI classes, covered by the ABI suite.
 - Direct node-managed `qrl_sendTransaction`, which is not exposed by this
   devnet profile.
+- Nested arrays containing dynamic elements, which remain outside the current
+  embedded web3 ABI coverage.
 - Node lifecycle and unsafe debug operations.

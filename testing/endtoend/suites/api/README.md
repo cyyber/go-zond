@@ -8,6 +8,16 @@ The suite maps every exposed HTTP/WebSocket RPC method to a named live scenario
 or an explicit exclusion. Manifest entries distinguish behavioral assertions
 from response-shape checks and expected error dispatch.
 
+Each method is validated at the strongest stable level:
+
+| API class | Assertion |
+| --- | --- |
+| Deterministic fixture data | Exact value |
+| Runtime or network-dependent data | Stable invariant |
+| Passive or variable response | Typed response shape |
+| Unavailable prerequisite | Registered method and expected error |
+| Unsafe or disabled method | Explicit exclusion |
+
 Covered:
 
 - HTTP JSON-RPC namespaces and read-only node metadata
@@ -38,7 +48,15 @@ Excluded:
 - APIs that change node configuration, rewrite chain state, or write files
   inside the execution container.
 - The authenticated Engine endpoint and APIs disabled by the devnet profile.
+- Positive `qrl_pendingTransactions` results and node-managed `qrl_sign`,
+  `qrl_signTransaction`, and `qrl_sendTransaction` flows. The devnet profile
+  does not expose a node-managed execution account.
+- `admin_peerEvents` delivery. The fixed devnet topology covers subscription
+  registration without adding or removing peers.
 - Active-sync GraphQL state and blocks containing withdrawals. The standard
   profile is already synced and does not create consensus withdrawals; those
   require dedicated lifecycle fixtures.
+- Successful debug paths that require bad blocks, preimages, external trace
+  files, or ancient data. Where applicable, the suite covers registration and
+  expected-error behavior instead.
 - Standalone `account_*` methods, which are covered by the Clef suite.
