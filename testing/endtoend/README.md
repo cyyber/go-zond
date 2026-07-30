@@ -21,6 +21,6 @@ Add suites under `suites/<suite>`. Live bootstrap files use the `e2e` build tag
 and call `devnet.Inspect(ctx)` for endpoints. Keep network lifecycle management
 outside the suites.
 
-The [ABI](suites/abi/README.md), [console](suites/console/README.md), and
-[Clef](suites/clef/README.md) suites document their focused commands and
-coverage.
+The [ABI](suites/abi/README.md), [API](suites/api/README.md),
+[console](suites/console/README.md), and [Clef](suites/clef/README.md) suites
+document their focused commands and coverage.
