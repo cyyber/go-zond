@@ -335,7 +335,8 @@ func bindType(kind abi.Type, structs map[string]*tmplStruct) string {
 }
 
 // bindTopicType converts a Hyperion topic type to a Go one. It is almost the same
-// functionality as for simple types, but dynamic types get converted to hashes.
+// functionality as for simple types, but dynamic types and function values get
+// converted to hashes.
 func bindTopicType(kind abi.Type, structs map[string]*tmplStruct) string {
 	bound := bindType(kind, structs)
 
