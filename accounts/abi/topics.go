@@ -165,7 +165,7 @@ func parseTopicWithSetter(fields Arguments, topics []common.LogTopic, setter fun
 		case TupleTy:
 			return errors.New("tuple type in topic reconstruction")
 		case StringTy, BytesTy, SliceTy, ArrayTy, FunctionTy:
-			// Indexed strings, bytes, slices, arrays, and VM64 function values
+			// Indexed strings, bytes, slices, arrays, and function values
 			// store their Keccak-256 hash in the high 32 bytes of the topic.
 			var hash common.Hash
 			copy(hash[:], topics[i][:common.HashLength])
