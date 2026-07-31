@@ -9,11 +9,13 @@ import (
 	"context"
 	"encoding/json"
 	"math/big"
+	"time"
 
 	"github.com/theQRL/go-qrl/common"
 	"github.com/theQRL/go-qrl/common/hexutil"
 	"github.com/theQRL/go-qrl/core/types"
 	qrlwallet "github.com/theQRL/go-qrl/crypto/pqcrypto/wallet"
+	"github.com/theQRL/go-qrl/internal/qrlapi"
 	"github.com/theQRL/go-qrl/params"
 
 	ginkgo "github.com/onsi/ginkgo/v2"
@@ -83,6 +85,7 @@ func (suite *liveSuite) assertTxPool(ctx context.Context) {
 	)).To(gomega.Succeed())
 	// The pool entries were signed by suite wallets, not the Clef-managed account.
 	gomega.Expect(managedPending).To(gomega.BeEmpty())
+	suite.assertManagedPendingTransaction(ctx)
 
 	pending, err := suite.signTransactionForWallet(
 		ctx,
@@ -100,6 +103,71 @@ func (suite *liveSuite) assertTxPool(ctx context.Context) {
 		gomega.Equal(types.ReceiptStatusSuccessful),
 	)
 	gomega.Expect(suite.waitReceipt(ctx, queued.Hash()).Status).To(
+		gomega.Equal(types.ReceiptStatusSuccessful),
+	)
+}
+
+func (suite *liveSuite) assertManagedPendingTransaction(ctx context.Context) {
+	ginkgo.GinkgoHelper()
+
+	raw := suite.client.Client()
+	var managedAccounts []common.Address
+	gomega.Expect(raw.CallContext(ctx, &managedAccounts, "qrl_accounts")).To(gomega.Succeed())
+	gomega.Expect(managedAccounts).To(gomega.HaveLen(1))
+	managed := managedAccounts[0]
+
+	blockNumber, err := suite.client.BlockNumber(ctx)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	gomega.Eventually(func() uint64 {
+		number, blockErr := suite.client.BlockNumber(ctx)
+		gomega.Expect(blockErr).NotTo(gomega.HaveOccurred())
+		return number
+	}).WithContext(ctx).WithTimeout(2 * time.Minute).WithPolling(time.Second).Should(
+		gomega.BeNumerically(">", blockNumber),
+	)
+
+	nonce, err := suite.client.PendingNonceAt(ctx, managed)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	feeCap, err := suite.client.SuggestGasPrice(ctx)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	tipCap, err := suite.client.SuggestGasTipCap(ctx)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
+	to := suite.from
+	gas := hexutil.Uint64(params.TxGas)
+	nonceValue := hexutil.Uint64(nonce)
+	value := (*hexutil.Big)(big.NewInt(1))
+	args := qrlapi.TransactionArgs{
+		From:                 &managed,
+		To:                   &to,
+		Gas:                  &gas,
+		MaxFeePerGas:         (*hexutil.Big)(feeCap),
+		MaxPriorityFeePerGas: (*hexutil.Big)(tipCap),
+		Value:                value,
+		Nonce:                &nonceValue,
+		ChainID:              (*hexutil.Big)(suite.chainID),
+	}
+
+	var hash common.Hash
+	gomega.Expect(raw.CallContext(ctx, &hash, "qrl_sendTransaction", args)).To(gomega.Succeed())
+
+	var pending []*qrlapi.RPCTransaction
+	gomega.Expect(raw.CallContext(ctx, &pending, "qrl_pendingTransactions")).To(gomega.Succeed())
+	var managedPending *qrlapi.RPCTransaction
+	for _, transaction := range pending {
+		if transaction.Hash == hash {
+			managedPending = transaction
+			break
+		}
+	}
+	gomega.Expect(managedPending).NotTo(gomega.BeNil())
+	gomega.Expect(managedPending.From).To(gomega.Equal(managed))
+	gomega.Expect(managedPending.To).NotTo(gomega.BeNil())
+	gomega.Expect(*managedPending.To).To(gomega.Equal(to))
+	gomega.Expect(managedPending.Nonce).To(gomega.Equal(nonceValue))
+	gomega.Expect(managedPending.Value).NotTo(gomega.BeNil())
+	gomega.Expect(managedPending.Value.ToInt()).To(gomega.Equal(value.ToInt()))
+	gomega.Expect(suite.waitReceipt(ctx, hash).Status).To(
 		gomega.Equal(types.ReceiptStatusSuccessful),
 	)
 }

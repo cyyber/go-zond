@@ -17,9 +17,11 @@ wallet and verifies:
 
 - `account_version` matches the advertised external API version.
 - `account_new` creates a distinct full Q-address through the approval and
-  password prompts.
+  password prompts, and the account remains listed after Clef restarts.
 - `account_list` returns the imported full Q-address.
 - `account_signData` returns a valid ML-DSA-87 signature for plain text.
+- The ruleset rejects marked signing data and the external API returns the
+  rejection to the caller.
 - `account_signData` returns a valid signature for `data/validator`.
 - `account_signTypedData` returns a valid signature for QRL typed data.
 - `account_signTransaction` returns matching raw and decoded VM64 transaction
@@ -37,5 +39,5 @@ independently verified sender.
 
 Excluded:
 
-- Manual rejection paths and interactive use outside the controlled test input.
+- Manual interactive rejection and use outside the controlled test input.
 - UI-only methods and node-managed `qrl_*` signing APIs.

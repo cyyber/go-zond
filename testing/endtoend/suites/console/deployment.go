@@ -13,7 +13,9 @@ import (
 
 	"github.com/theQRL/go-qrl/accounts/abi"
 	"github.com/theQRL/go-qrl/accounts/abi/bind"
+	"github.com/theQRL/go-qrl/common"
 	"github.com/theQRL/go-qrl/common/hexutil"
+	"github.com/theQRL/go-qrl/crypto"
 	endtoendlive "github.com/theQRL/go-qrl/testing/endtoend/internal/live"
 )
 
@@ -65,6 +67,17 @@ func deploymentParameters(
 	if err != nil {
 		return nil, fmt.Errorf("encode store transaction: %w", err)
 	}
+	nestedType, err := abi.NewType("uint512[][]", "", nil)
+	if err != nil {
+		return nil, fmt.Errorf("create nested array ABI type: %w", err)
+	}
+	nestedValues := [][]*big.Int{{big.NewInt(1), big.NewInt(2)}, {big.NewInt(3)}}
+	nestedArguments, err := (abi.Arguments{{Type: nestedType}}).Pack(nestedValues)
+	if err != nil {
+		return nil, fmt.Errorf("pack nested array call: %w", err)
+	}
+	nestedSelector := crypto.Keccak256([]byte("roundTrip(uint512[][])"))[:4]
+	nestedData := append(nestedSelector, nestedArguments...)
 
 	return json.Marshal(struct {
 		Address        string          `json:"address"`
@@ -76,6 +89,7 @@ func deploymentParameters(
 		StoreValue     string          `json:"storeValue"`
 		StoreLabel     string          `json:"storeLabel"`
 		StorePayload   string          `json:"storePayload"`
+		NestedData     string          `json:"nestedData"`
 		ABI            json.RawMessage `json:"abi"`
 	}{
 		Address:        auth.From.Hex(),
@@ -87,6 +101,7 @@ func deploymentParameters(
 		StoreValue:     storeValueDecimal,
 		StoreLabel:     storeLabel,
 		StorePayload:   hexutil.Encode(storePayload),
+		NestedData:     "0x" + common.Bytes2Hex(nestedData),
 		ABI:            abiJSON,
 	})
 }

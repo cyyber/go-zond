@@ -15,6 +15,7 @@ import (
 
 const (
 	expectedText          = "Clef VM64 signData"
+	rejectedText          = "Clef rule rejection"
 	expectedValidatorText = "Clef validator-bound data"
 	expectedRecipient     = "Qd5812f6cf4a0f645aa620cd57319a0ed649dd8f5519a9dde7770ae5b0e49e547985f35eb972a2a07041561aa39c65a3991478f9b1e6749e05277dcf58a9a8b72"
 	expectedTypedName     = "Local Testnet VM64"
@@ -26,7 +27,12 @@ const (
 	expectedValue         = int64(42)
 
 	rulesSource = `function ApproveListing(req) { return 'Approve'; }
-function ApproveSignData(req) { return 'Approve'; }
+function ApproveSignData(req) {
+    if (req.messages[0].value.indexOf('Clef rule rejection') >= 0) {
+        return 'Reject';
+    }
+    return 'Approve';
+}
 function ApproveTx(req) { return 'Approve'; }
 `
 )

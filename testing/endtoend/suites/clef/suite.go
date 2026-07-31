@@ -13,6 +13,7 @@ import (
 	"math/big"
 	"net/http"
 	"slices"
+	"strings"
 	"time"
 
 	qrlaccounts "github.com/theQRL/go-qrl/accounts"
@@ -37,11 +38,15 @@ type signTransactionResult struct {
 }
 
 type clefSession struct {
-	process        *clefProcess
-	client         *rpc.Client
-	account        common.Address
-	chainID        *big.Int
-	expectedWallet wallet.Wallet
+	process         *clefProcess
+	client          *rpc.Client
+	clefPath        string
+	workspace       string
+	masterPassword  string
+	accountPassword string
+	account         common.Address
+	chainID         *big.Int
+	expectedWallet  wallet.Wallet
 }
 
 func newClefSession(
@@ -112,17 +117,61 @@ func newClefSession(
 		return nil, errors.Join(err, process.stop())
 	}
 	return &clefSession{
-		process:        process,
-		client:         client,
-		account:        account,
-		chainID:        new(big.Int).Set(chainID),
-		expectedWallet: expectedWallet,
+		process:         process,
+		client:          client,
+		clefPath:        clefPath,
+		workspace:       workspace,
+		masterPassword:  masterPassword,
+		accountPassword: accountPassword,
+		account:         account,
+		chainID:         new(big.Int).Set(chainID),
+		expectedWallet:  expectedWallet,
 	}, nil
 }
 
 func (session *clefSession) close() error {
-	session.client.Close()
-	return session.process.stop()
+	if session.client != nil {
+		session.client.Close()
+	}
+	if session.process != nil {
+		return session.process.stop()
+	}
+	return nil
+}
+
+func (session *clefSession) restart(ctx, processContext context.Context) error {
+	if err := session.close(); err != nil {
+		return fmt.Errorf("stop Clef for restart: %w", err)
+	}
+	session.client = nil
+	session.process = nil
+
+	process, endpoint, err := startClef(
+		processContext,
+		session.clefPath,
+		session.workspace,
+		session.masterPassword,
+		session.accountPassword,
+		session.chainID,
+	)
+	if err != nil {
+		return err
+	}
+	client, err := rpc.DialOptions(
+		ctx,
+		endpoint,
+		rpc.WithHTTPClient(&http.Client{Timeout: requestTimeout}),
+	)
+	if err != nil {
+		return errors.Join(fmt.Errorf("connect to restarted Clef: %w", err), process.stop())
+	}
+	if err := waitForClef(ctx, client, process); err != nil {
+		client.Close()
+		return errors.Join(err, process.stop())
+	}
+	session.process = process
+	session.client = client
+	return nil
 }
 
 func verifyAccountListing(
@@ -158,16 +207,23 @@ func verifyVersion(ctx context.Context, client *rpc.Client) error {
 func verifyNewAccount(
 	ctx context.Context,
 	session *clefSession,
-) error {
+) (common.Address, error) {
 	var account common.Address
 	if err := callRPC(ctx, session.client, &account, "account_new"); err != nil {
-		return err
+		return common.Address{}, err
 	}
 	if account == (common.Address{}) || account == session.account {
-		return fmt.Errorf("account_new returned invalid address %s", account.Hex())
+		return common.Address{}, fmt.Errorf("account_new returned invalid address %s", account.Hex())
 	}
+	if err := verifyAccountPresent(ctx, session.client, account); err != nil {
+		return common.Address{}, err
+	}
+	return account, nil
+}
+
+func verifyAccountPresent(ctx context.Context, client *rpc.Client, account common.Address) error {
 	var listedAccounts []common.Address
-	if err := callRPC(ctx, session.client, &listedAccounts, "account_list"); err != nil {
+	if err := callRPC(ctx, client, &listedAccounts, "account_list"); err != nil {
 		return err
 	}
 	if !slices.Contains(listedAccounts, account) {
@@ -197,6 +253,22 @@ func verifyDataSigning(
 		expectedWallet,
 	); err != nil {
 		return err
+	}
+	return nil
+}
+
+func verifyDataRejection(ctx context.Context, client *rpc.Client, account common.Address) error {
+	var signature hexutil.Bytes
+	err := callRPC(ctx, client, &signature, "account_signData",
+		qrlaccounts.MimetypeTextPlain,
+		account.Hex(),
+		hexutil.Encode([]byte(rejectedText)),
+	)
+	if err == nil {
+		return errors.New("account_signData unexpectedly approved rejected data")
+	}
+	if !strings.Contains(err.Error(), signercore.ErrRequestDenied.Error()) {
+		return fmt.Errorf("account_signData returned unexpected rejection: %w", err)
 	}
 	return nil
 }

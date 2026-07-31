@@ -311,7 +311,7 @@ func bindBasicType(kind abi.Type) string {
 	case abi.BytesTy:
 		return "[]byte"
 	case abi.FunctionTy:
-		return fmt.Sprintf("[%d]byte", kind.Size)
+		return "[68]byte"
 	default:
 		// string, bool types
 		return kind.String()

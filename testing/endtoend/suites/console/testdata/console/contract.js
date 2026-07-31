@@ -183,6 +183,21 @@ check("contract echoes fixed and dynamic arrays", function () {
     return true;
 });
 
+check("contract coder encodes nested dynamic arrays", function () {
+    var nestedContract = qrl.contract([{
+        inputs: [{name: "values", type: "uint512[][]"}],
+        name: "roundTrip",
+        outputs: [{name: "values", type: "uint512[][]"}],
+        stateMutability: "view",
+        type: "function"
+    }]).at(receipt.contractAddress);
+    var data = nestedContract.roundTrip.getData([[1, 2], [3]]);
+    if (data !== PARAMS.nestedData) {
+        throw new Error("nested array calldata mismatch: " + data);
+    }
+    return true;
+});
+
 check("contract event filter decodes the emitted log", function () {
     var filter = contract.Deployed({}, {
         fromBlock: web3.toHex(receipt.blockNumber),

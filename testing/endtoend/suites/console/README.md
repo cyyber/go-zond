@@ -23,7 +23,7 @@ Covered:
 - Contract deployment, pure calls, state-changing wrapper request formatting,
   signed raw submission, and canonical ABI-decoded Q-addresses.
 - VM64 scalars, dynamic values, fixed-byte boundaries, fixed and dynamic
-  arrays.
+  arrays, and nested arrays containing dynamic elements.
 - Receipt logs, exact/wildcard/OR filters, generated event decoding, and
   WebSocket event watches with indexed dynamic string and bytes fields.
 
@@ -36,6 +36,4 @@ Excluded:
 - Generated Go bindings and unsupported ABI classes, covered by the ABI suite.
 - Direct node-managed `qrl_sendTransaction`, covered by the external signer
   suite.
-- Nested arrays containing dynamic elements, which remain outside the current
-  embedded web3 ABI coverage.
 - Node lifecycle and unsafe debug operations.

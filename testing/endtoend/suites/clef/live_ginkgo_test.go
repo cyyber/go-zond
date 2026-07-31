@@ -79,6 +79,12 @@ var _ = ginkgo.Describe(
 			).To(gomega.Succeed())
 		}, ginkgo.SpecTimeout(liveSpecTimeout))
 
+		ginkgo.It("rejects data denied by the ruleset", func(ctx ginkgo.SpecContext) {
+			gomega.Expect(
+				verifyDataRejection(ctx, session.client, session.account),
+			).To(gomega.Succeed())
+		}, ginkgo.SpecTimeout(liveSpecTimeout))
+
 		ginkgo.It("signs and verifies validator-bound data", func(ctx ginkgo.SpecContext) {
 			gomega.Expect(
 				verifyValidatorDataSigning(
@@ -124,8 +130,11 @@ var _ = ginkgo.Describe(
 			gomega.Expect(receipt.TxHash).To(gomega.Equal(signed.Tx.Hash()))
 		}, ginkgo.SpecTimeout(liveSpecTimeout))
 
-		ginkgo.It("creates a new password-protected account", func(ctx ginkgo.SpecContext) {
-			gomega.Expect(verifyNewAccount(ctx, session)).To(gomega.Succeed())
+		ginkgo.It("persists a new password-protected account across restart", func(ctx ginkgo.SpecContext) {
+			account, err := verifyNewAccount(ctx, session)
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			gomega.Expect(session.restart(ctx, context.WithoutCancel(ctx))).To(gomega.Succeed())
+			gomega.Expect(verifyAccountPresent(ctx, session.client, account)).To(gomega.Succeed())
 		}, ginkgo.SpecTimeout(liveSpecTimeout))
 	},
 )

@@ -16,6 +16,7 @@ import (
 	"github.com/theQRL/go-qrl/common/hexutil"
 	"github.com/theQRL/go-qrl/core/types"
 	qrvm "github.com/theQRL/go-qrl/core/vm"
+	"github.com/theQRL/go-qrl/crypto"
 	"github.com/theQRL/go-qrl/internal/qrlapi"
 	endtoendlive "github.com/theQRL/go-qrl/testing/endtoend/internal/live"
 
@@ -73,52 +74,70 @@ var _ = ginkgo.Describe(
 				value[index] = byte(index + 1)
 			}
 			gomega.Expect(suite.callCode(ctx, memoryCode(value), nil)).To(gomega.Equal(value))
+			for _, offset := range []byte{1, qrvm.WordBytes - 1} {
+				gomega.Expect(suite.callCode(ctx, memoryCodeAt(value, offset), nil)).To(gomega.Equal(value))
+			}
 		}, ginkgo.SpecTimeout(liveSpecTimeout))
 
 		ginkgo.It("executes CALL, STATICCALL, and DELEGATECALL", func(ctx ginkgo.SpecContext) {
 			callee := common.BytesToAddress([]byte{0xf1})
-			want := common.LeftPadBytes([]byte{0x2a}, qrvm.WordBytes)
-			overrides := qrlapi.StateOverride{callee: codeOverride(returnWordCode([]byte{0x2a}))}
+			overrides := qrlapi.StateOverride{callee: codeOverride(callContextCode())}
 			for _, op := range []qrvm.OpCode{qrvm.CALL, qrvm.STATICCALL, qrvm.DELEGATECALL} {
-				gomega.Expect(suite.callCode(ctx, callCode(op, callee), overrides)).To(gomega.Equal(want))
+				output := suite.callCode(ctx, callCode(op, callee), overrides)
+				gomega.Expect(output).To(gomega.HaveLen(4 * qrvm.WordBytes))
+
+				wantAddress, wantCaller := callee, suite.target
+				if op == qrvm.DELEGATECALL {
+					wantAddress = suite.target
+					wantCaller = suite.session.Address
+				}
+				gomega.Expect(common.BytesToAddress(output[:qrvm.WordBytes])).To(gomega.Equal(wantAddress))
+				gomega.Expect(common.BytesToAddress(output[qrvm.WordBytes : 2*qrvm.WordBytes])).To(gomega.Equal(wantCaller))
+				gomega.Expect(new(big.Int).SetBytes(output[2*qrvm.WordBytes : 3*qrvm.WordBytes])).To(gomega.BeZero())
+				gomega.Expect(new(big.Int).SetBytes(output[3*qrvm.WordBytes:]).Uint64()).To(gomega.Equal(uint64(1)))
 			}
 		}, ginkgo.SpecTimeout(liveSpecTimeout))
 
 		ginkgo.It("executes CREATE and CREATE2", func(ctx ginkgo.SpecContext) {
 			for _, op := range []qrvm.OpCode{qrvm.CREATE, qrvm.CREATE2} {
-				output := suite.callCode(ctx, createCode(op), nil)
-				gomega.Expect(output).To(gomega.HaveLen(2 * qrvm.WordBytes))
-				gomega.Expect(new(big.Int).SetBytes(output[:qrvm.WordBytes]).Uint64()).To(gomega.Equal(uint64(1)))
-				gomega.Expect(common.BytesToAddress(output[qrvm.WordBytes:])).NotTo(gomega.Equal(common.Address{}))
+				code, childInit := createCode(op)
+				output := suite.callCode(ctx, code, nil)
+				gomega.Expect(output).To(gomega.HaveLen(4 * qrvm.WordBytes))
+				gomega.Expect(new(big.Int).SetBytes(output[:qrvm.WordBytes]).Uint64()).To(gomega.Equal(uint64(len(returnWordCode([]byte{0x2a})))))
+
+				var wantAddress common.Address
+				if op == qrvm.CREATE {
+					wantAddress = crypto.CreateAddress(suite.target, 0)
+				} else {
+					var salt [qrvm.WordBytes]byte
+					salt[len(salt)-1] = 1
+					initHash := crypto.Keccak256Hash(childInit)
+					wantAddress = crypto.CreateAddress2(suite.target, salt, initHash[:])
+				}
+				gomega.Expect(common.BytesToAddress(output[qrvm.WordBytes : 2*qrvm.WordBytes])).To(gomega.Equal(wantAddress))
+				gomega.Expect(new(big.Int).SetBytes(output[2*qrvm.WordBytes : 3*qrvm.WordBytes]).Uint64()).To(gomega.Equal(uint64(0x2a)))
+				gomega.Expect(new(big.Int).SetBytes(output[3*qrvm.WordBytes:]).Uint64()).To(gomega.Equal(uint64(1)))
 			}
 		}, ginkgo.SpecTimeout(liveSpecTimeout))
 
-		ginkgo.It("mines a full-width log", func(ctx ginkgo.SpecContext) {
+		ginkgo.It("mines LOG0 through LOG4 with full-width values", func(ctx ginkgo.SpecContext) {
 			data := make([]byte, qrvm.WordBytes)
-			var topic common.LogTopic
 			for index := range data {
 				data[index] = byte(index + 1)
-				topic[index] = byte(0xff - index)
 			}
 
-			auth, err := bind.NewKeyedTransactorWithChainID(suite.session.Wallet, suite.session.ChainID)
-			gomega.Expect(err).NotTo(gomega.HaveOccurred())
-			auth.Context = ctx
-			auth.NoSend = true
-			_, tx, _, err := bind.DeployContract(
-				auth,
-				abi.ABI{},
-				logInitCode(data, topic),
-				suite.session.Client,
-			)
-			gomega.Expect(err).NotTo(gomega.HaveOccurred())
-			gomega.Expect(suite.session.Client.SendTransaction(ctx, tx)).To(gomega.Succeed())
-			receipt, err := bind.WaitMined(ctx, suite.session.Client, tx)
-			gomega.Expect(err).NotTo(gomega.HaveOccurred())
-			gomega.Expect(receipt.Status).To(gomega.Equal(types.ReceiptStatusSuccessful))
-			gomega.Expect(receipt.Logs).To(gomega.HaveLen(1))
-			gomega.Expect(receipt.Logs[0].Topics).To(gomega.Equal([]common.LogTopic{topic}))
-			gomega.Expect(receipt.Logs[0].Data).To(gomega.Equal(data))
+			for count := 0; count <= 4; count++ {
+				topics := make([]common.LogTopic, count)
+				for topicIndex := range topics {
+					for byteIndex := range topics[topicIndex] {
+						topics[topicIndex][byteIndex] = byte((topicIndex+1)*17 + byteIndex)
+					}
+				}
+				receipt := suite.mineLog(ctx, data, topics)
+				gomega.Expect(receipt.Logs).To(gomega.HaveLen(1))
+				gomega.Expect(receipt.Logs[0].Topics).To(gomega.Equal(topics))
+				gomega.Expect(receipt.Logs[0].Data).To(gomega.Equal(data))
+			}
 		}, ginkgo.SpecTimeout(liveSpecTimeout))
 	},
 )
@@ -153,5 +172,27 @@ func (suite *liveSuite) callCode(
 
 func codeOverride(code []byte) qrlapi.OverrideAccount {
 	encoded := hexutil.Bytes(code)
-	return qrlapi.OverrideAccount{Code: &encoded}
+	nonce := hexutil.Uint64(0)
+	return qrlapi.OverrideAccount{Nonce: &nonce, Code: &encoded}
+}
+
+func (suite *liveSuite) mineLog(ctx context.Context, data []byte, topics []common.LogTopic) *types.Receipt {
+	ginkgo.GinkgoHelper()
+
+	auth, err := bind.NewKeyedTransactorWithChainID(suite.session.Wallet, suite.session.ChainID)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	auth.Context = ctx
+	auth.NoSend = true
+	_, tx, _, err := bind.DeployContract(
+		auth,
+		abi.ABI{},
+		logInitCode(data, topics),
+		suite.session.Client,
+	)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	gomega.Expect(suite.session.Client.SendTransaction(ctx, tx)).To(gomega.Succeed())
+	receipt, err := bind.WaitMined(ctx, suite.session.Client, tx)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	gomega.Expect(receipt.Status).To(gomega.Equal(types.ReceiptStatusSuccessful))
+	return receipt
 }

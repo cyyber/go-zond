@@ -48,9 +48,6 @@ Excluded:
 - APIs that change node configuration, rewrite chain state, or write files
   inside the execution container.
 - The authenticated Engine endpoint and APIs disabled by the devnet profile.
-- Positive `qrl_pendingTransactions` results. Node-managed account discovery,
-  signing, submission, and receipt validation are covered by the external
-  signer suite.
 - `admin_peerEvents` delivery. The fixed devnet topology covers subscription
   registration without adding or removing peers.
 - Active-sync GraphQL state and blocks containing withdrawals. The standard
