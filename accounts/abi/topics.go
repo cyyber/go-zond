@@ -77,8 +77,7 @@ func MakeTopics(query ...[]any) ([][]common.LogTopic, error) {
 				// parameters that are not value types i.e. arrays and structs are not
 				// stored directly but instead a keccak256-hash of an encoding is stored.
 				//
-				// We convert strings, bytes, and functions to hashes, and
-				// still need to deal with arrays and structs.
+				// We convert strings, bytes, and functions to hashes, still need to deal with arrays and structs.
 
 				// Attempt to generate the topic from funky types
 				val := reflect.ValueOf(rule)
