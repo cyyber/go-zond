@@ -50,7 +50,7 @@ func newApp(networks controller) *cli.App {
 	}
 	return &cli.App{
 		Name:            "devnet",
-		Usage:           "control the separately managed development network",
+		Usage:           "control the development network",
 		HideHelpCommand: true,
 		Action:          rootAction,
 		Commands: []*cli.Command{
