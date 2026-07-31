@@ -170,6 +170,144 @@ func patternedBytes(size int) []byte {
 	return data
 }
 
+func operationCode(op qrvm.OpCode, operands ...[]byte) []byte {
+	var code []byte
+	for _, operand := range operands {
+		code = append(code, push(operand)...)
+	}
+	code = append(code, byte(op))
+	return append(code, returnTop()...)
+}
+
+func storageRoundTripCode(key, value []byte) []byte {
+	code := append(push(value), push(key)...)
+	code = append(code, byte(qrvm.SSTORE))
+	code = append(code, push(key)...)
+	code = append(code, byte(qrvm.SLOAD))
+	return append(code, returnTop()...)
+}
+
+func addressOpcodeCode(op qrvm.OpCode, address common.Address) []byte {
+	code := []byte{byte(qrvm.PUSH64)}
+	code = append(code, address[:]...)
+	code = append(code, byte(op))
+	return append(code, returnTop()...)
+}
+
+func opcodeCode(op qrvm.OpCode) []byte {
+	return append([]byte{byte(op)}, returnTop()...)
+}
+
+func jumpDestinationCode(width int, embedded bool) []byte {
+	data := make([]byte, width)
+	data[0] = byte(qrvm.JUMPDEST)
+	target := 4 + 1 + width
+	if embedded {
+		target = 5
+	}
+	code := []byte{
+		byte(qrvm.PUSH2), byte(target >> 8), byte(target),
+		byte(qrvm.JUMP),
+		byte(qrvm.PUSH1) + byte(width-1),
+	}
+	code = append(code, data...)
+	if embedded {
+		return append(code, byte(qrvm.STOP))
+	}
+	code = append(code, byte(qrvm.JUMPDEST), byte(qrvm.PUSH1), 1)
+	return append(code, returnTop()...)
+}
+
+func revertingStorageCode() []byte {
+	return []byte{
+		byte(qrvm.PUSH1), 1,
+		byte(qrvm.PUSH1), 0,
+		byte(qrvm.SSTORE),
+		byte(qrvm.PUSH1), 0,
+		byte(qrvm.PUSH1), 0,
+		byte(qrvm.REVERT),
+	}
+}
+
+func failingCallCode(op qrvm.OpCode, target common.Address) []byte {
+	code := []byte{
+		byte(qrvm.PUSH1), 0,
+		byte(qrvm.PUSH1), 0,
+		byte(qrvm.PUSH1), 0,
+		byte(qrvm.PUSH1), 0,
+	}
+	if op == qrvm.CALL {
+		code = append(code, byte(qrvm.PUSH1), 7)
+	}
+	code = append(code, byte(qrvm.PUSH64))
+	code = append(code, target[:]...)
+	code = append(code,
+		byte(qrvm.GAS),
+		byte(op),
+		byte(qrvm.PUSH1), 0,
+		byte(qrvm.MSTORE),
+	)
+	switch op {
+	case qrvm.CALL:
+		code = append(code, byte(qrvm.PUSH64))
+		code = append(code, target[:]...)
+		code = append(code, byte(qrvm.BALANCE))
+	case qrvm.DELEGATECALL:
+		code = append(code, byte(qrvm.PUSH1), 0, byte(qrvm.SLOAD))
+	default:
+		code = append(code, byte(qrvm.RETURNDATASIZE))
+	}
+	return append(code,
+		byte(qrvm.PUSH1), byte(qrvm.WordBytes),
+		byte(qrvm.MSTORE),
+		byte(qrvm.SELFBALANCE),
+		byte(qrvm.PUSH1), byte(2*qrvm.WordBytes),
+		byte(qrvm.MSTORE),
+		byte(qrvm.PUSH1), byte(3*qrvm.WordBytes),
+		byte(qrvm.PUSH1), 0,
+		byte(qrvm.RETURN),
+	)
+}
+
+func failingCreateCode(op qrvm.OpCode, child common.Address) ([]byte, []byte) {
+	initCode := revertingStorageCode()
+	code := append(push(initCode),
+		byte(qrvm.PUSH1), 0,
+		byte(qrvm.MSTORE),
+	)
+	if op == qrvm.CREATE2 {
+		code = append(code, byte(qrvm.PUSH1), 1)
+	}
+	code = append(code,
+		byte(qrvm.PUSH1), byte(len(initCode)),
+		byte(qrvm.PUSH1), byte(qrvm.WordBytes-len(initCode)),
+		byte(qrvm.PUSH1), 7,
+		byte(op),
+		byte(qrvm.PUSH1), 0,
+		byte(qrvm.MSTORE),
+		byte(qrvm.PUSH64),
+	)
+	code = append(code, child[:]...)
+	code = append(code,
+		byte(qrvm.EXTCODESIZE),
+		byte(qrvm.PUSH1), byte(qrvm.WordBytes),
+		byte(qrvm.MSTORE),
+		byte(qrvm.PUSH64),
+	)
+	code = append(code, child[:]...)
+	return append(code,
+		byte(qrvm.BALANCE),
+		byte(qrvm.PUSH1), byte(2*qrvm.WordBytes),
+		byte(qrvm.MSTORE),
+		byte(qrvm.SELFBALANCE),
+		byte(qrvm.PUSH1), byte(3*qrvm.WordBytes),
+		byte(qrvm.MSTORE),
+		byte(qrvm.PUSH2), 1, 0,
+		byte(qrvm.PUSH1), 0,
+		byte(qrvm.RETURN),
+	), initCode
+}
+
 func callCode(op qrvm.OpCode, target common.Address) []byte {
 	code := []byte{
 		byte(qrvm.PUSH1), byte(3 * qrvm.WordBytes),

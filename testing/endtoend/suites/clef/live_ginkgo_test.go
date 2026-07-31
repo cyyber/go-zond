@@ -112,6 +112,17 @@ var _ = ginkgo.Describe(
 			).To(gomega.Succeed())
 		}, ginkgo.SpecTimeout(liveSpecTimeout))
 
+		ginkgo.It("rejects typed data for a different chain", func(ctx ginkgo.SpecContext) {
+			gomega.Expect(
+				verifyTypedDataChainIDRejection(
+					ctx,
+					session.client,
+					session.account,
+					session.chainID,
+				),
+			).To(gomega.Succeed())
+		}, ginkgo.SpecTimeout(liveSpecTimeout))
+
 		ginkgo.It("verifies a Clef typed-data signature through the precompile", func(ctx ginkgo.SpecContext) {
 			signature, digest, err := signTypedData(
 				ctx,
@@ -160,6 +171,20 @@ var _ = ginkgo.Describe(
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 			gomega.Expect(receipt.Status).To(gomega.Equal(types.ReceiptStatusSuccessful))
 			gomega.Expect(receipt.TxHash).To(gomega.Equal(signed.Tx.Hash()))
+		}, ginkgo.SpecTimeout(liveSpecTimeout))
+
+		ginkgo.It("rejects a transaction denied by the ruleset", func(ctx ginkgo.SpecContext) {
+			nonce, err := network.Client.PendingNonceAt(ctx, session.account)
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			tip, err := network.Client.SuggestGasTipCap(ctx)
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			feeCap, err := network.Client.SuggestGasPrice(ctx)
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			gomega.Expect(verifyTransactionRejection(
+				ctx,
+				session.client,
+				transactionArgs(session.account, session.chainID, nonce, tip, feeCap),
+			)).To(gomega.Succeed())
 		}, ginkgo.SpecTimeout(liveSpecTimeout))
 
 		ginkgo.It("persists a new password-protected account across restart", func(ctx ginkgo.SpecContext) {

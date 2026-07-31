@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/big"
 	"mime"
 
 	"github.com/theQRL/go-qrl/accounts"
@@ -175,6 +176,12 @@ func (api *SignerAPI) SignTypedData(ctx context.Context, addr common.MixedcaseAd
 // - the signature preimage (hash)
 func (api *SignerAPI) signTypedData(ctx context.Context, addr common.MixedcaseAddress,
 	typedData apitypes.TypedData, validationMessages *apitypes.ValidationMessages) (hexutil.Bytes, hexutil.Bytes, error) {
+	if typedData.Domain.ChainId != nil {
+		requestedChainID := (*big.Int)(typedData.Domain.ChainId)
+		if api.chainID.Cmp(requestedChainID) != 0 {
+			return nil, nil, fmt.Errorf("requested chainid %d does not match the configuration of the signer", requestedChainID)
+		}
+	}
 	req, err := typedDataRequest(typedData)
 	if err != nil {
 		return nil, nil, err

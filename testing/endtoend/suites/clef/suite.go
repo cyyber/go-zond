@@ -327,6 +327,27 @@ func verifyTypedDataSigning(
 	)
 }
 
+func verifyTypedDataChainIDRejection(
+	ctx context.Context,
+	client *rpc.Client,
+	account common.Address,
+	chainID *big.Int,
+) error {
+	wrongChainID := new(big.Int).Add(chainID, big.NewInt(1))
+	var signature hexutil.Bytes
+	err := callRPC(ctx, client, &signature, "account_signTypedData",
+		account.Hex(),
+		expectedTypedData(account, wrongChainID),
+	)
+	if err == nil {
+		return errors.New("account_signTypedData unexpectedly approved the wrong chain ID")
+	}
+	if !strings.Contains(err.Error(), "does not match the configuration of the signer") {
+		return fmt.Errorf("account_signTypedData returned unexpected chain-ID error: %w", err)
+	}
+	return nil
+}
+
 func signTypedData(
 	ctx context.Context,
 	client *rpc.Client,
@@ -364,6 +385,22 @@ func signTransaction(
 		return signTransactionResult{}, err
 	}
 	return signed, nil
+}
+
+func verifyTransactionRejection(
+	ctx context.Context,
+	client *rpc.Client,
+	transaction apitypes.SendTxArgs,
+) error {
+	transaction.Value = hexutil.Big(*big.NewInt(rejectedValue))
+	_, err := signTransaction(ctx, client, transaction)
+	if err == nil {
+		return errors.New("account_signTransaction unexpectedly approved the rejected transaction")
+	}
+	if !strings.Contains(err.Error(), signercore.ErrRequestDenied.Error()) {
+		return fmt.Errorf("account_signTransaction returned unexpected rejection: %w", err)
+	}
+	return nil
 }
 
 func waitForClef(

@@ -184,44 +184,34 @@ check("contract echoes fixed and dynamic arrays", function () {
 });
 
 check("contract coder encodes and decodes nested dynamic arrays", function () {
-    var nestedContract = qrl.contract([{
-        inputs: [{name: "values", type: "uint512[][]"}],
-        name: "roundTrip",
-        outputs: [{name: "values", type: "uint512[][]"}],
-        stateMutability: "view",
-        type: "function"
-    }]).at(receipt.contractAddress);
-    var data = nestedContract.roundTrip.getData([[1, 2], [3]]);
+    var data = contract.roundTrip.getData([[1, 2], [3]]);
     if (data !== PARAMS.nestedData) {
         throw new Error("nested array calldata mismatch: " + data);
     }
 
-    var provider = web3.currentProvider;
-    var send = provider.send;
-    provider.send = function (payload) {
-        if (payload.method === "qrl_call" &&
-            payload.params[0].data === PARAMS.nestedData) {
-            return {
-                jsonrpc: "2.0",
-                id: payload.id,
-                result: PARAMS.nestedOutput
-            };
-        }
-        return send.call(provider, payload);
-    };
-    try {
-        var echoed = nestedContract.roundTrip([[1, 2], [3]]);
-        if (!(echoed instanceof Array) || echoed.length !== 2 ||
-            echoed[0].length !== 2 || echoed[1].length !== 1 ||
-            echoed[0][0].toString(10) !== "1" ||
-            echoed[0][1].toString(10) !== "2" ||
-            echoed[1][0].toString(10) !== "3") {
-            throw new Error("nested array output mismatch: " + JSON.stringify(echoed));
-        }
-    } finally {
-        provider.send = send;
+    var echoed = contract.roundTrip([[1, 2], [3]]);
+    if (!(echoed instanceof Array) || echoed.length !== 2 ||
+        echoed[0].length !== 2 || echoed[1].length !== 1 ||
+        echoed[0][0].toString(10) !== "1" ||
+        echoed[0][1].toString(10) !== "2" ||
+        echoed[1][0].toString(10) !== "3") {
+        throw new Error("nested array output mismatch: " + JSON.stringify(echoed));
     }
     return true;
+});
+
+check("contract wrapper propagates revert errors", function () {
+    try {
+        contract.failReason();
+    } catch (error) {
+        var message = String(error);
+        if (message.indexOf("execution reverted") < 0 &&
+            message.indexOf("console wrapper revert") < 0) {
+            throw new Error("unexpected revert error: " + message);
+        }
+        return true;
+    }
+    throw new Error("reverting contract call unexpectedly succeeded");
 });
 
 check("contract event filter decodes the emitted log", function () {

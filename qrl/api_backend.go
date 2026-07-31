@@ -275,6 +275,9 @@ func (b *QRLAPIBackend) SubscribeLogsEvent(ch chan<- []*types.Log) event.Subscri
 }
 
 func (b *QRLAPIBackend) SendTx(ctx context.Context, signedTx *types.Transaction) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	return b.qrl.txPool.Add([]*types.Transaction{signedTx}, true, false)[0]
 }
 

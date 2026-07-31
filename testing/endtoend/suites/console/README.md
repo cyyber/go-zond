@@ -20,10 +20,10 @@ Covered:
 
 - Provider dispatch plus block, header, state, fee, receipt, namespace, chain
   ID, and QIP-55 wrapper behavior.
-- Contract deployment, pure calls, state-changing wrapper request formatting,
-  signed raw submission, and canonical ABI-decoded Q-addresses.
+- Contract deployment, pure calls, a Clef-backed state-changing wrapper call,
+  signed raw submission, revert propagation, and canonical ABI-decoded Q-addresses.
 - VM64 scalars, dynamic values, fixed-byte boundaries, fixed and dynamic
-  arrays, and nested arrays containing dynamic elements.
+  arrays, and live nested arrays containing dynamic elements.
 - Receipt logs, exact/wildcard/OR filters, generated indexed event filters and
   positive and negative matching, and WebSocket watches with indexed address,
   string, and bytes fields.

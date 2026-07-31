@@ -12,6 +12,35 @@ var contract = qrl.contract(PARAMS.abi).at(deployment.contractAddress);
 var expectedLabelTopic = web3.sha3(PARAMS.storeLabel) + zeros(64);
 var expectedPayloadTopic = web3.sha3(PARAMS.storePayload, {encoding: "hex"}) + zeros(64);
 
+check("state-changing wrapper executes through the node-managed signer", function () {
+    var managed = qrl.accounts;
+    if (!(managed instanceof Array) || managed.length !== 1) {
+        throw new Error("unexpected node-managed accounts: " + JSON.stringify(managed));
+    }
+    var txHash = contract.store(
+        PARAMS.storeValue,
+        "Clef-backed console transaction",
+        "0x010203",
+        {from: managed[0], gas: 500000}
+    );
+    var receipt = null;
+    for (var i = 0; i < 60; i++) {
+        receipt = qrl.getTransactionReceipt(txHash);
+        if (receipt !== null && receipt.blockNumber !== null) {
+            break;
+        }
+        admin.sleep(5);
+    }
+    if (receipt === null || receipt.blockNumber === null || Number(receipt.status) !== 1) {
+        throw new Error("Clef-backed wrapper transaction failed: " + JSON.stringify(receipt));
+    }
+    var transaction = qrl.getTransaction(txHash);
+    if (transaction.from !== managed[0] || contract.stored().toString(10) !== PARAMS.storeValue) {
+        throw new Error("unexpected Clef-backed wrapper result");
+    }
+    return true;
+});
+
 var request = contract.store.request(
     PARAMS.storeValue,
     PARAMS.storeLabel,

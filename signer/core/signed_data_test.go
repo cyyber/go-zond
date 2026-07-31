@@ -223,9 +223,11 @@ func TestSignData(t *testing.T) {
 		t.Errorf("Expected 4627 byte ML-DSA-87 signature (got %d bytes)", len(signature))
 	}
 	// data/typed via SignTypeData
+	signerTypedData := typedData
+	signerTypedData.Domain.ChainId = math.NewHexOrDecimal256(1337)
 	control.approveCh <- "Y"
 	control.inputCh <- "a_long_password"
-	if signature, err = api.SignTypedData(t.Context(), a, typedData); err != nil {
+	if signature, err = api.SignTypedData(t.Context(), a, signerTypedData); err != nil {
 		t.Fatal(err)
 	} else if signature == nil || len(signature) != 4627 {
 		t.Errorf("Expected 4627 byte ML-DSA-87 signature (got %d bytes)", len(signature))
@@ -235,7 +237,7 @@ func TestSignData(t *testing.T) {
 	// data/typed via SignData / mimetype typed data
 	control.approveCh <- "Y"
 	control.inputCh <- "a_long_password"
-	if typedDataJson, err := json.Marshal(typedData); err != nil {
+	if typedDataJson, err := json.Marshal(signerTypedData); err != nil {
 		t.Fatal(err)
 	} else if signature, err = api.SignData(t.Context(), apitypes.DataTyped.Mime, a, hexutil.Encode(typedDataJson)); err != nil {
 		t.Fatal(err)
@@ -243,6 +245,12 @@ func TestSignData(t *testing.T) {
 		t.Errorf("Expected 4627 byte ML-DSA-87 signature (got %d bytes)", len(signature))
 	} else if haveHash := control.lastSignDataRequest.Hash; !bytes.Equal(haveHash, wantHash) {
 		t.Fatalf("want hash %x, have hash %x", wantHash, haveHash)
+	}
+
+	wrongChainTypedData := signerTypedData
+	wrongChainTypedData.Domain.ChainId = math.NewHexOrDecimal256(1338)
+	if _, err := api.SignTypedData(t.Context(), a, wrongChainTypedData); err == nil {
+		t.Fatal("expected typed-data chain ID mismatch")
 	}
 }
 

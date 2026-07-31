@@ -25,15 +25,27 @@ const (
 	expectedTxInputHex    = "0x000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f"
 	expectedGas           = uint64(40000)
 	expectedValue         = int64(42)
+	rejectedValue         = int64(43)
 
-	rulesSource = `function ApproveListing(req) { return 'Approve'; }
+	rulesSource = `function big(value) {
+    if (value.slice(0, 2) == '0x') {
+        return new BigNumber(value.slice(2), 16);
+    }
+    return new BigNumber(value);
+}
+function ApproveListing(req) { return 'Approve'; }
 function ApproveSignData(req) {
     if (req.messages[0].value.indexOf('Clef rule rejection') >= 0) {
         return 'Reject';
     }
     return 'Approve';
 }
-function ApproveTx(req) { return 'Approve'; }
+function ApproveTx(req) {
+    if (big(req.transaction.value).eq(43)) {
+        return 'Reject';
+    }
+    return 'Approve';
+}
 `
 )
 

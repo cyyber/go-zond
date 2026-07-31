@@ -54,6 +54,16 @@ contract EventEmitter {
         return (values, tags);
     }
 
+    function roundTrip(
+        uint512[][] calldata values
+    ) external pure returns (uint512[][] memory) {
+        return values;
+    }
+
+    function failReason() external pure {
+        revert("console wrapper revert");
+    }
+
     function store(
         uint512 value,
         string calldata label,

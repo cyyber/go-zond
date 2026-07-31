@@ -7,12 +7,14 @@ package main
 import (
 	"context"
 	"fmt"
+	"math/big"
 	"os"
 	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/theQRL/go-qrl/internal/qrlapi"
 	"github.com/theQRL/go-qrl/rpc"
@@ -23,10 +25,18 @@ import (
 type automatedUI struct{}
 
 func (*automatedUI) ApproveTx(request *signercore.SignTxRequest) (signercore.SignTxResponse, error) {
+	if request.Transaction.Value.ToInt().Cmp(big.NewInt(fixture.RemoteSignerDelayedTransaction)) == 0 {
+		time.Sleep(3 * time.Second)
+	}
 	return signercore.SignTxResponse{Transaction: request.Transaction, Approved: true}, nil
 }
 
-func (*automatedUI) ApproveSignData(*signercore.SignDataRequest) (signercore.SignDataResponse, error) {
+func (*automatedUI) ApproveSignData(request *signercore.SignDataRequest) (signercore.SignDataResponse, error) {
+	for _, message := range request.Messages {
+		if strings.Contains(fmt.Sprint(message.Value), fixture.RemoteSignerRejectedText) {
+			return signercore.SignDataResponse{Approved: false}, nil
+		}
+	}
 	return signercore.SignDataResponse{Approved: true}, nil
 }
 

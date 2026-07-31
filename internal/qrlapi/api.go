@@ -1396,6 +1396,9 @@ func (s *TransactionAPI) sign(addr common.Address, tx *types.Transaction) (*type
 
 // SubmitTransaction is a helper function that submits tx to txPool and logs a message.
 func SubmitTransaction(ctx context.Context, b Backend, tx *types.Transaction) (common.Hash, error) {
+	if err := ctx.Err(); err != nil {
+		return common.Hash{}, err
+	}
 	// If the transaction fee cap is already specified, ensure the
 	// fee of the given transaction is _reasonable_.
 	if err := checkTxFee(tx.GasPrice(), tx.Gas(), b.RPCTxFeeCap()); err != nil {
@@ -1445,8 +1448,18 @@ func (s *TransactionAPI) SendTransaction(ctx context.Context, args TransactionAr
 	// Assemble the transaction and sign with the wallet
 	tx := args.toTransaction()
 
-	signed, err := wallet.SignTx(account, tx, s.b.ChainConfig().ChainID)
+	var signed *types.Transaction
+	if signer, ok := wallet.(interface {
+		SignTxContext(context.Context, accounts.Account, *types.Transaction, *big.Int) (*types.Transaction, error)
+	}); ok {
+		signed, err = signer.SignTxContext(ctx, account, tx, s.b.ChainConfig().ChainID)
+	} else {
+		signed, err = wallet.SignTx(account, tx, s.b.ChainConfig().ChainID)
+	}
 	if err != nil {
+		return common.Hash{}, err
+	}
+	if err := ctx.Err(); err != nil {
 		return common.Hash{}, err
 	}
 	return SubmitTransaction(ctx, s.b, signed)

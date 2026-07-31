@@ -90,6 +90,18 @@ var _ = ginkgo.Describe(
 			gomega.Expect(valid).To(gomega.BeTrue())
 		}, ginkgo.SpecTimeout(liveSpecTimeout))
 
+		ginkgo.It("propagates Clef signing rejection through the node", func(ctx ginkgo.SpecContext) {
+			var signature hexutil.Bytes
+			err := suite.session.Client.Client().CallContext(
+				ctx,
+				&signature,
+				"qrl_sign",
+				suite.account,
+				hexutil.Bytes(fixture.RemoteSignerRejectedText),
+			)
+			gomega.Expect(err).To(gomega.MatchError(gomega.ContainSubstring("request denied")))
+		}, ginkgo.SpecTimeout(liveSpecTimeout))
+
 		ginkgo.It("signs a transaction through the node", func(ctx ginkgo.SpecContext) {
 			args := suite.transactionArgs(ctx)
 			var signed qrlapi.SignTransactionResult
@@ -138,6 +150,78 @@ var _ = ginkgo.Describe(
 			expectTransactionMatchesArgs(tx, args)
 		}, ginkgo.SpecTimeout(liveSpecTimeout))
 
+		ginkgo.It("does not submit a transaction after signing is canceled", func(ctx ginkgo.SpecContext) {
+			before, err := suite.session.Client.PendingNonceAt(ctx, suite.account)
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
+			args := suite.transactionArgs(ctx)
+			args.Value = (*hexutil.Big)(big.NewInt(fixture.RemoteSignerDelayedTransaction))
+			requestCtx, cancel := context.WithTimeout(ctx, time.Second)
+			defer cancel()
+
+			var hash common.Hash
+			err = suite.session.Client.Client().CallContext(
+				requestCtx,
+				&hash,
+				"qrl_sendTransaction",
+				args,
+			)
+			gomega.Expect(err).To(gomega.MatchError(context.DeadlineExceeded))
+
+			gomega.Consistently(func() uint64 {
+				nonce, nonceErr := suite.session.Client.PendingNonceAt(ctx, suite.account)
+				gomega.Expect(nonceErr).NotTo(gomega.HaveOccurred())
+				return nonce
+			}).WithContext(ctx).WithTimeout(5 * time.Second).WithPolling(time.Second).Should(
+				gomega.Equal(before),
+			)
+
+			var content map[string]map[string]*qrlapi.RPCTransaction
+			gomega.Expect(suite.session.Client.Client().CallContext(
+				ctx,
+				&content,
+				"txpool_contentFrom",
+				suite.account,
+			)).To(gomega.Succeed())
+			gomega.Expect(content["pending"]).NotTo(gomega.HaveKey(fmt.Sprint(before)))
+			gomega.Expect(content["queued"]).NotTo(gomega.HaveKey(fmt.Sprint(before)))
+		}, ginkgo.SpecTimeout(liveSpecTimeout))
+
+		ginkgo.It("fails while Clef is unavailable and recovers after restart", func(ctx ginkgo.SpecContext) {
+			gomega.Expect(clefService(ctx, "stop")).To(gomega.Succeed())
+			stopped := true
+			defer func() {
+				if stopped {
+					_ = clefService(context.Background(), "start")
+				}
+			}()
+
+			requestCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+			defer cancel()
+			var signature hexutil.Bytes
+			err := suite.session.Client.Client().CallContext(
+				requestCtx,
+				&signature,
+				"qrl_sign",
+				suite.account,
+				hexutil.Bytes("Clef unavailable"),
+			)
+			gomega.Expect(err).To(gomega.HaveOccurred())
+
+			gomega.Expect(clefService(ctx, "start")).To(gomega.Succeed())
+			stopped = false
+			gomega.Eventually(func() error {
+				var managed []common.Address
+				if err := suite.session.Client.Client().CallContext(ctx, &managed, "qrl_accounts"); err != nil {
+					return err
+				}
+				if len(managed) != 1 || managed[0] != suite.account {
+					return fmt.Errorf("unexpected managed accounts after restart: %v", managed)
+				}
+				return nil
+			}).WithContext(ctx).WithTimeout(time.Minute).WithPolling(time.Second).Should(gomega.Succeed())
+		}, ginkgo.SpecTimeout(liveSpecTimeout))
+
 		ginkgo.It("reconnects to Clef after the signer restarts", func(ctx ginkgo.SpecContext) {
 			gomega.Expect(restartClef(ctx)).To(gomega.Succeed())
 
@@ -180,22 +264,29 @@ var _ = ginkgo.Describe(
 )
 
 func restartClef(ctx context.Context) error {
+	for _, action := range []string{"stop", "start"} {
+		if err := clefService(ctx, action); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func clefService(ctx context.Context, action string) error {
 	enclave := os.Getenv("DEVNET_ENCLAVE_NAME")
 	if enclave == "" {
 		enclave = devnet.DefaultEnclaveName
 	}
-	for _, action := range []string{"stop", "start"} {
-		output, err := exec.CommandContext(
-			ctx,
-			"kurtosis",
-			"service",
-			action,
-			enclave,
-			"signer-clef",
-		).CombinedOutput()
-		if err != nil {
-			return fmt.Errorf("%s Clef service: %w: %s", action, err, output)
-		}
+	output, err := exec.CommandContext(
+		ctx,
+		"kurtosis",
+		"service",
+		action,
+		enclave,
+		"signer-clef",
+	).CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("%s Clef service: %w: %s", action, err, output)
 	}
 	return nil
 }
