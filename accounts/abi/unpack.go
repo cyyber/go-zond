@@ -222,12 +222,15 @@ func forTupleUnpack(t Type, output []byte) (any, error) {
 // toGoType parses the output bytes and recursively assigns the value of these bytes
 // into a go type with accordance with the ABI spec.
 func toGoType(index int, t Type, output []byte) (any, error) {
+	// Function values are the exception to the one-word head below: they span
+	// separate address and selector words.
 	if t.T == FunctionTy {
 		if index+128 > len(output) {
 			return nil, fmt.Errorf("abi: cannot marshal in to go type: length insufficient %d require %d", len(output), index+128)
 		}
 		return readFunctionType(t, output[index:index+128])
 	}
+
 	if index+64 > len(output) {
 		return nil, fmt.Errorf("abi: cannot marshal in to go type: length insufficient %d require %d", len(output), index+64)
 	}
