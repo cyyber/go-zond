@@ -7,7 +7,10 @@ package externalsigner
 
 import (
 	"context"
+	"fmt"
 	"math/big"
+	"os"
+	"os/exec"
 	"time"
 
 	qrl "github.com/theQRL/go-qrl"
@@ -18,6 +21,7 @@ import (
 	"github.com/theQRL/go-qrl/crypto/pqcrypto"
 	qrlwallet "github.com/theQRL/go-qrl/crypto/pqcrypto/wallet"
 	"github.com/theQRL/go-qrl/internal/qrlapi"
+	"github.com/theQRL/go-qrl/testing/devnet"
 	"github.com/theQRL/go-qrl/testing/endtoend/internal/fixture"
 	endtoendlive "github.com/theQRL/go-qrl/testing/endtoend/internal/live"
 
@@ -133,8 +137,68 @@ var _ = ginkgo.Describe(
 			gomega.Expect(transactionSender(tx, suite.session.ChainID)).To(gomega.Equal(suite.account))
 			expectTransactionMatchesArgs(tx, args)
 		}, ginkgo.SpecTimeout(liveSpecTimeout))
+
+		ginkgo.It("reconnects to Clef after the signer restarts", func(ctx ginkgo.SpecContext) {
+			gomega.Expect(restartClef(ctx)).To(gomega.Succeed())
+
+			message := []byte("go-qrl external signer restart E2E")
+			gomega.Eventually(func() error {
+				var managed []common.Address
+				if err := suite.session.Client.Client().CallContext(ctx, &managed, "qrl_accounts"); err != nil {
+					return err
+				}
+				if len(managed) != 1 || managed[0] != suite.account {
+					return fmt.Errorf("unexpected managed accounts after restart: %v", managed)
+				}
+
+				var signature hexutil.Bytes
+				if err := suite.session.Client.Client().CallContext(
+					ctx,
+					&signature,
+					"qrl_sign",
+					suite.account,
+					hexutil.Bytes(message),
+				); err != nil {
+					return err
+				}
+				valid, err := pqcrypto.MLDSA87VerifySignature(
+					signature,
+					accounts.TextHash(message),
+					suite.wallet.GetPK(),
+					suite.wallet.GetDescriptor(),
+				)
+				if err != nil {
+					return err
+				}
+				if !valid {
+					return fmt.Errorf("invalid signature after Clef restart")
+				}
+				return nil
+			}).WithContext(ctx).WithTimeout(time.Minute).WithPolling(time.Second).Should(gomega.Succeed())
+		}, ginkgo.SpecTimeout(liveSpecTimeout))
 	},
 )
+
+func restartClef(ctx context.Context) error {
+	enclave := os.Getenv("DEVNET_ENCLAVE_NAME")
+	if enclave == "" {
+		enclave = devnet.DefaultEnclaveName
+	}
+	for _, action := range []string{"stop", "start"} {
+		output, err := exec.CommandContext(
+			ctx,
+			"kurtosis",
+			"service",
+			action,
+			enclave,
+			"signer-clef",
+		).CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("%s Clef service: %w: %s", action, err, output)
+		}
+	}
+	return nil
+}
 
 func newLiveSuite(ctx context.Context) *liveSuite {
 	ginkgo.GinkgoHelper()

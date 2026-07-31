@@ -183,7 +183,7 @@ check("contract echoes fixed and dynamic arrays", function () {
     return true;
 });
 
-check("contract coder encodes nested dynamic arrays", function () {
+check("contract coder encodes and decodes nested dynamic arrays", function () {
     var nestedContract = qrl.contract([{
         inputs: [{name: "values", type: "uint512[][]"}],
         name: "roundTrip",
@@ -194,6 +194,32 @@ check("contract coder encodes nested dynamic arrays", function () {
     var data = nestedContract.roundTrip.getData([[1, 2], [3]]);
     if (data !== PARAMS.nestedData) {
         throw new Error("nested array calldata mismatch: " + data);
+    }
+
+    var provider = web3.currentProvider;
+    var send = provider.send;
+    provider.send = function (payload) {
+        if (payload.method === "qrl_call" &&
+            payload.params[0].data === PARAMS.nestedData) {
+            return {
+                jsonrpc: "2.0",
+                id: payload.id,
+                result: PARAMS.nestedOutput
+            };
+        }
+        return send.call(provider, payload);
+    };
+    try {
+        var echoed = nestedContract.roundTrip([[1, 2], [3]]);
+        if (!(echoed instanceof Array) || echoed.length !== 2 ||
+            echoed[0].length !== 2 || echoed[1].length !== 1 ||
+            echoed[0][0].toString(10) !== "1" ||
+            echoed[0][1].toString(10) !== "2" ||
+            echoed[1][0].toString(10) !== "3") {
+            throw new Error("nested array output mismatch: " + JSON.stringify(echoed));
+        }
+    } finally {
+        provider.send = send;
     }
     return true;
 });

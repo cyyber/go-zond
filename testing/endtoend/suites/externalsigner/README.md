@@ -10,6 +10,8 @@ development-network profile.
 - Sign a transaction through `qrl_signTransaction` and verify its sender.
 - Sign and submit through `qrl_sendTransaction`, then verify the mined sender
   and receipt.
+- Restart Clef and verify the running node reconnects for account discovery and
+  signing.
 
 Clef's direct `account_*` API and account-management behavior remain covered by
 the standalone Clef suite.

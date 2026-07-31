@@ -80,6 +80,21 @@ watcher.watch(function (error, event) {
             }
             return true;
         });
+
+        check("indexed event filters reject non-matching dynamic values", function () {
+            var events = contract.Stored({
+                sender: PARAMS.address,
+                label: PARAMS.storeLabel + "-missing",
+                payload: PARAMS.storePayload
+            }, {
+                fromBlock: web3.toHex(receipt.blockNumber),
+                toBlock: web3.toHex(receipt.blockNumber)
+            }).get();
+            if (events.length !== 0) {
+                throw new Error("non-matching indexed filter returned events: " + JSON.stringify(events));
+            }
+            return true;
+        });
         watcher.stopWatching();
         suite.finish();
     } catch (failure) {

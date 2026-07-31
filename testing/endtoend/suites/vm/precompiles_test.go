@@ -142,6 +142,20 @@ var _ = ginkgo.Describe(
 			gomega.Expect(output).To(gomega.BeEmpty())
 		}, ginkgo.SpecTimeout(liveSpecTimeout))
 
+		ginkgo.It("rejects a full-length invalid ML-DSA-87 signature", func(ctx ginkgo.SpecContext) {
+			address := common.BytesToAddress([]byte{3})
+			input := mldsaInput()
+			signatureOffset := common.HashLength + cryptomldsa87.CRYPTO_PUBLIC_KEY_BYTES
+			input[signatureOffset] ^= 0x01
+			output, err := session.Client.CallContract(ctx, qrl.CallMsg{
+				From: session.Address,
+				To:   &address,
+				Data: input,
+			}, nil)
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			gomega.Expect(output).To(gomega.BeEmpty())
+		}, ginkgo.SpecTimeout(liveSpecTimeout))
+
 		ginkgo.It("rejects insufficient gas for every precompile", func(ctx ginkgo.SpecContext) {
 			for _, vector := range vectors {
 				intrinsic, err := core.IntrinsicGas(vector.input, nil, false)
@@ -161,14 +175,15 @@ var _ = ginkgo.Describe(
 func precompileVectors() []precompileVector {
 	shaOutput := sha256.Sum256([]byte("abc"))
 	emptySHAOutput := sha256.Sum256(nil)
-	depositRoot := hexutil.MustDecode("0x474d096b9dd154f74b552328a38dee860e0a25bf3af8f0f0371266dddc9ab676")
+	depositRoot := hexutil.MustDecode("0x0149b6fc5da25356dbc4de56f7976a2693c9c4bdeb5ddfcf3a983ef26b6da6a7")
+	emptyDepositRoot := hexutil.MustDecode("0x474d096b9dd154f74b552328a38dee860e0a25bf3af8f0f0371266dddc9ab676")
 	vectors := []precompileVector{
 		{
 			address:   common.BytesToAddress([]byte{1}),
 			input:     depositInput(),
 			want:      depositRoot,
 			gas:       18_000,
-			emptyWant: depositRoot,
+			emptyWant: emptyDepositRoot,
 			emptyGas:  18_000,
 		},
 		{
@@ -208,7 +223,15 @@ func precompileVectors() []precompileVector {
 }
 
 func depositInput() []byte {
-	return make([]byte, pqcrypto.MLDSA87PublicKeyLength+common.AddressLength+8+pqcrypto.MLDSA87SignatureLength)
+	input := make([]byte, pqcrypto.MLDSA87PublicKeyLength+common.AddressLength+8+pqcrypto.MLDSA87SignatureLength)
+	for index := range input {
+		input[index] = byte(index%251 + 1)
+	}
+	binary.LittleEndian.PutUint64(
+		input[pqcrypto.MLDSA87PublicKeyLength+common.AddressLength:],
+		32_000_000_000,
+	)
+	return input
 }
 
 func mldsaInput() []byte {

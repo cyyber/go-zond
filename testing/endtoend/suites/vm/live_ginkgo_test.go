@@ -81,12 +81,51 @@ var _ = ginkgo.Describe(
 
 		ginkgo.It("copies calldata across 64-byte word boundaries", func(ctx ginkgo.SpecContext) {
 			for _, size := range []int{63, 64, 65} {
-				input := make([]byte, size)
-				for index := range input {
-					input[index] = byte(index + 1)
-				}
+				input := patternedBytes(size)
 				gomega.Expect(suite.callCodeWithInput(ctx, echoCalldataCode(), input, nil)).To(
 					gomega.Equal(input),
+				)
+				for _, offset := range []int{0, 1} {
+					want := make([]byte, qrvm.WordBytes)
+					if offset < len(input) {
+						copy(want, input[offset:])
+					}
+					gomega.Expect(suite.callCodeWithInput(
+						ctx,
+						calldataLoadCode(byte(offset)),
+						input,
+						nil,
+					)).To(gomega.Equal(want))
+				}
+			}
+		}, ginkgo.SpecTimeout(liveSpecTimeout))
+
+		ginkgo.It("copies code and return data across 64-byte word boundaries", func(ctx ginkgo.SpecContext) {
+			callee := common.BytesToAddress([]byte{0xf2})
+			for _, size := range []int{63, 64, 65} {
+				input := patternedBytes(size)
+				gomega.Expect(suite.callCode(ctx, codeCopyCode(input), nil)).To(gomega.Equal(input))
+
+				overrides := qrlapi.StateOverride{callee: codeOverride(input)}
+				gomega.Expect(suite.callCode(
+					ctx,
+					extCodeCopyCode(callee, byte(size)),
+					overrides,
+				)).To(gomega.Equal(input))
+
+				overrides[callee] = codeOverride(codeCopyCode(input))
+				gomega.Expect(suite.callCode(ctx, returnDataCopyCode(callee), overrides)).To(
+					gomega.Equal(input),
+				)
+			}
+		}, ginkgo.SpecTimeout(liveSpecTimeout))
+
+		ginkgo.It("hashes memory across 64-byte word boundaries", func(ctx ginkgo.SpecContext) {
+			for _, size := range []int{63, 64, 65} {
+				input := patternedBytes(size)
+				want := common.LeftPadBytes(crypto.Keccak256(input), qrvm.WordBytes)
+				gomega.Expect(suite.callCodeWithInput(ctx, keccakCalldataCode(), input, nil)).To(
+					gomega.Equal(want),
 				)
 			}
 		}, ginkgo.SpecTimeout(liveSpecTimeout))

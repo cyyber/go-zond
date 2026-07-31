@@ -82,6 +82,94 @@ func echoCalldataCode() []byte {
 	}
 }
 
+func calldataLoadCode(offset byte) []byte {
+	return append([]byte{
+		byte(qrvm.PUSH1), offset,
+		byte(qrvm.CALLDATALOAD),
+	}, returnTop()...)
+}
+
+func codeCopyCode(data []byte) []byte {
+	code := []byte{
+		byte(qrvm.PUSH1), byte(len(data)),
+		byte(qrvm.PUSH2), 0, 0,
+		byte(qrvm.PUSH1), 0,
+		byte(qrvm.CODECOPY),
+		byte(qrvm.PUSH1), byte(len(data)),
+		byte(qrvm.PUSH1), 0,
+		byte(qrvm.RETURN),
+	}
+	dataOffset := len(code)
+	code[3] = byte(dataOffset >> 8)
+	code[4] = byte(dataOffset)
+	return append(code, data...)
+}
+
+func extCodeCopyCode(target common.Address, size byte) []byte {
+	code := []byte{
+		byte(qrvm.PUSH1), size,
+		byte(qrvm.PUSH1), 0,
+		byte(qrvm.PUSH1), 0,
+		byte(qrvm.PUSH64),
+	}
+	code = append(code, target[:]...)
+	return append(code,
+		byte(qrvm.EXTCODECOPY),
+		byte(qrvm.PUSH1), size,
+		byte(qrvm.PUSH1), 0,
+		byte(qrvm.RETURN),
+	)
+}
+
+func returnDataCopyCode(target common.Address) []byte {
+	code := []byte{
+		byte(qrvm.PUSH1), 0,
+		byte(qrvm.PUSH1), 0,
+		byte(qrvm.PUSH1), 0,
+		byte(qrvm.PUSH1), 0,
+		byte(qrvm.PUSH1), 0,
+		byte(qrvm.PUSH64),
+	}
+	code = append(code, target[:]...)
+	return append(code,
+		byte(qrvm.GAS),
+		byte(qrvm.CALL),
+		byte(qrvm.POP),
+		byte(qrvm.RETURNDATASIZE),
+		byte(qrvm.PUSH1), 0,
+		byte(qrvm.PUSH1), 0,
+		byte(qrvm.RETURNDATACOPY),
+		byte(qrvm.RETURNDATASIZE),
+		byte(qrvm.PUSH1), 0,
+		byte(qrvm.RETURN),
+	)
+}
+
+func keccakCalldataCode() []byte {
+	return []byte{
+		byte(qrvm.CALLDATASIZE),
+		byte(qrvm.PUSH1), 0,
+		byte(qrvm.PUSH1), 0,
+		byte(qrvm.CALLDATACOPY),
+		byte(qrvm.CALLDATASIZE),
+		byte(qrvm.PUSH1), 0,
+		byte(qrvm.KECCAK256),
+		byte(qrvm.PUSH1), 0,
+		byte(qrvm.MSTORE),
+		byte(qrvm.PUSH1), byte(qrvm.WordBytes),
+		byte(qrvm.PUSH1), 0,
+		byte(qrvm.RETURN),
+	}
+}
+
+func patternedBytes(size int) []byte {
+	data := make([]byte, size)
+	for index := range data {
+		data[index] = byte(index + 1)
+	}
+	return data
+}
+
 func callCode(op qrvm.OpCode, target common.Address) []byte {
 	code := []byte{
 		byte(qrvm.PUSH1), byte(3 * qrvm.WordBytes),

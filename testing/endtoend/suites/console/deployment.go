@@ -90,6 +90,7 @@ func deploymentParameters(
 		StoreLabel     string          `json:"storeLabel"`
 		StorePayload   string          `json:"storePayload"`
 		NestedData     string          `json:"nestedData"`
+		NestedOutput   string          `json:"nestedOutput"`
 		ABI            json.RawMessage `json:"abi"`
 	}{
 		Address:        auth.From.Hex(),
@@ -102,6 +103,7 @@ func deploymentParameters(
 		StoreLabel:     storeLabel,
 		StorePayload:   hexutil.Encode(storePayload),
 		NestedData:     "0x" + common.Bytes2Hex(nestedData),
+		NestedOutput:   "0x" + common.Bytes2Hex(nestedArguments),
 		ABI:            abiJSON,
 	})
 }

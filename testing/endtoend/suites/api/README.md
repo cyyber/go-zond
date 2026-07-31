@@ -27,8 +27,10 @@ Covered:
 - log and block filters
 - WebSocket head, log, pending hash, and full pending-transaction subscriptions
 - read-only debug and tracing methods
-- GraphQL schema, historical and pending transactions, access lists, nested
-  account fields, and raw-transaction mutation
+- GraphQL schema, historical and pending calls and gas estimates, exact block
+  fields, transactions, access lists, nested account fields, and raw-transaction
+  mutation
+- structured transaction traces with VM64 opcode ordering and scalar stack values
 
 The fixture deploys a small contract that stores and returns a non-zero
 64-byte value and emits a non-zero 64-byte topic. This keeps VM64 API

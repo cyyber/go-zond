@@ -8,10 +8,12 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"math/big"
 	"time"
 
 	"github.com/theQRL/go-qrl/common"
 	"github.com/theQRL/go-qrl/common/hexutil"
+	"github.com/theQRL/go-qrl/qrl/tracers/logger"
 	"github.com/theQRL/go-qrl/rpc"
 
 	ginkgo "github.com/onsi/ginkgo/v2"
@@ -26,7 +28,7 @@ func (suite *liveSuite) assertDebugTracing(ctx context.Context) {
 	blockNumber := rpc.BlockNumber(fixture.block.NumberU64())
 	blockSelector := rpc.BlockNumberOrHashWithNumber(blockNumber)
 
-	var trace json.RawMessage
+	var trace logger.ExecutionResult
 	gomega.Expect(raw.CallContext(
 		ctx,
 		&trace,
@@ -34,7 +36,28 @@ func (suite *liveSuite) assertDebugTracing(ctx context.Context) {
 		fixture.tx.Hash(),
 		map[string]any{},
 	)).To(gomega.Succeed())
-	gomega.Expect(json.Valid(trace)).To(gomega.BeTrue())
+	gomega.Expect(trace.Failed).To(gomega.BeFalse())
+	gomega.Expect(trace.StructLogs).NotTo(gomega.BeEmpty())
+
+	wantOpcodes := []string{"PUSH64", "SSTORE", "MSTORE", "LOG1", "RETURN"}
+	nextOpcode := 0
+	firstPush64 := -1
+	for index, step := range trace.StructLogs {
+		if firstPush64 == -1 && step.Op == "PUSH64" {
+			firstPush64 = index
+		}
+		if nextOpcode < len(wantOpcodes) && step.Op == wantOpcodes[nextOpcode] {
+			nextOpcode++
+		}
+	}
+	gomega.Expect(nextOpcode).To(gomega.Equal(len(wantOpcodes)))
+	gomega.Expect(firstPush64).To(gomega.BeNumerically(">=", 0))
+	gomega.Expect(firstPush64 + 1).To(gomega.BeNumerically("<", len(trace.StructLogs)))
+	stack := trace.StructLogs[firstPush64+1].Stack
+	gomega.Expect(stack).NotTo(gomega.BeNil())
+	gomega.Expect(*stack).NotTo(gomega.BeEmpty())
+	wantStackValue := "0x" + new(big.Int).SetBytes(fixture.value[:]).Text(16)
+	gomega.Expect((*stack)[len(*stack)-1]).To(gomega.Equal(wantStackValue))
 
 	var blockTrace []json.RawMessage
 	gomega.Expect(raw.CallContext(

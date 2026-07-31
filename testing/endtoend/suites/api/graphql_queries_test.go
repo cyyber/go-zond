@@ -11,6 +11,8 @@ import (
 
 	"github.com/theQRL/go-qrl/common"
 	"github.com/theQRL/go-qrl/common/hexutil"
+	"github.com/theQRL/go-qrl/rlp"
+	"github.com/theQRL/go-qrl/rpc"
 
 	ginkgo "github.com/onsi/ginkgo/v2"
 	gomega "github.com/onsi/gomega"
@@ -34,22 +36,63 @@ func (suite *liveSuite) assertGraphQLQueries(ctx context.Context) {
 		"topic":   fixture.topic.Hex(),
 		"index":   index,
 	})
+	type callResult struct {
+		Data    string `json:"data"`
+		GasUsed string `json:"gasUsed"`
+		Status  string `json:"status"`
+	}
+	type account struct {
+		Address          string `json:"address"`
+		Balance          string `json:"balance"`
+		TransactionCount string `json:"transactionCount"`
+		Code             string `json:"code"`
+		Storage          string `json:"storage"`
+	}
 	var root struct {
 		Block struct {
-			Hash         string               `json:"hash"`
-			Transactions []graphQLTransaction `json:"transactions"`
-			Logs         []graphQLLog         `json:"logs"`
-			Withdrawals  []json.RawMessage    `json:"withdrawals"`
-			Account      struct {
-				Address string `json:"address"`
-				Storage string `json:"storage"`
-			} `json:"account"`
+			Number string `json:"number"`
+			Hash   string `json:"hash"`
+			Parent struct {
+				Number string `json:"number"`
+				Hash   string `json:"hash"`
+			} `json:"parent"`
+			TransactionsRoot string               `json:"transactionsRoot"`
+			TransactionCount string               `json:"transactionCount"`
+			StateRoot        string               `json:"stateRoot"`
+			ReceiptsRoot     string               `json:"receiptsRoot"`
+			Miner            account              `json:"miner"`
+			ExtraData        string               `json:"extraData"`
+			GasLimit         string               `json:"gasLimit"`
+			GasUsed          string               `json:"gasUsed"`
+			BaseFeePerGas    string               `json:"baseFeePerGas"`
+			Timestamp        string               `json:"timestamp"`
+			LogsBloom        string               `json:"logsBloom"`
+			Random           string               `json:"random"`
+			Transactions     []graphQLTransaction `json:"transactions"`
+			TransactionAt    graphQLTransaction   `json:"transactionAt"`
+			Logs             []graphQLLog         `json:"logs"`
+			Withdrawals      []json.RawMessage    `json:"withdrawals"`
+			Account          account              `json:"account"`
+			Call             callResult           `json:"call"`
+			EstimateGas      string               `json:"estimateGas"`
+			RawHeader        string               `json:"rawHeader"`
+			Raw              string               `json:"raw"`
 		} `json:"block"`
 		BlockByHash struct {
-			Hash string `json:"hash"`
+			Number string `json:"number"`
+			Hash   string `json:"hash"`
 		} `json:"blockByHash"`
-		Blocks      []json.RawMessage  `json:"blocks"`
-		Pending     json.RawMessage    `json:"pending"`
+		Blocks []struct {
+			Number string `json:"number"`
+			Hash   string `json:"hash"`
+		} `json:"blocks"`
+		Pending struct {
+			TransactionCount string               `json:"transactionCount"`
+			Transactions     []graphQLTransaction `json:"transactions"`
+			Account          account              `json:"account"`
+			Call             callResult           `json:"call"`
+			EstimateGas      string               `json:"estimateGas"`
+		} `json:"pending"`
 		Transaction graphQLTransaction `json:"transaction"`
 		Logs        []graphQLLog       `json:"logs"`
 		GasPrice    string             `json:"gasPrice"`
@@ -58,15 +101,91 @@ func (suite *liveSuite) assertGraphQLQueries(ctx context.Context) {
 		ChainID     string             `json:"chainID"`
 	}
 	gomega.Expect(json.Unmarshal(data, &root)).To(gomega.Succeed())
+
+	header := fixture.block.Header()
+	rawHeader, err := rlp.EncodeToBytes(header)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	rawBlock, err := rlp.EncodeToBytes(fixture.block)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	balance, err := suite.client.BalanceAt(ctx, fixture.address, fixture.receipt.BlockNumber)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	nonce, err := suite.client.NonceAt(ctx, fixture.address, fixture.receipt.BlockNumber)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	code, err := suite.client.CodeAt(ctx, fixture.address, fixture.receipt.BlockNumber)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
+	callArgs := map[string]any{
+		"from": suite.from,
+		"to":   fixture.address,
+		"data": "0x",
+	}
+	var blockEstimate hexutil.Uint64
+	gomega.Expect(suite.client.Client().CallContext(
+		ctx,
+		&blockEstimate,
+		"qrl_estimateGas",
+		callArgs,
+		rpc.BlockNumberOrHashWithNumber(rpc.BlockNumber(fixture.block.NumberU64())),
+	)).To(gomega.Succeed())
+	var pendingEstimate hexutil.Uint64
+	gomega.Expect(suite.client.Client().CallContext(
+		ctx,
+		&pendingEstimate,
+		"qrl_estimateGas",
+		callArgs,
+		rpc.BlockNumberOrHashWithNumber(rpc.PendingBlockNumber),
+	)).To(gomega.Succeed())
+
+	gomega.Expect(root.Block.Number).To(gomega.Equal(block))
 	gomega.Expect(root.Block.Hash).To(gomega.Equal(fixture.block.Hash().Hex()))
+	gomega.Expect(root.Block.Parent.Number).To(
+		gomega.Equal(hexutil.EncodeUint64(fixture.block.NumberU64() - 1)),
+	)
+	gomega.Expect(root.Block.Parent.Hash).To(gomega.Equal(header.ParentHash.Hex()))
+	gomega.Expect(root.Block.TransactionsRoot).To(gomega.Equal(header.TxHash.Hex()))
+	gomega.Expect(root.Block.TransactionCount).To(
+		gomega.Equal(hexutil.EncodeUint64(uint64(len(fixture.block.Transactions())))),
+	)
+	gomega.Expect(root.Block.StateRoot).To(gomega.Equal(header.Root.Hex()))
+	gomega.Expect(root.Block.ReceiptsRoot).To(gomega.Equal(header.ReceiptHash.Hex()))
+	gomega.Expect(root.Block.Miner.Address).To(gomega.Equal(header.Coinbase.Hex()))
+	gomega.Expect(root.Block.ExtraData).To(gomega.Equal(hexutil.Encode(header.Extra)))
+	gomega.Expect(root.Block.GasLimit).To(gomega.Equal(hexutil.EncodeUint64(header.GasLimit)))
+	gomega.Expect(root.Block.GasUsed).To(gomega.Equal(hexutil.EncodeUint64(header.GasUsed)))
+	gomega.Expect(root.Block.BaseFeePerGas).To(gomega.Equal(hexutil.EncodeBig(header.BaseFee)))
+	gomega.Expect(root.Block.Timestamp).To(gomega.Equal(hexutil.EncodeUint64(header.Time)))
+	gomega.Expect(root.Block.LogsBloom).To(gomega.Equal(hexutil.Encode(header.Bloom.Bytes())))
+	gomega.Expect(root.Block.Random).To(gomega.Equal(header.Random.Hex()))
+	gomega.Expect(root.Block.TransactionAt.Hash).To(gomega.Equal(fixture.tx.Hash().Hex()))
+	gomega.Expect(root.Block.RawHeader).To(gomega.Equal(hexutil.Encode(rawHeader)))
+	gomega.Expect(root.Block.Raw).To(gomega.Equal(hexutil.Encode(rawBlock)))
 	gomega.Expect(root.BlockByHash.Hash).To(gomega.Equal(fixture.block.Hash().Hex()))
-	gomega.Expect(root.Blocks).To(gomega.HaveLen(1))
-	gomega.Expect(root.Pending).NotTo(gomega.BeEmpty())
+	gomega.Expect(root.BlockByHash.Number).To(gomega.Equal(block))
+	gomega.Expect(root.Blocks).To(gomega.Equal([]struct {
+		Number string `json:"number"`
+		Hash   string `json:"hash"`
+	}{{Number: block, Hash: fixture.block.Hash().Hex()}}))
+	gomega.Expect(root.Pending.TransactionCount).To(
+		gomega.Equal(hexutil.EncodeUint64(uint64(len(root.Pending.Transactions)))),
+	)
+	gomega.Expect(root.Pending.Account.Address).To(gomega.Equal(suite.from.Hex()))
 	gomega.Expect(root.Block.Account.Address).To(gomega.Equal(fixture.address.Hex()))
+	gomega.Expect(root.Block.Account.Balance).To(gomega.Equal(hexutil.EncodeBig(balance)))
+	gomega.Expect(root.Block.Account.TransactionCount).To(gomega.Equal(hexutil.EncodeUint64(nonce)))
+	gomega.Expect(root.Block.Account.Code).To(gomega.Equal(hexutil.Encode(code)))
 	gomega.Expect(root.Block.Account.Storage).To(
 		gomega.Equal(fixture.value.Hex()),
 		"GraphQL account storage",
 	)
+	for _, call := range []callResult{root.Block.Call, root.Pending.Call} {
+		gomega.Expect(call.Data).To(gomega.Equal(hexutil.Encode(fixture.value[:])))
+		gomega.Expect(call.Status).To(gomega.Equal("0x1"))
+		gasUsed, err := hexutil.DecodeUint64(call.GasUsed)
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		gomega.Expect(gasUsed).To(gomega.BeNumerically(">", 0))
+	}
+	gomega.Expect(root.Block.EstimateGas).To(gomega.Equal(blockEstimate.String()))
+	gomega.Expect(root.Pending.EstimateGas).To(gomega.Equal(pendingEstimate.String()))
 	gomega.Expect(root.GasPrice).NotTo(gomega.BeEmpty())
 	gomega.Expect(root.PriorityFee).NotTo(gomega.BeEmpty())
 	gomega.Expect(root.ChainID).To(gomega.Equal(hexutil.EncodeBig(suite.chainID)))
