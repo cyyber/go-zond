@@ -81,8 +81,7 @@ func (suite *liveSuite) assertTxPool(ctx context.Context) {
 		&managedPending,
 		"qrl_pendingTransactions",
 	)).To(gomega.Succeed())
-	// This profile has no node-managed accounts, even while the pool contains
-	// transactions signed by the suite's external wallet.
+	// The pool entries were signed by suite wallets, not the Clef-managed account.
 	gomega.Expect(managedPending).To(gomega.BeEmpty())
 
 	pending, err := suite.signTransactionForWallet(

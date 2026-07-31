@@ -1,0 +1,16 @@
+FROM golang:1.26.5-alpine AS builder
+
+RUN apk add --no-cache gcc musl-dev linux-headers git
+
+COPY go.mod /go-qrl/
+COPY go.sum /go-qrl/
+RUN cd /go-qrl && go mod download
+
+ADD . /go-qrl
+RUN cd /go-qrl && go run build/ci.go install -static ./cmd/clef ./testing/endtoend/cmd/clefauto
+
+FROM alpine:latest
+
+RUN apk add --no-cache ca-certificates
+COPY --from=builder /go-qrl/build/bin/clef /usr/local/bin/clef-bin
+COPY --from=builder /go-qrl/build/bin/clefauto /usr/local/bin/clef

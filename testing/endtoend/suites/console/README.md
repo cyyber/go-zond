@@ -34,8 +34,8 @@ Excluded:
 
 - Exhaustive raw JSON-RPC behavior, covered by the API suite.
 - Generated Go bindings and unsupported ABI classes, covered by the ABI suite.
-- Direct node-managed `qrl_sendTransaction`, which is not exposed by this
-  devnet profile.
+- Direct node-managed `qrl_sendTransaction`, covered by the external signer
+  suite.
 - Nested arrays containing dynamic elements, which remain outside the current
   embedded web3 ABI coverage.
 - Node lifecycle and unsafe debug operations.

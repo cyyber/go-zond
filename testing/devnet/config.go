@@ -19,9 +19,10 @@ const (
 	executionImagePlaceholder = "__DEVNET_EXECUTION_IMAGE__"
 	walletAddressPlaceholder  = "__DEVNET_WALLET_ADDRESS__"
 
-	consensusImage = "qrledger/qrysm:beacon-chain-8b80fa0c3f5a"
-	validatorImage = "qrledger/qrysm:validator-8b80fa0c3f5a"
-	genesisImage   = "qrledger/qrysm:qrl-genesis-generator-360410c72353-8b80fa0c3f5a"
+	consensusImage    = "qrledger/qrysm:beacon-chain-8b80fa0c3f5a"
+	validatorImage    = "qrledger/qrysm:validator-8b80fa0c3f5a"
+	genesisImage      = "qrledger/qrysm:qrl-genesis-generator-360410c72353-8b80fa0c3f5a"
+	remoteSignerImage = "local/go-qrl-clef:devnet"
 
 	executionServiceName = "el-1-gqrl-qrysm"
 	rpcPortID            = "rpc"
@@ -46,11 +47,14 @@ type packageParameters struct {
 }
 
 type participant struct {
-	ELImage       string   `json:"el_image"`
-	ELExtraParams []string `json:"el_extra_params"`
-	CLImage       string   `json:"cl_image"`
-	CLExtraParams []string `json:"cl_extra_params"`
-	VCImage       string   `json:"vc_image"`
+	ELImage           string   `json:"el_image"`
+	ELExtraParams     []string `json:"el_extra_params"`
+	CLImage           string   `json:"cl_image"`
+	CLExtraParams     []string `json:"cl_extra_params"`
+	VCImage           string   `json:"vc_image"`
+	UseRemoteSigner   bool     `json:"use_remote_signer"`
+	RemoteSignerType  string   `json:"remote_signer_type"`
+	RemoteSignerImage string   `json:"remote_signer_image"`
 }
 
 type networkParams struct {
@@ -79,11 +83,14 @@ func effectiveParameters(address, executionImage string, custom []byte) (string,
 	}
 	payload, err := json.Marshal(packageParameters{
 		Participants: []participant{{
-			ELImage:       executionImage,
-			ELExtraParams: []string{"--graphql", "--graphql.vhosts=*"},
-			CLImage:       consensusImage,
-			CLExtraParams: []string{"--min-sync-peers=0", "--minimum-peers-per-subnet=0"},
-			VCImage:       validatorImage,
+			ELImage:           executionImage,
+			ELExtraParams:     []string{"--graphql", "--graphql.vhosts=*"},
+			CLImage:           consensusImage,
+			CLExtraParams:     []string{"--min-sync-peers=0", "--minimum-peers-per-subnet=0"},
+			VCImage:           validatorImage,
+			UseRemoteSigner:   true,
+			RemoteSignerType:  "clef",
+			RemoteSignerImage: remoteSignerImage,
 		}},
 		NetworkParams: networkParams{
 			NetworkID:               defaultNetworkID,

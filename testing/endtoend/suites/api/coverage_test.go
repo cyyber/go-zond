@@ -25,6 +25,7 @@ const (
 	coverageUnsafe     = "excluded: mutates node configuration, chain, or files"
 	coverageNotExposed = "excluded: not exposed by the devnet profile"
 	coverageInternal   = "excluded: internal compatibility callback"
+	coverageSigner     = "covered by the external signer suite"
 
 	scenarioNodeMetadata             = "node-metadata"
 	scenarioChainState               = "chain-state"
@@ -117,7 +118,7 @@ var apiCoverage = map[string]apiCoverageEntry{
 	"qrl_maxPriorityFeePerGas":                   behavior(scenarioChainState),
 	"qrl_feeHistory":                             behavior(scenarioChainState),
 	"qrl_syncing":                                behavior(scenarioChainState),
-	"qrl_accounts":                               excluded(coverageNotExposed),
+	"qrl_accounts":                               excluded(coverageSigner),
 	"qrl_chainId":                                behavior(scenarioChainState),
 	"qrl_blockNumber":                            behavior(scenarioChainState),
 	"qrl_getBalance":                             behavior(scenarioChainState),
@@ -142,11 +143,11 @@ var apiCoverage = map[string]apiCoverageEntry{
 	"qrl_getTransactionByHash":                   behavior(scenarioTransactions),
 	"qrl_getRawTransactionByHash":                behavior(scenarioTransactions),
 	"qrl_getTransactionReceipt":                  behavior(scenarioTransactions),
-	"qrl_sendTransaction":                        excluded(coverageNotExposed),
+	"qrl_sendTransaction":                        excluded(coverageSigner),
 	"qrl_fillTransaction":                        behavior(scenarioTransactions),
 	"qrl_sendRawTransaction":                     behavior(scenarioTransactions),
-	"qrl_sign":                                   excluded(coverageNotExposed),
-	"qrl_signTransaction":                        excluded(coverageNotExposed),
+	"qrl_sign":                                   excluded(coverageSigner),
+	"qrl_signTransaction":                        excluded(coverageSigner),
 	"qrl_pendingTransactions":                    behavior(scenarioTxPool),
 
 	"qrl_newPendingTransactionFilter": behavior(scenarioPendingFilter),

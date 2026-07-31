@@ -23,5 +23,7 @@ and open `internal/live.Session` for endpoints, clients, the development wallet,
 and chain ID. Keep network lifecycle management outside the suites.
 
 The [ABI](suites/abi/README.md), [API](suites/api/README.md),
-[console](suites/console/README.md), and [Clef](suites/clef/README.md) suites
-document their focused commands and coverage.
+[console](suites/console/README.md), [Clef](suites/clef/README.md),
+[external signer](suites/externalsigner/README.md), and
+[VM/precompile](suites/vm/README.md) suites document their focused commands and
+coverage.

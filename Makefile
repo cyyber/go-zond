@@ -73,6 +73,7 @@ network-start:
 	}
 	kurtosis engine start
 	docker build --tag "$(DEVNET_EXECUTION_IMAGE)" .
+	docker build --file testing/endtoend/Dockerfile.clef --tag "local/go-qrl-clef:devnet" .
 	$(DEVNET_GO) run ./cmd/devnet start \
 		--execution-image "$(DEVNET_EXECUTION_IMAGE)" \
 		$(if $(DEVNET_ENCLAVE_NAME),--enclave-name "$(DEVNET_ENCLAVE_NAME)") \
