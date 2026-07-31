@@ -70,6 +70,18 @@ func TestToFilterArg(t *testing.T) {
 		err    error
 	}{
 		{
+			"without addresses",
+			qrl.FilterQuery{
+				FromBlock: big.NewInt(1),
+				ToBlock:   big.NewInt(2),
+			},
+			map[string]any{
+				"fromBlock": "0x1",
+				"toBlock":   "0x2",
+			},
+			nil,
+		},
+		{
 			"without BlockHash",
 			qrl.FilterQuery{
 				Addresses: addresses,
