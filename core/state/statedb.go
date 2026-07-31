@@ -685,8 +685,8 @@ func (s *StateDB) Copy() *StateDB {
 	// along with their original values.
 	state.accounts = copySet(s.accounts)
 	state.storages = copy2DSet(s.storages)
-	state.accountsOrigin = copySet(state.accountsOrigin)
-	state.storagesOrigin = copy2DSet(state.storagesOrigin)
+	state.accountsOrigin = copySet(s.accountsOrigin)
+	state.storagesOrigin = copy2DSet(s.storagesOrigin)
 
 	// Deep copy the logs occurred in the scope of block
 	for hash, logs := range s.logs {
