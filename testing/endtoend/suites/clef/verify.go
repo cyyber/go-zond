@@ -119,3 +119,22 @@ func verifyTransaction(
 	}
 	return nil
 }
+
+func verifyTransactionSender(result signTransactionResult, account common.Address) error {
+	if len(result.Raw) == 0 || result.Tx == nil {
+		return errors.New("account_signTransaction must return raw and tx")
+	}
+	var decoded types.Transaction
+	if err := decoded.UnmarshalBinary(result.Raw); err != nil {
+		return fmt.Errorf("decode signed transaction: %w", err)
+	}
+	signer := types.LatestSignerForChainID(decoded.ChainId())
+	sender, err := types.Sender(signer, &decoded)
+	if err != nil {
+		return fmt.Errorf("recover signed transaction sender: %w", err)
+	}
+	if sender != account {
+		return fmt.Errorf("signed transaction sender: got %s, want %s", sender.Hex(), account.Hex())
+	}
+	return nil
+}

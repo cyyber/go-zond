@@ -24,8 +24,8 @@ Covered:
   signed raw submission, and canonical ABI-decoded Q-addresses.
 - VM64 scalars, dynamic values, fixed-byte boundaries, fixed and dynamic
   arrays, and nested arrays containing dynamic elements.
-- Receipt logs, exact/wildcard/OR filters, generated event decoding, and
-  WebSocket event watches with indexed dynamic string and bytes fields.
+- Receipt logs, exact/wildcard/OR filters, generated indexed event filters and
+  decoding, and WebSocket watches with indexed address, string, and bytes fields.
 
 Representative boundaries include values with non-zero upper 256 bits,
 `bytes33`/`bytes64`, data crossing a 64-byte boundary, and full 64-byte topics.

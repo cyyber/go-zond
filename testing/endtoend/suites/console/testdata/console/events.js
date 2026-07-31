@@ -24,7 +24,11 @@ if (request.method !== "qrl_sendTransaction" ||
     throw new Error("unexpected state-changing wrapper request");
 }
 
-var watcher = contract.Stored({}, {fromBlock: "latest"});
+var watcher = contract.Stored({
+    sender: PARAMS.address,
+    label: PARAMS.storeLabel,
+    payload: PARAMS.storePayload
+}, {fromBlock: "latest"});
 watcher.watch(function (error, event) {
     try {
         if (error) {

@@ -315,27 +315,37 @@ func verifyTypedDataSigning(
 	chainID *big.Int,
 	expectedWallet wallet.Wallet,
 ) error {
+	typedSignature, typedDigest, err := signTypedData(ctx, client, account, chainID)
+	if err != nil {
+		return err
+	}
+	return verifySignature(
+		"account_signTypedData",
+		typedSignature,
+		typedDigest,
+		expectedWallet,
+	)
+}
+
+func signTypedData(
+	ctx context.Context,
+	client *rpc.Client,
+	account common.Address,
+	chainID *big.Int,
+) (hexutil.Bytes, []byte, error) {
 	typedData := expectedTypedData(account, chainID)
 	var typedSignature hexutil.Bytes
 	if err := callRPC(ctx, client, &typedSignature, "account_signTypedData",
 		account.Hex(),
 		typedData,
 	); err != nil {
-		return err
+		return nil, nil, err
 	}
 	typedDigest, _, err := apitypes.TypedDataAndHash(typedData)
 	if err != nil {
-		return fmt.Errorf("hash typed data: %w", err)
+		return nil, nil, fmt.Errorf("hash typed data: %w", err)
 	}
-	if err := verifySignature(
-		"account_signTypedData",
-		typedSignature,
-		typedDigest,
-		expectedWallet,
-	); err != nil {
-		return err
-	}
-	return nil
+	return typedSignature, typedDigest, nil
 }
 
 func signTransaction(

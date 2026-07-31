@@ -24,9 +24,12 @@ wallet and verifies:
   rejection to the caller.
 - `account_signData` returns a valid signature for `data/validator`.
 - `account_signTypedData` returns a valid signature for QRL typed data.
+- The ML-DSA-87 precompile verifies the signature produced by
+  `account_signTypedData` with the wallet's descriptor-bound context.
 - `account_signTransaction` returns matching raw and decoded VM64 transaction
   representations with the expected public key, descriptor, signature, and
   sender.
+- A newly created password-protected account can still sign after Clef restarts.
 
 The suite uses the live network's chain ID for Clef startup, typed-data signing,
 and transaction signing. The transaction scenario also derives its nonce and

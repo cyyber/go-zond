@@ -13,10 +13,14 @@ import (
 
 	ginkgo "github.com/onsi/ginkgo/v2"
 	gomega "github.com/onsi/gomega"
+	qrl "github.com/theQRL/go-qrl"
 	qrlbind "github.com/theQRL/go-qrl/accounts/abi/bind"
+	"github.com/theQRL/go-qrl/common"
 	"github.com/theQRL/go-qrl/core/types"
+	qrvm "github.com/theQRL/go-qrl/core/vm"
 	"github.com/theQRL/go-qrl/testing/endtoend/internal/build"
 	endtoendlive "github.com/theQRL/go-qrl/testing/endtoend/internal/live"
+	qrllibwallet "github.com/theQRL/go-qrllib/wallet/common"
 )
 
 const liveSpecTimeout = 10 * time.Minute
@@ -108,6 +112,34 @@ var _ = ginkgo.Describe(
 			).To(gomega.Succeed())
 		}, ginkgo.SpecTimeout(liveSpecTimeout))
 
+		ginkgo.It("verifies a Clef typed-data signature through the precompile", func(ctx ginkgo.SpecContext) {
+			signature, digest, err := signTypedData(
+				ctx,
+				session.client,
+				session.account,
+				session.chainID,
+			)
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
+			context := qrllibwallet.SigningContext(session.expectedWallet.GetDescriptor())
+			input := make([]byte, 0, len(digest)+len(session.expectedWallet.GetPK())+len(signature)+1+len(context))
+			input = append(input, digest...)
+			input = append(input, session.expectedWallet.GetPK()...)
+			input = append(input, signature...)
+			input = append(input, byte(len(context)))
+			input = append(input, context...)
+
+			address := common.BytesToAddress([]byte{3})
+			output, err := network.Client.CallContract(ctx, qrl.CallMsg{
+				From: session.account,
+				To:   &address,
+				Gas:  500_000,
+				Data: input,
+			}, nil)
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			gomega.Expect(output).To(gomega.Equal(common.LeftPadBytes([]byte{1}, qrvm.WordBytes)))
+		}, ginkgo.SpecTimeout(liveSpecTimeout))
+
 		ginkgo.It("signs, submits, and confirms a transaction", func(ctx ginkgo.SpecContext) {
 			nonce, err := network.Client.PendingNonceAt(ctx, session.account)
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
@@ -135,6 +167,20 @@ var _ = ginkgo.Describe(
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 			gomega.Expect(session.restart(ctx, context.WithoutCancel(ctx))).To(gomega.Succeed())
 			gomega.Expect(verifyAccountPresent(ctx, session.client, account)).To(gomega.Succeed())
+
+			nonce, err := network.Client.PendingNonceAt(ctx, account)
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			tip, err := network.Client.SuggestGasTipCap(ctx)
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			feeCap, err := network.Client.SuggestGasPrice(ctx)
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			signed, err := signTransaction(
+				ctx,
+				session.client,
+				transactionArgs(account, session.chainID, nonce, tip, feeCap),
+			)
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			gomega.Expect(verifyTransactionSender(signed, account)).To(gomega.Succeed())
 		}, ginkgo.SpecTimeout(liveSpecTimeout))
 	},
 )

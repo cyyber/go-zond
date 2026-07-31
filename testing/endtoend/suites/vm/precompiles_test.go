@@ -26,9 +26,12 @@ import (
 )
 
 type precompileVector struct {
-	address common.Address
-	input   []byte
-	want    []byte
+	address   common.Address
+	input     []byte
+	want      []byte
+	gas       uint64
+	emptyWant []byte
+	emptyGas  uint64
 }
 
 var _ = ginkgo.Describe(
@@ -54,9 +57,12 @@ var _ = ginkgo.Describe(
 
 		ginkgo.It("executes one successful vector for every precompile", func(ctx ginkgo.SpecContext) {
 			for _, vector := range vectors {
+				intrinsic, err := core.IntrinsicGas(vector.input, nil, false)
+				gomega.Expect(err).NotTo(gomega.HaveOccurred())
 				output, err := session.Client.CallContract(ctx, qrl.CallMsg{
 					From: session.Address,
 					To:   &vector.address,
+					Gas:  intrinsic + vector.gas,
 					Data: vector.input,
 				}, nil)
 				gomega.Expect(err).NotTo(gomega.HaveOccurred())
@@ -66,15 +72,62 @@ var _ = ginkgo.Describe(
 
 		ginkgo.It("preserves each precompile's defined empty-input behavior", func(ctx ginkgo.SpecContext) {
 			for _, vector := range vectors {
-				contract := qrvm.PrecompiledContractsZond[vector.address]
-				want, err := contract.Run(nil)
+				intrinsic, err := core.IntrinsicGas(nil, nil, false)
 				gomega.Expect(err).NotTo(gomega.HaveOccurred())
 				output, err := session.Client.CallContract(ctx, qrl.CallMsg{
 					From: session.Address,
 					To:   &vector.address,
+					Gas:  intrinsic + vector.emptyGas,
 				}, nil)
 				gomega.Expect(err).NotTo(gomega.HaveOccurred())
-				gomega.Expect(output).To(gomega.Equal(want))
+				if vector.emptyWant == nil {
+					gomega.Expect(output).To(gomega.BeEmpty())
+				} else {
+					gomega.Expect(output).To(gomega.Equal(vector.emptyWant))
+				}
+			}
+		}, ginkgo.SpecTimeout(liveSpecTimeout))
+
+		ginkgo.It("prices SHA-256 and identity inputs in 64-byte words", func(ctx ginkgo.SpecContext) {
+			for _, size := range []int{63, 64, 65} {
+				input := bytes.Repeat([]byte{byte(size)}, size)
+				shaOutput := sha256.Sum256(input)
+				words := uint64((size + qrvm.WordBytes - 1) / qrvm.WordBytes)
+				for _, test := range []struct {
+					address common.Address
+					want    []byte
+					gas     uint64
+				}{
+					{
+						address: common.BytesToAddress([]byte{2}),
+						want:    shaOutput[:],
+						gas:     60 + 12*words,
+					},
+					{
+						address: common.BytesToAddress([]byte{4}),
+						want:    input,
+						gas:     15 + 3*words,
+					},
+				} {
+					intrinsic, err := core.IntrinsicGas(input, nil, false)
+					gomega.Expect(err).NotTo(gomega.HaveOccurred())
+					output, err := session.Client.CallContract(ctx, qrl.CallMsg{
+						From: session.Address,
+						To:   &test.address,
+						Gas:  intrinsic + test.gas,
+						Data: input,
+					}, nil)
+					gomega.Expect(err).NotTo(gomega.HaveOccurred())
+					gomega.Expect(output).To(gomega.Equal(test.want))
+
+					_, err = session.Client.CallContract(ctx, qrl.CallMsg{
+						From: session.Address,
+						To:   &test.address,
+						Gas:  intrinsic + test.gas - 1,
+						Data: input,
+					}, nil)
+					gomega.Expect(err).To(gomega.HaveOccurred())
+				}
 			}
 		}, ginkgo.SpecTimeout(liveSpecTimeout))
 
@@ -91,14 +144,12 @@ var _ = ginkgo.Describe(
 
 		ginkgo.It("rejects insufficient gas for every precompile", func(ctx ginkgo.SpecContext) {
 			for _, vector := range vectors {
-				contract := qrvm.PrecompiledContractsZond[vector.address]
 				intrinsic, err := core.IntrinsicGas(vector.input, nil, false)
 				gomega.Expect(err).NotTo(gomega.HaveOccurred())
-				required := contract.RequiredGas(vector.input)
 				_, err = session.Client.CallContract(ctx, qrl.CallMsg{
 					From: session.Address,
 					To:   &vector.address,
-					Gas:  intrinsic + required - 1,
+					Gas:  intrinsic + vector.gas - 1,
 					Data: vector.input,
 				}, nil)
 				gomega.Expect(err).To(gomega.HaveOccurred())
@@ -109,16 +160,46 @@ var _ = ginkgo.Describe(
 
 func precompileVectors() []precompileVector {
 	shaOutput := sha256.Sum256([]byte("abc"))
+	emptySHAOutput := sha256.Sum256(nil)
+	depositRoot := hexutil.MustDecode("0x474d096b9dd154f74b552328a38dee860e0a25bf3af8f0f0371266dddc9ab676")
 	vectors := []precompileVector{
 		{
-			address: common.BytesToAddress([]byte{1}),
-			input:   depositInput(),
-			want:    hexutil.MustDecode("0x474d096b9dd154f74b552328a38dee860e0a25bf3af8f0f0371266dddc9ab676"),
+			address:   common.BytesToAddress([]byte{1}),
+			input:     depositInput(),
+			want:      depositRoot,
+			gas:       18_000,
+			emptyWant: depositRoot,
+			emptyGas:  18_000,
 		},
-		{address: common.BytesToAddress([]byte{2}), input: []byte("abc"), want: shaOutput[:]},
-		{address: common.BytesToAddress([]byte{3}), input: mldsaInput(), want: common.LeftPadBytes([]byte{1}, qrvm.WordBytes)},
-		{address: common.BytesToAddress([]byte{4}), input: []byte("identity"), want: []byte("identity")},
-		{address: common.BytesToAddress([]byte{5}), input: modExpInput(), want: []byte{6}},
+		{
+			address:   common.BytesToAddress([]byte{2}),
+			input:     []byte("abc"),
+			want:      shaOutput[:],
+			gas:       72,
+			emptyWant: emptySHAOutput[:],
+			emptyGas:  60,
+		},
+		{
+			address:  common.BytesToAddress([]byte{3}),
+			input:    mldsaInput(),
+			want:     common.LeftPadBytes([]byte{1}, qrvm.WordBytes),
+			gas:      125_000,
+			emptyGas: 125_000,
+		},
+		{
+			address:  common.BytesToAddress([]byte{4}),
+			input:    []byte("identity"),
+			want:     []byte("identity"),
+			gas:      18,
+			emptyGas: 15,
+		},
+		{
+			address:  common.BytesToAddress([]byte{5}),
+			input:    modExpInput(),
+			want:     []byte{6},
+			gas:      200,
+			emptyGas: 200,
+		},
 	}
 	sort.Slice(vectors, func(i, j int) bool {
 		return bytes.Compare(vectors[i].address[:], vectors[j].address[:]) < 0

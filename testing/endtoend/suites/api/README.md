@@ -21,7 +21,8 @@ Each method is validated at the strongest stable level:
 Covered:
 
 - HTTP JSON-RPC namespaces and read-only node metadata
-- blocks, transactions, receipts, account state, storage, proofs, and calls
+- blocks, transactions, receipts, account state, storage, cryptographically
+  verified account/storage proofs, exact access-list generation, and calls
 - non-empty pending and queued transaction-pool inspection
 - log and block filters
 - WebSocket head, log, pending hash, and full pending-transaction subscriptions

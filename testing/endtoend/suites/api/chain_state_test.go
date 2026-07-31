@@ -8,12 +8,19 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"math/big"
 
 	qrl "github.com/theQRL/go-qrl"
 	"github.com/theQRL/go-qrl/common"
+	"github.com/theQRL/go-qrl/common/hexutil"
+	"github.com/theQRL/go-qrl/core/types"
+	"github.com/theQRL/go-qrl/crypto"
 	"github.com/theQRL/go-qrl/qrlclient/gqrlclient"
+	"github.com/theQRL/go-qrl/qrldb/memorydb"
+	"github.com/theQRL/go-qrl/rlp"
 	"github.com/theQRL/go-qrl/rpc"
+	"github.com/theQRL/go-qrl/trie"
 
 	ginkgo "github.com/onsi/ginkgo/v2"
 	gomega "github.com/onsi/gomega"
@@ -117,10 +124,40 @@ func (suite *liveSuite) assertChainState(ctx context.Context) {
 	gomega.Expect(proof.StorageProof[0].Value).To(
 		gomega.Equal(new(big.Int).SetBytes(fixture.value[:])),
 	)
+	accountProof, err := proofDatabase(proof.AccountProof)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	accountData, err := trie.VerifyProof(
+		fixture.block.Root(),
+		crypto.Keccak256(fixture.address.Bytes()),
+		accountProof,
+	)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	var account types.StateAccount
+	gomega.Expect(rlp.DecodeBytes(accountData, &account)).To(gomega.Succeed())
+	gomega.Expect(account.Nonce).To(gomega.Equal(proof.Nonce))
+	gomega.Expect(account.Balance.Cmp(proof.Balance)).To(gomega.BeZero())
+	gomega.Expect(account.Root).To(gomega.Equal(proof.StorageHash))
+	gomega.Expect(common.BytesToHash(account.CodeHash)).To(gomega.Equal(proof.CodeHash))
+
+	storageProof, err := proofDatabase(proof.StorageProof[0].Proof)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	storageData, err := trie.VerifyProof(
+		proof.StorageHash,
+		crypto.Keccak256((common.Hash{}).Bytes()),
+		storageProof,
+	)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	wantStorageData, err := rlp.EncodeToBytes(common.TrimLeftZeroes(fixture.value[:]))
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	gomega.Expect(storageData).To(gomega.Equal(wantStorageData))
 
 	accessList, accessGas, accessError, err := proofClient.CreateAccessList(ctx, call)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	gomega.Expect(accessList).NotTo(gomega.BeNil())
+	gomega.Expect(*accessList).To(gomega.Equal(types.AccessList{{
+		Address:     fixture.address,
+		StorageKeys: []common.Hash{{}},
+	}}))
 	gomega.Expect(accessGas).To(gomega.BeNumerically(">", 0))
 	gomega.Expect(accessError).To(gomega.BeEmpty())
 
@@ -136,4 +173,18 @@ func (suite *liveSuite) assertChainState(ctx context.Context) {
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	gomega.Expect(receiptsByHash).To(gomega.HaveLen(len(receiptsByNumber)))
 	gomega.Expect(receiptsByHash[receiptIndex].TxHash).To(gomega.Equal(fixture.tx.Hash()))
+}
+
+func proofDatabase(nodes []string) (*memorydb.Database, error) {
+	database := memorydb.New()
+	for _, encoded := range nodes {
+		node, err := hexutil.Decode(encoded)
+		if err != nil {
+			return nil, fmt.Errorf("decode proof node: %w", err)
+		}
+		if err := database.Put(crypto.Keccak256(node), node); err != nil {
+			return nil, fmt.Errorf("store proof node: %w", err)
+		}
+	}
+	return database, nil
 }

@@ -70,6 +70,18 @@ func returnWordCode(value []byte) []byte {
 	return append(push(value), returnTop()...)
 }
 
+func echoCalldataCode() []byte {
+	return []byte{
+		byte(qrvm.CALLDATASIZE),
+		byte(qrvm.PUSH1), 0,
+		byte(qrvm.PUSH1), 0,
+		byte(qrvm.CALLDATACOPY),
+		byte(qrvm.CALLDATASIZE),
+		byte(qrvm.PUSH1), 0,
+		byte(qrvm.RETURN),
+	}
+}
+
 func callCode(op qrvm.OpCode, target common.Address) []byte {
 	code := []byte{
 		byte(qrvm.PUSH1), byte(3 * qrvm.WordBytes),

@@ -79,6 +79,18 @@ var _ = ginkgo.Describe(
 			}
 		}, ginkgo.SpecTimeout(liveSpecTimeout))
 
+		ginkgo.It("copies calldata across 64-byte word boundaries", func(ctx ginkgo.SpecContext) {
+			for _, size := range []int{63, 64, 65} {
+				input := make([]byte, size)
+				for index := range input {
+					input[index] = byte(index + 1)
+				}
+				gomega.Expect(suite.callCodeWithInput(ctx, echoCalldataCode(), input, nil)).To(
+					gomega.Equal(input),
+				)
+			}
+		}, ginkgo.SpecTimeout(liveSpecTimeout))
+
 		ginkgo.It("executes CALL, STATICCALL, and DELEGATECALL", func(ctx ginkgo.SpecContext) {
 			callee := common.BytesToAddress([]byte{0xf1})
 			overrides := qrlapi.StateOverride{callee: codeOverride(callContextCode())}
@@ -147,6 +159,15 @@ func (suite *liveSuite) callCode(
 	code []byte,
 	extra qrlapi.StateOverride,
 ) []byte {
+	return suite.callCodeWithInput(ctx, code, nil, extra)
+}
+
+func (suite *liveSuite) callCodeWithInput(
+	ctx context.Context,
+	code []byte,
+	input []byte,
+	extra qrlapi.StateOverride,
+) []byte {
 	ginkgo.GinkgoHelper()
 
 	overrides := qrlapi.StateOverride{suite.target: codeOverride(code)}
@@ -159,9 +180,10 @@ func (suite *liveSuite) callCode(
 		&output,
 		"qrl_call",
 		map[string]any{
-			"from": suite.session.Address,
-			"to":   suite.target,
-			"gas":  hexutil.Uint64(10_000_000),
+			"from":  suite.session.Address,
+			"to":    suite.target,
+			"gas":   hexutil.Uint64(10_000_000),
+			"input": hexutil.Bytes(input),
 		},
 		"latest",
 		overrides,
