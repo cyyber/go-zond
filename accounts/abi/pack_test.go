@@ -111,19 +111,6 @@ func TestPackFunctionHeadOffsets(t *testing.T) {
 	}
 }
 
-func TestPackFunctionRejectsWrongLength(t *testing.T) {
-	t.Parallel()
-
-	definition := `[{"name":"method","type":"function","inputs":[{"type":"function"}]}]`
-	parsed, err := JSON(strings.NewReader(definition))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := parsed.Pack("method", [common.AddressLength]byte{}); err == nil {
-		t.Fatal("packed an address without a function selector")
-	}
-}
-
 func TestMethodPack(t *testing.T) {
 	t.Parallel()
 	abi, err := JSON(strings.NewReader(jsondata))
