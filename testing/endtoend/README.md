@@ -14,9 +14,7 @@ make network-stop
 
 Use the same `DEVNET_ENCLAVE_NAME` for all commands when overriding the default.
 `E2E_SUITE_TIMEOUT` controls the Ginkgo execution budget and defaults to `25m`.
-Ginkgo continues through all selected suite packages and writes unified JUnit
-and JSON reports to `build/cache/e2e`. Override `E2E_REPORT_DIR` to change that
-location.
+Ginkgo continues through all selected suite packages when a suite fails.
 
 ## Adding a suite
 
