@@ -13,6 +13,7 @@ import (
 
 	qrl "github.com/theQRL/go-qrl"
 	"github.com/theQRL/go-qrl/common"
+	"github.com/theQRL/go-qrl/common/hexutil"
 	"github.com/theQRL/go-qrl/core"
 	qrvm "github.com/theQRL/go-qrl/core/vm"
 	"github.com/theQRL/go-qrl/crypto"
@@ -109,7 +110,11 @@ var _ = ginkgo.Describe(
 func precompileVectors() []precompileVector {
 	shaOutput := sha256.Sum256([]byte("abc"))
 	vectors := []precompileVector{
-		localVector(1, depositInput()),
+		{
+			address: common.BytesToAddress([]byte{1}),
+			input:   depositInput(),
+			want:    hexutil.MustDecode("0x474d096b9dd154f74b552328a38dee860e0a25bf3af8f0f0371266dddc9ab676"),
+		},
 		{address: common.BytesToAddress([]byte{2}), input: []byte("abc"), want: shaOutput[:]},
 		{address: common.BytesToAddress([]byte{3}), input: mldsaInput(), want: common.LeftPadBytes([]byte{1}, qrvm.WordBytes)},
 		{address: common.BytesToAddress([]byte{4}), input: []byte("identity"), want: []byte("identity")},
@@ -119,15 +124,6 @@ func precompileVectors() []precompileVector {
 		return bytes.Compare(vectors[i].address[:], vectors[j].address[:]) < 0
 	})
 	return vectors
-}
-
-func localVector(addressByte byte, input []byte) precompileVector {
-	address := common.BytesToAddress([]byte{addressByte})
-	want, err := qrvm.PrecompiledContractsZond[address].Run(input)
-	if err != nil {
-		panic(err)
-	}
-	return precompileVector{address: address, input: input, want: want}
 }
 
 func depositInput() []byte {

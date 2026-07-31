@@ -22,10 +22,7 @@ const (
 	expectedTypedContents = "Clef VM64 typed data"
 	expectedTypedValue    = "340282366920938463463374607431768211457"
 	expectedTxInputHex    = "0x000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f"
-	expectedNonce         = uint64(9)
 	expectedGas           = uint64(40000)
-	expectedTip           = int64(7)
-	expectedFeeCap        = int64(1_000_000_000)
 	expectedValue         = int64(42)
 
 	rulesSource = `function ApproveListing(req) { return 'Approve'; }
@@ -63,16 +60,6 @@ func expectedTypedData(account common.Address, chainID *big.Int) apitypes.TypedD
 			"value":    expectedTypedValue,
 		},
 	}
-}
-
-func expectedTransaction(account common.Address, chainID *big.Int) apitypes.SendTxArgs {
-	return transactionArgs(
-		account,
-		chainID,
-		expectedNonce,
-		big.NewInt(expectedTip),
-		big.NewInt(expectedFeeCap),
-	)
 }
 
 func transactionArgs(

@@ -98,6 +98,7 @@ var _ = ginkgo.Describe(
 			gomega.Expect(signed.Tx).NotTo(gomega.BeNil())
 			gomega.Expect(signed.Raw).NotTo(gomega.BeEmpty())
 			gomega.Expect(transactionSender(signed.Tx, suite.session.ChainID)).To(gomega.Equal(suite.account))
+			expectTransactionMatchesArgs(signed.Tx, args)
 
 			var decoded types.Transaction
 			gomega.Expect(decoded.UnmarshalBinary(signed.Raw)).To(gomega.Succeed())
@@ -130,6 +131,7 @@ var _ = ginkgo.Describe(
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 			gomega.Expect(pending).To(gomega.BeFalse())
 			gomega.Expect(transactionSender(tx, suite.session.ChainID)).To(gomega.Equal(suite.account))
+			expectTransactionMatchesArgs(tx, args)
 		}, ginkgo.SpecTimeout(liveSpecTimeout))
 	},
 )
@@ -146,7 +148,7 @@ func newLiveSuite(ctx context.Context) *liveSuite {
 	return &liveSuite{session: session, wallet: wallet, account: account}
 }
 
-func (suite *liveSuite) transactionArgs(ctx context.Context) map[string]any {
+func (suite *liveSuite) transactionArgs(ctx context.Context) qrlapi.TransactionArgs {
 	ginkgo.GinkgoHelper()
 
 	nonce, err := suite.session.Client.PendingNonceAt(ctx, suite.account)
@@ -161,16 +163,34 @@ func (suite *liveSuite) transactionArgs(ctx context.Context) map[string]any {
 	})
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
-	return map[string]any{
-		"from":                 suite.account,
-		"to":                   suite.session.Address,
-		"gas":                  hexutil.Uint64(gas),
-		"maxFeePerGas":         (*hexutil.Big)(feeCap),
-		"maxPriorityFeePerGas": (*hexutil.Big)(tipCap),
-		"value":                (*hexutil.Big)(big.NewInt(1)),
-		"nonce":                hexutil.Uint64(nonce),
-		"chainId":              (*hexutil.Big)(suite.session.ChainID),
+	from := suite.account
+	to := suite.session.Address
+	gasLimit := hexutil.Uint64(gas)
+	nonceValue := hexutil.Uint64(nonce)
+	return qrlapi.TransactionArgs{
+		From:                 &from,
+		To:                   &to,
+		Gas:                  &gasLimit,
+		MaxFeePerGas:         (*hexutil.Big)(feeCap),
+		MaxPriorityFeePerGas: (*hexutil.Big)(tipCap),
+		Value:                (*hexutil.Big)(big.NewInt(1)),
+		Nonce:                &nonceValue,
+		ChainID:              (*hexutil.Big)(suite.session.ChainID),
 	}
+}
+
+func expectTransactionMatchesArgs(tx *types.Transaction, args qrlapi.TransactionArgs) {
+	ginkgo.GinkgoHelper()
+
+	gomega.Expect(tx.To()).NotTo(gomega.BeNil())
+	gomega.Expect(*tx.To()).To(gomega.Equal(*args.To))
+	gomega.Expect(tx.Nonce()).To(gomega.Equal(uint64(*args.Nonce)))
+	gomega.Expect(tx.Gas()).To(gomega.Equal(uint64(*args.Gas)))
+	gomega.Expect(tx.GasFeeCap()).To(gomega.Equal(args.MaxFeePerGas.ToInt()))
+	gomega.Expect(tx.GasTipCap()).To(gomega.Equal(args.MaxPriorityFeePerGas.ToInt()))
+	gomega.Expect(tx.Value()).To(gomega.Equal(args.Value.ToInt()))
+	gomega.Expect(tx.ChainId()).To(gomega.Equal(args.ChainID.ToInt()))
+	gomega.Expect(tx.Data()).To(gomega.BeEmpty())
 }
 
 func transactionSender(tx *types.Transaction, chainID *big.Int) common.Address {

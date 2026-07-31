@@ -13,6 +13,7 @@ import (
 	"github.com/theQRL/go-qrl/common"
 	"github.com/theQRL/go-qrl/common/hexutil"
 	"github.com/theQRL/go-qrl/core/types"
+	"github.com/theQRL/go-qrl/crypto"
 	"github.com/theQRL/go-qrl/rpc"
 
 	ginkgo "github.com/onsi/ginkgo/v2"
@@ -70,7 +71,11 @@ func (suite *liveSuite) assertDebugState(ctx context.Context) {
 		hexutil.Bytes{},
 		10,
 	)).To(gomega.Succeed())
-	gomega.Expect(storageRange.Storage).NotTo(gomega.BeEmpty())
+	gomega.Expect(storageRange.Storage).To(gomega.HaveLen(1))
+	slot := common.Hash{}
+	entry, exists := storageRange.Storage[crypto.Keccak256Hash(slot[:])]
+	gomega.Expect(exists).To(gomega.BeTrue())
+	gomega.Expect(entry.Value).To(gomega.Equal(fixture.value))
 
 	var modifiedByNumber, modifiedByHash []common.Address
 	expectRegisteredError(raw.CallContext(

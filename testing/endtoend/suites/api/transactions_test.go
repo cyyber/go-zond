@@ -9,6 +9,7 @@ import (
 	"context"
 	"encoding/json"
 
+	"github.com/theQRL/go-qrl/common"
 	"github.com/theQRL/go-qrl/common/hexutil"
 	"github.com/theQRL/go-qrl/core/types"
 	"github.com/theQRL/go-qrl/rpc"
@@ -41,22 +42,25 @@ func (suite *liveSuite) assertTransactions(ctx context.Context) {
 	gomega.Expect(uint64(countByNumber)).To(gomega.BeNumerically(">", uint64(index)))
 	gomega.Expect(countByHash).To(gomega.Equal(countByNumber))
 
-	var transaction map[string]json.RawMessage
+	var byNumber, byHash struct {
+		Hash common.Hash `json:"hash"`
+	}
 	gomega.Expect(raw.CallContext(
 		ctx,
-		&transaction,
+		&byNumber,
 		"qrl_getTransactionByBlockNumberAndIndex",
 		rpc.BlockNumber(blockNumber.Int64()),
 		index,
 	)).To(gomega.Succeed())
-	gomega.Expect(transaction).To(gomega.HaveKey("hash"))
+	gomega.Expect(byNumber.Hash).To(gomega.Equal(fixture.tx.Hash()))
 	gomega.Expect(raw.CallContext(
 		ctx,
-		&transaction,
+		&byHash,
 		"qrl_getTransactionByBlockHashAndIndex",
 		fixture.block.Hash(),
 		index,
 	)).To(gomega.Succeed())
+	gomega.Expect(byHash.Hash).To(gomega.Equal(fixture.tx.Hash()))
 
 	var rawByNumber, rawByHash, rawByTransactionHash hexutil.Bytes
 	gomega.Expect(raw.CallContext(

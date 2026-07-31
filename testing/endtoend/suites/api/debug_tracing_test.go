@@ -93,12 +93,22 @@ func (suite *liveSuite) assertDebugTracing(ctx context.Context) {
 		ginkgo.Fail("trace context ended: " + ctx.Err().Error())
 	}
 
-	gomega.Expect(raw.CallContext(ctx, &trace, "debug_traceCall", map[string]any{
+	var callTrace struct {
+		Failed      bool          `json:"failed"`
+		ReturnValue hexutil.Bytes `json:"returnValue"`
+		StructLogs  []struct {
+			Op string `json:"op"`
+		} `json:"structLogs"`
+	}
+	gomega.Expect(raw.CallContext(ctx, &callTrace, "debug_traceCall", map[string]any{
 		"from": suite.from,
 		"to":   fixture.address,
 		"data": "0x",
 	}, blockSelector, map[string]any{})).To(gomega.Succeed())
-	gomega.Expect(json.Valid(trace)).To(gomega.BeTrue())
+	gomega.Expect(callTrace.Failed).To(gomega.BeFalse())
+	gomega.Expect(callTrace.ReturnValue).To(gomega.Equal(hexutil.Bytes(fixture.value[:])))
+	gomega.Expect(callTrace.StructLogs).NotTo(gomega.BeEmpty())
+	gomega.Expect(callTrace.StructLogs[len(callTrace.StructLogs)-1].Op).To(gomega.Equal("RETURN"))
 
 	var roots []common.Hash
 	gomega.Expect(raw.CallContext(
