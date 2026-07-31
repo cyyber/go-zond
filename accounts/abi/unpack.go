@@ -125,7 +125,7 @@ func readBool(word []byte) (bool, error) {
 
 // A function type is the address followed by the four-byte function selector.
 //
-// readFunctionType reconstructs that value from the two-word VM64 ABI encoding.
+// readFunctionType reconstructs that value from the two-word ABI encoding.
 func readFunctionType(t Type, words []byte) (funcTy [common.AddressLength + 4]byte, err error) {
 	if t.T != FunctionTy {
 		return [common.AddressLength + 4]byte{}, errors.New("abi: invalid type in call to make function type byte array")
