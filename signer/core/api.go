@@ -147,8 +147,9 @@ func MetadataFromContext(ctx context.Context) Metadata {
 	if info.Transport != "" {
 		if info.Transport == "http" {
 			m.Scheme = info.HTTP.Version
+		} else {
+			m.Scheme = info.Transport
 		}
-		m.Scheme = info.Transport
 	}
 	if info.RemoteAddr != "" {
 		m.Remote = info.RemoteAddr
