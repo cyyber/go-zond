@@ -343,7 +343,7 @@ func bindTopicType(kind abi.Type, structs map[string]*tmplStruct) string {
 	// parameters that are not value types i.e. arrays and structs are not
 	// stored directly but instead a keccak256-hash of an encoding is stored.
 	//
-	// We convert strings, bytes and functions to hashes, still need to deal with
+	// We only convert strings, bytes and functions to hashes, still need to deal with
 	// array(both fixed-size and dynamic-size) and struct.
 	if bound == "string" || bound == "[]byte" || kind.T == abi.FunctionTy {
 		bound = "common.Hash"
