@@ -464,6 +464,9 @@ func TestInvalidGetRangeLogsRequest(t *testing.T) {
 	if _, err := api.GetLogs(t.Context(), FilterCriteria{FromBlock: big.NewInt(2), ToBlock: big.NewInt(1)}); err != errInvalidBlockRange {
 		t.Errorf("Expected Logs for invalid range return error, but got: %v", err)
 	}
+	if _, err := api.GetLogs(t.Context(), FilterCriteria{FromBlock: big.NewInt(1), ToBlock: big.NewInt(0)}); err != errInvalidBlockRange {
+		t.Errorf("Expected Logs for invalid range ending at block zero to return error, but got: %v", err)
+	}
 }
 
 // TestLogFilter tests whether log filters match the correct logs that are posted to the event feed.
