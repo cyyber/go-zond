@@ -77,14 +77,20 @@ func MakeTopics(query ...[]any) ([][]common.LogTopic, error) {
 				// parameters that are not value types i.e. arrays and structs are not
 				// stored directly but instead a keccak256-hash of an encoding is stored.
 				//
-				// We only convert stringS and bytes to hash, still need to deal with
-				// array(both fixed-size and dynamic-size) and struct.
+				// We only convert strings, bytes, and functions to hash, still need to deal
+				// with arrays and structs.
 
 				// Attempt to generate the topic from funky types
 				val := reflect.ValueOf(rule)
 				switch {
 				// static byte array
 				case val.Kind() == reflect.Array && reflect.TypeOf(rule).Elem().Kind() == reflect.Uint8:
+					if val.Len() == common.AddressLength+4 {
+						value := make([]byte, val.Len())
+						reflect.Copy(reflect.ValueOf(value), val)
+						topic = common.HashToLogTopic(crypto.Keccak256Hash(value))
+						break
+					}
 					if val.Len() > common.LogTopicLength {
 						return nil, fmt.Errorf("unsupported indexed type: %T exceeds the %d-byte topic width", rule, common.LogTopicLength)
 					}
@@ -158,30 +164,12 @@ func parseTopicWithSetter(fields Arguments, topics []common.LogTopic, setter fun
 		switch arg.Type.T {
 		case TupleTy:
 			return errors.New("tuple type in topic reconstruction")
-		case StringTy, BytesTy, SliceTy, ArrayTy:
-			// Indexed strings, bytes, slices, and arrays store their Keccak-256
-			// hash in the high 32 bytes of the 64-byte topic.
+		case StringTy, BytesTy, SliceTy, ArrayTy, FunctionTy:
+			// Indexed strings, bytes, slices, arrays, and function values
+			// store their Keccak-256 hash in the high 32 bytes of the topic.
 			var hash common.Hash
 			copy(hash[:], topics[i][:common.HashLength])
 			reconstr = hash
-		case FunctionTy:
-			// Functions are AddressLength+4 bytes and fit right-aligned in the
-			// 64-byte topic. Reject topics with non-zero bytes in the leading
-			// padding — matches the go-ethereum invariant adapted to QRL
-			// addresses.
-			fnLen := common.AddressLength + 4
-			if fnLen > common.LogTopicLength {
-				return errors.New("abi: function type does not fit in a 64-byte topic with 64-byte addresses")
-			}
-			prefix := topics[i][:common.LogTopicLength-fnLen]
-			for _, b := range prefix {
-				if b != 0 {
-					return fmt.Errorf("abi: improperly encoded function type, got %x", topics[i])
-				}
-			}
-			var tmp [common.AddressLength + 4]byte
-			copy(tmp[:], topics[i][common.LogTopicLength-fnLen:])
-			reconstr = tmp
 		default:
 			// Topic is already the width of an ABI slot (64 bytes); decode directly.
 			var err error

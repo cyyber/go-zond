@@ -383,17 +383,15 @@ func isDynamicType(t Type) bool {
 // to store the location reference for actual value storage.
 func getTypeSize(t Type) int {
 	if t.T == ArrayTy && !isDynamicType(*t.Elem) {
-		// Recursively calculate type size if it is a nested array
-		if t.Elem.T == ArrayTy || t.Elem.T == TupleTy {
-			return t.Size * getTypeSize(*t.Elem)
-		}
-		return t.Size * 64
+		return t.Size * getTypeSize(*t.Elem)
 	} else if t.T == TupleTy && !isDynamicType(t) {
 		total := 0
 		for _, elem := range t.TupleElems {
 			total += getTypeSize(*elem)
 		}
 		return total
+	} else if t.T == FunctionTy {
+		return 128
 	}
 	return 64
 }
