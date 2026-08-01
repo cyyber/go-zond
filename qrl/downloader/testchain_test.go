@@ -28,16 +28,16 @@ import (
 	"github.com/theQRL/go-qrl/core/rawdb"
 	"github.com/theQRL/go-qrl/core/types"
 	"github.com/theQRL/go-qrl/core/vm"
+	"github.com/theQRL/go-qrl/internal/testutil"
 	"github.com/theQRL/go-qrl/params"
 	"github.com/theQRL/go-qrl/trie"
-	"github.com/theQRL/go-qrl/internal/testutil"
 )
 
 // Test chain parameters.
 var (
-	testWallet = testutil.MustLoadAccount("alice").MustWallet()
-	testAddress   = testWallet.GetAddress()
-	testDB        = rawdb.NewMemoryDatabase()
+	testWallet  = testutil.MustLoadAccount("alice").MustWallet()
+	testAddress = testWallet.GetAddress()
+	testDB      = rawdb.NewMemoryDatabase()
 
 	testGspec = &core.Genesis{
 		Config:  params.TestChainConfig,

@@ -20,8 +20,8 @@ import (
 	"math/big"
 	"sync/atomic"
 
-	"github.com/theQRL/go-qrl/common/uint512"
 	"github.com/theQRL/go-qrl/common"
+	"github.com/theQRL/go-qrl/common/uint512"
 	"github.com/theQRL/go-qrl/core/types"
 	"github.com/theQRL/go-qrl/crypto"
 	"github.com/theQRL/go-qrl/params"
