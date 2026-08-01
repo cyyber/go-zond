@@ -11,6 +11,7 @@ contract EventEmitter {
         bytes indexed payload,
         uint512 value
     );
+    event Paid(address indexed sender, uint512 marker, uint256 amount);
 
     uint512 public stored;
 
@@ -60,6 +61,14 @@ contract EventEmitter {
         return values;
     }
 
+    function overloaded(uint512 value) external pure returns (uint512) {
+        return value + 1;
+    }
+
+    function overloaded(bytes33 value) external pure returns (bytes33) {
+        return value;
+    }
+
     function failReason() external pure {
         revert("console wrapper revert");
     }
@@ -71,5 +80,14 @@ contract EventEmitter {
     ) external {
         stored = value;
         emit Stored(msg.sender, label, payload, value);
+    }
+
+    function pay(uint512 marker) external payable {
+        stored = marker + msg.value;
+        emit Paid(msg.sender, marker, msg.value);
+    }
+
+    function failTransaction() external {
+        revert("console transaction revert");
     }
 }

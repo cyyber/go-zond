@@ -18,6 +18,8 @@ import (
 	"github.com/theQRL/go-qrl/common"
 	"github.com/theQRL/go-qrl/common/hexutil"
 	"github.com/theQRL/go-qrl/core/types"
+	qrvm "github.com/theQRL/go-qrl/core/vm"
+	"github.com/theQRL/go-qrl/crypto"
 	"github.com/theQRL/go-qrl/crypto/pqcrypto"
 	qrlwallet "github.com/theQRL/go-qrl/crypto/pqcrypto/wallet"
 	"github.com/theQRL/go-qrl/internal/qrlapi"
@@ -176,6 +178,45 @@ var _ = ginkgo.Describe(
 			gomega.Expect(pending).To(gomega.BeFalse())
 			gomega.Expect(transactionSender(tx, suite.session.ChainID)).To(gomega.Equal(suite.account))
 			expectTransactionMatchesArgs(tx, args)
+		}, ginkgo.SpecTimeout(liveSpecTimeout))
+
+		ginkgo.It("signs, submits, and mines contract creation through the node", func(ctx ginkgo.SpecContext) {
+			args := suite.contractCreationArgs(ctx)
+			var signed qrlapi.SignTransactionResult
+			gomega.Expect(suite.session.Client.Client().CallContext(
+				ctx,
+				&signed,
+				"qrl_signTransaction",
+				args,
+			)).To(gomega.Succeed())
+			gomega.Expect(signed.Tx).NotTo(gomega.BeNil())
+			gomega.Expect(signed.Tx.To()).To(gomega.BeNil())
+			gomega.Expect(transactionSender(signed.Tx, suite.session.ChainID)).To(gomega.Equal(suite.account))
+			expectTransactionMatchesArgs(signed.Tx, args)
+
+			var hash common.Hash
+			gomega.Expect(suite.session.Client.Client().CallContext(
+				ctx,
+				&hash,
+				"qrl_sendTransaction",
+				args,
+			)).To(gomega.Succeed())
+
+			var receipt *types.Receipt
+			gomega.Eventually(func() error {
+				var err error
+				receipt, err = suite.session.Client.TransactionReceipt(ctx, hash)
+				return err
+			}).WithContext(ctx).WithTimeout(2 * time.Minute).WithPolling(time.Second).Should(
+				gomega.Succeed(),
+			)
+			gomega.Expect(receipt.Status).To(gomega.Equal(types.ReceiptStatusSuccessful))
+			gomega.Expect(receipt.ContractAddress).To(
+				gomega.Equal(crypto.CreateAddress(suite.account, uint64(*args.Nonce))),
+			)
+			code, err := suite.session.Client.CodeAt(ctx, receipt.ContractAddress, receipt.BlockNumber)
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			gomega.Expect(code).To(gomega.Equal([]byte{byte(qrvm.STOP)}))
 		}, ginkgo.SpecTimeout(liveSpecTimeout))
 
 		ginkgo.It("does not submit a transaction after signing is canceled", func(ctx ginkgo.SpecContext) {
@@ -374,11 +415,43 @@ func (suite *liveSuite) transactionArgs(ctx context.Context) qrlapi.TransactionA
 	}
 }
 
+func (suite *liveSuite) contractCreationArgs(ctx context.Context) qrlapi.TransactionArgs {
+	ginkgo.GinkgoHelper()
+
+	args := suite.transactionArgs(ctx)
+	input := hexutil.Bytes{
+		byte(qrvm.PUSH1), 1,
+		byte(qrvm.PUSH1), 0,
+		byte(qrvm.RETURN),
+	}
+	value := (*hexutil.Big)(new(big.Int))
+	accessList := types.AccessList{}
+	gas, err := suite.session.Client.EstimateGas(ctx, qrl.CallMsg{
+		From:       suite.account,
+		Value:      value.ToInt(),
+		Data:       input,
+		AccessList: accessList,
+	})
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	gasLimit := hexutil.Uint64(gas)
+
+	args.To = nil
+	args.Gas = &gasLimit
+	args.Value = value
+	args.Input = &input
+	args.AccessList = &accessList
+	return args
+}
+
 func expectTransactionMatchesArgs(tx *types.Transaction, args qrlapi.TransactionArgs) {
 	ginkgo.GinkgoHelper()
 
-	gomega.Expect(tx.To()).NotTo(gomega.BeNil())
-	gomega.Expect(*tx.To()).To(gomega.Equal(*args.To))
+	if args.To == nil {
+		gomega.Expect(tx.To()).To(gomega.BeNil())
+	} else {
+		gomega.Expect(tx.To()).NotTo(gomega.BeNil())
+		gomega.Expect(*tx.To()).To(gomega.Equal(*args.To))
+	}
 	gomega.Expect(tx.Nonce()).To(gomega.Equal(uint64(*args.Nonce)))
 	gomega.Expect(tx.Gas()).To(gomega.Equal(uint64(*args.Gas)))
 	gomega.Expect(tx.GasFeeCap()).To(gomega.Equal(args.MaxFeePerGas.ToInt()))

@@ -14,6 +14,7 @@ development-network profile.
   `qrl_sendTransaction` without changing the account nonce or transaction pool.
 - Sign and submit through `qrl_sendTransaction`, then verify the mined sender
   and receipt.
+- Sign and submit contract creation, then verify its derived address and code.
 - Restart Clef and verify the running node reconnects for account discovery,
   data signing, and transaction signing.
 - Reject requests while Clef is unavailable and recover after it restarts.

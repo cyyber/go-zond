@@ -12,8 +12,19 @@ var contract = qrl.contract(PARAMS.abi).at(deployment.contractAddress);
 var expectedLabelTopic = web3.sha3(PARAMS.storeLabel) + zeros(64);
 var expectedPayloadTopic = web3.sha3(PARAMS.storePayload, {encoding: "hex"}) + zeros(64);
 
+function waitForReceipt(txHash) {
+    for (var i = 0; i < 60; i++) {
+        var receipt = qrl.getTransactionReceipt(txHash);
+        if (receipt !== null && receipt.blockNumber !== null) {
+            return receipt;
+        }
+        admin.sleep(5);
+    }
+    throw new Error("transaction not mined within timeout: " + txHash);
+}
+
+var managed = qrl.accounts;
 check("state-changing wrapper executes through the node-managed signer", function () {
-    var managed = qrl.accounts;
     if (!(managed instanceof Array) || managed.length !== 1) {
         throw new Error("unexpected node-managed accounts: " + JSON.stringify(managed));
     }
@@ -121,6 +132,40 @@ watcher.watch(function (error, event) {
             }).get();
             if (events.length !== 0) {
                 throw new Error("non-matching indexed filter returned events: " + JSON.stringify(events));
+            }
+            return true;
+        });
+
+        check("payable wrapper forwards value", function () {
+            var marker = 17;
+            var payment = 23;
+            var txHash = contract.pay(marker, {
+                from: managed[0],
+                value: payment,
+                gas: 500000
+            });
+            var paidReceipt = waitForReceipt(txHash);
+            if (Number(paidReceipt.status) !== 1) {
+                throw new Error("payable transaction failed: " + JSON.stringify(paidReceipt));
+            }
+            var transaction = qrl.getTransaction(txHash);
+            if (transaction.value.toString(10) !== String(payment) ||
+                contract.stored().toString(10) !== String(marker + payment)) {
+                throw new Error("payable wrapper did not forward value");
+            }
+            return true;
+        });
+
+        check("state-changing wrapper exposes a failed receipt", function () {
+            var stored = contract.stored().toString(10);
+            var txHash = contract.failTransaction({from: managed[0], gas: 500000});
+            var failedReceipt = waitForReceipt(txHash);
+            if (Number(failedReceipt.status) !== 0) {
+                throw new Error("reverting transaction unexpectedly succeeded: " +
+                    JSON.stringify(failedReceipt));
+            }
+            if (contract.stored().toString(10) !== stored) {
+                throw new Error("reverting transaction changed contract state");
             }
             return true;
         });

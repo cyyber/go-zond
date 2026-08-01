@@ -10,12 +10,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
+	"slices"
 
 	qrl "github.com/theQRL/go-qrl"
 	"github.com/theQRL/go-qrl/common"
 	"github.com/theQRL/go-qrl/common/hexutil"
+	"github.com/theQRL/go-qrl/consensus/misc/eip1559"
 	"github.com/theQRL/go-qrl/core/types"
 	"github.com/theQRL/go-qrl/crypto"
+	"github.com/theQRL/go-qrl/params"
 	"github.com/theQRL/go-qrl/qrlclient/gqrlclient"
 	"github.com/theQRL/go-qrl/qrldb/memorydb"
 	"github.com/theQRL/go-qrl/rlp"
@@ -103,9 +106,36 @@ func (suite *liveSuite) assertChainState(ctx context.Context) {
 	tip, err := suite.client.SuggestGasTipCap(ctx)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	gomega.Expect(tip.Sign()).To(gomega.BeNumerically(">=", 0))
+
+	receiptsByNumber, err := suite.client.BlockReceipts(ctx, blockSelector)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	gomega.Expect(receiptsByNumber).To(gomega.HaveLen(len(fixture.block.Transactions())))
+	receiptIndex := int(fixture.receipt.TransactionIndex)
+	gomega.Expect(receiptsByNumber[receiptIndex].TxHash).To(gomega.Equal(fixture.tx.Hash()))
+	receiptsByHash, err := suite.client.BlockReceipts(
+		ctx,
+		rpc.BlockNumberOrHashWithHash(fixture.block.Hash(), true),
+	)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	gomega.Expect(receiptsByHash).To(gomega.HaveLen(len(receiptsByNumber)))
+	gomega.Expect(receiptsByHash[receiptIndex].TxHash).To(gomega.Equal(fixture.tx.Hash()))
+
 	history, err := suite.client.FeeHistory(ctx, 1, blockNumber, []float64{50})
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-	gomega.Expect(history.GasUsedRatio).To(gomega.HaveLen(1))
+	gomega.Expect(history.OldestBlock).To(gomega.Equal(blockNumber))
+	gomega.Expect(history.BaseFee).To(gomega.HaveLen(2))
+	gomega.Expect(history.BaseFee[0]).To(gomega.Equal(fixture.block.BaseFee()))
+	gomega.Expect(history.BaseFee[1]).To(gomega.Equal(
+		eip1559.CalcBaseFee(params.AllBeaconProtocolChanges, fixture.block.Header()),
+	))
+	gomega.Expect(history.GasUsedRatio).To(gomega.Equal([]float64{
+		float64(fixture.block.GasUsed()) / float64(fixture.block.GasLimit()),
+	}))
+	gomega.Expect(history.Reward).To(gomega.HaveLen(1))
+	gomega.Expect(history.Reward[0]).To(gomega.HaveLen(1))
+	gomega.Expect(history.Reward[0][0]).To(gomega.Equal(
+		feeHistoryReward(fixture.block, receiptsByNumber, 50),
+	))
 
 	syncProgress, err := suite.client.SyncProgress(ctx)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
@@ -161,18 +191,33 @@ func (suite *liveSuite) assertChainState(ctx context.Context) {
 	gomega.Expect(accessGas).To(gomega.BeNumerically(">", 0))
 	gomega.Expect(accessError).To(gomega.BeEmpty())
 
-	receiptsByNumber, err := suite.client.BlockReceipts(ctx, blockSelector)
-	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-	gomega.Expect(receiptsByNumber).To(gomega.HaveLen(len(fixture.block.Transactions())))
-	receiptIndex := int(fixture.receipt.TransactionIndex)
-	gomega.Expect(receiptsByNumber[receiptIndex].TxHash).To(gomega.Equal(fixture.tx.Hash()))
-	receiptsByHash, err := suite.client.BlockReceipts(
-		ctx,
-		rpc.BlockNumberOrHashWithHash(fixture.block.Hash(), true),
-	)
-	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-	gomega.Expect(receiptsByHash).To(gomega.HaveLen(len(receiptsByNumber)))
-	gomega.Expect(receiptsByHash[receiptIndex].TxHash).To(gomega.Equal(fixture.tx.Hash()))
+}
+
+func feeHistoryReward(block *types.Block, receipts types.Receipts, percentile float64) *big.Int {
+	ginkgo.GinkgoHelper()
+
+	type gasAndReward struct {
+		gasUsed uint64
+		reward  *big.Int
+	}
+	rewards := make([]gasAndReward, len(block.Transactions()))
+	for index, transaction := range block.Transactions() {
+		reward, err := transaction.EffectiveGasTip(block.BaseFee())
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		rewards[index] = gasAndReward{receipts[index].GasUsed, reward}
+	}
+	slices.SortStableFunc(rewards, func(left, right gasAndReward) int {
+		return left.reward.Cmp(right.reward)
+	})
+
+	index := 0
+	gasUsed := rewards[0].gasUsed
+	threshold := uint64(float64(block.GasUsed()) * percentile / 100)
+	for gasUsed < threshold && index < len(rewards)-1 {
+		index++
+		gasUsed += rewards[index].gasUsed
+	}
+	return rewards[index].reward
 }
 
 func proofDatabase(nodes []string) (*memorydb.Database, error) {

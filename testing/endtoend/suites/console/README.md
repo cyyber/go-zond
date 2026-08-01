@@ -21,8 +21,8 @@ Covered:
 - Provider dispatch plus block, header, state, fee, receipt, namespace, chain
   ID, and QIP-55 wrapper behavior.
 - Contract deployment through both raw submission and `ContractFactory.new`,
-  pure calls, a Clef-backed state-changing wrapper call, revert propagation,
-  and canonical ABI-decoded Q-addresses.
+  pure and overloaded calls, payable and failed Clef-backed transactions,
+  revert propagation, and canonical ABI-decoded Q-addresses.
 - VM64 scalars, dynamic values, fixed-byte boundaries, fixed and dynamic
   arrays, and live nested arrays containing dynamic elements.
 - Receipt logs, exact/wildcard/OR filters, generated indexed event filters and

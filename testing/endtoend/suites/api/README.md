@@ -21,12 +21,14 @@ Each method is validated at the strongest stable level:
 Covered:
 
 - HTTP JSON-RPC namespaces and read-only node metadata
-- blocks, transactions, receipts, account state, storage, cryptographically
-  verified account/storage proofs, exact access-list generation, and calls
+- blocks, exact transaction and receipt fields, fee history, account state,
+  storage, cryptographically verified account/storage proofs, exact access-list
+  generation, and calls
 - non-empty pending and queued transaction-pool inspection
 - log and block filters
 - WebSocket head, log, pending hash, and full pending-transaction subscriptions
-- read-only debug and tracing methods
+- read-only debug and tracing methods, including equivalent block selectors and
+  named call/prestate tracer results
 - GraphQL schema, historical and pending calls and gas estimates, exact block
   fields, transactions, access lists, nested account fields, and raw-transaction
   mutation

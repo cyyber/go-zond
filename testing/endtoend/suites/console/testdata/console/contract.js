@@ -200,6 +200,19 @@ check("contract coder encodes and decodes nested dynamic arrays", function () {
     return true;
 });
 
+check("contract wrapper dispatches overloaded methods", function () {
+    var integer = contract.overloaded["uint512"](vm64Amount);
+    if (integer.toString(10) !== web3.toBigNumber(vm64Amount).plus(1).toString(10)) {
+        throw new Error("unexpected overloaded integer result: " + integer);
+    }
+
+    var bytes = patternedHex(33, 7, 3);
+    if (contract.overloaded["bytes33"](bytes).toLowerCase() !== bytes) {
+        throw new Error("unexpected overloaded bytes result");
+    }
+    return true;
+});
+
 check("contract wrapper propagates revert errors", function () {
     try {
         contract.failReason();
