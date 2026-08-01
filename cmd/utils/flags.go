@@ -893,18 +893,18 @@ func setNodeUserIdent(ctx *cli.Context, cfg *node.Config) {
 // flags, reverting to pre-configured ones if none have been specified.
 func setBootstrapNodes(ctx *cli.Context, cfg *p2p.Config) {
 	urls := params.MainnetBootnodes
-	switch {
-	case ctx.IsSet(BootnodesFlag.Name):
+	if ctx.IsSet(BootnodesFlag.Name) {
 		urls = SplitAndTrim(ctx.String(BootnodesFlag.Name))
-	case ctx.Bool(BetaNetFlag.Name):
-		urls = params.BetaNetBootnodes
-	case ctx.Bool(TestnetFlag.Name):
-		urls = params.TestnetBootnodes
-	}
-
-	// don't apply defaults if BootstrapNodes is already set
-	if cfg.BootstrapNodes != nil {
-		return
+	} else {
+		if cfg.BootstrapNodes != nil {
+			return // Already set by config file, don't apply defaults.
+		}
+		switch {
+		case ctx.Bool(BetaNetFlag.Name):
+			urls = params.BetaNetBootnodes
+		case ctx.Bool(TestnetFlag.Name):
+			urls = params.TestnetBootnodes
+		}
 	}
 
 	cfg.BootstrapNodes = make([]*qnode.Node, 0, len(urls))
