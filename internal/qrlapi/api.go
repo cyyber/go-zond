@@ -1445,7 +1445,14 @@ func (s *TransactionAPI) SendTransaction(ctx context.Context, args TransactionAr
 	// Assemble the transaction and sign with the wallet
 	tx := args.toTransaction()
 
-	signed, err := wallet.SignTx(account, tx, s.b.ChainConfig().ChainID)
+	var signed *types.Transaction
+	if signer, ok := wallet.(interface {
+		SignTxContext(context.Context, accounts.Account, *types.Transaction, *big.Int) (*types.Transaction, error)
+	}); ok {
+		signed, err = signer.SignTxContext(ctx, account, tx, s.b.ChainConfig().ChainID)
+	} else {
+		signed, err = wallet.SignTx(account, tx, s.b.ChainConfig().ChainID)
+	}
 	if err != nil {
 		return common.Hash{}, err
 	}
