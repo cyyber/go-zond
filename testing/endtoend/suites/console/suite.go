@@ -41,6 +41,15 @@ var consoleScenarios = []consoleScenario{
 		description: "deploys a contract and validates VM64 ABI, receipts, events, and filters",
 	},
 	{
+		name:        "topics",
+		description: "formats and decodes indexed VM64 scalar topics",
+	},
+	{
+		name:        "constructor",
+		description: "deploys a contract through the embedded web3 contract factory",
+		webSocket:   true,
+	},
+	{
 		name:        "events",
 		description: "formats and submits a contract transaction and watches indexed events over WebSocket",
 		webSocket:   true,

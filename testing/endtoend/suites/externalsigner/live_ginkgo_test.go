@@ -121,6 +121,34 @@ var _ = ginkgo.Describe(
 			gomega.Expect(decoded.Hash()).To(gomega.Equal(signed.Tx.Hash()))
 		}, ginkgo.SpecTimeout(liveSpecTimeout))
 
+		ginkgo.It("propagates Clef transaction rejection through the node", func(ctx ginkgo.SpecContext) {
+			before, err := suite.session.Client.PendingNonceAt(ctx, suite.account)
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
+			args := suite.transactionArgs(ctx)
+			args.Value = (*hexutil.Big)(big.NewInt(fixture.RemoteSignerRejectedTransaction))
+
+			var signed qrlapi.SignTransactionResult
+			err = suite.session.Client.Client().CallContext(
+				ctx,
+				&signed,
+				"qrl_signTransaction",
+				args,
+			)
+			gomega.Expect(err).To(gomega.MatchError(gomega.ContainSubstring("request denied")))
+
+			var hash common.Hash
+			err = suite.session.Client.Client().CallContext(
+				ctx,
+				&hash,
+				"qrl_sendTransaction",
+				args,
+			)
+			gomega.Expect(err).To(gomega.MatchError(gomega.ContainSubstring("request denied")))
+
+			expectNoTransactionAtNonce(ctx, suite, before)
+		}, ginkgo.SpecTimeout(liveSpecTimeout))
+
 		ginkgo.It("signs, submits, and mines a transaction through the node", func(ctx ginkgo.SpecContext) {
 			args := suite.transactionArgs(ctx)
 			var hash common.Hash
@@ -168,23 +196,7 @@ var _ = ginkgo.Describe(
 			)
 			gomega.Expect(err).To(gomega.MatchError(context.DeadlineExceeded))
 
-			gomega.Consistently(func() uint64 {
-				nonce, nonceErr := suite.session.Client.PendingNonceAt(ctx, suite.account)
-				gomega.Expect(nonceErr).NotTo(gomega.HaveOccurred())
-				return nonce
-			}).WithContext(ctx).WithTimeout(5 * time.Second).WithPolling(time.Second).Should(
-				gomega.Equal(before),
-			)
-
-			var content map[string]map[string]*qrlapi.RPCTransaction
-			gomega.Expect(suite.session.Client.Client().CallContext(
-				ctx,
-				&content,
-				"txpool_contentFrom",
-				suite.account,
-			)).To(gomega.Succeed())
-			gomega.Expect(content["pending"]).NotTo(gomega.HaveKey(fmt.Sprint(before)))
-			gomega.Expect(content["queued"]).NotTo(gomega.HaveKey(fmt.Sprint(before)))
+			expectNoTransactionAtNonce(ctx, suite, before)
 		}, ginkgo.SpecTimeout(liveSpecTimeout))
 
 		ginkgo.It("fails while Clef is unavailable and recovers after restart", func(ctx ginkgo.SpecContext) {
@@ -259,6 +271,22 @@ var _ = ginkgo.Describe(
 				}
 				return nil
 			}).WithContext(ctx).WithTimeout(time.Minute).WithPolling(time.Second).Should(gomega.Succeed())
+
+			args := suite.transactionArgs(ctx)
+			var signed qrlapi.SignTransactionResult
+			gomega.Eventually(func() error {
+				return suite.session.Client.Client().CallContext(
+					ctx,
+					&signed,
+					"qrl_signTransaction",
+					args,
+				)
+			}).WithContext(ctx).WithTimeout(time.Minute).WithPolling(time.Second).Should(gomega.Succeed())
+			gomega.Expect(signed.Tx).NotTo(gomega.BeNil())
+			gomega.Expect(transactionSender(signed.Tx, suite.session.ChainID)).To(
+				gomega.Equal(suite.account),
+			)
+			expectTransactionMatchesArgs(signed.Tx, args)
 		}, ginkgo.SpecTimeout(liveSpecTimeout))
 	},
 )
@@ -312,9 +340,19 @@ func (suite *liveSuite) transactionArgs(ctx context.Context) qrlapi.TransactionA
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	tipCap, err := suite.session.Client.SuggestGasTipCap(ctx)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	input := make(hexutil.Bytes, 65)
+	for index := range input {
+		input[index] = byte(index + 1)
+	}
+	accessList := types.AccessList{{
+		Address:     suite.session.Address,
+		StorageKeys: []common.Hash{{0x01}},
+	}}
 	gas, err := suite.session.Client.EstimateGas(ctx, qrl.CallMsg{
-		From: suite.account,
-		To:   &suite.session.Address,
+		From:       suite.account,
+		To:         &suite.session.Address,
+		Data:       input,
+		AccessList: accessList,
 	})
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
@@ -330,6 +368,8 @@ func (suite *liveSuite) transactionArgs(ctx context.Context) qrlapi.TransactionA
 		MaxPriorityFeePerGas: (*hexutil.Big)(tipCap),
 		Value:                (*hexutil.Big)(big.NewInt(1)),
 		Nonce:                &nonceValue,
+		Input:                &input,
+		AccessList:           &accessList,
 		ChainID:              (*hexutil.Big)(suite.session.ChainID),
 	}
 }
@@ -345,7 +385,32 @@ func expectTransactionMatchesArgs(tx *types.Transaction, args qrlapi.Transaction
 	gomega.Expect(tx.GasTipCap()).To(gomega.Equal(args.MaxPriorityFeePerGas.ToInt()))
 	gomega.Expect(tx.Value()).To(gomega.Equal(args.Value.ToInt()))
 	gomega.Expect(tx.ChainId()).To(gomega.Equal(args.ChainID.ToInt()))
-	gomega.Expect(tx.Data()).To(gomega.BeEmpty())
+	gomega.Expect(args.Input).NotTo(gomega.BeNil())
+	gomega.Expect(tx.Data()).To(gomega.Equal([]byte(*args.Input)))
+	gomega.Expect(args.AccessList).NotTo(gomega.BeNil())
+	gomega.Expect(tx.AccessList()).To(gomega.Equal(*args.AccessList))
+}
+
+func expectNoTransactionAtNonce(ctx context.Context, suite *liveSuite, nonce uint64) {
+	ginkgo.GinkgoHelper()
+
+	gomega.Consistently(func() uint64 {
+		pending, err := suite.session.Client.PendingNonceAt(ctx, suite.account)
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		return pending
+	}).WithContext(ctx).WithTimeout(5 * time.Second).WithPolling(time.Second).Should(
+		gomega.Equal(nonce),
+	)
+
+	var content map[string]map[string]*qrlapi.RPCTransaction
+	gomega.Expect(suite.session.Client.Client().CallContext(
+		ctx,
+		&content,
+		"txpool_contentFrom",
+		suite.account,
+	)).To(gomega.Succeed())
+	gomega.Expect(content["pending"]).NotTo(gomega.HaveKey(fmt.Sprint(nonce)))
+	gomega.Expect(content["queued"]).NotTo(gomega.HaveKey(fmt.Sprint(nonce)))
 }
 
 func transactionSender(tx *types.Transaction, chainID *big.Int) common.Address {

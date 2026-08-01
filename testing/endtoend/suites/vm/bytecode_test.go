@@ -162,6 +162,27 @@ func keccakCalldataCode() []byte {
 	}
 }
 
+func staticCallPrecompileCode(address, gas byte) []byte {
+	return []byte{
+		byte(qrvm.CALLDATASIZE),
+		byte(qrvm.PUSH1), 0,
+		byte(qrvm.PUSH1), 0,
+		byte(qrvm.CALLDATACOPY),
+		byte(qrvm.PUSH1), 32,
+		byte(qrvm.PUSH1), 0,
+		byte(qrvm.CALLDATASIZE),
+		byte(qrvm.PUSH1), 0,
+		byte(qrvm.PUSH1), address,
+		byte(qrvm.PUSH1), gas,
+		byte(qrvm.STATICCALL),
+		byte(qrvm.PUSH1), byte(qrvm.WordBytes),
+		byte(qrvm.MSTORE),
+		byte(qrvm.PUSH1), byte(2 * qrvm.WordBytes),
+		byte(qrvm.PUSH1), 0,
+		byte(qrvm.RETURN),
+	}
+}
+
 func patternedBytes(size int) []byte {
 	data := make([]byte, size)
 	for index := range data {
@@ -309,6 +330,10 @@ func failingCreateCode(op qrvm.OpCode, child common.Address) ([]byte, []byte) {
 }
 
 func callCode(op qrvm.OpCode, target common.Address) []byte {
+	return callCodeWithValue(op, target, 0)
+}
+
+func callCodeWithValue(op qrvm.OpCode, target common.Address, value byte) []byte {
 	code := []byte{
 		byte(qrvm.PUSH1), byte(3 * qrvm.WordBytes),
 		byte(qrvm.PUSH1), 0,
@@ -316,7 +341,7 @@ func callCode(op qrvm.OpCode, target common.Address) []byte {
 		byte(qrvm.PUSH1), 0,
 	}
 	if op == qrvm.CALL {
-		code = append(code, byte(qrvm.PUSH1), 0)
+		code = append(code, byte(qrvm.PUSH1), value)
 	}
 	code = append(code, byte(qrvm.PUSH64))
 	code = append(code, target[:]...)
@@ -349,7 +374,21 @@ func callContextCode() []byte {
 	}
 }
 
-func createCode(op qrvm.OpCode) ([]byte, []byte) {
+func callValueContextCode() []byte {
+	return []byte{
+		byte(qrvm.CALLVALUE),
+		byte(qrvm.PUSH1), 0,
+		byte(qrvm.MSTORE),
+		byte(qrvm.SELFBALANCE),
+		byte(qrvm.PUSH1), byte(qrvm.WordBytes),
+		byte(qrvm.MSTORE),
+		byte(qrvm.PUSH1), byte(2 * qrvm.WordBytes),
+		byte(qrvm.PUSH1), 0,
+		byte(qrvm.RETURN),
+	}
+}
+
+func createCode(op qrvm.OpCode, value byte) ([]byte, []byte) {
 	childRuntime := returnWordCode([]byte{0x2a})
 	childInit := append(push(childRuntime),
 		byte(qrvm.PUSH1), 0,
@@ -368,7 +407,7 @@ func createCode(op qrvm.OpCode) ([]byte, []byte) {
 	code = append(code,
 		byte(qrvm.PUSH1), byte(len(childInit)),
 		byte(qrvm.PUSH1), byte(qrvm.WordBytes-len(childInit)),
-		byte(qrvm.PUSH1), 0,
+		byte(qrvm.PUSH1), value,
 		byte(op),
 		byte(qrvm.DUP1),
 		byte(qrvm.PUSH1), byte(qrvm.WordBytes),
@@ -378,6 +417,11 @@ func createCode(op qrvm.OpCode) ([]byte, []byte) {
 		byte(qrvm.PUSH1), 0,
 		byte(qrvm.MSTORE),
 		byte(qrvm.POP),
+		byte(qrvm.PUSH1), byte(qrvm.WordBytes),
+		byte(qrvm.MLOAD),
+		byte(qrvm.BALANCE),
+		byte(qrvm.PUSH2), 1, 0,
+		byte(qrvm.MSTORE),
 		byte(qrvm.PUSH1), byte(qrvm.WordBytes),
 		byte(qrvm.PUSH1), byte(2*qrvm.WordBytes),
 		byte(qrvm.PUSH1), 0,
@@ -389,7 +433,7 @@ func createCode(op qrvm.OpCode) ([]byte, []byte) {
 		byte(qrvm.CALL),
 		byte(qrvm.PUSH1), byte(3*qrvm.WordBytes),
 		byte(qrvm.MSTORE),
-		byte(qrvm.PUSH2), 1, 0,
+		byte(qrvm.PUSH2), 1, 64,
 		byte(qrvm.PUSH1), 0,
 		byte(qrvm.RETURN),
 	)

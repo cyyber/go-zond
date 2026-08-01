@@ -19,7 +19,7 @@ query APISurface(
     transactionCount
     stateRoot
     receiptsRoot
-    miner {
+    miner(block: $block) {
       address
       balance
       transactionCount
@@ -164,6 +164,7 @@ query APISurface(
       topics: [[$topic]]
     }
   ) {
+    index
     account {
       address
     }

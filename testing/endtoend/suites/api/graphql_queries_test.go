@@ -11,6 +11,8 @@ import (
 
 	"github.com/theQRL/go-qrl/common"
 	"github.com/theQRL/go-qrl/common/hexutil"
+	"github.com/theQRL/go-qrl/consensus/misc/eip1559"
+	"github.com/theQRL/go-qrl/params"
 	"github.com/theQRL/go-qrl/rlp"
 	"github.com/theQRL/go-qrl/rpc"
 
@@ -48,6 +50,12 @@ func (suite *liveSuite) assertGraphQLQueries(ctx context.Context) {
 		Code             string `json:"code"`
 		Storage          string `json:"storage"`
 	}
+	type withdrawal struct {
+		Index     string `json:"index"`
+		Validator string `json:"validator"`
+		Address   string `json:"address"`
+		Amount    string `json:"amount"`
+	}
 	var root struct {
 		Block struct {
 			Number string `json:"number"`
@@ -65,18 +73,20 @@ func (suite *liveSuite) assertGraphQLQueries(ctx context.Context) {
 			GasLimit         string               `json:"gasLimit"`
 			GasUsed          string               `json:"gasUsed"`
 			BaseFeePerGas    string               `json:"baseFeePerGas"`
+			NextBaseFee      string               `json:"nextBaseFeePerGas"`
 			Timestamp        string               `json:"timestamp"`
 			LogsBloom        string               `json:"logsBloom"`
 			Random           string               `json:"random"`
 			Transactions     []graphQLTransaction `json:"transactions"`
 			TransactionAt    graphQLTransaction   `json:"transactionAt"`
 			Logs             []graphQLLog         `json:"logs"`
-			Withdrawals      []json.RawMessage    `json:"withdrawals"`
+			Withdrawals      []withdrawal         `json:"withdrawals"`
 			Account          account              `json:"account"`
 			Call             callResult           `json:"call"`
 			EstimateGas      string               `json:"estimateGas"`
 			RawHeader        string               `json:"rawHeader"`
 			Raw              string               `json:"raw"`
+			WithdrawalsRoot  *string              `json:"withdrawalsRoot"`
 		} `json:"block"`
 		BlockByHash struct {
 			Number string `json:"number"`
@@ -113,6 +123,30 @@ func (suite *liveSuite) assertGraphQLQueries(ctx context.Context) {
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	code, err := suite.client.CodeAt(ctx, fixture.address, fixture.receipt.BlockNumber)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	minerBalance, err := suite.client.BalanceAt(
+		ctx,
+		header.Coinbase,
+		fixture.receipt.BlockNumber,
+	)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	minerNonce, err := suite.client.NonceAt(ctx, header.Coinbase, fixture.receipt.BlockNumber)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	minerCode, err := suite.client.CodeAt(ctx, header.Coinbase, fixture.receipt.BlockNumber)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	minerStorage, err := suite.client.StorageAt(
+		ctx,
+		header.Coinbase,
+		common.Hash{},
+		fixture.receipt.BlockNumber,
+	)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	pendingBalance, err := suite.client.PendingBalanceAt(ctx, suite.from)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	pendingNonce, err := suite.client.PendingNonceAt(ctx, suite.from)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	pendingCode, err := suite.client.PendingCodeAt(ctx, suite.from)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	nextBaseFee := eip1559.CalcBaseFee(params.AllBeaconProtocolChanges, header)
 
 	callArgs := map[string]any{
 		"from": suite.from,
@@ -149,10 +183,25 @@ func (suite *liveSuite) assertGraphQLQueries(ctx context.Context) {
 	gomega.Expect(root.Block.StateRoot).To(gomega.Equal(header.Root.Hex()))
 	gomega.Expect(root.Block.ReceiptsRoot).To(gomega.Equal(header.ReceiptHash.Hex()))
 	gomega.Expect(root.Block.Miner.Address).To(gomega.Equal(header.Coinbase.Hex()))
+	gomega.Expect(root.Block.Miner.Balance).To(
+		gomega.Equal(hexutil.EncodeBig(minerBalance)),
+		"GraphQL block miner balance",
+	)
+	gomega.Expect(root.Block.Miner.TransactionCount).To(
+		gomega.Equal(hexutil.EncodeUint64(minerNonce)),
+	)
+	gomega.Expect(root.Block.Miner.Code).To(gomega.Equal(hexutil.Encode(minerCode)))
+	gomega.Expect(root.Block.Miner.Storage).To(
+		gomega.Equal(common.BytesToStorageValue64(minerStorage).Hex()),
+	)
 	gomega.Expect(root.Block.ExtraData).To(gomega.Equal(hexutil.Encode(header.Extra)))
 	gomega.Expect(root.Block.GasLimit).To(gomega.Equal(hexutil.EncodeUint64(header.GasLimit)))
 	gomega.Expect(root.Block.GasUsed).To(gomega.Equal(hexutil.EncodeUint64(header.GasUsed)))
 	gomega.Expect(root.Block.BaseFeePerGas).To(gomega.Equal(hexutil.EncodeBig(header.BaseFee)))
+	gomega.Expect(root.Block.NextBaseFee).To(
+		gomega.Equal(hexutil.EncodeBig(nextBaseFee)),
+		"GraphQL next base fee",
+	)
 	gomega.Expect(root.Block.Timestamp).To(gomega.Equal(hexutil.EncodeUint64(header.Time)))
 	gomega.Expect(root.Block.LogsBloom).To(gomega.Equal(hexutil.Encode(header.Bloom.Bytes())))
 	gomega.Expect(root.Block.Random).To(gomega.Equal(header.Random.Hex()))
@@ -169,6 +218,11 @@ func (suite *liveSuite) assertGraphQLQueries(ctx context.Context) {
 		gomega.Equal(hexutil.EncodeUint64(uint64(len(root.Pending.Transactions)))),
 	)
 	gomega.Expect(root.Pending.Account.Address).To(gomega.Equal(suite.from.Hex()))
+	gomega.Expect(root.Pending.Account.Balance).To(gomega.Equal(hexutil.EncodeBig(pendingBalance)))
+	gomega.Expect(root.Pending.Account.TransactionCount).To(
+		gomega.Equal(hexutil.EncodeUint64(pendingNonce)),
+	)
+	gomega.Expect(root.Pending.Account.Code).To(gomega.Equal(hexutil.Encode(pendingCode)))
 	gomega.Expect(root.Block.Account.Address).To(gomega.Equal(fixture.address.Hex()))
 	gomega.Expect(root.Block.Account.Balance).To(gomega.Equal(hexutil.EncodeBig(balance)))
 	gomega.Expect(root.Block.Account.TransactionCount).To(gomega.Equal(hexutil.EncodeUint64(nonce)))
@@ -190,7 +244,21 @@ func (suite *liveSuite) assertGraphQLQueries(ctx context.Context) {
 	gomega.Expect(root.PriorityFee).NotTo(gomega.BeEmpty())
 	gomega.Expect(root.ChainID).To(gomega.Equal(hexutil.EncodeBig(suite.chainID)))
 	gomega.Expect(root.Syncing).To(gomega.BeNil())
-	gomega.Expect(root.Block.Withdrawals).NotTo(gomega.BeNil())
+	if header.WithdrawalsHash == nil {
+		gomega.Expect(root.Block.WithdrawalsRoot).To(gomega.BeNil())
+		gomega.Expect(root.Block.Withdrawals).To(gomega.BeNil())
+	} else {
+		gomega.Expect(root.Block.WithdrawalsRoot).NotTo(gomega.BeNil())
+		gomega.Expect(*root.Block.WithdrawalsRoot).To(gomega.Equal(header.WithdrawalsHash.Hex()))
+		gomega.Expect(root.Block.Withdrawals).To(gomega.HaveLen(len(fixture.block.Withdrawals())))
+		for index, want := range fixture.block.Withdrawals() {
+			got := root.Block.Withdrawals[index]
+			gomega.Expect(got.Index).To(gomega.Equal(hexutil.EncodeUint64(want.Index)))
+			gomega.Expect(got.Validator).To(gomega.Equal(hexutil.EncodeUint64(want.Validator)))
+			gomega.Expect(got.Address).To(gomega.Equal(want.Address.Hex()))
+			gomega.Expect(got.Amount).To(gomega.Equal(hexutil.EncodeUint64(want.Amount)))
+		}
+	}
 
 	var blockTransaction *graphQLTransaction
 	for index := range root.Block.Transactions {
@@ -200,11 +268,17 @@ func (suite *liveSuite) assertGraphQLQueries(ctx context.Context) {
 		}
 	}
 	gomega.Expect(blockTransaction).NotTo(gomega.BeNil())
-	assertGraphQLTransaction(*blockTransaction, fixture.tx, fixture.receipt)
-	assertGraphQLTransaction(root.Transaction, fixture.tx, fixture.receipt)
+	assertGraphQLTransaction(
+		*blockTransaction,
+		fixture.tx,
+		fixture.receipt,
+		fixture.block,
+		suite.chainID,
+	)
+	assertGraphQLTransactionEnvelope(root.Transaction, fixture.tx, fixture.receipt)
 
 	gomega.Expect(root.Block.Logs).To(gomega.HaveLen(1))
-	assertGraphQLLog(root.Block.Logs[0], fixture)
+	assertGraphQLLog(root.Block.Logs[0], fixture.receipt.Logs[0])
 	gomega.Expect(root.Logs).To(gomega.HaveLen(1))
-	assertGraphQLLog(root.Logs[0], fixture)
+	assertGraphQLLog(root.Logs[0], fixture.receipt.Logs[0])
 }

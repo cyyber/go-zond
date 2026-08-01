@@ -11,6 +11,7 @@ import (
 	_ "embed"
 	"encoding/json"
 	"io"
+	"math/big"
 	"net/http"
 
 	"github.com/theQRL/go-qrl/common/hexutil"
@@ -23,6 +24,19 @@ import (
 //go:embed testdata/api.graphql
 var apiGraphQLQuery string
 
+type graphQLAccount struct {
+	Address string `json:"address"`
+}
+
+type graphQLBlock struct {
+	Number string `json:"number"`
+	Hash   string `json:"hash"`
+}
+
+type graphQLTransactionRef struct {
+	Hash string `json:"hash"`
+}
+
 type graphQLResponse struct {
 	Data   json.RawMessage `json:"data"`
 	Errors []struct {
@@ -31,10 +45,24 @@ type graphQLResponse struct {
 }
 
 type graphQLTransaction struct {
-	Hash string `json:"hash"`
-	To   *struct {
-		Address string `json:"address"`
-	} `json:"to"`
+	Hash       string          `json:"hash"`
+	Nonce      string          `json:"nonce"`
+	Index      string          `json:"index"`
+	From       *graphQLAccount `json:"from"`
+	To         *graphQLAccount `json:"to"`
+	Value      string          `json:"value"`
+	FeeCap     string          `json:"maxFeePerGas"`
+	TipCap     string          `json:"maxPriorityFeePerGas"`
+	Tip        string          `json:"effectiveTip"`
+	Gas        string          `json:"gas"`
+	Input      string          `json:"inputData"`
+	Block      *graphQLBlock   `json:"block"`
+	Status     string          `json:"status"`
+	GasUsed    string          `json:"gasUsed"`
+	TotalGas   string          `json:"cumulativeGasUsed"`
+	GasPrice   string          `json:"effectiveGasPrice"`
+	Created    *graphQLAccount `json:"createdContract"`
+	Logs       []graphQLLog    `json:"logs"`
 	AccessList []struct {
 		Address     string   `json:"address"`
 		StorageKeys []string `json:"storageKeys"`
@@ -43,16 +71,84 @@ type graphQLTransaction struct {
 	ExtraParams string `json:"extraParams"`
 	Signature   string `json:"signature"`
 	PublicKey   string `json:"publicKey"`
+	Type        string `json:"type"`
 	Raw         string `json:"raw"`
 	RawReceipt  string `json:"rawReceipt"`
 }
 
 type graphQLLog struct {
-	Topics []string `json:"topics"`
-	Data   string   `json:"data"`
+	Index       string                `json:"index"`
+	Account     graphQLAccount        `json:"account"`
+	Topics      []string              `json:"topics"`
+	Data        string                `json:"data"`
+	Transaction graphQLTransactionRef `json:"transaction"`
 }
 
 func assertGraphQLTransaction(
+	got graphQLTransaction,
+	tx *types.Transaction,
+	receipt *types.Receipt,
+	block *types.Block,
+	chainID *big.Int,
+) {
+	ginkgo.GinkgoHelper()
+
+	from, err := types.Sender(types.LatestSignerForChainID(chainID), tx)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	tip, err := tx.EffectiveGasTip(block.BaseFee())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
+	gomega.Expect(got.Nonce).To(gomega.Equal(hexutil.EncodeUint64(tx.Nonce())))
+	gomega.Expect(got.Index).To(
+		gomega.Equal(hexutil.EncodeUint64(uint64(receipt.TransactionIndex))),
+	)
+	gomega.Expect(got.From).NotTo(gomega.BeNil())
+	gomega.Expect(got.From.Address).To(gomega.Equal(from.Hex()))
+	if tx.To() == nil {
+		gomega.Expect(got.To).To(gomega.BeNil())
+	} else {
+		gomega.Expect(got.To).NotTo(gomega.BeNil())
+		gomega.Expect(got.To.Address).To(gomega.Equal(tx.To().Hex()))
+	}
+	gomega.Expect(got.Value).To(gomega.Equal(hexutil.EncodeBig(tx.Value())), "GraphQL transaction value")
+	gomega.Expect(got.FeeCap).To(gomega.Equal(hexutil.EncodeBig(tx.GasFeeCap())), "GraphQL max fee per gas")
+	gomega.Expect(got.TipCap).To(gomega.Equal(hexutil.EncodeBig(tx.GasTipCap())), "GraphQL max priority fee per gas")
+	gomega.Expect(got.Tip).To(gomega.Equal(hexutil.EncodeBig(tip)), "GraphQL effective tip")
+	gomega.Expect(got.Gas).To(gomega.Equal(hexutil.EncodeUint64(tx.Gas())), "GraphQL transaction gas")
+	gomega.Expect(got.Input).To(gomega.Equal(hexutil.Encode(tx.Data())))
+	gomega.Expect(got.Block).NotTo(gomega.BeNil())
+	gomega.Expect(got.Block.Number).To(gomega.Equal(hexutil.EncodeBig(receipt.BlockNumber)))
+	gomega.Expect(got.Block.Hash).To(gomega.Equal(receipt.BlockHash.Hex()))
+	gomega.Expect(got.Status).To(gomega.Equal(hexutil.EncodeUint64(receipt.Status)))
+	gomega.Expect(got.GasUsed).To(gomega.Equal(hexutil.EncodeUint64(receipt.GasUsed)))
+	gomega.Expect(got.TotalGas).To(
+		gomega.Equal(hexutil.EncodeUint64(receipt.CumulativeGasUsed)),
+	)
+	gomega.Expect(receipt.EffectiveGasPrice).NotTo(gomega.BeNil())
+	gomega.Expect(got.GasPrice).To(
+		gomega.Equal(hexutil.EncodeBig(receipt.EffectiveGasPrice)),
+		"GraphQL effective gas price",
+	)
+	gomega.Expect(got.Created).NotTo(gomega.BeNil())
+	gomega.Expect(got.Created.Address).To(gomega.Equal(receipt.ContractAddress.Hex()))
+	gomega.Expect(got.Type).To(gomega.Equal(hexutil.EncodeUint64(uint64(tx.Type()))))
+	gomega.Expect(got.AccessList).To(gomega.HaveLen(len(tx.AccessList())))
+	for index, tuple := range tx.AccessList() {
+		gomega.Expect(got.AccessList[index].Address).To(gomega.Equal(tuple.Address.Hex()))
+		storageKeys := make([]string, len(tuple.StorageKeys))
+		for keyIndex, key := range tuple.StorageKeys {
+			storageKeys[keyIndex] = key.Hex()
+		}
+		gomega.Expect(got.AccessList[index].StorageKeys).To(gomega.Equal(storageKeys))
+	}
+	gomega.Expect(got.Logs).To(gomega.HaveLen(len(receipt.Logs)))
+	for index := range receipt.Logs {
+		assertGraphQLLog(got.Logs[index], receipt.Logs[index])
+	}
+	assertGraphQLTransactionEnvelope(got, tx, receipt)
+}
+
+func assertGraphQLTransactionEnvelope(
 	got graphQLTransaction,
 	tx *types.Transaction,
 	receipt *types.Receipt,
@@ -73,14 +169,18 @@ func assertGraphQLTransaction(
 	gomega.Expect(got.RawReceipt).To(gomega.Equal(hexutil.Encode(rawReceipt)))
 }
 
-func assertGraphQLLog(got graphQLLog, fixture *liveFixture) {
+func assertGraphQLLog(got graphQLLog, want *types.Log) {
 	ginkgo.GinkgoHelper()
 
-	gomega.Expect(got.Topics).To(gomega.Equal([]string{fixture.topic.Hex()}))
-	gomega.Expect(got.Data).To(
-		gomega.Equal(hexutil.Encode(fixture.value[:])),
-		"GraphQL log data",
-	)
+	topics := make([]string, len(want.Topics))
+	for index, topic := range want.Topics {
+		topics[index] = topic.Hex()
+	}
+	gomega.Expect(got.Index).To(gomega.Equal(hexutil.EncodeUint64(uint64(want.Index))))
+	gomega.Expect(got.Account.Address).To(gomega.Equal(want.Address.Hex()))
+	gomega.Expect(got.Topics).To(gomega.Equal(topics))
+	gomega.Expect(got.Data).To(gomega.Equal(hexutil.Encode(want.Data)), "GraphQL log data")
+	gomega.Expect(got.Transaction.Hash).To(gomega.Equal(want.TxHash.Hex()))
 }
 
 func (suite *liveSuite) queryGraphQL(

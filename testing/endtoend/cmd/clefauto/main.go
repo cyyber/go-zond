@@ -25,6 +25,9 @@ import (
 type automatedUI struct{}
 
 func (*automatedUI) ApproveTx(request *signercore.SignTxRequest) (signercore.SignTxResponse, error) {
+	if request.Transaction.Value.ToInt().Cmp(big.NewInt(fixture.RemoteSignerRejectedTransaction)) == 0 {
+		return signercore.SignTxResponse{Transaction: request.Transaction, Approved: false}, nil
+	}
 	if request.Transaction.Value.ToInt().Cmp(big.NewInt(fixture.RemoteSignerDelayedTransaction)) == 0 {
 		time.Sleep(3 * time.Second)
 	}

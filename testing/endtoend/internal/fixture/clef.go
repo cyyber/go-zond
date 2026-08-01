@@ -4,8 +4,9 @@
 package fixture
 
 const (
-	RemoteSignerPassword           = "passwordpassword"
-	RemoteSignerSeed               = "010000d06550d47ce0840a61e7e58e86be8f4bbba4c0ebb64234ed61a0ead7d7969008afac84bb6582b611aaf69415e82fe49d"
-	RemoteSignerRejectedText       = "go-qrl external signer rejection"
-	RemoteSignerDelayedTransaction = int64(9002)
+	RemoteSignerPassword            = "passwordpassword"
+	RemoteSignerSeed                = "010000d06550d47ce0840a61e7e58e86be8f4bbba4c0ebb64234ed61a0ead7d7969008afac84bb6582b611aaf69415e82fe49d"
+	RemoteSignerRejectedText        = "go-qrl external signer rejection"
+	RemoteSignerRejectedTransaction = int64(9001)
+	RemoteSignerDelayedTransaction  = int64(9002)
 )

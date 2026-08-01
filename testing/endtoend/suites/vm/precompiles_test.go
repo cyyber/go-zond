@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/binary"
+	"math/big"
 	"sort"
 
 	qrl "github.com/theQRL/go-qrl"
@@ -129,6 +130,40 @@ var _ = ginkgo.Describe(
 					gomega.Expect(err).To(gomega.HaveOccurred())
 				}
 			}
+		}, ginkgo.SpecTimeout(liveSpecTimeout))
+
+		ginkgo.It("executes a precompile through STATICCALL with exact forwarded gas", func(ctx ginkgo.SpecContext) {
+			suite := &liveSuite{
+				session: session,
+				target:  common.BytesToAddress([]byte{0xee}),
+			}
+			input := []byte("abc")
+			wantHash := sha256.Sum256(input)
+
+			output := suite.callCodeWithInput(
+				ctx,
+				staticCallPrecompileCode(2, 72),
+				input,
+				nil,
+			)
+			gomega.Expect(output).To(gomega.HaveLen(2 * qrvm.WordBytes))
+			gomega.Expect(output[:sha256.Size]).To(gomega.Equal(wantHash[:]))
+			gomega.Expect(output[sha256.Size:qrvm.WordBytes]).To(
+				gomega.Equal(make([]byte, qrvm.WordBytes-sha256.Size)),
+			)
+			gomega.Expect(new(big.Int).SetBytes(output[qrvm.WordBytes:])).To(
+				gomega.Equal(big.NewInt(1)),
+			)
+
+			output = suite.callCodeWithInput(
+				ctx,
+				staticCallPrecompileCode(2, 71),
+				input,
+				nil,
+			)
+			gomega.Expect(new(big.Int).SetBytes(output[qrvm.WordBytes:]).Sign()).To(
+				gomega.BeZero(),
+			)
 		}, ginkgo.SpecTimeout(liveSpecTimeout))
 
 		ginkgo.It("rejects malformed ML-DSA-87 input", func(ctx ginkgo.SpecContext) {

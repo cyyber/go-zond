@@ -72,6 +72,17 @@ var _ = ginkgo.Describe(
 			modulus := new(big.Int).Lsh(big.NewInt(1), qrvm.WordBits)
 			max := new(big.Int).Sub(new(big.Int).Set(modulus), big.NewInt(1))
 			minSigned := new(big.Int).Lsh(big.NewInt(1), qrvm.WordBits-1)
+			mulLeft := new(big.Int).Add(new(big.Int).Lsh(big.NewInt(1), 300), big.NewInt(1))
+			mulRight := new(big.Int).Add(new(big.Int).Lsh(big.NewInt(1), 220), big.NewInt(1))
+			dividend := new(big.Int).Add(new(big.Int).Lsh(big.NewInt(1), 400), big.NewInt(21))
+			divisor := big.NewInt(7)
+			negativeDividend := new(big.Int).Neg(
+				new(big.Int).Add(new(big.Int).Lsh(big.NewInt(1), 400), big.NewInt(19)),
+			)
+			modDivisor := big.NewInt(17)
+			modLeft := new(big.Int).Add(new(big.Int).Lsh(big.NewInt(1), 400), big.NewInt(123))
+			modRight := new(big.Int).Add(new(big.Int).Lsh(big.NewInt(1), 300), big.NewInt(456))
+			modulus500 := new(big.Int).Add(new(big.Int).Lsh(big.NewInt(1), 500), big.NewInt(159))
 			zero := []byte{0}
 			one := []byte{1}
 			shift511 := new(big.Int).SetUint64(qrvm.WordBits - 1).Bytes()
@@ -84,6 +95,60 @@ var _ = ginkgo.Describe(
 			}{
 				{"ADD wraps at 512 bits", qrvm.ADD, [][]byte{vmWord(max), one}, new(big.Int)},
 				{"SUB wraps at 512 bits", qrvm.SUB, [][]byte{one, zero}, max},
+				{
+					"MUL wraps at 512 bits",
+					qrvm.MUL,
+					[][]byte{vmWord(mulLeft), vmWord(mulRight)},
+					vmUnsigned(new(big.Int).Mul(mulLeft, mulRight), modulus),
+				},
+				{
+					"DIV uses the upper 256 bits",
+					qrvm.DIV,
+					[][]byte{vmWord(divisor), vmWord(dividend)},
+					new(big.Int).Div(dividend, divisor),
+				},
+				{
+					"SDIV preserves a negative upper-half quotient",
+					qrvm.SDIV,
+					[][]byte{vmWord(divisor), vmWord(vmUnsigned(negativeDividend, modulus))},
+					vmUnsigned(new(big.Int).Quo(negativeDividend, divisor), modulus),
+				},
+				{
+					"SDIV preserves the signed minimum divided by minus one",
+					qrvm.SDIV,
+					[][]byte{vmWord(max), vmWord(minSigned)},
+					minSigned,
+				},
+				{
+					"MOD uses the upper 256 bits",
+					qrvm.MOD,
+					[][]byte{vmWord(modDivisor), vmWord(dividend)},
+					new(big.Int).Mod(dividend, modDivisor),
+				},
+				{
+					"SMOD preserves a negative remainder",
+					qrvm.SMOD,
+					[][]byte{vmWord(modDivisor), vmWord(vmUnsigned(negativeDividend, modulus))},
+					vmUnsigned(new(big.Int).Rem(negativeDividend, modDivisor), modulus),
+				},
+				{
+					"ADDMOD uses a 512-bit modulus",
+					qrvm.ADDMOD,
+					[][]byte{vmWord(modulus500), vmWord(modRight), vmWord(modLeft)},
+					new(big.Int).Mod(new(big.Int).Add(modLeft, modRight), modulus500),
+				},
+				{
+					"MULMOD preserves the full intermediate product",
+					qrvm.MULMOD,
+					[][]byte{vmWord(modulus500), vmWord(modRight), vmWord(modLeft)},
+					new(big.Int).Mod(new(big.Int).Mul(modLeft, modRight), modulus500),
+				},
+				{
+					"EXP reaches the upper 256 bits",
+					qrvm.EXP,
+					[][]byte{big.NewInt(400).Bytes(), []byte{2}},
+					new(big.Int).Lsh(big.NewInt(1), 400),
+				},
 				{"SLT compares the signed minimum", qrvm.SLT, [][]byte{zero, vmWord(minSigned)}, big.NewInt(1)},
 				{"SGT compares minus one", qrvm.SGT, [][]byte{vmWord(max), zero}, big.NewInt(1)},
 				{"SHL reaches bit 511", qrvm.SHL, [][]byte{one, shift511}, minSigned},
@@ -91,6 +156,35 @@ var _ = ginkgo.Describe(
 				{"SAR preserves the sign", qrvm.SAR, [][]byte{vmWord(minSigned), shift511}, max},
 			}
 			for _, test := range cases {
+				ginkgo.By(test.name)
+				gomega.Expect(suite.callCode(ctx, operationCode(test.op, test.operands...), nil)).To(
+					gomega.Equal(vmWord(test.want)),
+				)
+			}
+
+			upperLeft := new(big.Int).Or(
+				new(big.Int).Lsh(big.NewInt(1), 400),
+				big.NewInt(0x55),
+			)
+			upperRight := new(big.Int).Or(
+				new(big.Int).Lsh(big.NewInt(1), 300),
+				big.NewInt(0xaa),
+			)
+			for _, test := range []struct {
+				name     string
+				op       qrvm.OpCode
+				operands [][]byte
+				want     *big.Int
+			}{
+				{"LT compares upper-half values", qrvm.LT, [][]byte{vmWord(upperLeft), vmWord(upperRight)}, big.NewInt(1)},
+				{"GT compares upper-half values", qrvm.GT, [][]byte{vmWord(upperRight), vmWord(upperLeft)}, big.NewInt(1)},
+				{"EQ compares complete words", qrvm.EQ, [][]byte{vmWord(upperLeft), vmWord(upperLeft)}, big.NewInt(1)},
+				{"ISZERO rejects an upper-half bit", qrvm.ISZERO, [][]byte{vmWord(upperLeft)}, new(big.Int)},
+				{"AND preserves upper-half bits", qrvm.AND, [][]byte{vmWord(upperLeft), vmWord(upperRight)}, new(big.Int).And(upperLeft, upperRight)},
+				{"OR preserves upper-half bits", qrvm.OR, [][]byte{vmWord(upperLeft), vmWord(upperRight)}, new(big.Int).Or(upperLeft, upperRight)},
+				{"XOR preserves upper-half bits", qrvm.XOR, [][]byte{vmWord(upperLeft), vmWord(upperRight)}, new(big.Int).Xor(upperLeft, upperRight)},
+				{"NOT flips all 512 bits", qrvm.NOT, [][]byte{vmWord(upperLeft)}, new(big.Int).Xor(upperLeft, max)},
+			} {
 				ginkgo.By(test.name)
 				gomega.Expect(suite.callCode(ctx, operationCode(test.op, test.operands...), nil)).To(
 					gomega.Equal(vmWord(test.want)),
@@ -227,6 +321,22 @@ var _ = ginkgo.Describe(
 				gomega.Expect(new(big.Int).SetBytes(output[2*qrvm.WordBytes : 3*qrvm.WordBytes]).Sign()).To(gomega.BeZero())
 				gomega.Expect(new(big.Int).SetBytes(output[3*qrvm.WordBytes:]).Uint64()).To(gomega.Equal(uint64(1)))
 			}
+
+			valueCode := callCodeWithValue(qrvm.CALL, callee, 7)
+			valueOutput := suite.callCode(ctx, valueCode, qrlapi.StateOverride{
+				suite.target: codeAndBalanceOverride(valueCode, big.NewInt(10)),
+				callee:       codeAndBalanceOverride(callValueContextCode(), new(big.Int)),
+			})
+			gomega.Expect(valueOutput).To(gomega.HaveLen(4 * qrvm.WordBytes))
+			gomega.Expect(new(big.Int).SetBytes(valueOutput[:qrvm.WordBytes])).To(
+				gomega.Equal(big.NewInt(7)),
+			)
+			gomega.Expect(new(big.Int).SetBytes(valueOutput[qrvm.WordBytes : 2*qrvm.WordBytes])).To(
+				gomega.Equal(big.NewInt(7)),
+			)
+			gomega.Expect(new(big.Int).SetBytes(valueOutput[3*qrvm.WordBytes:])).To(
+				gomega.Equal(big.NewInt(1)),
+			)
 		}, ginkgo.SpecTimeout(liveSpecTimeout))
 
 		ginkgo.It("reverts failed CALL, STATICCALL, and DELEGATECALL effects", func(ctx ginkgo.SpecContext) {
@@ -257,23 +367,32 @@ var _ = ginkgo.Describe(
 
 		ginkgo.It("executes CREATE and CREATE2", func(ctx ginkgo.SpecContext) {
 			for _, op := range []qrvm.OpCode{qrvm.CREATE, qrvm.CREATE2} {
-				code, childInit := createCode(op)
-				output := suite.callCode(ctx, code, nil)
-				gomega.Expect(output).To(gomega.HaveLen(4 * qrvm.WordBytes))
-				gomega.Expect(new(big.Int).SetBytes(output[:qrvm.WordBytes]).Uint64()).To(gomega.Equal(uint64(len(returnWordCode([]byte{0x2a})))))
+				for _, value := range []byte{0, 7} {
+					code, childInit := createCode(op, value)
+					var overrides qrlapi.StateOverride
+					if value > 0 {
+						overrides = qrlapi.StateOverride{
+							suite.target: codeAndBalanceOverride(code, big.NewInt(100)),
+						}
+					}
+					output := suite.callCode(ctx, code, overrides)
+					gomega.Expect(output).To(gomega.HaveLen(5 * qrvm.WordBytes))
+					gomega.Expect(new(big.Int).SetBytes(output[:qrvm.WordBytes]).Uint64()).To(gomega.Equal(uint64(len(returnWordCode([]byte{0x2a})))))
 
-				var wantAddress common.Address
-				if op == qrvm.CREATE {
-					wantAddress = crypto.CreateAddress(suite.target, 0)
-				} else {
-					var salt [qrvm.WordBytes]byte
-					salt[len(salt)-1] = 1
-					initHash := crypto.Keccak256Hash(childInit)
-					wantAddress = crypto.CreateAddress2(suite.target, salt, initHash[:])
+					var wantAddress common.Address
+					if op == qrvm.CREATE {
+						wantAddress = crypto.CreateAddress(suite.target, 0)
+					} else {
+						var salt [qrvm.WordBytes]byte
+						salt[len(salt)-1] = 1
+						initHash := crypto.Keccak256Hash(childInit)
+						wantAddress = crypto.CreateAddress2(suite.target, salt, initHash[:])
+					}
+					gomega.Expect(common.BytesToAddress(output[qrvm.WordBytes : 2*qrvm.WordBytes])).To(gomega.Equal(wantAddress))
+					gomega.Expect(new(big.Int).SetBytes(output[2*qrvm.WordBytes : 3*qrvm.WordBytes]).Uint64()).To(gomega.Equal(uint64(0x2a)))
+					gomega.Expect(new(big.Int).SetBytes(output[3*qrvm.WordBytes : 4*qrvm.WordBytes]).Uint64()).To(gomega.Equal(uint64(1)))
+					gomega.Expect(new(big.Int).SetBytes(output[4*qrvm.WordBytes:]).Uint64()).To(gomega.Equal(uint64(value)))
 				}
-				gomega.Expect(common.BytesToAddress(output[qrvm.WordBytes : 2*qrvm.WordBytes])).To(gomega.Equal(wantAddress))
-				gomega.Expect(new(big.Int).SetBytes(output[2*qrvm.WordBytes : 3*qrvm.WordBytes]).Uint64()).To(gomega.Equal(uint64(0x2a)))
-				gomega.Expect(new(big.Int).SetBytes(output[3*qrvm.WordBytes:]).Uint64()).To(gomega.Equal(uint64(1)))
 			}
 		}, ginkgo.SpecTimeout(liveSpecTimeout))
 
@@ -308,24 +427,67 @@ var _ = ginkgo.Describe(
 		ginkgo.It("returns full-width address and block context values", func(ctx ginkgo.SpecContext) {
 			header, err := suite.session.Client.HeaderByNumber(ctx, nil)
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			gomega.Expect(header.Number.Sign()).To(gomega.BeNumerically(">", 0))
+			block := hexutil.EncodeBig(header.Number)
 			balance, err := suite.session.Client.BalanceAt(ctx, suite.session.Address, nil)
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
-			gomega.Expect(suite.callCode(ctx, opcodeCode(qrvm.ORIGIN), nil)).To(
+			gomega.Expect(suite.callCodeAt(ctx, opcodeCode(qrvm.ORIGIN), nil, block, nil)).To(
 				gomega.Equal(suite.session.Address.Bytes()),
 			)
-			gomega.Expect(suite.callCode(ctx, opcodeCode(qrvm.COINBASE), nil)).To(
+			gomega.Expect(suite.callCodeAt(ctx, opcodeCode(qrvm.COINBASE), nil, block, nil)).To(
 				gomega.Equal(header.Coinbase.Bytes()),
 			)
-			gomega.Expect(suite.callCode(ctx, addressOpcodeCode(qrvm.BALANCE, suite.session.Address), nil)).To(
+			gomega.Expect(suite.callCodeAt(ctx, addressOpcodeCode(qrvm.BALANCE, suite.session.Address), nil, block, nil)).To(
 				gomega.Equal(vmWord(balance)),
 			)
 
 			callee := common.BytesToAddress([]byte{0xf5})
 			code := returnWordCode([]byte{0x2a})
-			gomega.Expect(suite.callCode(ctx, addressOpcodeCode(qrvm.EXTCODEHASH, callee), qrlapi.StateOverride{
+			gomega.Expect(suite.callCodeAt(ctx, addressOpcodeCode(qrvm.EXTCODEHASH, callee), qrlapi.StateOverride{
 				callee: codeOverride(code),
-			})).To(gomega.Equal(vmWord(new(big.Int).SetBytes(crypto.Keccak256(code)))))
+			}, block, nil)).To(gomega.Equal(vmWord(new(big.Int).SetBytes(crypto.Keccak256(code)))))
+
+			for _, test := range []struct {
+				name string
+				op   qrvm.OpCode
+				want *big.Int
+			}{
+				{"NUMBER", qrvm.NUMBER, header.Number},
+				{"TIMESTAMP", qrvm.TIMESTAMP, new(big.Int).SetUint64(header.Time)},
+				{"GASLIMIT", qrvm.GASLIMIT, new(big.Int).SetUint64(header.GasLimit)},
+				{"CHAINID", qrvm.CHAINID, suite.session.ChainID},
+				{"BASEFEE", qrvm.BASEFEE, header.BaseFee},
+				{"RANDOM", qrvm.RANDOM, new(big.Int).SetBytes(header.Random.Bytes())},
+			} {
+				ginkgo.By(test.name)
+				gomega.Expect(suite.callCodeAt(ctx, opcodeCode(test.op), nil, block, nil)).To(
+					gomega.Equal(vmWord(test.want)),
+				)
+			}
+
+			parentNumber := new(big.Int).Sub(header.Number, big.NewInt(1))
+			parent, err := suite.session.Client.HeaderByNumber(ctx, parentNumber)
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			gomega.Expect(suite.callCodeAt(ctx, operationCode(
+				qrvm.BLOCKHASH,
+				parentNumber.Bytes(),
+			), nil, block, nil)).To(
+				gomega.Equal(vmWord(new(big.Int).SetBytes(parent.Hash().Bytes()))),
+			)
+
+			selfBalance := new(big.Int).Add(new(big.Int).Lsh(big.NewInt(1), 255), big.NewInt(9))
+			selfBalanceCode := opcodeCode(qrvm.SELFBALANCE)
+			gomega.Expect(suite.callCodeAt(ctx, selfBalanceCode, qrlapi.StateOverride{
+				suite.target: codeAndBalanceOverride(selfBalanceCode, selfBalance),
+			}, block, nil)).To(gomega.Equal(vmWord(selfBalance)))
+
+			tip := big.NewInt(7)
+			feeCap := new(big.Int).Add(header.BaseFee, big.NewInt(100))
+			gomega.Expect(suite.callCodeAt(ctx, opcodeCode(qrvm.GASPRICE), nil, block, map[string]any{
+				"maxFeePerGas":         (*hexutil.Big)(feeCap),
+				"maxPriorityFeePerGas": (*hexutil.Big)(tip),
+			})).To(gomega.Equal(vmWord(new(big.Int).Add(header.BaseFee, tip))))
 		}, ginkgo.SpecTimeout(liveSpecTimeout))
 
 		ginkgo.It("mines LOG0 through LOG4 with full-width values", func(ctx ginkgo.SpecContext) {
@@ -376,24 +538,52 @@ func (suite *liveSuite) callCodeResult(
 	input []byte,
 	extra qrlapi.StateOverride,
 ) ([]byte, error) {
+	return suite.callCodeResultAt(ctx, code, input, extra, "latest", nil)
+}
+
+func (suite *liveSuite) callCodeAt(
+	ctx context.Context,
+	code []byte,
+	extra qrlapi.StateOverride,
+	block any,
+	fields map[string]any,
+) []byte {
+	ginkgo.GinkgoHelper()
+	output, err := suite.callCodeResultAt(ctx, code, nil, extra, block, fields)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	return output
+}
+
+func (suite *liveSuite) callCodeResultAt(
+	ctx context.Context,
+	code []byte,
+	input []byte,
+	extra qrlapi.StateOverride,
+	block any,
+	fields map[string]any,
+) ([]byte, error) {
 	ginkgo.GinkgoHelper()
 
 	overrides := qrlapi.StateOverride{suite.target: codeOverride(code)}
 	for address, account := range extra {
 		overrides[address] = account
 	}
+	call := map[string]any{
+		"from":  suite.session.Address,
+		"to":    suite.target,
+		"gas":   hexutil.Uint64(10_000_000),
+		"input": hexutil.Bytes(input),
+	}
+	for name, value := range fields {
+		call[name] = value
+	}
 	var output hexutil.Bytes
 	err := suite.session.Client.Client().CallContext(
 		ctx,
 		&output,
 		"qrl_call",
-		map[string]any{
-			"from":  suite.session.Address,
-			"to":    suite.target,
-			"gas":   hexutil.Uint64(10_000_000),
-			"input": hexutil.Bytes(input),
-		},
-		"latest",
+		call,
+		block,
 		overrides,
 	)
 	return output, err
@@ -414,6 +604,10 @@ func codeAndBalanceOverride(code []byte, balance *big.Int) qrlapi.OverrideAccoun
 
 func vmWord(value *big.Int) []byte {
 	return value.FillBytes(make([]byte, qrvm.WordBytes))
+}
+
+func vmUnsigned(value, modulus *big.Int) *big.Int {
+	return new(big.Int).Mod(new(big.Int).Set(value), modulus)
 }
 
 func (suite *liveSuite) mineLog(ctx context.Context, data []byte, topics []common.LogTopic) *types.Receipt {
