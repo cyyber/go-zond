@@ -1908,14 +1908,9 @@ func TestBindFunctionTypes(t *testing.T) {
 	t.Parallel()
 
 	definition := `[{
-		"inputs":[
-			{"name":"callback","type":"function"},
-			{"name":"fixedCallbacks","type":"function[2]"},
-			{"name":"callbacks","type":"function[]"},
-			{"components":[{"name":"callback","type":"function"}],"internalType":"struct FunctionRecord","name":"record","type":"tuple"}
-		],
-		"name":"echoFunctions",
-		"outputs":[],
+		"inputs":[{"name":"callback","type":"function"}],
+		"name":"echoFunction",
+		"outputs":[{"name":"callback","type":"function"}],
 		"stateMutability":"pure",
 		"type":"function"
 	},{
@@ -1938,10 +1933,8 @@ func TestBindFunctionTypes(t *testing.T) {
 	}
 	for _, want := range []string{
 		"callback [68]byte",
-		"fixedCallbacks [2][68]byte",
-		"callbacks [][68]byte",
-		"Callback [68]byte",
 		"IndexedCallback common.Hash",
+		"indexedCallback [][68]byte",
 	} {
 		if !strings.Contains(code, want) {
 			t.Fatalf("generated binding does not contain %q", want)

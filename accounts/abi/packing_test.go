@@ -17,7 +17,6 @@
 package abi
 
 import (
-	"encoding/hex"
 	"math/big"
 	"strings"
 
@@ -25,9 +24,17 @@ import (
 )
 
 type packUnpackTest struct {
-	def      string
-	unpacked any
-	packed   string
+	def       string
+	unpacked  any
+	arguments []any
+	packed    string
+}
+
+func (test packUnpackTest) values() []any {
+	if test.arguments != nil {
+		return test.arguments
+	}
+	return []any{test.unpacked}
 }
 
 func addressSlot(prefix byte) string {
@@ -47,12 +54,14 @@ func functionValue(addressPrefix byte, selector [4]byte) [common.AddressLength +
 }
 
 func functionBytes(value [common.AddressLength + 4]byte) []byte {
-	encoded := append([]byte{}, value[:common.AddressLength]...)
-	return append(encoded, common.LeftPadBytes(value[common.AddressLength:], 64)...)
+	encoded := make([]byte, 128)
+	copy(encoded[:common.AddressLength], value[:common.AddressLength])
+	copy(encoded[len(encoded)-4:], value[common.AddressLength:])
+	return encoded
 }
 
 func functionEncoding(value [common.AddressLength + 4]byte) string {
-	return hex.EncodeToString(functionBytes(value))
+	return common.Bytes2Hex(functionBytes(value))
 }
 
 var packUnpackTests = []packUnpackTest{
@@ -1025,13 +1034,30 @@ var packUnpackTests = []packUnpackTest{
 		packed:   functionEncoding(functionValue(1, [4]byte{0xde, 0xad, 0xbe, 0xef})),
 	},
 	{
-		def: `[{"type":"function[2]"}]`,
-		unpacked: [2][common.AddressLength + 4]byte{
+		def: `[{"type":"function"},{"type":"string"}]`,
+		arguments: []any{
 			functionValue(1, [4]byte{0xde, 0xad, 0xbe, 0xef}),
-			functionValue(2, [4]byte{0xca, 0xfe, 0xba, 0xbe}),
+			"hyperion",
 		},
 		packed: functionEncoding(functionValue(1, [4]byte{0xde, 0xad, 0xbe, 0xef})) +
-			functionEncoding(functionValue(2, [4]byte{0xca, 0xfe, 0xba, 0xbe})),
+			strings.Repeat("00", 63) + "c0" +
+			strings.Repeat("00", 63) + "08" +
+			"6879706572696f6e" + strings.Repeat("00", 56),
+	},
+	{
+		def: `[{"type":"function[2]"},{"type":"string"}]`,
+		arguments: []any{
+			[2][common.AddressLength + 4]byte{
+				functionValue(1, [4]byte{0xde, 0xad, 0xbe, 0xef}),
+				functionValue(2, [4]byte{0xca, 0xfe, 0xba, 0xbe}),
+			},
+			"hyperion",
+		},
+		packed: functionEncoding(functionValue(1, [4]byte{0xde, 0xad, 0xbe, 0xef})) +
+			functionEncoding(functionValue(2, [4]byte{0xca, 0xfe, 0xba, 0xbe})) +
+			strings.Repeat("00", 62) + "0140" +
+			strings.Repeat("00", 63) + "08" +
+			"6879706572696f6e" + strings.Repeat("00", 56),
 	},
 	{
 		def: `[{"type":"function[]"}]`,

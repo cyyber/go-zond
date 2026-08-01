@@ -54,6 +54,7 @@ func TestMakeTopics(t *testing.T) {
 		copy(t[:common.HashLength], hash)
 		return t
 	}
+	function := functionValue(1, [4]byte{0xde, 0xad, 0xbe, 0xef})
 
 	type args struct {
 		query [][]any
@@ -188,6 +189,12 @@ func TestMakeTopics(t *testing.T) {
 			false,
 		},
 		{
+			"hash function values wider than a topic",
+			args{[][]any{{function}}},
+			[][]common.LogTopic{{common.HashToLogTopic(crypto.Keccak256Hash(function[:]))}},
+			false,
+		},
+		{
 			"support static byte arrays up to the full topic width",
 			args{[][]any{{[64]byte{1, 2, 3}}}},
 			[][]common.LogTopic{{common.LogTopic{1, 2, 3}}},
@@ -236,20 +243,6 @@ func TestMakeTopics(t *testing.T) {
 	})
 }
 
-func TestMakeTopicsFunctionValue(t *testing.T) {
-	t.Parallel()
-
-	value := functionValue(1, [4]byte{0xde, 0xad, 0xbe, 0xef})
-	topics, err := MakeTopics([]any{value})
-	if err != nil {
-		t.Fatal(err)
-	}
-	want := common.HashToLogTopic(crypto.Keccak256Hash(value[:]))
-	if topics[0][0] != want {
-		t.Fatalf("function topic = %x, want %x", topics[0][0], want)
-	}
-}
-
 type args struct {
 	createObj func() any
 	resultObj func() any
@@ -273,7 +266,7 @@ type hashStruct struct {
 	HashValue common.Hash
 }
 
-// funcStruct receives the hash of an indexed VM64 function value.
+// funcStruct receives the hash of an indexed function value.
 type funcStruct struct {
 	FuncValue common.Hash
 }

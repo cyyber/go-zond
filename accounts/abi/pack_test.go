@@ -46,66 +46,13 @@ func TestPack(t *testing.T) {
 				t.Fatalf("invalid ABI definition %s, %v", inDef, err)
 			}
 			var packed []byte
-			packed, err = inAbi.Pack("method", test.unpacked)
+			packed, err = inAbi.Pack("method", test.values()...)
 
 			if err != nil {
 				t.Fatalf("test %d (%v) failed: %v", i, test.def, err)
 			}
 			if !reflect.DeepEqual(packed[4:], encb) {
 				t.Errorf("test %d (%v) failed: expected %v, got %v", i, test.def, encb, packed[4:])
-			}
-		})
-	}
-}
-
-func TestPackFunctionHeadOffsets(t *testing.T) {
-	t.Parallel()
-
-	function := functionValue(1, [4]byte{0xde, 0xad, 0xbe, 0xef})
-	tests := []struct {
-		name       string
-		inputs     string
-		values     []any
-		offsetWord int
-		wantOffset int
-	}{
-		{
-			name:       "function",
-			inputs:     `[{"type":"function"},{"type":"string"}]`,
-			values:     []any{function, "hyperion"},
-			offsetWord: 2,
-			wantOffset: 3 * 64,
-		},
-		{
-			name:   "fixed array",
-			inputs: `[{"type":"function[2]"},{"type":"string"}]`,
-			values: []any{
-				[2][common.AddressLength + 4]byte{function, function},
-				"hyperion",
-			},
-			offsetWord: 4,
-			wantOffset: 5 * 64,
-		},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			definition := fmt.Sprintf(
-				`[{"name":"method","type":"function","inputs":%s}]`,
-				test.inputs,
-			)
-			parsed, err := JSON(strings.NewReader(definition))
-			if err != nil {
-				t.Fatalf("invalid ABI definition: %v", err)
-			}
-			packed, err := parsed.Pack("method", test.values...)
-			if err != nil {
-				t.Fatalf("pack: %v", err)
-			}
-
-			start := 4 + test.offsetWord*64
-			want := common.LeftPadBytes(big.NewInt(int64(test.wantOffset)).Bytes(), 64)
-			if got := packed[start : start+64]; !bytes.Equal(got, want) {
-				t.Fatalf("dynamic offset = %x, want %x", got, want)
 			}
 		})
 	}

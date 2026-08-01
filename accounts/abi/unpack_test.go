@@ -89,54 +89,16 @@ func TestUnpack(t *testing.T) {
 				t.Errorf("test %d (%v) failed: %v", i, test.def, err)
 				return
 			}
-			if !reflect.DeepEqual(test.unpacked, ConvertType(out[0], test.unpacked)) {
-				t.Errorf("test %d (%v) failed: expected %v, got %v", i, test.def, test.unpacked, out[0])
+			want := test.values()
+			if len(out) != len(want) {
+				t.Errorf("test %d (%v) failed: expected %d values, got %d", i, test.def, len(want), len(out))
+				return
 			}
-		})
-	}
-}
-
-func TestUnpackFunctionHeadOffsets(t *testing.T) {
-	t.Parallel()
-
-	function := functionValue(1, [4]byte{0xde, 0xad, 0xbe, 0xef})
-	tests := []struct {
-		name    string
-		outputs string
-		encoded []byte
-		want    []any
-	}{
-		{
-			name:    "function",
-			outputs: `[{"type":"function"},{"type":"uint256"}]`,
-			encoded: append(functionBytes(function), common.LeftPadBytes([]byte{42}, 64)...),
-			want:    []any{function, big.NewInt(42)},
-		},
-		{
-			name:    "fixed array",
-			outputs: `[{"type":"function[2]"},{"type":"uint256"}]`,
-			encoded: append(
-				append(functionBytes(function), functionBytes(function)...),
-				common.LeftPadBytes([]byte{42}, 64)...,
-			),
-			want: []any{
-				[2][common.AddressLength + 4]byte{function, function},
-				big.NewInt(42),
-			},
-		},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			definition := fmt.Sprintf(
-				`[{"name":"method","type":"function","outputs":%s}]`,
-				test.outputs,
-			)
-			parsed, err := JSON(strings.NewReader(definition))
-			require.NoError(t, err)
-
-			got, err := parsed.Unpack("method", test.encoded)
-			require.NoError(t, err)
-			require.Equal(t, test.want, got)
+			for j := range want {
+				if !reflect.DeepEqual(want[j], ConvertType(out[j], want[j])) {
+					t.Errorf("test %d (%v) value %d failed: expected %v, got %v", i, test.def, j, want[j], out[j])
+				}
+			}
 		})
 	}
 }

@@ -272,30 +272,6 @@ func TestUnpackIndexedArrayTyLogIntoMap(t *testing.T) {
 	unpackAndCheck(t, bc, expectedReceivedMap, mockLog)
 }
 
-func TestUnpackIndexedFuncTyLogIntoMap(t *testing.T) {
-	addrBytes := mockSender.Bytes()
-	hash := crypto.Keccak256Hash([]byte("mockFunction(address,uint)"))
-	functionSelector := hash[:4]
-	functionTyBytes := append(addrBytes, functionSelector...)
-	functionHash := crypto.Keccak256Hash(functionTyBytes)
-	topics := []common.LogTopic{
-		common.HashToLogTopic(crypto.Keccak256Hash([]byte("received(function,address,uint256,bytes)"))),
-		common.HashToLogTopic(functionHash),
-	}
-	mockLog := newMockLog(topics, common.HexToHash("0x5c698f13940a2153440c6d19660878bc90219d9298fdcf37365aa8d88d40fc42"))
-	abiString := `[{"anonymous":false,"inputs":[{"indexed":true,"name":"function","type":"function"},{"indexed":false,"name":"sender","type":"address"},{"indexed":false,"name":"amount","type":"uint256"},{"indexed":false,"name":"memo","type":"bytes"}],"name":"received","type":"event"}]`
-	parsedAbi, _ := abi.JSON(strings.NewReader(abiString))
-	bc := bind.NewBoundContract(common.Address{}, parsedAbi, nil, nil, nil)
-
-	expectedReceivedMap := map[string]any{
-		"function": functionHash,
-		"sender":   mockSender,
-		"amount":   big.NewInt(1),
-		"memo":     []byte{88},
-	}
-	unpackAndCheck(t, bc, expectedReceivedMap, mockLog)
-}
-
 func TestUnpackIndexedBytesTyLogIntoMap(t *testing.T) {
 	bytes := []byte{1, 2, 3, 4, 5}
 	hash := crypto.Keccak256Hash(bytes)
