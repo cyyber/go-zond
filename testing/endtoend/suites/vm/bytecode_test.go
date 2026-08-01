@@ -191,6 +191,18 @@ func patternedBytes(size int) []byte {
 	return data
 }
 
+func patternedAddress(lastByte byte) common.Address {
+	address := common.BytesToAddress(patternedBytes(common.AddressLength))
+	address[common.AddressLength-1] = lastByte
+	return address
+}
+
+func patternedCreate2Salt() [qrvm.WordBytes]byte {
+	var salt [qrvm.WordBytes]byte
+	copy(salt[:], patternedBytes(len(salt)))
+	return salt
+}
+
 func operationCode(op qrvm.OpCode, operands ...[]byte) []byte {
 	var code []byte
 	for _, operand := range operands {
@@ -290,14 +302,14 @@ func failingCallCode(op qrvm.OpCode, target common.Address) []byte {
 	)
 }
 
-func failingCreateCode(op qrvm.OpCode, child common.Address) ([]byte, []byte) {
+func failingCreateCode(op qrvm.OpCode, child common.Address, salt [qrvm.WordBytes]byte) ([]byte, []byte) {
 	initCode := revertingStorageCode()
 	code := append(push(initCode),
 		byte(qrvm.PUSH1), 0,
 		byte(qrvm.MSTORE),
 	)
 	if op == qrvm.CREATE2 {
-		code = append(code, byte(qrvm.PUSH1), 1)
+		code = append(code, push(salt[:])...)
 	}
 	code = append(code,
 		byte(qrvm.PUSH1), byte(len(initCode)),
@@ -388,7 +400,7 @@ func callValueContextCode() []byte {
 	}
 }
 
-func createCode(op qrvm.OpCode, value byte) ([]byte, []byte) {
+func createCode(op qrvm.OpCode, value byte, salt [qrvm.WordBytes]byte) ([]byte, []byte) {
 	childRuntime := returnWordCode([]byte{0x2a})
 	childInit := append(push(childRuntime),
 		byte(qrvm.PUSH1), 0,
@@ -402,7 +414,7 @@ func createCode(op qrvm.OpCode, value byte) ([]byte, []byte) {
 		byte(qrvm.MSTORE),
 	)
 	if op == qrvm.CREATE2 {
-		code = append(code, byte(qrvm.PUSH1), 1)
+		code = append(code, push(salt[:])...)
 	}
 	code = append(code,
 		byte(qrvm.PUSH1), byte(len(childInit)),

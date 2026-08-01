@@ -135,7 +135,7 @@ var _ = ginkgo.Describe(
 		ginkgo.It("executes a precompile through STATICCALL with exact forwarded gas", func(ctx ginkgo.SpecContext) {
 			suite := &liveSuite{
 				session: session,
-				target:  common.BytesToAddress([]byte{0xee}),
+				target:  patternedAddress(0xee),
 			}
 			input := []byte("abc")
 			wantHash := sha256.Sum256(input)

@@ -46,7 +46,7 @@ var _ = ginkgo.Describe(
 			ginkgo.DeferCleanup(session.Close)
 			suite = &liveSuite{
 				session: session,
-				target:  common.BytesToAddress([]byte{0xf0}),
+				target:  patternedAddress(0xf0),
 			}
 		})
 
@@ -275,7 +275,7 @@ var _ = ginkgo.Describe(
 		}, ginkgo.SpecTimeout(liveSpecTimeout))
 
 		ginkgo.It("copies code and return data across 64-byte word boundaries", func(ctx ginkgo.SpecContext) {
-			callee := common.BytesToAddress([]byte{0xf2})
+			callee := patternedAddress(0xf2)
 			for _, size := range []int{63, 64, 65} {
 				input := patternedBytes(size)
 				gomega.Expect(suite.callCode(ctx, codeCopyCode(input), nil)).To(gomega.Equal(input))
@@ -305,7 +305,7 @@ var _ = ginkgo.Describe(
 		}, ginkgo.SpecTimeout(liveSpecTimeout))
 
 		ginkgo.It("executes CALL, STATICCALL, and DELEGATECALL", func(ctx ginkgo.SpecContext) {
-			callee := common.BytesToAddress([]byte{0xf1})
+			callee := patternedAddress(0xf1)
 			overrides := qrlapi.StateOverride{callee: codeOverride(callContextCode())}
 			for _, op := range []qrvm.OpCode{qrvm.CALL, qrvm.STATICCALL, qrvm.DELEGATECALL} {
 				output := suite.callCode(ctx, callCode(op, callee), overrides)
@@ -340,7 +340,7 @@ var _ = ginkgo.Describe(
 		}, ginkgo.SpecTimeout(liveSpecTimeout))
 
 		ginkgo.It("reverts failed CALL, STATICCALL, and DELEGATECALL effects", func(ctx ginkgo.SpecContext) {
-			callee := common.BytesToAddress([]byte{0xf4})
+			callee := patternedAddress(0xf4)
 			callerBalance := big.NewInt(100)
 			calleeBalance := big.NewInt(5)
 			for _, op := range []qrvm.OpCode{qrvm.CALL, qrvm.STATICCALL, qrvm.DELEGATECALL} {
@@ -366,9 +366,10 @@ var _ = ginkgo.Describe(
 		}, ginkgo.SpecTimeout(liveSpecTimeout))
 
 		ginkgo.It("executes CREATE and CREATE2", func(ctx ginkgo.SpecContext) {
+			salt := patternedCreate2Salt()
 			for _, op := range []qrvm.OpCode{qrvm.CREATE, qrvm.CREATE2} {
 				for _, value := range []byte{0, 7} {
-					code, childInit := createCode(op, value)
+					code, childInit := createCode(op, value, salt)
 					var overrides qrlapi.StateOverride
 					if value > 0 {
 						overrides = qrlapi.StateOverride{
@@ -383,8 +384,6 @@ var _ = ginkgo.Describe(
 					if op == qrvm.CREATE {
 						wantAddress = crypto.CreateAddress(suite.target, 0)
 					} else {
-						var salt [qrvm.WordBytes]byte
-						salt[len(salt)-1] = 1
 						initHash := crypto.Keccak256Hash(childInit)
 						wantAddress = crypto.CreateAddress2(suite.target, salt, initHash[:])
 					}
@@ -399,17 +398,16 @@ var _ = ginkgo.Describe(
 		ginkgo.It("reverts failed CREATE and CREATE2 state and value", func(ctx ginkgo.SpecContext) {
 			callerBalance := big.NewInt(100)
 			initCode := revertingStorageCode()
+			salt := patternedCreate2Salt()
 			for _, op := range []qrvm.OpCode{qrvm.CREATE, qrvm.CREATE2} {
 				var child common.Address
 				if op == qrvm.CREATE {
 					child = crypto.CreateAddress(suite.target, 0)
 				} else {
-					var salt [qrvm.WordBytes]byte
-					salt[len(salt)-1] = 1
 					hash := crypto.Keccak256Hash(initCode)
 					child = crypto.CreateAddress2(suite.target, salt, hash[:])
 				}
-				code, encodedInit := failingCreateCode(op, child)
+				code, encodedInit := failingCreateCode(op, child, salt)
 				gomega.Expect(encodedInit).To(gomega.Equal(initCode))
 				output := suite.callCode(ctx, code, qrlapi.StateOverride{
 					suite.target: codeAndBalanceOverride(code, callerBalance),
@@ -442,7 +440,7 @@ var _ = ginkgo.Describe(
 				gomega.Equal(vmWord(balance)),
 			)
 
-			callee := common.BytesToAddress([]byte{0xf5})
+			callee := patternedAddress(0xf5)
 			code := returnWordCode([]byte{0x2a})
 			gomega.Expect(suite.callCodeAt(ctx, addressOpcodeCode(qrvm.EXTCODEHASH, callee), qrlapi.StateOverride{
 				callee: codeOverride(code),
