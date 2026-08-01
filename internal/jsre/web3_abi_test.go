@@ -17,10 +17,12 @@ package jsre
 
 import (
 	"fmt"
+	"math/big"
 	"slices"
 	"strings"
 	"testing"
 
+	"github.com/theQRL/go-qrl/accounts/abi"
 	"github.com/theQRL/go-qrl/common"
 	"github.com/theQRL/go-qrl/common/uint512"
 )
@@ -283,6 +285,107 @@ JSON.stringify({
 	}
 	if want := []string{"3", "4", "5"}; !slices.Equal(got.DynamicValues, want) {
 		t.Fatalf("decoded dynamic array mismatch: have %v, want %v", got.DynamicValues, want)
+	}
+}
+
+func TestEmbeddedWeb3NestedArraysMatchGoABI(t *testing.T) {
+	t.Parallel()
+
+	const contractABI = `[
+  {
+    "inputs": [
+      {"name": "dynamicDynamic", "type": "uint512[][]"},
+      {"name": "fixedDynamic", "type": "uint512[][2]"},
+      {"name": "dynamicFixed", "type": "uint512[2][]"},
+      {"name": "nestedBytes", "type": "bytes[][]"}
+    ],
+    "name": "roundTrip",
+    "outputs": [
+      {"name": "dynamicDynamic", "type": "uint512[][]"},
+      {"name": "fixedDynamic", "type": "uint512[][2]"},
+      {"name": "dynamicFixed", "type": "uint512[2][]"},
+      {"name": "nestedBytes", "type": "bytes[][]"}
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  }
+]`
+
+	types := []string{"uint512[][]", "uint512[][2]", "uint512[2][]", "bytes[][]"}
+	arguments := make(abi.Arguments, len(types))
+	for index, typeName := range types {
+		typ, err := abi.NewType(typeName, "", nil)
+		if err != nil {
+			t.Fatalf("create ABI type %s: %v", typeName, err)
+		}
+		arguments[index] = abi.Argument{Type: typ}
+	}
+
+	dynamicDynamic := [][]*big.Int{{big.NewInt(1), big.NewInt(2)}, {big.NewInt(3)}}
+	fixedDynamic := [2][]*big.Int{{big.NewInt(4)}, {big.NewInt(5), big.NewInt(6)}}
+	dynamicFixed := [][2]*big.Int{{big.NewInt(7), big.NewInt(8)}, {big.NewInt(9), big.NewInt(10)}}
+	nestedBytes := [][][]byte{{{0xaa}, {0xbb, 0xcc}}, {{}}}
+	packed, err := arguments.Pack(dynamicDynamic, fixedDynamic, dynamicFixed, nestedBytes)
+	if err != nil {
+		t.Fatalf("pack nested arrays with Go ABI: %v", err)
+	}
+
+	signature := "roundTrip(uint512[][],uint512[][2],uint512[2][],bytes[][])"
+	wantData := "0x" + methodSelector(signature) + common.Bytes2Hex(packed)
+	output := "0x" + common.Bytes2Hex(packed)
+	contractAddress := "Q" + strings.Repeat("0", common.AddressLength*2)
+
+	script := fmt.Sprintf(`
+var data = contract.roundTrip.getData(
+  [[1, 2], [3]],
+  [[4], [5, 6]],
+  [[7, 8], [9, 10]],
+  [["0xaa", "0xbbcc"], ["0x"]]
+);
+
+currentOutput = %q;
+var decoded = contract.roundTrip(
+  [[1, 2], [3]],
+  [[4], [5, 6]],
+  [[7, 8], [9, 10]],
+  [["0xaa", "0xbbcc"], ["0x"]]
+);
+
+function numbers(value) {
+  return value.map(function (row) {
+    return row.map(function (item) { return item.toString(10); }).join(",");
+  }).join(";");
+}
+function bytes(value) {
+  return value.map(function (row) { return row.join(","); }).join(";");
+}
+
+JSON.stringify({
+  data: data,
+  dynamicDynamic: numbers(decoded[0]),
+  fixedDynamic: numbers(decoded[1]),
+  dynamicFixed: numbers(decoded[2]),
+  nestedBytes: bytes(decoded[3])
+});
+`, output)
+
+	var got struct {
+		Data           string `json:"data"`
+		DynamicDynamic string `json:"dynamicDynamic"`
+		FixedDynamic   string `json:"fixedDynamic"`
+		DynamicFixed   string `json:"dynamicFixed"`
+		NestedBytes    string `json:"nestedBytes"`
+	}
+	runWeb3ContractJSON(t, newEmbeddedWeb3(t), web3CallProvider, contractABI, contractAddress, script, &got)
+
+	if got.Data != wantData {
+		t.Fatalf("nested array calldata mismatch:\nhave %s\nwant %s", got.Data, wantData)
+	}
+	if got.DynamicDynamic != "1,2;3" ||
+		got.FixedDynamic != "4;5,6" ||
+		got.DynamicFixed != "7,8;9,10" ||
+		got.NestedBytes != "0xaa,0xbbcc;0x" {
+		t.Fatalf("nested array decode mismatch: %+v", got)
 	}
 }
 

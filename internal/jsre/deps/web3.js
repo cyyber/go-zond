@@ -375,8 +375,7 @@ var HyperionTypeString = require('./string');
 var HyperionTypeBytes = require('./bytes');
 
 var isDynamic = function (hyperionType, type) {
-   return hyperionType.isDynamicType(type) ||
-          hyperionType.isDynamicArray(type);
+	   return hyperionType.isDynamic(type);
 };
 
 /**
@@ -478,60 +477,47 @@ HyperionCoder.prototype.encodeMultiWithOffset = function (types, hyperionTypes, 
 HyperionCoder.prototype.encodeWithOffset = function (type, hyperionType, encoded, offset) {
     var self = this;
     if (hyperionType.isDynamicArray(type)) {
-        return (function () {
-            // offset was already set
-            var nestedName = hyperionType.nestedName(type);
-            var nestedStaticPartLength = hyperionType.staticPartLength(nestedName);
-            var result = encoded[0];
+        var nestedName = hyperionType.nestedName(type);
+        var values = encoded.slice(1);
+        var result = encoded[0];
+        var tail = "";
 
-            (function () {
-                var previousLength = 2; // in int
-                if (hyperionType.isDynamicArray(nestedName)) {
-                    for (var i = 1; i < encoded.length; i++) {
-                        previousLength += +(encoded[i - 1])[0] || 0;
-                        result += f.formatInputInt(offset + i * nestedStaticPartLength + previousLength * 64).encode();
-                    }
-                }
-            })();
+        if (isDynamic(hyperionType, nestedName)) {
+            var dynamicOffset = values.length * 64;
+            values.forEach(function (value) {
+                var nested = self.encodeWithOffset(nestedName, hyperionType, value, 0);
+                result += f.formatInputInt(dynamicOffset).encode();
+                dynamicOffset += nested.length / 2;
+                tail += nested;
+            });
+            return result + tail;
+        }
 
-            // first element is length, skip it
-            (function () {
-                for (var i = 0; i < encoded.length - 1; i++) {
-                    var additionalOffset = result / 2;
-                    result += self.encodeWithOffset(nestedName, hyperionType, encoded[i + 1], offset +  additionalOffset);
-                }
-            })();
-
-            return result;
-        })();
+        values.forEach(function (value) {
+            result += self.encodeWithOffset(nestedName, hyperionType, value, 0);
+        });
+        return result;
 
     } else if (hyperionType.isStaticArray(type)) {
-        return (function () {
-            var nestedName = hyperionType.nestedName(type);
-            var nestedStaticPartLength = hyperionType.staticPartLength(nestedName);
-            var result = "";
+        var nestedName = hyperionType.nestedName(type);
+        var result = "";
+        var tail = "";
 
+        if (isDynamic(hyperionType, nestedName)) {
+            var dynamicOffset = encoded.length * 64;
+            encoded.forEach(function (value) {
+                var nested = self.encodeWithOffset(nestedName, hyperionType, value, 0);
+                result += f.formatInputInt(dynamicOffset).encode();
+                dynamicOffset += nested.length / 2;
+                tail += nested;
+            });
+            return result + tail;
+        }
 
-            if (hyperionType.isDynamicArray(nestedName)) {
-                (function () {
-                    var previousLength = 0; // in int
-                    for (var i = 0; i < encoded.length; i++) {
-                        // calculate length of previous item
-                        previousLength += +(encoded[i - 1] || [])[0] || 0;
-                        result += f.formatInputInt(offset + i * nestedStaticPartLength + previousLength * 64).encode();
-                    }
-                })();
-            }
-
-            (function () {
-                for (var i = 0; i < encoded.length; i++) {
-                    var additionalOffset = result / 2;
-                    result += self.encodeWithOffset(nestedName, hyperionType, encoded[i], offset + additionalOffset);
-                }
-            })();
-
-            return result;
-        })();
+        encoded.forEach(function (value) {
+            result += self.encodeWithOffset(nestedName, hyperionType, value, 0);
+        });
+        return result;
     }
 
     return encoded;
@@ -562,13 +548,15 @@ HyperionCoder.prototype.decodeParams = function (types, bytes) {
     var offsets = this.getOffsets(types, hyperionTypes);
 
     return hyperionTypes.map(function (hyperionType, index) {
-        return hyperionType.decode(bytes, offsets[index],  types[index], index);
+	        return hyperionType.decode(bytes, offsets[index], types[index], 0);
     });
 };
 
 HyperionCoder.prototype.getOffsets = function (types, hyperionTypes) {
     var lengths =  hyperionTypes.map(function (hyperionType, index) {
-        return hyperionType.staticPartLength(types[index]);
+	        return isDynamic(hyperionType, types[index]) ?
+	            64 :
+	            hyperionType.staticPartLength(types[index]);
     });
 
     for (var i = 1; i < lengths.length; i++) {
@@ -578,7 +566,9 @@ HyperionCoder.prototype.getOffsets = function (types, hyperionTypes) {
 
     return lengths.map(function (length, index) {
         // remove the current length, so the length is sum of previous elements
-        var staticPartLength = hyperionTypes[index].staticPartLength(types[index]);
+	        var staticPartLength = isDynamic(hyperionTypes[index], types[index]) ?
+	            64 :
+	            hyperionTypes[index].staticPartLength(types[index]);
         return length - staticPartLength;
     });
 };
@@ -1189,6 +1179,13 @@ HyperionType.prototype.isDynamicType = function () {
     return false;
 };
 
+HyperionType.prototype.isDynamic = function (name) {
+    if (this.isDynamicType(name) || this.isDynamicArray(name)) {
+        return true;
+    }
+    return this.isStaticArray(name) && this.isDynamic(this.nestedName(name));
+};
+
 /**
  * Should return array of nested types
  * eg.
@@ -1259,23 +1256,24 @@ HyperionType.prototype.encode = function (value, name) {
  * @param {String} name type name
  * @returns {Object} decoded value
  */
-HyperionType.prototype.decode = function (bytes, offset, name) {
+HyperionType.prototype.decode = function (bytes, offset, name, baseOffset) {
     var self = this;
+    baseOffset = baseOffset || 0;
 
     if (this.isDynamicArray(name)) {
 
         return (function () {
-            var arrayOffset = parseInt('0x' + bytes.substr(offset * 2, 128)); // in bytes
+	            var arrayOffset = baseOffset + parseInt('0x' + bytes.substr(offset * 2, 128)); // in bytes
             var length = parseInt('0x' + bytes.substr(arrayOffset * 2, 128)); // in int
             var arrayStart = arrayOffset + 64; // array starts after length; // in bytes
 
             var nestedName = self.nestedName(name);
-            var nestedStaticPartLength = self.staticPartLength(nestedName);  // in bytes
+	            var nestedStaticPartLength = self.isDynamic(nestedName) ? 64 : self.staticPartLength(nestedName); // in bytes
             var roundedNestedStaticPartLength = Math.floor((nestedStaticPartLength + 63) / 64) * 64;
             var result = [];
 
             for (var i = 0; i < length * roundedNestedStaticPartLength; i += roundedNestedStaticPartLength) {
-                result.push(self.decode(bytes, arrayStart + i, nestedName));
+	                result.push(self.decode(bytes, arrayStart + i, nestedName, arrayStart));
             }
 
             return result;
@@ -1285,15 +1283,17 @@ HyperionType.prototype.decode = function (bytes, offset, name) {
 
         return (function () {
             var length = self.staticArrayLength(name);                      // in int
-            var arrayStart = offset;                                        // in bytes
+	            var arrayStart = self.isDynamic(name) ?
+	                baseOffset + parseInt('0x' + bytes.substr(offset * 2, 128)) :
+	                offset;                                                     // in bytes
 
             var nestedName = self.nestedName(name);
-            var nestedStaticPartLength = self.staticPartLength(nestedName); // in bytes
+	            var nestedStaticPartLength = self.isDynamic(nestedName) ? 64 : self.staticPartLength(nestedName); // in bytes
             var roundedNestedStaticPartLength = Math.floor((nestedStaticPartLength + 63) / 64) * 64;
             var result = [];
 
             for (var i = 0; i < length * roundedNestedStaticPartLength; i += roundedNestedStaticPartLength) {
-                result.push(self.decode(bytes, arrayStart + i, nestedName));
+	                result.push(self.decode(bytes, arrayStart + i, nestedName, arrayStart));
             }
 
             return result;
@@ -1301,7 +1301,7 @@ HyperionType.prototype.decode = function (bytes, offset, name) {
     } else if (this.isDynamicType(name)) {
 
         return (function () {
-            var dynamicOffset = parseInt('0x' + bytes.substr(offset * 2, 128));      // in bytes
+	            var dynamicOffset = baseOffset + parseInt('0x' + bytes.substr(offset * 2, 128)); // in bytes
             var length = parseInt('0x' + bytes.substr(dynamicOffset * 2, 128));      // in bytes
             var roundedLength = Math.floor((length + 63) / 64);                     // in int
             var param = new HyperionParam(bytes.substr(dynamicOffset * 2, (1 + roundedLength) * 128), 0);
