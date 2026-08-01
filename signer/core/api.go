@@ -44,6 +44,9 @@ const (
 	InternalAPIVersion = "7.0.1"
 )
 
+// SignTransactionResult is the signed transaction response exposed to signer UIs.
+type SignTransactionResult = qrlapi.SignTransactionResult
+
 // ExternalAPI defines the external API through which signing requests are made.
 type ExternalAPI interface {
 	// List available accounts
@@ -78,7 +81,7 @@ type UIClientAPI interface {
 	ShowInfo(message string)
 	// OnApprovedTx notifies the UI about a transaction having been successfully signed.
 	// This method can be used by a UI to keep track of e.g. how much has been sent to a particular recipient.
-	OnApprovedTx(tx qrlapi.SignTransactionResult)
+	OnApprovedTx(tx SignTransactionResult)
 	// OnSignerStartup is invoked when the signer boots, and tells the UI info about external API location and version
 	// information
 	OnSignerStartup(info StartupInfo)

@@ -30,7 +30,7 @@ import (
 	"github.com/theQRL/go-qrl/core/types"
 	"github.com/theQRL/go-qrl/core/vm"
 	"github.com/theQRL/go-qrl/qrl/tracers"
-	"github.com/theQRL/go-qrl/testing/tests"
+	"github.com/theQRL/go-qrl/tests"
 )
 
 // testcase defines a single test to check the stateDiff tracer against.

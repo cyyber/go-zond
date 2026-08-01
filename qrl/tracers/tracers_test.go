@@ -28,7 +28,7 @@ import (
 	"github.com/theQRL/go-qrl/internal/testutil"
 	"github.com/theQRL/go-qrl/params"
 	"github.com/theQRL/go-qrl/qrl/tracers/logger"
-	"github.com/theQRL/go-qrl/testing/tests"
+	"github.com/theQRL/go-qrl/tests"
 )
 
 func BenchmarkTransactionTrace(b *testing.B) {

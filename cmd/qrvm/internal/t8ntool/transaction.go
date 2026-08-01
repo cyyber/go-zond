@@ -30,7 +30,7 @@ import (
 	"github.com/theQRL/go-qrl/core/types"
 	"github.com/theQRL/go-qrl/params"
 	"github.com/theQRL/go-qrl/rlp"
-	"github.com/theQRL/go-qrl/testing/tests"
+	"github.com/theQRL/go-qrl/tests"
 	"github.com/urfave/cli/v2"
 )
 

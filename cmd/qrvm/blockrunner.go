@@ -25,7 +25,7 @@ import (
 	"github.com/theQRL/go-qrl/core/rawdb"
 	"github.com/theQRL/go-qrl/core/vm"
 	"github.com/theQRL/go-qrl/qrl/tracers/logger"
-	"github.com/theQRL/go-qrl/testing/tests"
+	"github.com/theQRL/go-qrl/tests"
 	"github.com/urfave/cli/v2"
 )
 

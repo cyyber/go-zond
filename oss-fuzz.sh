@@ -136,10 +136,10 @@ compile_fuzzer github.com/theQRL/go-qrl/qrl/protocols/snap \
   FuzzTrieNodes fuzz_trie_nodes\
   $repo/qrl/protocols/snap/handler_fuzzing_test.go
 
-compile_fuzzer github.com/theQRL/go-qrl/testing/tests/fuzzers/txfetcher \
+compile_fuzzer github.com/theQRL/go-qrl/tests/fuzzers/txfetcher \
   Fuzz fuzzTxfetcher \
-  $repo/testing/tests/fuzzers/txfetcher/txfetcher_test.go
+  $repo/tests/fuzzers/txfetcher/txfetcher_test.go
 
-compile_fuzzer github.com/theQRL/go-qrl/testing/tests/fuzzers/secp256k1 \
+compile_fuzzer github.com/theQRL/go-qrl/tests/fuzzers/secp256k1 \
   Fuzz fuzzSecp256k1\
-  $repo/testing/tests/fuzzers/secp256k1/secp_test.go
+  $repo/tests/fuzzers/secp256k1/secp_test.go

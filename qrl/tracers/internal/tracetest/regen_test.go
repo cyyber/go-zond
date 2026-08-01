@@ -28,7 +28,7 @@ import (
 	"github.com/theQRL/go-qrl/crypto/pqcrypto/wallet"
 	"github.com/theQRL/go-qrl/params"
 	"github.com/theQRL/go-qrl/qrl/tracers"
-	"github.com/theQRL/go-qrl/testing/tests"
+	"github.com/theQRL/go-qrl/tests"
 )
 
 // fixtureScenario describes a single fresh fixture to regenerate. Each scenario

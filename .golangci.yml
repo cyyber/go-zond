@@ -2,8 +2,6 @@
 version: '2'
 run:
   tests: true
-  build-tags:
-    - e2e
 linters:
   default: none
   enable:

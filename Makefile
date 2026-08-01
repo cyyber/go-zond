@@ -2,19 +2,11 @@
 # with Go source code. If you know what GOPATH is then you probably
 # don't need to bother with make.
 
-.PHONY: gqrl qrvm all test lint fmt clean devtools \
-	network-start network-stop e2e-test help
+.PHONY: gqrl qrvm all test lint fmt clean devtools help
 
 GOBIN = ./build/bin
+GO ?= latest
 GORUN = go run
-DEVNET_GO = go -C testing/devnet
-# Enclave name and start timeout default inside the devnet CLI; set these only
-# to override.
-DEVNET_ENCLAVE_NAME ?=
-DEVNET_START_TIMEOUT ?=
-DEVNET_EXECUTION_IMAGE ?= local/go-qrl:devnet
-override DEVNET_PARAMS_FILE := $(if $(strip $(DEVNET_PARAMS_FILE)),$(abspath $(DEVNET_PARAMS_FILE)))
-E2E_SUITE_TIMEOUT ?= 25m
 
 #? gqrl: Build gqrl.
 gqrl:
@@ -60,44 +52,6 @@ devtools:
 	env GOBIN= go install ./cmd/abigen
 	@type "hypc" 2> /dev/null || echo 'Please install hypc'
 	@type "protoc" 2> /dev/null || echo 'Please install protoc'
-
-#? network-start: Start a standalone development network without running suites.
-network-start:
-	@docker info >/dev/null 2>&1 || { \
-		echo "Docker is required and its daemon must be running" >&2; \
-		exit 1; \
-	}
-	@kurtosis version 2>/dev/null | grep -Eq '^CLI Version:[[:space:]]+1\.20\.' || { \
-		echo "Kurtosis CLI 1.20.x is required (https://docs.kurtosis.com/upgrade)" >&2; \
-		exit 1; \
-	}
-	kurtosis engine start
-	docker build --tag "$(DEVNET_EXECUTION_IMAGE)" .
-	docker build --file testing/endtoend/Dockerfile.clef --tag "local/go-qrl-clef:devnet" .
-	$(DEVNET_GO) run ./cmd/devnet start \
-		--execution-image "$(DEVNET_EXECUTION_IMAGE)" \
-		$(if $(DEVNET_ENCLAVE_NAME),--enclave-name "$(DEVNET_ENCLAVE_NAME)") \
-		$(if $(DEVNET_START_TIMEOUT),--timeout "$(DEVNET_START_TIMEOUT)") \
-		$(if $(DEVNET_PARAMS_FILE),--params-file "$(DEVNET_PARAMS_FILE)")
-
-#? network-stop: Stop the development network.
-network-stop:
-	$(DEVNET_GO) run ./cmd/devnet stop $(if $(DEVNET_ENCLAVE_NAME),--enclave-name "$(DEVNET_ENCLAVE_NAME)")
-
-#? e2e-test: Run selected Ginkgo end-to-end suites against the already-running network.
-e2e-test:
-	@test -n "$(strip $(E2E_PACKAGES))" || { echo "E2E_PACKAGES must name at least one suite package" >&2; exit 2; }
-	DEVNET_ENCLAVE_NAME="$(DEVNET_ENCLAVE_NAME)" \
-	go tool ginkgo \
-		--tags=e2e \
-		--procs=1 \
-		--keep-going \
-		--require-suite \
-		--fail-on-empty \
-		--fail-on-pending \
-		--timeout="$(E2E_SUITE_TIMEOUT)" \
-		$(strip $(E2E_PACKAGES)) \
-		-- -test.run='^TestE2E$$'
 
 #? help: Get more info on make commands.
 help: Makefile

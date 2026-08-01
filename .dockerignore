@@ -2,12 +2,3 @@
 
 build/_workspace
 build/_bin
-build/bin
-build/cache
-
-.git
-.claude
-.codex
-
-testing/devnet
-testing/endtoend

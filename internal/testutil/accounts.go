@@ -29,7 +29,7 @@ import (
 	"github.com/theQRL/go-qrl/crypto/pqcrypto/wallet"
 )
 
-// Account is the decoded form of one entry in testing/testdata/addresses.json. Wallet
+// Account is the decoded form of one entry in testdata/addresses.json. Wallet
 // is derived lazily on first access via the Wallet() method so tests that
 // only need the address do not pay the ML-DSA-87 restore cost.
 type Account struct {
@@ -97,11 +97,11 @@ var (
 	accountsErr  error
 )
 
-// loadAccounts reads testing/testdata/addresses.json once and caches the label→Account
+// loadAccounts reads testdata/addresses.json once and caches the label→Account
 // map. Callers get a fresh error if the file is missing or malformed.
 func loadAccounts() (map[string]Account, error) {
 	accountsOnce.Do(func() {
-		path, err := locateFixture("testing/testdata/addresses.json")
+		path, err := locateFixture("testdata/addresses.json")
 		if err != nil {
 			accountsErr = err
 			return
@@ -132,11 +132,11 @@ func LoadAccount(t testing.TB, label string) Account {
 	t.Helper()
 	accs, err := loadAccounts()
 	if err != nil {
-		t.Fatalf("testutil: %v (update testing/testdata/addresses.json)", err)
+		t.Fatalf("testutil: %v (update testdata/addresses.json)", err)
 	}
 	acc, ok := accs[label]
 	if !ok {
-		t.Fatalf("testutil: unknown account label %q (add it to testing/testdata/addresses.json)", label)
+		t.Fatalf("testutil: unknown account label %q (add it to testdata/addresses.json)", label)
 	}
 	return acc
 }
@@ -148,11 +148,11 @@ func LoadAccount(t testing.TB, label string) Account {
 func MustLoadAccount(label string) Account {
 	accs, err := loadAccounts()
 	if err != nil {
-		panic(fmt.Sprintf("testutil: %v (update testing/testdata/addresses.json)", err))
+		panic(fmt.Sprintf("testutil: %v (update testdata/addresses.json)", err))
 	}
 	acc, ok := accs[label]
 	if !ok {
-		panic(fmt.Sprintf("testutil: unknown account label %q (add it to testing/testdata/addresses.json)", label))
+		panic(fmt.Sprintf("testutil: unknown account label %q (add it to testdata/addresses.json)", label))
 	}
 	return acc
 }
