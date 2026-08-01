@@ -830,7 +830,7 @@ var formatOutputString = function (param) {
  */
 var formatOutputAddress = function (param) {
     var value = param.staticPart();
-    return "Q" + value.slice(value.length - 128, value.length);
+    return utils.toChecksumAddress("Q" + value.slice(value.length - 128, value.length));
 };
 
 module.exports = {

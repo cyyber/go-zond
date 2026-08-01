@@ -45,6 +45,10 @@ func TestEmbeddedWeb3EventsUseVM64Topics(t *testing.T) {
 	re := newEmbeddedWeb3(t)
 	contractAddress := "Q" + strings.Repeat("0", common.AddressLength*2)
 	indexedAddress := "Q" + strings.Repeat("a", common.AddressLength*2)
+	checksummedAddress, err := common.NewAddressFromString(indexedAddress)
+	if err != nil {
+		t.Fatal(err)
+	}
 	eventID := crypto.Keccak256Hash([]byte("Transfer(address,string,bytes,uint512)"))
 	signatureTopic := common.HashToLogTopic(eventID).Hex()
 	addressTopic := "0x" + strings.Repeat("a", common.LogTopicLength*2)
@@ -117,7 +121,12 @@ JSON.stringify({
 	if want := []string{payloadTopic, emptyPayloadTopic}; !slices.Equal(got.PayloadAlternatives, want) {
 		t.Fatalf("indexed bytes alternatives mismatch: have %v, want %v", got.PayloadAlternatives, want)
 	}
-	if got.Event != "Transfer" || got.AllEventsEvent != "Transfer" || got.From != indexedAddress || got.Label != labelTopic || got.Payload != payloadTopic || got.Amount != "2" {
+	if got.Event != "Transfer" ||
+		got.AllEventsEvent != "Transfer" ||
+		got.From != checksummedAddress.Hex() ||
+		got.Label != labelTopic ||
+		got.Payload != payloadTopic ||
+		got.Amount != "2" {
 		t.Fatalf("decoded event mismatch: %+v", got)
 	}
 	if !got.AcceptsSignatureTopic || got.AcceptsRawEventID {
