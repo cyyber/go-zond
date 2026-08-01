@@ -74,7 +74,7 @@ type backend interface {
 type fullNodeBackend interface {
 	backend
 	BlockByNumber(ctx context.Context, number rpc.BlockNumber) (*types.Block, error)
-	CurrentBlock() *types.Block
+	CurrentBlock() *types.Header
 	SuggestGasTipCap(ctx context.Context) (*big.Int, error)
 }
 
@@ -621,7 +621,11 @@ func (s *Service) assembleBlockStats(block *types.Block) *blockStats {
 	fullBackend, ok := s.backend.(fullNodeBackend)
 	if ok {
 		if block == nil {
-			block = fullBackend.CurrentBlock()
+			head := fullBackend.CurrentBlock()
+			block, _ = fullBackend.BlockByNumber(context.Background(), rpc.BlockNumber(head.Number.Uint64()))
+		}
+		if block == nil {
+			return nil
 		}
 		header = block.Header()
 
