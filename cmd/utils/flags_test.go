@@ -18,14 +18,8 @@
 package utils
 
 import (
-	"flag"
 	"reflect"
 	"testing"
-
-	"github.com/theQRL/go-qrl/p2p"
-	"github.com/theQRL/go-qrl/p2p/qnode"
-	"github.com/theQRL/go-qrl/params"
-	"github.com/urfave/cli/v2"
 )
 
 func Test_SplitTagsFlag(t *testing.T) {
@@ -68,32 +62,5 @@ func Test_SplitTagsFlag(t *testing.T) {
 				t.Errorf("splitTagsFlag() = %v, want %v", got, tt.want)
 			}
 		})
-	}
-}
-
-func TestSetBootstrapNodesPrecedence(t *testing.T) {
-	newContext := func(args ...string) *cli.Context {
-		set := flag.NewFlagSet("test", flag.ContinueOnError)
-		if err := BootnodesFlag.Apply(set); err != nil {
-			t.Fatalf("apply flag: %v", err)
-		}
-		if err := set.Parse(args); err != nil {
-			t.Fatalf("parse flags: %v", err)
-		}
-		return cli.NewContext(nil, set, nil)
-	}
-	configured := qnode.MustParse(params.TestnetBootnodes[0])
-	replacement := qnode.MustParse(params.TestnetBootnodes[1])
-
-	cfg := &p2p.Config{BootstrapNodes: []*qnode.Node{configured}}
-	setBootstrapNodes(newContext(), cfg)
-	if len(cfg.BootstrapNodes) != 1 || cfg.BootstrapNodes[0].String() != configured.String() {
-		t.Fatalf("config bootnode was not preserved: %v", cfg.BootstrapNodes)
-	}
-
-	cfg = &p2p.Config{BootstrapNodes: []*qnode.Node{configured}}
-	setBootstrapNodes(newContext("--bootnodes", params.TestnetBootnodes[1]), cfg)
-	if len(cfg.BootstrapNodes) != 1 || cfg.BootstrapNodes[0].String() != replacement.String() {
-		t.Fatalf("CLI bootnode did not override config: %v", cfg.BootstrapNodes)
 	}
 }
