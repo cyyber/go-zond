@@ -891,6 +891,12 @@ func setNodeUserIdent(ctx *cli.Context, cfg *node.Config) {
 
 // setBootstrapNodes creates a list of bootstrap nodes from the command line
 // flags, reverting to pre-configured ones if none have been specified.
+// Priority order for bootnodes configuration:
+//
+// 1. --bootnodes flag
+// 2. Config file
+// 3. Network preset flags (e.g. --testnet)
+// 4. default to mainnet nodes
 func setBootstrapNodes(ctx *cli.Context, cfg *p2p.Config) {
 	urls := params.MainnetBootnodes
 	if ctx.IsSet(BootnodesFlag.Name) {
@@ -906,18 +912,22 @@ func setBootstrapNodes(ctx *cli.Context, cfg *p2p.Config) {
 			urls = params.TestnetBootnodes
 		}
 	}
+	cfg.BootstrapNodes = mustParseBootnodes(urls)
+}
 
-	cfg.BootstrapNodes = make([]*qnode.Node, 0, len(urls))
+func mustParseBootnodes(urls []string) []*qnode.Node {
+	nodes := make([]*qnode.Node, 0, len(urls))
 	for _, url := range urls {
 		if url != "" {
 			node, err := qnode.Parse(qnode.ValidSchemes, url)
 			if err != nil {
 				log.Crit("Bootstrap URL invalid", "qnode", url, "err", err)
-				continue
+				return nil
 			}
-			cfg.BootstrapNodes = append(cfg.BootstrapNodes, node)
+			nodes = append(nodes, node)
 		}
 	}
+	return nodes
 }
 
 // setBootstrapNodesV5 creates a list of bootstrap nodes from the command line
