@@ -194,7 +194,7 @@ func TestUnpackIndexedStringTyLogIntoMap(t *testing.T) {
 	bc := bind.NewBoundContract(common.Address{}, parsedAbi, nil, nil, nil)
 
 	expectedReceivedMap := map[string]any{
-		"name":   common.HashToLogTopic(hash),
+		"name":   hash,
 		"sender": mockSender,
 		"amount": big.NewInt(1),
 		"memo":   []byte{88},
@@ -237,7 +237,7 @@ func TestUnpackIndexedSliceTyLogIntoMap(t *testing.T) {
 	bc := bind.NewBoundContract(common.Address{}, parsedAbi, nil, nil, nil)
 
 	expectedReceivedMap := map[string]any{
-		"names":  common.HashToLogTopic(hash),
+		"names":  hash,
 		"sender": mockSender,
 		"amount": big.NewInt(1),
 		"memo":   []byte{88},
@@ -264,7 +264,7 @@ func TestUnpackIndexedArrayTyLogIntoMap(t *testing.T) {
 	bc := bind.NewBoundContract(common.Address{}, parsedAbi, nil, nil, nil)
 
 	expectedReceivedMap := map[string]any{
-		"addresses": common.HashToLogTopic(hash),
+		"addresses": hash,
 		"sender":    mockSender,
 		"amount":    big.NewInt(1),
 		"memo":      []byte{88},
@@ -314,7 +314,7 @@ func TestUnpackIndexedBytesTyLogIntoMap(t *testing.T) {
 	bc := bind.NewBoundContract(common.Address{}, parsedAbi, nil, nil, nil)
 
 	expectedReceivedMap := map[string]any{
-		"content": common.HashToLogTopic(hash),
+		"content": hash,
 		"sender":  mockSender,
 		"amount":  big.NewInt(1),
 		"memo":    []byte{88},

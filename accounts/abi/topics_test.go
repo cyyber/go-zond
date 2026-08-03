@@ -254,11 +254,9 @@ type int256Struct struct {
 	Int256Value *big.Int
 }
 
-// hashStruct receives the indexed keccak256 hash of a dynamic type. Topics
-// are 64 bytes; the reconstructed value uses the full LogTopic slot (hash
-// right-aligned in the low 32 bytes).
+// hashStruct receives the indexed Keccak-256 hash of a dynamic type.
 type hashStruct struct {
-	HashValue common.LogTopic
+	HashValue common.Hash
 }
 
 // funcStruct mirrors the Solidity `function` type, which is address followed
@@ -291,11 +289,7 @@ func setupTopicsTests() []topicTest {
 	tupleType, _ := NewType("tuple(int256,int8)", "", nil)
 	stringType, _ := NewType("string", "", nil)
 	funcType, _ := NewType("function", "", nil)
-	hashTopic := func(hash []byte) common.LogTopic {
-		var t common.LogTopic
-		copy(t[:common.HashLength], hash)
-		return t
-	}
+	hashValue := crypto.Keccak256Hash([]byte("stringtopic"))
 
 	tests := []topicTest{
 		{
@@ -357,10 +351,10 @@ func setupTopicsTests() []topicTest {
 			args: args{
 				createObj: func() any { return &hashStruct{} },
 				resultObj: func() any {
-					return &hashStruct{hashTopic(crypto.Keccak256([]byte("stringtopic")))}
+					return &hashStruct{hashValue}
 				},
 				resultMap: func() map[string]any {
-					return map[string]any{"hashValue": hashTopic(crypto.Keccak256([]byte("stringtopic")))}
+					return map[string]any{"hashValue": hashValue}
 				},
 				fields: Arguments{Argument{
 					Name:    "hashValue",
@@ -368,7 +362,7 @@ func setupTopicsTests() []topicTest {
 					Indexed: true,
 				}},
 				topics: []common.LogTopic{
-					hashTopic(crypto.Keccak256([]byte("stringtopic"))),
+					common.HashToLogTopic(hashValue),
 				},
 			},
 			wantErr: false,
