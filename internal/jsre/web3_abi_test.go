@@ -73,6 +73,10 @@ func TestEmbeddedWeb3ABICoderUsesVM64Words(t *testing.T) {
 
 	re := newEmbeddedWeb3(t)
 	address := "Q" + strings.Repeat("a", common.AddressLength*2)
+	checksummedAddress, err := common.NewAddressFromString(address)
+	if err != nil {
+		t.Fatal(err)
+	}
 	contractAddress := "Q" + strings.Repeat("0", common.AddressLength*2)
 	addressWord := strings.Repeat("a", common.AddressLength*2)
 
@@ -157,7 +161,11 @@ JSON.stringify({
 	if got.EmptyTagData != expectedEmptyTagData {
 		t.Fatalf("empty fixed bytes calldata mismatch:\nhave %s\nwant %s", got.EmptyTagData, expectedEmptyTagData)
 	}
-	if got.Address != address || got.Amount != maxUint512 || got.Label != "hello" || !got.Active || got.Tag != "0x"+bytes33 {
+	if got.Address != checksummedAddress.Hex() ||
+		got.Amount != maxUint512 ||
+		got.Label != "hello" ||
+		!got.Active ||
+		got.Tag != "0x"+bytes33 {
 		t.Fatalf("decoded values mismatch: %+v", got)
 	}
 	if got.LoadMethod != "qrl_call" || got.PayMethod != "qrl_sendTransaction" {
