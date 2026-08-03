@@ -27,6 +27,8 @@ import (
 
 	"github.com/theQRL/go-qrl/common"
 	"github.com/theQRL/go-qrl/crypto/pqcrypto/wallet"
+	mldsa87 "github.com/theQRL/go-qrllib/crypto/ml_dsa_87"
+	walletcommon "github.com/theQRL/go-qrllib/wallet/common"
 )
 
 // Account is the decoded form of one entry in testdata/addresses.json. Wallet
@@ -71,6 +73,7 @@ func (a Account) DeterministicWallet(t testing.TB) wallet.Wallet {
 
 type deterministicWallet struct {
 	*wallet.MLDSA87Wallet
+	signer *mldsa87.MLDSA87
 }
 
 // NewDeterministicWallet wraps an ML-DSA-87 wallet for reproducible fixture
@@ -80,11 +83,17 @@ func NewDeterministicWallet(w wallet.Wallet) (wallet.Wallet, error) {
 	if !ok {
 		return nil, fmt.Errorf("deterministic signing is only supported for ML-DSA-87 wallets, got %T", w)
 	}
-	return deterministicWallet{MLDSA87Wallet: signer}, nil
+	seed := signer.Wallet.GetSeed()
+	deterministicSigner, err := mldsa87.NewMLDSA87FromSeed(seed.HashSHA256())
+	if err != nil {
+		return nil, fmt.Errorf("restore deterministic ML-DSA-87 signer: %w", err)
+	}
+	return deterministicWallet{MLDSA87Wallet: signer, signer: deterministicSigner}, nil
 }
 
 func (w deterministicWallet) Sign(message []uint8) ([]byte, error) {
-	sig, err := w.Wallet.SignDeterministic(message)
+	ctx := walletcommon.SigningContext(w.GetDescriptor())
+	sig, err := w.signer.SignDeterministic(ctx, message)
 	if err != nil {
 		return nil, err
 	}
