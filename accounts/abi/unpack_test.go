@@ -89,8 +89,15 @@ func TestUnpack(t *testing.T) {
 				t.Errorf("test %d (%v) failed: %v", i, test.def, err)
 				return
 			}
-			if !reflect.DeepEqual(test.unpacked, ConvertType(out[0], test.unpacked)) {
-				t.Errorf("test %d (%v) failed: expected %v, got %v", i, test.def, test.unpacked, out[0])
+			want := test.values()
+			if len(out) != len(want) {
+				t.Errorf("test %d (%v) failed: expected %d values, got %d", i, test.def, len(want), len(out))
+				return
+			}
+			for j := range want {
+				if !reflect.DeepEqual(want[j], ConvertType(out[j], want[j])) {
+					t.Errorf("test %d (%v) value %d failed: expected %v, got %v", i, test.def, j, want[j], out[j])
+				}
 			}
 		})
 	}

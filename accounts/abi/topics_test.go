@@ -54,6 +54,7 @@ func TestMakeTopics(t *testing.T) {
 		copy(t[:common.HashLength], hash)
 		return t
 	}
+	function := functionValue(1, [4]byte{0xde, 0xad, 0xbe, 0xef})
 
 	type args struct {
 		query [][]any
@@ -188,6 +189,12 @@ func TestMakeTopics(t *testing.T) {
 			false,
 		},
 		{
+			"hash function values wider than a topic",
+			args{[][]any{{function}}},
+			[][]common.LogTopic{{common.HashToLogTopic(crypto.Keccak256Hash(function[:]))}},
+			false,
+		},
+		{
 			"support static byte arrays up to the full topic width",
 			args{[][]any{{[64]byte{1, 2, 3}}}},
 			[][]common.LogTopic{{common.LogTopic{1, 2, 3}}},
@@ -259,11 +266,9 @@ type hashStruct struct {
 	HashValue common.Hash
 }
 
-// funcStruct mirrors the Solidity `function` type, which is address followed
-// by a 4-byte selector. With 64-byte addresses it no longer fits in one
-// 64-byte ABI word and is rejected by encoder/decoder paths.
+// funcStruct receives the hash of an indexed function value.
 type funcStruct struct {
-	FuncValue [common.AddressLength + 4]byte
+	FuncValue common.Hash
 }
 
 type topicTest struct {
@@ -371,26 +376,18 @@ func setupTopicsTests() []topicTest {
 			name: "function type",
 			args: args{
 				createObj: func() any { return &funcStruct{} },
-				resultObj: func() any { return &funcStruct{} },
+				resultObj: func() any { return &funcStruct{FuncValue: hashValue} },
 				resultMap: func() map[string]any {
-					return map[string]any{}
+					return map[string]any{"funcValue": hashValue}
 				},
 				fields: Arguments{Argument{
 					Name:    "funcValue",
 					Type:    funcType,
 					Indexed: true,
 				}},
-				// 64-byte addresses leave no room for the extra 4-byte selector,
-				// so ABI function values are rejected.
-				topics: []common.LogTopic{func() common.LogTopic {
-					var t common.LogTopic
-					for i := range t {
-						t[i] = 0xff
-					}
-					return t
-				}()},
+				topics: []common.LogTopic{common.HashToLogTopic(hashValue)},
 			},
-			wantErr: true,
+			wantErr: false,
 		},
 		{
 			name: "error on topic/field count mismatch",
@@ -434,31 +431,6 @@ func setupTopicsTests() []topicTest {
 					Indexed: true,
 				}},
 				topics: []common.LogTopic{{0}},
-			},
-			wantErr: true,
-		},
-		{
-			name: "error on improper encoded function",
-			args: args{
-				createObj: func() any { return &funcStruct{} },
-				resultObj: func() any { return &funcStruct{} },
-				resultMap: func() map[string]any {
-					return make(map[string]any)
-				},
-				fields: Arguments{Argument{
-					Name:    "funcValue",
-					Type:    funcType,
-					Indexed: true,
-				}},
-				// 64-byte addresses leave no room for the extra 4-byte selector,
-				// so ABI function values are rejected.
-				topics: []common.LogTopic{func() common.LogTopic {
-					var t common.LogTopic
-					for i := range t {
-						t[i] = 0xff
-					}
-					return t
-				}()},
 			},
 			wantErr: true,
 		},

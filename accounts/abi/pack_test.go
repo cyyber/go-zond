@@ -46,7 +46,7 @@ func TestPack(t *testing.T) {
 				t.Fatalf("invalid ABI definition %s, %v", inDef, err)
 			}
 			var packed []byte
-			packed, err = inAbi.Pack("method", test.unpacked)
+			packed, err = inAbi.Pack("method", test.values()...)
 
 			if err != nil {
 				t.Fatalf("test %d (%v) failed: %v", i, test.def, err)
