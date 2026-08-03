@@ -186,7 +186,7 @@ func makeFullNode(ctx *cli.Context) (*node.Node, qrlapi.Backend) {
 	filterSystem := utils.RegisterFilterAPI(stack, backend, &cfg.QRL)
 
 	// Configure GraphQL if requested.
-	if ctx.IsSet(utils.GraphQLEnabledFlag.Name) {
+	if ctx.Bool(utils.GraphQLEnabledFlag.Name) {
 		utils.RegisterGraphQLService(stack, backend, filterSystem, &cfg.Node)
 	}
 
