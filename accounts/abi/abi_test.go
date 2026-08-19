@@ -1164,11 +1164,11 @@ func TestUnpackRevert(t *testing.T) {
 		}
 		return append(append([]byte{}, revertSelector...), body...)
 	}
-	// Helper: encode revert payload for Panic(uint256 code).
+	// Helper: encode revert payload for Panic(uint512 code).
 	panicPayload := func(code *big.Int) []byte {
-		uintTy, err := NewType("uint256", "", nil)
+		uintTy, err := NewType("uint512", "", nil)
 		if err != nil {
-			t.Fatalf("build uint256 type: %v", err)
+			t.Fatalf("build uint512 type: %v", err)
 		}
 		body, err := (Arguments{{Type: uintTy}}).Pack(code)
 		if err != nil {
