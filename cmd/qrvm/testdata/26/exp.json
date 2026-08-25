@@ -1,12 +1,12 @@
 {
   "alloc": {
-    "Q0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000A94F5374FCe5eDbC8e2a8697c15331677e6Ebf0B": {
+    "Q69BE3D04d5E9c47341a9CB58F4CBa97a7D56AEBE57d64D24C687b73c8e9833b4B7485d775F3a50213b7776Ea8f7Ee75c726497AF8de0cb1264b0Ee592083b5d1": {
       "balance": "0x9c7652400",
       "nonce": "0xac"
     }
   },
   "result": {
-    "stateRoot": "0xcac90d334e570ab0ff23c4544f130ae0816eddf7c141073be222fa2a47945faa",
+    "stateRoot": "0x64d0bc97dcdb94ca35b6d5ef4045cc66ec541ca22937be89cae21c0818eca5e6",
     "txRoot": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
     "receiptsRoot": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
     "logsHash": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
@@ -14,6 +14,6 @@
     "receipts": [],
     "gasUsed": "0x0",
     "currentBaseFee": "0x500",
-    "withdrawalsRoot": "0x371b10536a7675edc7d1ab375212421578b3a7982656ad3a5f82aea8d873e869"
+    "withdrawalsRoot": "0xe10631d3b500e0585eb6ace06bef37708047198b8cb6d032b1c347ec5f16feea"
   }
 }

@@ -2321,14 +2321,13 @@ func BenchmarkBlockChain_1x1000Executions(b *testing.B) {
 
 // TestInitThenFailCreateContract tests a pretty notorious case that happened
 // on mainnet over blocks 7338108, 7338110 and 7338115.
-//   - Block 7338108: address Q00000000000000000000000000000000000000000000000000000000e771789f5cccac282f23bb7add5690e1f6ca467c is initiated
+//   - Block 7338108: the target address is initiated
 //     with 0.001 quanta (thus created but no code)
 //   - Block 7338110: a CREATE2 is attempted. The CREATE2 would deploy code on
-//     the same address Q00000000000000000000000000000000000000000000000000000000e771789f5cccac282f23bb7add5690e1f6ca467c. However, the
+//     the same target address. However, the
 //     deployment fails due to OOG during initcode execution
-//   - Block 7338115: another tx checks the balance of
-//     Q00000000000000000000000000000000000000000000000000000000e771789f5cccac282f23bb7add5690e1f6ca467c, and the snapshotter returned it as
-//     zero.
+//   - Block 7338115: another tx checks the target balance, and the snapshotter
+//     returned it as zero.
 //
 // The problem being that the snapshotter maintains a destructset, and adds items
 // to the destructset in case something is created "onto" an existing item.

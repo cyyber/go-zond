@@ -910,7 +910,7 @@ func testExternalUI(api *core.SignerAPI) {
 	ctx = context.WithValue(ctx, "local", "main")
 	errs := make([]string, 0)
 
-	a := common.MustParseAddress("Q0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000deadbeef000000000000000000000000deadbeef")
+	a := common.MustParseAddress(clefExampleAliceAddress)
 	addErr := func(errStr string) {
 		log.Info("Test error", "err", errStr)
 		errs = append(errs, errStr)
@@ -955,26 +955,26 @@ func testExternalUI(api *core.SignerAPI) {
 	{ // Sign data test - typed data
 		api.UI.ShowInfo("Please approve the next request for signing QRL typed data")
 		time.Sleep(delay)
-		addr := common.MustParseMixedcaseAddress("Q00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000011223344556677889900112233445566778899")
+		addr := common.NewMixedcaseAddress(a)
 		data := `{"types":{"QRLTypedDataDomain":[{"name":"name","type":"string"},{"name":"version","type":"string"},{"name":"chainId","type":"uint256"},{"name":"verifyingContract","type":"address"}],"Person":[{"name":"name","type":"string"},{"name":"test","type":"uint8"},{"name":"wallet","type":"address"}],"Mail":[{"name":"from","type":"Person"},{"name":"to","type":"Person"},{"name":"contents","type":"string"}]},"primaryType":"Mail","domain":{"name":"QRL Mail","version":"1","chainId":"1","verifyingContract":"QCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCcCCCc99aabbccddeeff001122334455667788"},"message":{"from":{"name":"Cow","test":"3","wallet":"QcD2a3d9F938E13CD947Ec05AbC7FE734Df8DD826cD2a3d9F938E13CD947Ec05AbC7FE734Df8DD826aabbccddeeff010299aabbccddeeff001122334455667788"},"to":{"name":"Bob","wallet":"QbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbBbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbBaabbccddee01020399aabbccddeeff001122334455667788","test":"2"},"contents":"Hello, Bob!"}}`
-		// _, err := api.SignData(ctx, accounts.MimetypeTypedData, *addr, hexutil.Encode([]byte(data)))
+		// _, err := api.SignData(ctx, accounts.MimetypeTypedData, addr, hexutil.Encode([]byte(data)))
 		var typedData apitypes.TypedData
 		json.Unmarshal([]byte(data), &typedData)
-		_, err := api.SignTypedData(ctx, *addr, typedData)
+		_, err := api.SignTypedData(ctx, addr, typedData)
 		expectApprove("sign QRL typed data", err)
 	}
 	{ // Sign data test - plain text
 		api.UI.ShowInfo("Please approve the next request for signing text")
 		time.Sleep(delay)
-		addr := common.MustParseMixedcaseAddress("Q00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000011223344556677889900112233445566778899")
-		_, err := api.SignData(ctx, accounts.MimetypeTextPlain, *addr, hexutil.Encode([]byte("hello world")))
+		addr := common.NewMixedcaseAddress(a)
+		_, err := api.SignData(ctx, accounts.MimetypeTextPlain, addr, hexutil.Encode([]byte("hello world")))
 		expectApprove("signdata - text", err)
 	}
 	{ // Sign data test - plain text reject
 		api.UI.ShowInfo("Please deny the next request for signing text")
 		time.Sleep(delay)
-		addr := common.MustParseMixedcaseAddress("Q00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000011223344556677889900112233445566778899")
-		_, err := api.SignData(ctx, accounts.MimetypeTextPlain, *addr, hexutil.Encode([]byte("hello world")))
+		addr := common.NewMixedcaseAddress(a)
+		_, err := api.SignData(ctx, accounts.MimetypeTextPlain, addr, hexutil.Encode([]byte("hello world")))
 		expectDeny("signdata - text", err)
 	}
 	{ // Sign transaction
@@ -1056,8 +1056,10 @@ func decryptSeed(keyjson []byte, auth string) ([]byte, error) {
 }
 
 const (
-	genDocChainID    int64 = 1337
-	genDocWalletSeed       = "010000e20edaf36fda78bfcdef8d1c1b70567818f7f0a443a74e80cdd21bdb695ceeaef4726b96be4a329f6f7ac8a145a50000"
+	genDocChainID           int64 = 1337
+	genDocWalletSeed              = "010000e20edaf36fda78bfcdef8d1c1b70567818f7f0a443a74e80cdd21bdb695ceeaef4726b96be4a329f6f7ac8a145a50000"
+	clefExampleAliceAddress       = "Q69be3d04d5e9c47341a9cb58f4cba97a7d56aebe57d64d24c687b73c8e9833b4b7485d775f3a50213b7776ea8f7ee75c726497af8de0cb1264b0ee592083b5d1"
+	clefExampleBobAddress         = "Q33900bb6667e56a86eb4807f006f134c30ab5c65fbecde3993510b9502241e7ac5ac94a9caa36c0ab045b9fb9e560222dbe080094c464c727a10a78f0dcd5bd0"
 )
 
 func newGenDocOnApprovedTx() (*types.Transaction, error) {
@@ -1089,8 +1091,8 @@ func newGenDocOnApprovedTx() (*types.Transaction, error) {
 // GenDoc outputs examples of all structures used in json-rpc communication
 func GenDoc(ctx *cli.Context) error {
 	var (
-		a    = common.MustParseAddress("Q0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000deadbeef000000000000000000000000deadbeef")
-		b    = common.MustParseAddress("Q00000000000000000000000000000000000000000000000000000000000000000000000000000000000000001111111122222222222233333333334444444444")
+		a    = common.MustParseAddress(clefExampleAliceAddress)
+		b    = common.MustParseAddress(clefExampleBobAddress)
 		c    = common.MustParseAddress("Q0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c0fe")
 		meta = core.Metadata{
 			Scheme:    "http",
@@ -1112,7 +1114,7 @@ func GenDoc(ctx *cli.Context) error {
 	{ // Sign plain text request
 		desc := "SignDataRequest contains information about a pending request to sign some data. " +
 			"The data to be signed can be of various types, defined by content-type. Clef has done most " +
-			"of the work in canonicalizing and making sense of the data, and it's up to the UI to present" +
+			"of the work in canonicalizing and making sense of the data, and it's up to the UI to present " +
 			"the user with the contents of the `message`"
 		sighash, msg := accounts.TextAndHash([]byte("hello world"))
 		messages := []*apitypes.NameValueType{{Name: "message", Value: msg, Typ: accounts.MimetypeTextPlain}}
@@ -1192,7 +1194,7 @@ func GenDoc(ctx *cli.Context) error {
 			"interface. By hooking into this methods, the ruleset can maintain track of that count." +
 			"\n\n" +
 			"**OBS:** Note that if an attacker can restore your `clef` data to a previous point in time" +
-			" (e.g through a backup), the attacker can reset such windows, even if he/she is unable to decrypt the content. " +
+			" (e.g through a backup), the attacker can reset such windows, even if he/she is unable to decrypt the content." +
 			"\n\n" +
 			"The `OnApproved` method cannot be responded to, it's purely informative"
 
@@ -1215,7 +1217,7 @@ func GenDoc(ctx *cli.Context) error {
 	{ // List request
 		add("ListRequest", "Sent when a request has been made to list addresses. The UI is provided with the "+
 			"full `account`s, including local directory names. Note: this information is not passed back to the external caller, "+
-			"who only sees the `address`es. ",
+			"who only sees the `address`es.",
 			&core.ListRequest{
 				Meta: meta,
 				Accounts: []accounts.Account{

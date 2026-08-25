@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	"github.com/theQRL/go-qrl/common"
+	"github.com/theQRL/go-qrl/internal/testutil"
 	"github.com/theQRL/go-qrl/rpc"
 )
 
@@ -29,8 +30,8 @@ func TestUnmarshalJSONNewFilterArgs(t *testing.T) {
 	var (
 		fromBlock rpc.BlockNumber = 0x123435
 		toBlock   rpc.BlockNumber = 0xabcdef
-		address0                  = common.MustParseAddress("Q000000000000000000000000000000000000000000000000000000000000000000000000000000000000000070c87d191324e6712a591f304b4eedef6ad9bb9d")
-		address1                  = common.MustParseAddress("Q00000000000000000000000000000000000000000000000000000000000000000000000000000000000000009b2055d370f73ec7d8a03e965129118dc8f5bf83")
+		address0                  = testutil.LoadAccount(t, "bob").AddressBytes(t)
+		address1                  = testutil.LoadAccount(t, "carol").AddressBytes(t)
 		topic0                    = common.MustParseLogTopic("0x3ac225168df54212a25c1c01fd35bebfea408fdac2e31ddd6f80a4bbf9a5f1ca3ac225168df54212a25c1c01fd35bebfea408fdac2e31ddd6f80a4bbf9a5f1ca")
 		topic1                    = common.MustParseLogTopic("0x9084a792d2f8b16a62b882fd56f7860c07bf5fa91dd8a2ae7e809e5180fef0b39084a792d2f8b16a62b882fd56f7860c07bf5fa91dd8a2ae7e809e5180fef0b3")
 		topic2                    = common.MustParseLogTopic("0x6ccae1c4af4152f460ff510e573399795dfab5dcf1fa60d1f33ac8fdc1e480ce6ccae1c4af4152f460ff510e573399795dfab5dcf1fa60d1f33ac8fdc1e480ce")

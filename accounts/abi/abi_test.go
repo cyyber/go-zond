@@ -28,6 +28,7 @@ import (
 
 	"github.com/theQRL/go-qrl/common"
 	"github.com/theQRL/go-qrl/crypto"
+	"github.com/theQRL/go-qrl/internal/testutil"
 )
 
 const jsondata = `
@@ -675,9 +676,8 @@ func TestBareEvents(t *testing.T) {
 //		}
 //	}
 //
-// When receive("X") is called with sender Q00... and value 1, it produces this tx receipt:
-//
-//	receipt{status=1 cgas=23949 bloom=00000000004000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000040200000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000080000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000 logs=[log: b6818c8064f645cd82d99b59a1a267d6d61117ef [75fd880d39c1daf53b6547ab6cb59451fc6452d27caa90e5b6649dd8293b9eed] 000000000000000000000000376c47978271565f56deb45495afa69e59c16ab200000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000060000000000000000000000000000000000000000000000000000000000000000158 9ae378b6d4409eada347a5dc0c180f186cb62dc68fcc0f043425eb917335aa28 0 95d429d309bb9d753954195fe2d69bd140b4ae731b9b5b605c34323de162cf00 0]}
+// The tests construct the event data with the active ABI packer so the fixture
+// stays aligned with the current 64-byte address and slot widths.
 func TestUnpackEvent(t *testing.T) {
 	t.Parallel()
 	const abiJSON = `[{"constant":false,"inputs":[{"name":"memo","type":"bytes"}],"name":"receive","outputs":[],"payable":true,"stateMutability":"payable","type":"function"},{"anonymous":false,"inputs":[{"indexed":false,"name":"sender","type":"address"},{"indexed":false,"name":"amount","type":"uint256"},{"indexed":false,"name":"memo","type":"bytes"}],"name":"received","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"name":"sender","type":"address"}],"name":"receivedAddr","type":"event"}]`
@@ -693,7 +693,7 @@ func TestUnpackEvent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sender := common.MustParseAddress("Q0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000376c47978271565f56DEB45495afa69E59c16Ab2")
+	sender := testutil.LoadAccount(t, "alice").AddressBytes(t)
 	amount := big.NewInt(1)
 	memo := []byte{0x58}
 	packed, err := inAbi.Pack("received", sender, amount, memo)
@@ -749,7 +749,7 @@ func TestUnpackEventIntoMap(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sender := common.MustParseAddress("Q0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000376c47978271565f56DEB45495afa69E59c16Ab2")
+	sender := testutil.LoadAccount(t, "alice").AddressBytes(t)
 	amount := big.NewInt(1)
 	memo := []byte{0x58}
 	packed, err := inAbi.Pack("received", sender, amount, memo)
@@ -868,7 +868,7 @@ func TestUnpackIntoMapNamingConflict(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sender := common.MustParseAddress("Q0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000376c47978271565f56DEB45495afa69E59c16Ab2")
+	sender := testutil.LoadAccount(t, "alice").AddressBytes(t)
 	memo := []byte{0x58}
 	packed, err := inAbi.Pack("payload", sender, big.NewInt(1), memo)
 	if err != nil {

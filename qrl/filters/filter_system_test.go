@@ -34,6 +34,7 @@ import (
 	"github.com/theQRL/go-qrl/core/types"
 	"github.com/theQRL/go-qrl/event"
 	"github.com/theQRL/go-qrl/internal/qrlapi"
+	"github.com/theQRL/go-qrl/internal/testutil"
 	"github.com/theQRL/go-qrl/params"
 	"github.com/theQRL/go-qrl/qrldb"
 	"github.com/theQRL/go-qrl/rpc"
@@ -247,7 +248,7 @@ func TestPendingTxFilter(t *testing.T) {
 		backend, sys = newTestFilterSystem(t, db, Config{})
 		api          = NewFilterAPI(sys)
 
-		to           = common.MustParseAddress("Q0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000b794f5ea0ba39494ce83a213fffba74279579268")
+		to           = testutil.LoadAccount(t, "bob").AddressBytes(t)
 		transactions = []*types.Transaction{
 			types.NewTx(&types.DynamicFeeTx{Nonce: 0, To: &to, Value: new(big.Int), Gas: 0, GasFeeCap: new(big.Int), Data: nil}),
 			types.NewTx(&types.DynamicFeeTx{Nonce: 1, To: &to, Value: new(big.Int), Gas: 0, GasFeeCap: new(big.Int), Data: nil}),
@@ -304,7 +305,7 @@ func TestPendingTxFilterFullTx(t *testing.T) {
 		backend, sys = newTestFilterSystem(t, db, Config{})
 		api          = NewFilterAPI(sys)
 
-		to           = common.MustParseAddress("Q0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000b794f5ea0ba39494ce83a213fffba74279579268")
+		to           = testutil.LoadAccount(t, "bob").AddressBytes(t)
 		transactions = []*types.Transaction{
 			types.NewTx(&types.DynamicFeeTx{Nonce: 0, To: &to, Value: new(big.Int), Gas: 0, GasFeeCap: new(big.Int), Data: nil}),
 			types.NewTx(&types.DynamicFeeTx{Nonce: 1, To: &to, Value: new(big.Int), Gas: 0, GasFeeCap: new(big.Int), Data: nil}),
@@ -583,6 +584,7 @@ func TestPendingTxFilterDeadlock(t *testing.T) {
 		backend, sys = newTestFilterSystem(t, db, Config{Timeout: timeout})
 		api          = NewFilterAPI(sys)
 		done         = make(chan struct{})
+		to           = testutil.LoadAccount(t, "bob").AddressBytes(t)
 	)
 
 	go func() {
@@ -595,7 +597,6 @@ func TestPendingTxFilterDeadlock(t *testing.T) {
 			default:
 			}
 
-			to := common.MustParseAddress("Q0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000b794f5ea0ba39494ce83a213fffba74279579268")
 			tx := types.NewTx(&types.DynamicFeeTx{Nonce: i, To: &to, Value: new(big.Int), Gas: 0, GasFeeCap: new(big.Int), Data: nil})
 			backend.txFeed.Send(core.NewTxsEvent{Txs: []*types.Transaction{tx}})
 			i++

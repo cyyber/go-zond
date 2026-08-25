@@ -27,6 +27,7 @@ import (
 	"github.com/theQRL/go-qrl/common/hexutil"
 	"github.com/theQRL/go-qrl/core/types"
 	"github.com/theQRL/go-qrl/internal/qrlapi"
+	"github.com/theQRL/go-qrl/internal/testutil"
 	"github.com/theQRL/go-qrl/signer/core"
 	"github.com/theQRL/go-qrl/signer/core/apitypes"
 	"github.com/theQRL/go-qrl/signer/storage"
@@ -586,11 +587,12 @@ func TestContextIsCleared(t *testing.T) {
 
 func TestSignData(t *testing.T) {
 	t.Parallel()
-	js := `function ApproveListing(){
+	account := testutil.LoadAccount(t, "bob")
+	js := fmt.Sprintf(`function ApproveListing(){
     return "Approve"
 }
 function ApproveSignData(r){
-    if( r.address.toLowerCase() == "q0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000694267f14675d7e1b9494fd8d72fefe1755710fa")
+    if( r.address.toLowerCase() == %q)
     {
         if(r.messages[0].value.indexOf("bazonk") >= 0){
             return "Approve"
@@ -598,7 +600,7 @@ function ApproveSignData(r){
         return "Reject"
     }
     // Otherwise goes to manual processing
-}`
+}`, strings.ToLower(account.Address))
 	r, err := initRuleEngine(js)
 	if err != nil {
 		t.Errorf("Couldn't create evaluator %v", err)
@@ -606,7 +608,10 @@ function ApproveSignData(r){
 	}
 	message := "baz bazonk foo"
 	hash, rawdata := accounts.TextAndHash([]byte(message))
-	addr, _ := mixAddr("Q0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000694267f14675d7e1b9494fd8d72fefe1755710fa")
+	addr, err := mixAddr(account.Address)
+	if err != nil {
+		t.Fatalf("Invalid test account address: %v", err)
+	}
 
 	t.Logf("address %v %v\n", addr.String(), addr.Original())
 

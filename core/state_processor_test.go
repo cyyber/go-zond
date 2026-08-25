@@ -244,7 +244,7 @@ func TestStateProcessorErrors(t *testing.T) {
 						ChainID: big.NewInt(1),
 					},
 					Alloc: GenesisAlloc{
-						common.HexToAddress("Q000000000000000000000000000000000000000000000000000000000000000000000000000000000000000071562b71999873DB5b286dF957af199Ec94617F7"): GenesisAccount{
+						testutil.LoadAccount(t, "dave").AddressBytes(t): GenesisAccount{
 							Balance: big.NewInt(1000000000000000000), // 1 quanta
 							Nonce:   0,
 						},

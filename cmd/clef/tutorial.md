@@ -73,10 +73,10 @@ This will prompt the user within the Clef CLI to confirm or deny the request:
 -------- List Account request--------------
 A request has been made to list all accounts.
 You can select which accounts the caller can see
-  [x] Q00000000000000000000000000000000000000000000000000000000D9C9Cd5f6779558b6e0eD4e6Acf6b1947E7fA1F3
-    URL: keystore://$HOME/.qrl/rinkeby/keystore/UTC--2017-04-14T15-15-00.327614556Z--Q00000000000000000000000000000000000000000000000000000000d9c9cd5f6779558b6e0ed4e6acf6b1947e7fa1f3
-  [x] Q00000000000000000000000000000000000000000000000000000000086278A6C067775F71d6B2BB1856Db6E28c30418
-    URL: keystore://$HOME/.qrl/rinkeby/keystore/UTC--2018-02-06T22-53-11.211657239Z--Q00000000000000000000000000000000000000000000000000000000086278a6c067775f71d6b2bb1856db6e28c30418
+  [x] Q69BE3D04d5E9c47341a9CB58F4CBa97a7D56AEBE57d64D24C687b73c8e9833b4B7485d775F3a50213b7776Ea8f7Ee75c726497AF8de0cb1264b0Ee592083b5d1
+    URL: keystore://$HOME/.qrl/rinkeby/keystore/UTC--2017-04-14T15-15-00.327614556Z--Q69be3d04d5e9c47341a9cb58f4cba97a7d56aebe57d64d24c687b73c8e9833b4b7485d775f3a50213b7776ea8f7ee75c726497af8de0cb1264b0ee592083b5d1
+  [x] Q33900BB6667e56a86Eb4807F006f134C30aB5c65fbecDE3993510b9502241E7Ac5aC94A9Caa36c0AB045b9Fb9E560222Dbe080094C464C727a10a78f0DCD5bd0
+    URL: keystore://$HOME/.qrl/rinkeby/keystore/UTC--2018-02-06T22-53-11.211657239Z--Q33900bb6667e56a86eb4807f006f134c30ab5c65fbecde3993510b9502241e7ac5ac94a9caa36c0ab045b9fb9e560222dbe080094c464c727a10a78f0dcd5bd0
 -------------------------------------------
 Request context:
 	NA -> NA -> NA
@@ -91,7 +91,7 @@ Approve? [y/N]:
 Depending on whether we approve or deny the request, the original NetCat process will get:
 
 ```text
-{"jsonrpc":"2.0","id":1,"result":["Q00000000000000000000000000000000000000000000000000000000d9c9cd5f6779558b6e0ed4e6acf6b1947e7fa1f3","Q00000000000000000000000000000000000000000000000000000000086278a6c067775f71d6b2bb1856db6e28c30418"]}
+{"jsonrpc":"2.0","id":1,"result":["Q69be3d04d5e9c47341a9cb58f4cba97a7d56aebe57d64d24c687b73c8e9833b4b7485d775f3a50213b7776ea8f7ee75c726497af8de0cb1264b0ee592083b5d1","Q33900bb6667e56a86eb4807f006f134c30ab5c65fbecde3993510b9502241e7ac5ac94a9caa36c0ab045b9fb9e560222dbe080094c464c727a10a78f0dcd5bd0"]}
 
 or
 
@@ -149,7 +149,7 @@ Any account listing *request* will now be auto-approved by the rule file:
 
 ```text
 $ echo '{"id": 1, "jsonrpc": "2.0", "method": "account_list"}' | nc -U ~/.clef/clef.ipc
-{"jsonrpc":"2.0","id":1,"result":["Q00000000000000000000000000000000000000000000000000000000d9c9cd5f6779558b6e0ed4e6acf6b1947e7fa1f3","Q00000000000000000000000000000000000000000000000000000000086278a6c067775f71d6b2bb1856db6e28c30418"]}
+{"jsonrpc":"2.0","id":1,"result":["Q69be3d04d5e9c47341a9cb58f4cba97a7d56aebe57d64d24c687b73c8e9833b4b7485d775f3a50213b7776ea8f7ee75c726497af8de0cb1264b0ee592083b5d1","Q33900bb6667e56a86eb4807f006f134c30ab5c65fbecde3993510b9502241e7ac5ac94a9caa36c0ab045b9fb9e560222dbe080094c464c727a10a78f0dcd5bd0"]}
 ```
 
 ## Under the hood
@@ -187,7 +187,7 @@ In `$HOME/.clef`, the `masterseed.json` file was created, containing the master 
 In order to make more useful rules - like signing transactions - the signer needs access to the passwords needed to unlock keys from the keystore. You can inject an unlock password via `clef setpw`.
 
 ```text
-$ clef setpw Q00000000000000000000000000000000000000000000000000000000d9c9cd5f6779558b6e0ed4e6acf6b1947e7fa1f3
+$ clef setpw Q69be3d04d5e9c47341a9cb58f4cba97a7d56aebe57d64d24c687b73c8e9833b4b7485d775f3a50213b7776ea8f7ee75c726497af8de0cb1264b0ee592083b5d1
 
 Please enter a password to store for this address:
 Password:
@@ -195,7 +195,7 @@ Repeat password:
 
 Decrypt master seed of clef
 Password:
-INFO [07-01|14:05:56.031] Credential store updated                 key=Q00000000000000000000000000000000000000000000000000000000d9c9cd5f6779558b6e0ed4e6acf6b1947e7fa1f3
+INFO [07-01|14:05:56.031] Credential store updated                 key=Q69be3d04d5e9c47341a9cb58f4cba97a7d56aebe57d64d24c687b73c8e9833b4b7485d775f3a50213b7776ea8f7ee75c726497af8de0cb1264b0ee592083b5d1
 ```
 
 Now let's update the rules to make use of the new credentials:
@@ -206,7 +206,7 @@ function ApproveListing() {
 }
 
 function ApproveSignData(req) {
-    if (req.address.toLowerCase() == "qd9c9cd5f6779558b6e0ed4e6acf6b1947e7fa1f3") {
+    if (req.address.toLowerCase() == "q69be3d04d5e9c47341a9cb58f4cba97a7d56aebe57d64d24c687b73c8e9833b4b7485d775f3a50213b7776ea8f7ee75c726497af8de0cb1264b0ee592083b5d1") {
         if (req.messages[0].value.indexOf("bazonk") >= 0) {
             return "Approve"
         }
@@ -218,7 +218,7 @@ function ApproveSignData(req) {
 
 In this example:
 
-- Any requests to sign data with the account `Qd9c9...` will be:
+- Any requests to sign data with the account `Q69be...` will be:
     - Auto-approved if the message contains `bazonk`,
     - Auto-rejected if the message does not contain `bazonk`,
 - Any other requests will be passed along for manual confirmation.
@@ -259,10 +259,10 @@ INFO [07-01|14:12:41.638] IPC endpoint opened                      url=$HOME/.cl
 Then test signing, once with `bazonk` and once without:
 
 ```
-$ echo '{"id": 1, "jsonrpc":"2.0", "method":"account_signData", "params":["data/plain", "Q00000000000000000000000000000000000000000000000000000000d9c9cd5f6779558b6e0ed4e6acf6b1947e7fa1f3", "0x202062617a6f6e6b2062617a2067617a0a"]}' | nc -U ~/.clef/clef.ipc
-{"jsonrpc":"2.0","id":1,"result":"0x4f93e3457027f6be99b06b3392d0ebc60615ba448bb7544687ef1248dea4f5317f789002df783979c417d969836b6fda3710f5bffb296b4d51c8aaae6e2ac4831c"}
+$ echo '{"id": 1, "jsonrpc":"2.0", "method":"account_signData", "params":["data/plain", "Q69be3d04d5e9c47341a9cb58f4cba97a7d56aebe57d64d24c687b73c8e9833b4b7485d775f3a50213b7776ea8f7ee75c726497af8de0cb1264b0ee592083b5d1", "0x202062617a6f6e6b2062617a2067617a0a"]}' | nc -U ~/.clef/clef.ipc
+{"jsonrpc":"2.0","id":1,"result":"<ML-DSA-87 signature>"}
 
-$ echo '{"id": 1, "jsonrpc":"2.0", "method":"account_signData", "params":["data/plain", "Q00000000000000000000000000000000000000000000000000000000d9c9cd5f6779558b6e0ed4e6acf6b1947e7fa1f3", "0x2020626f6e6b2062617a2067617a0a"]}' | nc -U ~/.clef/clef.ipc
+$ echo '{"id": 1, "jsonrpc":"2.0", "method":"account_signData", "params":["data/plain", "Q69be3d04d5e9c47341a9cb58f4cba97a7d56aebe57d64d24c687b73c8e9833b4b7485d775f3a50213b7776ea8f7ee75c726497af8de0cb1264b0ee592083b5d1", "0x2020626f6e6b2062617a2067617a0a"]}' | nc -U ~/.clef/clef.ipc
 {"jsonrpc":"2.0","id":1,"error":{"code":-32000,"message":"Request denied"}}
 ```
 
@@ -276,9 +276,9 @@ The signer also stores all traffic over the external API in a log file. The last
 
 ```text
 $ tail -n 4 audit.log
-t=2019-07-01T15:52:14+0300 lvl=info msg=SignData   api=signer type=request  metadata="{\"remote\":\"NA\",\"local\":\"NA\",\"scheme\":\"NA\",\"User-Agent\":\"\",\"Origin\":\"\"}" addr="Q00000000000000000000000000000000000000000000000000000000d9c9cd5f6779558b6e0ed4e6acf6b1947e7fa1f3 [chksum INVALID]" data=0x202062617a6f6e6b2062617a2067617a0a content-type=data/plain
-t=2019-07-01T15:52:14+0300 lvl=info msg=SignData   api=signer type=response data=4f93e3457027f6be99b06b3392d0ebc60615ba448bb7544687ef1248dea4f5317f789002df783979c417d969836b6fda3710f5bffb296b4d51c8aaae6e2ac4831c error=nil
-t=2019-07-01T15:52:23+0300 lvl=info msg=SignData   api=signer type=request  metadata="{\"remote\":\"NA\",\"local\":\"NA\",\"scheme\":\"NA\",\"User-Agent\":\"\",\"Origin\":\"\"}" addr="Q00000000000000000000000000000000000000000000000000000000d9c9cd5f6779558b6e0ed4e6acf6b1947e7fa1f3 [chksum INVALID]" data=0x2020626f6e6b2062617a2067617a0a     content-type=data/plain
+t=2019-07-01T15:52:14+0300 lvl=info msg=SignData   api=signer type=request  metadata="{\"remote\":\"NA\",\"local\":\"NA\",\"scheme\":\"NA\",\"User-Agent\":\"\",\"Origin\":\"\"}" addr="Q69be3d04d5e9c47341a9cb58f4cba97a7d56aebe57d64d24c687b73c8e9833b4b7485d775f3a50213b7776ea8f7ee75c726497af8de0cb1264b0ee592083b5d1 [chksum INVALID]" data=0x202062617a6f6e6b2062617a2067617a0a content-type=data/plain
+t=2019-07-01T15:52:14+0300 lvl=info msg=SignData   api=signer type=response data=<ML-DSA-87 signature> error=nil
+t=2019-07-01T15:52:23+0300 lvl=info msg=SignData   api=signer type=request  metadata="{\"remote\":\"NA\",\"local\":\"NA\",\"scheme\":\"NA\",\"User-Agent\":\"\",\"Origin\":\"\"}" addr="Q69be3d04d5e9c47341a9cb58f4cba97a7d56aebe57d64d24c687b73c8e9833b4b7485d775f3a50213b7776ea8f7ee75c726497af8de0cb1264b0ee592083b5d1 [chksum INVALID]" data=0x2020626f6e6b2062617a2067617a0a     content-type=data/plain
 t=2019-07-01T15:52:23+0300 lvl=info msg=SignData   api=signer type=response data=                                     error="Request denied"
 ```
 
@@ -302,15 +302,15 @@ In a different window we can start Gqrl, list our accounts, even list our wallet
 $ gqrl --rinkeby --signer=~/.clef/clef.ipc console
 
 > qrl.accounts
-["Q00000000000000000000000000000000000000000000000000000000d9c9cd5f6779558b6e0ed4e6acf6b1947e7fa1f3", "Q00000000000000000000000000000000000000000000000000000000086278a6c067775f71d6b2bb1856db6e28c30418"]
+["Q69be3d04d5e9c47341a9cb58f4cba97a7d56aebe57d64d24c687b73c8e9833b4b7485d775f3a50213b7776ea8f7ee75c726497af8de0cb1264b0ee592083b5d1", "Q33900bb6667e56a86eb4807f006f134c30ab5c65fbecde3993510b9502241e7ac5ac94a9caa36c0ab045b9fb9e560222dbe080094c464c727a10a78f0dcd5bd0"]
 
 > personal.listWallets
 [{
     accounts: [{
-        address: "Q00000000000000000000000000000000000000000000000000000000d9c9cd5f6779558b6e0ed4e6acf6b1947e7fa1f3",
+        address: "Q69be3d04d5e9c47341a9cb58f4cba97a7d56aebe57d64d24c687b73c8e9833b4b7485d775f3a50213b7776ea8f7ee75c726497af8de0cb1264b0ee592083b5d1",
         url: "extapi://$HOME/.clef/clef.ipc"
     }, {
-        address: "Q00000000000000000000000000000000000000000000000000000000086278a6c067775f71d6b2bb1856db6e28c30418",
+        address: "Q33900bb6667e56a86eb4807f006f134c30ab5c65fbecde3993510b9502241e7ac5ac94a9caa36c0ab045b9fb9e560222dbe080094c464c727a10a78f0dcd5bd0",
         url: "extapi://$HOME/.clef/clef.ipc"
     }],
     status: "ok [version=6.0.0]",
@@ -324,8 +324,8 @@ Lastly, when we requested a transaction to be sent, Clef prompted us in the orig
 
 ```text
 --------- Transaction request-------------
-to:           Q00000000000000000000000000000000000000000000000000000000D9C9Cd5f6779558b6e0eD4e6Acf6b1947E7fA1F3
-from:         Q00000000000000000000000000000000000000000000000000000000D9C9Cd5f6779558b6e0eD4e6Acf6b1947E7fA1F3 [chksum ok]
+to:           Q69BE3D04d5E9c47341a9CB58F4CBa97a7D56AEBE57d64D24C687b73c8e9833b4B7485d775F3a50213b7776Ea8f7Ee75c726497AF8de0cb1264b0Ee592083b5d1
+from:         Q69BE3D04d5E9c47341a9CB58F4CBa97a7D56AEBE57d64D24C687b73c8e9833b4B7485d775F3a50213b7776Ea8f7Ee75c726497AF8de0cb1264b0Ee592083b5d1 [chksum ok]
 value:        0 planck
 gas:          0x5208 (21000)
 maxFeePerGas: 1000000000 planck

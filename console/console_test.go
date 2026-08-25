@@ -29,16 +29,14 @@ import (
 	"github.com/theQRL/go-qrl/console/prompt"
 	"github.com/theQRL/go-qrl/core"
 	"github.com/theQRL/go-qrl/internal/jsre"
+	"github.com/theQRL/go-qrl/internal/testutil"
 	"github.com/theQRL/go-qrl/miner"
 	"github.com/theQRL/go-qrl/node"
 	"github.com/theQRL/go-qrl/qrl"
 	"github.com/theQRL/go-qrl/qrl/qrlconfig"
 )
 
-const (
-	testInstance = "console-tester"
-	testAddress  = "Q00000000000000000000000000000000000000000000000000000000000000000000000000000000000000008605cdbbdb6d264aa742e77020dcbc58fcdce182"
-)
+const testInstance = "console-tester"
 
 // hookedPrompter implements UserPrompter to simulate use input via channels.
 type hookedPrompter struct {
@@ -93,7 +91,7 @@ func newTester(t *testing.T, confOverride func(*qrlconfig.Config)) *tester {
 	if err != nil {
 		t.Fatalf("failed to create node: %v", err)
 	}
-	feeRecipient := common.MustParseAddress(testAddress)
+	feeRecipient := testutil.LoadAccount(t, "miner-1").AddressBytes(t)
 	qrlConf := &qrlconfig.Config{
 		Genesis: core.DeveloperGenesisBlock(11_500_000, common.Address{}),
 		Miner: miner.Config{
