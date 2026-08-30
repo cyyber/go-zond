@@ -86,15 +86,27 @@ func RunPrecompiledContract(p PrecompiledContract, input []byte, suppliedGas uin
 
 type depositroot struct{}
 
+// The depositroot precompile input is the DepositData fields concatenated
+// without padding, in SSZ field order:
+//
+//	pubkey(2592) || withdrawal_recipient(64) || amount(8, little-endian) ||
+//	randao_commitment(32) || signature(4627)
+//
+// randao_commitment is the top layer of the validator's RANDAO hash onion
+// (sha256 chain); the beacon chain stores it in the validator record and
+// checks each RANDAO reveal against it.
 const (
 	depositPublicKeyLength           = pqcrypto.MLDSA87PublicKeyLength
 	depositWithdrawalRecipientLength = common.AddressLength
 	depositAmountLength              = 8
+	depositRandaoCommitmentLength    = common.HashLength
 	depositSignatureLength           = pqcrypto.MLDSA87SignatureLength
 	depositPublicKeyOffset           = 0
 	depositWithdrawalRecipientOffset = depositPublicKeyOffset + depositPublicKeyLength
 	depositAmountOffset              = depositWithdrawalRecipientOffset + depositWithdrawalRecipientLength
-	depositSignatureOffset           = depositAmountOffset + depositAmountLength
+	depositRandaoCommitmentOffset    = depositAmountOffset + depositAmountLength
+	depositSignatureOffset           = depositRandaoCommitmentOffset + depositRandaoCommitmentLength
+	depositInputLength               = depositSignatureOffset + depositSignatureLength
 )
 
 func (c *depositroot) RequiredGas(input []byte) uint64 {
@@ -106,6 +118,7 @@ func (c *depositroot) Run(input []byte) ([]byte, error) {
 		pkBytes                  = getData(input, depositPublicKeyOffset, depositPublicKeyLength)
 		withdrawalRecipientBytes = getData(input, depositWithdrawalRecipientOffset, depositWithdrawalRecipientLength)
 		amountBytes              = getData(input, depositAmountOffset, depositAmountLength)
+		randaoCommitmentBytes    = getData(input, depositRandaoCommitmentOffset, depositRandaoCommitmentLength)
 		sigBytes                 = getData(input, depositSignatureOffset, depositSignatureLength)
 	)
 
@@ -120,6 +133,7 @@ func (c *depositroot) Run(input []byte) ([]byte, error) {
 		PublicKey:           pkBytes,
 		WithdrawalRecipient: withdrawalRecipientBytes,
 		Amount:              amountUint,
+		RandaoCommitment:    randaoCommitmentBytes,
 		Signature:           sigBytes,
 	}
 	h, err := data.HashTreeRoot()
@@ -171,10 +185,14 @@ func (*mldsa87Verify) Run(input []byte) ([]byte, error) {
 	return trueWord, nil
 }
 
+// depositdata mirrors the beacon chain's DepositData SSZ container
+// (qrysm proto Deposit_Data): field order and sizes must match exactly, since
+// the root produced here is compared against the root the depositor signed.
 type depositdata struct {
 	PublicKey           []byte
 	WithdrawalRecipient []byte
 	Amount              uint64
+	RandaoCommitment    []byte
 	Signature           []byte
 }
 
@@ -204,7 +222,14 @@ func (d *depositdata) HashTreeRootWith(hh *ssz.Hasher) (err error) {
 	// Field (2) 'Amount'
 	hh.PutUint64(d.Amount)
 
-	// Field (3) 'Signature'
+	// Field (3) 'RandaoCommitment'
+	if size := len(d.RandaoCommitment); size != depositRandaoCommitmentLength {
+		err = ssz.ErrBytesLengthFn("--.RandaoCommitment", size, depositRandaoCommitmentLength)
+		return
+	}
+	hh.PutBytes(d.RandaoCommitment)
+
+	// Field (4) 'Signature'
 	if size := len(d.Signature); size != depositSignatureLength {
 		err = ssz.ErrBytesLengthFn("--.Signature", size, depositSignatureLength)
 		return

@@ -65,7 +65,7 @@
       "blockNumber": 0,
       "result": {
         "gasUsed": "0x4650",
-        "output": "0x474d096b9dd154f74b552328a38dee860e0a25bf3af8f0f0371266dddc9ab676"
+        "output": "0xbcb6ecde083205e1b9fcc36d10c8bb58f5a44140ee59a5e005d4b341420f008b"
       },
       "subtraces": 0,
       "traceAddress": [
@@ -272,7 +272,7 @@
       "blockNumber": 0,
       "result": {
         "gasUsed": "0x4650",
-        "output": "0x474d096b9dd154f74b552328a38dee860e0a25bf3af8f0f0371266dddc9ab676"
+        "output": "0xbcb6ecde083205e1b9fcc36d10c8bb58f5a44140ee59a5e005d4b341420f008b"
       },
       "subtraces": 0,
       "traceAddress": [
