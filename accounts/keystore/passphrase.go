@@ -57,15 +57,15 @@ const (
 	// 256MB memory and taking approximately 1.5s CPU time on a modern processor.
 	StandardArgon2idP uint8 = 1
 
-	// LightArgon2idT is the iterations parameter of Argon2id encryption algorithm, using 4MB
+	// LightArgon2idT is the iterations parameter of Argon2id encryption algorithm, using 19MB
 	// memory and taking approximately 500ms CPU time on a modern processor.
 	LightArgon2idT uint32 = 8
 
-	// LightArgon2idM is the memory cost parameter of Argon2id encryption algorithm, using 4MB
+	// LightArgon2idM is the memory cost parameter of Argon2id encryption algorithm, using 19MB
 	// memory and taking approximately 500ms CPU time on a modern processor.
-	LightArgon2idM uint32 = 1 << 12
+	LightArgon2idM uint32 = 19456
 
-	// LightArgon2idP is the parallelism parameter of Argon2id encryption algorithm, using 4MB
+	// LightArgon2idP is the parallelism parameter of Argon2id encryption algorithm, using 19MB
 	// memory and taking approximately 500ms CPU time on a modern processor.
 	LightArgon2idP uint8 = 1
 
