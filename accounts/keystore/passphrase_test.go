@@ -17,6 +17,7 @@
 package keystore
 
 import (
+	"encoding/json"
 	"os"
 	"testing"
 
@@ -61,5 +62,35 @@ func TestKeyEncryptDecrypt(t *testing.T) {
 		if keyjson, err = EncryptKey(key, password, veryLightArgon2idT, veryLightArgon2idM, veryLightArgon2idP); err != nil {
 			t.Errorf("test %d: failed to re-encrypt key %v", i, err)
 		}
+	}
+}
+
+func TestLightArgon2idKDFParams(t *testing.T) {
+	t.Parallel()
+	key, err := newKey()
+	if err != nil {
+		t.Fatal(err)
+	}
+	keyjson, err := EncryptKey(key, "lightkdf", LightArgon2idT, LightArgon2idM, LightArgon2idP)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var parsed encryptedKeyJSONV1
+	if err := json.Unmarshal(keyjson, &parsed); err != nil {
+		t.Fatal(err)
+	}
+	kdfparams, err := json.Marshal(parsed.Crypto.KDFParams)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("kdfparams: %s", kdfparams)
+	if got := uint32(ensureInt(parsed.Crypto.KDFParams["m"])); got != LightArgon2idM {
+		t.Fatalf("kdfparams.m = %d, want %d", got, LightArgon2idM)
+	}
+	if got := uint32(ensureInt(parsed.Crypto.KDFParams["t"])); got != LightArgon2idT {
+		t.Fatalf("kdfparams.t = %d, want %d", got, LightArgon2idT)
+	}
+	if got := uint8(ensureInt(parsed.Crypto.KDFParams["p"])); got != LightArgon2idP {
+		t.Fatalf("kdfparams.p = %d, want %d", got, LightArgon2idP)
 	}
 }
