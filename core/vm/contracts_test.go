@@ -18,6 +18,7 @@ package vm
 
 import (
 	"bytes"
+	"crypto/sha3"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -26,7 +27,6 @@ import (
 	"time"
 
 	"github.com/theQRL/go-qrl/common"
-	"github.com/theQRL/go-qrl/crypto"
 	"github.com/theQRL/go-qrl/params"
 	cryptomldsa87 "github.com/theQRL/go-qrllib/crypto/ml_dsa_87"
 )
@@ -50,7 +50,7 @@ type precompiledFailureTest struct {
 }
 */
 
-var allPrecompiles = PrecompiledContractsZond
+var allPrecompiles = PrecompiledContractsQRL2PQ
 
 func precompileAddress(n string) string {
 	return "Q" + strings.Repeat("0", 2*common.AddressLength-len(n)) + n
@@ -385,18 +385,22 @@ func BenchmarkPrecompiledMLDSA87Verify(b *testing.B) {
 }
 
 func newRawMLDSA87VerifyInput(tb testing.TB, context []byte) []byte {
+	return newRawMLDSA87VerifyInputWithDigestLength(tb, context, mldsa87VerifyDigestLength)
+}
+
+func newRawMLDSA87VerifyInputWithDigestLength(tb testing.TB, context []byte, digestLength int) []byte {
 	tb.Helper()
 	signer, err := cryptomldsa87.New()
 	if err != nil {
 		tb.Fatal(err)
 	}
-	digest := crypto.Keccak256([]byte("QRL raw ML-DSA-87 precompile test"))
+	digest := sha3.SumSHAKE256([]byte("QRL raw ML-DSA-87 precompile test"), digestLength)
 	signature, err := signer.Sign(context, digest)
 	if err != nil {
 		tb.Fatal(err)
 	}
 	publicKey := signer.GetPK()
-	input := make([]byte, 0, mldsa87VerifyMinInputLength+len(context))
+	input := make([]byte, 0, digestLength+cryptomldsa87.CRYPTO_PUBLIC_KEY_BYTES+cryptomldsa87.CRYPTO_BYTES+1+len(context))
 	input = append(input, digest...)
 	input = append(input, publicKey[:]...)
 	input = append(input, signature[:]...)
